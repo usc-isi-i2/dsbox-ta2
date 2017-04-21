@@ -1,0 +1,395 @@
+MONDAY
+
+Wade Shen- Introduction Data Driven Discovery of Models (D3M)
+- The purpose is to build models automatically.
+- From raw data. Many experts are needed at the moment. The goal is to reduce these experts.
+- 1) pipeline annotation.
+- 2) pipeline functionality
+- 3) pipeline curation
+- Intelligence analysis is becoming data science.
+- The goal is to build an army of virtual data scientists for every analyst.
+- Description of TA1-TA3.
+- Phase 1: reproduce/ improve existing models.
+- Phase 2: synthesize models for unsolved problems, propose data augmentation.
+- Real problems, hard problems, that come with a sea of data difficult to integrate. Be prepared to fail often.
+- The purpose of the meeting is to talk to each other to produce interfaces and produce an end-to-end solution.
+- September of this year there is an evaluation.
+- Second one in January 2018.
+- Evaluation of components and end-to-end systems.
+- TA2 will be evaluated independently.
+- GovTeam are the test and evaluation team. NIST/JPL/MIT-LL
+- Start working on the definition of APIs, on the boundaries between TA1-TA2-TA3
+
+Performer presentations.
+- Cornell University. Madeleine Udell
+	- composable robust structured data.
+	- She has done a lot of work to figure out how to characterize groups of people from data tables.
+	- Low rank models
+	- Why? to reduce storage, understand, remove noise, infer data.
+	- She has been working on a generalized low rank model, but this is too mathematical.
+	- She is able to extract similar features from tables.
+	- Interested in learning with missing data. Modeling languages to represent all sorts of data in the table.
+
+- University of Michingan. Jason Corso, Laura Balazno.
+	- Program called SPIDER. 
+	- Trying to learn the underlying subpaces that represent the data.
+	- They are dealing with 3 classes of subspace primiotives: multimodal primitives, invariance primitives and subspace clustering primitives.
+	- Reconstruction of 3d images from 2d photos.
+	- SUPERPAC- Subspace clustering.
+
+- Vencore Labs. Rauf Izmailov
+	- Synergy SVM. Esta hablando de todo ML y no me entero muy bien.
+
+- Johns Hopkins University. Carey E. Priebe
+	- What would Tukey do? <Enter>
+	- Repeated motif hierarchical stochastic structure model.
+	- They don't look for isomorphic motifs, but those that are statistically similar
+	- Lyzinski et al 2017 IEEE TNSE.
+	- Structure discovery. Semiparametric modeling and spectral embedding.
+	- Identify a vertex of interest in one network and see if it has a similar one in another network.
+	- They use graph matching for that.
+	
+- Brigham Young University. Cristophe Giraud.
+	- Rice's framework for selecting algorithms.
+	- ML model selection is a challenge because most efforts are focused on incrementing the soa of what has been done.
+	- But there is little insight on what works well for a particular problem.
+	- Intelligent discovery assistant.
+	- Metalearning: use metaknowledge to inform the discovery of improved models.
+	- Clustering algorithms based on their behaviors.
+	- Data mining advisor.
+	- Metalearner, experimenter and recommender.
+	- This is similar to disk!
+	- Ranking of workflows, parameter optimization, download executables.
+	
+- International Computer Science Center. Michel W.Mahoney.
+	- REAL: Robust efficient and local machine learning primitives for real problems. 
+	- pre-REAL work. Provide low rank factorizations in Spark, a bunch of things with Spark.
+	- Can we embedd second order ML methods in first order ML methods?
+
+- SRI International. Dave Freitag. 
+	- Autoflow: Empirical workflow optimization and workflow composition.
+	- Automating data science: automating pre ML activities is difficult.
+	- They have meta-learning too.
+	- Link prediction for the nodes in a graph.
+	- collective structured models, meta-learning and workflow optimizaiton.
+
+- University of California, Berkeley. Dawn Song
+	- Hierarchical Learning Guided Automatic Model Discovery.
+	- Towards automating the data science pipeline.
+	- They are going to automate data cleaning and exploration.
+	- They build a KB automatically by extracting knowledge from academic publications and mapping them to "an ontology"
+	- It would be great to integrate with them.
+
+- University of Chicago. Ishanu Chattopadhyay
+	- ZeD: Zero-Knowledge Discovery using data smashing.
+	- Set of Z-primitive ecosystem.
+	- Data smashing. Inverting streams of data to collect the noise associated to the signal.
+
+- Stanford University. 
+	- Accelerating the Analyst from modeling down the hardware. Doing more with less.
+	- Why is ML hard? 1) Complex models. Carefully tuned hyperparameters
+	- Complex pipelines. Tuning the pipeline to scale up is complex.
+	- A lot of training data. Curating it is expensive.
+	- Snorkel to address training data bottleneck.
+	- The goal is to make it as easy as possible for SMEs to create training corpus without having to label the data.
+	- Users load in unlabeled data, write labeling functions and chose discriminative models.
+	- Distant supervision to write the snippets and extract the facts. 
+	- Labeling functions can generate noise too. 
+	- They are starting to extract metadata from pdfs.
+	- They want to run their primitives in different infrastructures. They have Weld packages that compiles everything to the partucular computer.
+
+Transition partner presentations. 
+	Ben Tagger, Alan Turing Institute.
+	- Interdisciplinarity. Advance data science to better understand human behavior.
+	- Automating analytics, intelligent question/answering, data science for mental health or insider trading detection are some of their projects.
+	- Artificial Intelligence for Data Analytics (AIDA)
+	- They have a project called the automatic statistician which seems interesting.
+	
+	Carly Strasser, Moore Foundation.
+	- Areas: patient care, science, environment and the bay area (Palo Alto)
+	- In science, there is a data driven discovery sub-area too, AKA Data science.
+	- Groups for data science, bids and escience institute (group integration)
+	- Foring partnerships and making people come together.
+	- Academia is inhospitable for computationally-savvy researchers.
+	- Carly speaks about how the money is divided in the institue.
+	- Promote innovative tools and techniques for data driven research.
+	- Data carpentry.
+	- Where to go next? DDD2.0
+
+- Rensselaer Polytechnic Institute - Qiang Ji.
+	- Local structure learning and it applications (TA1).
+	- Learn a structured model. Directed probabilistic graphical models. In PGM the links are probabilities between nodes.
+	- Large global structures are hard lto learn.
+	- Markov blanket discovery.
+	- Improves the efficiency of the current algorithms.
+	- MB learning with latent variables. No se para que me esta contando este.
+	- Knowledge augmented ML.
+
+- MIT. Kalyan Veeramachaeni. Feature labs
+	- One of the goals of the project is to get the data in a modelable format.
+	- They did an algorithm to tune parameters.
+	- Problem with cars and get the signals (700 signals) over different signals.
+	- From the data to the matrix took months.
+	- After that, building a ML model took less than a day.
+	- They want to focus more on the raw data and cleaning and preparation.
+	- Many use cases: predictions of locations, fraud prediction, studen outcomes, software release delays...
+	- The create abstractions on the data and algorithms.
+	- Extraction of features. The abstractions are based on these.
+	- Tested against 1000 data scientists, 92% of top score.
+	- Current work is figure out how to param tune their own system.
+
+Uncharted Software. Scott Langevin.
+	- Distil - D3M Overview.
+	- Analytic data characterization primitives.
+	- There is no "show me" feature fot analytics.
+	- General ontolgoy of high-level data characteristics that will inform relevance of prototypical analytic approaches.
+	- Semantic type classification of data.
+	- Data preparation and augmentation.
+	- Natural language interface, kind of a chatbot for data science.
+	- They want to do also fragment recommendation.
+
+Texas A&M. Xia "Ben" Hu.
+	- Automatic composition of complex pipelines using deep end-to-end optimization.
+	- modeling and incorporing user feedback.
+	- from datasets to answers.
+	- feed forward to optimize parameters.
+	- Solve unsolved complex problems.
+
+Charles River analytics. Mukesh Dalal.
+	- Vistual data scientist.
+	- These guys want to do something similar to what we do.
+	- ML composition is a sequence of ML operations that are applied to raw training data and result in a learned model.
+	- Using the existing plans for ML to start from a good state instead of from scratch.
+	- Composition validation is a problem. They use a K arms bandit approach to find the most efficient composition.
+	- Bayesian optimization approach to pick up hiper parameter values.
+	- they do some abstractions too.
+
+Brown University. Tim Kraska
+	- System for Quality integration of models.
+	- They have done an analytic framework that is interactive.
+	- Estimation to assess how many errors are still in the dataset; or data missing.
+	- want to quantify risk factors in data exploration.
+	- People using visualizations may do mistakes because visualizations are simplifications of the data too.
+	
+TUESDAY:
+New York University - Juliana Freire.
+	- Visual query language to query the data. For spatial/temporal queries/datasets.
+	- Scalable methods to find, integrate and explore and explain the data.
+	- Data cleaning is not simple. You may need to explore the data before running the models.
+	- Data poligamy framework.
+	- VisComplete as well.
+	- Modifications to workflows by analogy.
+	- They have means for model comparison and curation.
+	
+USC
+	- Pedro, Greg, Mathew.
+	
+Harvard College. James Honaker
+	- TwoRavens: Intuitive Statistical Exploration, Model Extraction and Curation.
+	- Shows a demo with the variables that may affect the model.
+	- You can create a dag of related variables. The DAG represents the relationships in the data.
+	- Two ravens may be a way of interacting with the users.
+	- They are interfacing with dataverse.
+
+Purdue University. 
+	- Diagnstic methods and software for fitted model checking.
+	- Trellis Display: powerful visualization framework for model diagnosis.
+	- Este esta hablando de un monton de cosas de model checking y creo que me he perdido.
+
+Tufts University. Remco Chang
+	- User-driven model steering and curation via inference from interaction and model-space sampling.
+	- How to facilitate using ML models to users. 
+	- Users want tasks, systems produce models. How to address this gap?
+	- Users that don't know how to tweak the model want to play with the visualization.
+	- Tweak the model through the visualization -> interface
+	- they want to do a taxonomy of tasks. Map which algorithms are appropriate for a task.
+	- Visualize the differences between the models.
+
+Carneggie melon uni.
+	- I missed most of this task because I went to look for Yolanda.
+	- They are working on explainable ML (TA3)
+	
+PROBLEMS AND DATASETS
+MIT Lincoln lab roles. 
+	- They plan to curate open source data that can be provided to the community at the end of the program.
+	- Not only data, but also the problems it is used to address.
+	- Benchmark performance reference.
+	- Dataset characteristic they will aim to charatcerize:  application domains, data type, etc. (yuhu)
+	- Two tracks: raw and open ML datasets.
+	- Lincoln provides datasets for evaluation, assess long term progress.
+	- Sept 2017 hackathon/trial evaluation.
+	- Online interaction would be required for some types of active learning.
+
+JPL team Discovering Primitives and execution pipelines
+	- primitive library.
+	- datadrivendiscovery.org/wiki
+	- they have a json schema that can be extended
+	- autobuild dockerfile for software
+	- Pandas, sklearn, autosklearn, keras
+	- Deeplearning 4J, Spark MLib
+	- TA1: smart primitives, annotated for discovery by ta2 and ta3 performers.
+	- Information to capture: invocaiton protocol, call syntax, semanic labels (learning type (e.g., supervised), task type (preprocessing, feature extraction, etc.), fitness for purpose, structure of the netweork, hints for hyperparameter tunning.
+		-> could be combined with motifs and data narratives!
+	- The dan una lista en json con los metadatos del software, estilo OntoSoft. We could create a catalog!
+	- They are builgind pipelines.
+
+The evaluation process in D3M. NIST D3M team. Peter FOntana.
+	- TA1: accuracy. 
+	- TA2: primitive discoverability, system accuracy.
+	- TA3: Accuracy
+	- Accuracy is relative to baselines.
+	- Will use TA2 systems to evaluate TA1 primitive discoverability.
+	- The government will deploy and test the solutions on the D3M evaluation cluster.
+	- Then the government team will change the problems and the data to profile better the current solution
+	
+Transition partner presentations. Farming.
+	- We are off the pace to satisfy demand.
+	- It takes 8-10 years to take a new crop to the market.
+	- This period of time is so slow because there are a lo of requirements
+	- Me estoy quedando un poco sopa.
+	- Plant height, crop architecture ar other problems they are interested in.
+	
+	- Terra phenotyping reference platform.
+	- Many data collection platforms.
+	- Terra Ref datasets. from 3d point to genomics, phenotypes or UAV!
+	- No rnaseq data.
+	- Sensors, traits, genotypes.
+	- Data fusion, combining info from different sources.
+	- Predictive models for crop phenotypes.
+	- Set of questions like can we estimate drought resistance or sensivity from spectral data? How can we optimize sensor data collection? etc.
+	
+Problems and datasets: an in-depth solution. MIT Lincoln labs
+	- raw and open ml datasets
+	- dataset curation and usage. 
+	- trying to collect datasets as diverse as possible.
+	- Structure and content of the datasets.
+	- Each dataset has a problem part and a data part, with a schema -> Me parece que esto es por problema
+	- Each dataset has also a problem description in a human-radable and machine readable form.
+	- they tell the metric to be used for a dataset to address a problem.
+	- One to one mapping between problem/dataset
+	- Output type: type of output that the model is required to produce.
+	- They have train data, target, raw data, data description.
+	- Some may contain only raw data, but also with a pointer to additional info as well.
+	- Raw data directory may contain the test/train data files too, if indicated by the appropriate fields.
+	- description of the data annotation schema. Easy. Json.
+	- In the training data, you have the variables assigned and why. Its role too.
+	- Train data !=text data.
+	- They are going to release 5 rawsatasets and 5 ml datasets.--
+	- 3 classification and 3 regression tasks.
+	Baseline system: baseline scores will be useful for interpreting the results odf systems in evaluations. A baseline system will allow the government team to determine problem difficulty.
+	- Three best-performing classifiers and regression system for Auto skleaarn experiments.
+	- MIT's responsibility is the dealing with the baseline.
+	
+D3M: discovering and executing Executing pipelines.
+	- They have many python libs annotating what they do.
+	- Docker files.
+	- Some primitives run as a service :S.
+	- Composing/calling primitives: JVM or python. No workflows!
+	- The annotation is based on an organization by Sklearn, Kera or DJ.
+	- They annotate primitives according to what the framework introduced above. 
+	- All the contents are in the wiki.
+	- Lo han hecho un poco como en OntoSoft.
+	- They use elastic search on the background. And we can exted it with extra key-value pairs.
+	- 10 problems, 10 datasets, 3665 primitives. Where are the workflows?
+	- They have added a Docker facility for enabling execution.
+	- They have an endpoint for accessing primitives.
+	- Primitives only in python, at the moment.
+	- Keras for deeplearning.
+	- They are going to have shared notebook infrastructure plus run containers under demand.
+	
+Evaluation.
+	- A primitive has well defined inputs and outputs.
+	- Evaluation of TA1 primitives.
+	- source, executable, schema annotation, hardware reqs.
+	- Primitives do not need internet to run.
+	- TA2 should discover not only a given set of primitives, but a set of recommended sets. Discoverability should be critical.
+	- TA2 will produce a container with the solution and the logs. Which is basically what WINGS does.
+	- Logs are a list of primitive solutions. Like a list of the workflows.
+	- The system will not be allowed to learn on the runs of the evaluation.
+	- Run solutions on demand.
+	- TA2 goal is that we discover primitives submitted by other people.
+	- The questions for TA3 is: can systems with SMEs do better? To solve the same problems, of course.
+	- Example with the baseball dataset.
+	- TA 1 would remove certain columns.
+	- TA1 would perform the classification.
+	- TA2 would do the whole executable.
+	- The output of the TA2 is a list of primitives to execute. And the logs.
+	- Something not straightforward is to propose equivalent pipelines.
+	- (Comment Dani) Detection of events and twitter analysis would be a nice use case for discovery as well.
+	
+	
+-----NOTE: Another thing that we can do is leave the parameters as they are and try to transform the data to follow gaussian distributions.
+		  Also many algorithms have versions where they do a search on the input data. We could use those versions instead of the ones with default params. E.g., Lasso.
+		  - There are selection methods for wights in sklearn (something about regression)
+		  - The challenge is on how to combine the primitives for TA2. Interoperable.
+THURSDAY
+	- Open discussion. I went to the TA1-TA2.
+	- The tagging is a bit messy. It may depend on the documentation, part on crowdsourcing, etc.
+	- Parametrization is an issue. They may constraint resources, otherwise you just do a grid search over all. But it seems that this is not straightforward.
+	- Profile existing approaches and maybe pick the fastest one.
+	- Discoverability based on the schema is naive.
+	- Types of inputs and types of outputs is not decided, so it's going to be very tricky to know whether two different primitives can be used together.
+	- Maybe we can mine logs from others for this?
+	- Dataset annotation schema.
+	- Discussion on what is a primitive.
+	- Working group on primitives and super-primitives, which will involve optimization.
+	- Super-primitives may be needed e.g., for data cleaning, because it's like a set of 3-4 operations with a concrete scope.
+	
+More presentaitons from stakeholders (transition partners)
+	D3M for naval aviation- David Tarr
+	- All the experience put into pilots is not extracted back.
+	- Want the tools to make use of the expertise of domain experts.
+	- Problems: readiness, talent management, naval aviator production, performance assessment.
+	- dtarr@alum.mit.edu
+	- 5 years od student completion data/syllabi, filights, simulators, days to complete. Even weather information.
+	- Goal: use the data to predict performance to avoid damaging jets
+	
+	NGA. 
+	- Focus on ML and deep learning.
+	- They do water modeling!
+	- Work with linguists too.
+	- Challenge: understanding your own technical skills.
+	- Transition in analytics 
+	
+	Cyber securtity R&D
+	- financial security.
+	- Securing IOT devices.
+	
+FRIDAY
+	Lessons learned: need to annotate also the media types. 
+	- Created wiki pages for the mime types. 
+	- Total first year datasets: 35.
+	- There is a page where you can request primitives.
+	- Python is mainly the glue for connecting primitives.
+	- Superprimitives report the primitives that are inside.
+	- mime types will be added everywhere.
+	- It's on your interest to have everything as annotated as possible.
+	- We can give a docker file or a tarball. They are using anaconda. So basically, they will support Python.
+	- TA2 create KBs on their systems. Should we create one? (e.g., how do primitives do with datasets). Like having a ranking, beside evaluations.
+	- Data transfer might be an issue.
+		
+	NIST - Evaluation
+	- Time and computational resources should be made explicit.
+	- TA3 also works a lot in interpretabulity, explainability, etc.
+	- TA3 systems should come up with a good enough API to swap TA2 systems.
+	- TA2 does not have to have a complex interface: given a dataset and a set of constraints/problems, give me back a list of ranked models that work best to address that problem.
+	
+	ROADMAP
+	- May 1st -> release of evaluation plan draft.
+	- August 15 -> Final date for PRELIMINARY run of evaluation infrastructure. Just to assess whether the technilogy is compatible, technical problems, etc.
+	
+	featurization of vector space: facilitating the transformaiton of raw data into something that can be consumed.
+	- This is kind of a TA0
+	- All -> TA1 primitives.
+	- Discussed a couple of pipelines for featurizing some of the sample datasets.
+	- Graph2vec and deepwalk also need a lot of featurization.
+	- Definition of a call structure may be needed.
+	
+	- In the end, all the data will be raw.
+	- The goal is not to figure out what the file does. But how to use it to solve the problem. If you are working in that, stop.
+	- Be involved, help fixing the APIs as soon as possible.
+	- Collaboration is welcome (kind of a must). TA2 collaborators may collaborate together too.
+
+	
+	
+	

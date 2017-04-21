@@ -1,0 +1,59 @@
+Meeting 20-Abril-2017
+o_38: this is an imbalanced problem, most of the people are not sick. 
+Imabalance problems make us use special training.
+For example, we may have oversample the sick patients.
+The key here is being able to detect that the dataset is imbalanced (this can be seen looking at the target variables)
+
+Try to apply different weights to the instances. 
+In neural networks you can weight the instances too.
+
+Missing data is important too. For example, maybe the doctor decided that this patient didn't need this test.
+	Some people just throw away the rows with missing data.
+	Some columns may be missing values, or all of them be the same.
+	There are algorithms that deal with the missing values (Naive Bayes is an example)
+	Another approach is put the mean of the column in every missing value.
+	Non-negative matrix factorization.
+	In categorical data when a missing value maybe you should add a new class.
+	
+	One Hot featurization/vectorization: if you have categorical features you can transform them to binary variables. For example:
+	C1         -> C1_A C1_B  C1_missing
+	A               1    0        0
+	B               0    1        0 
+	[missing]       0    0        1
+	
+So one meta-strategy we would do feature generation (expand the original features), and then reduce (feature selection).
+
+You have to be acreful to not overfit the model (very complex model)
+
+Let's try to start with the primitives in Scikit.
+
+Create a set of "strategies" which have the domain knowledge and restrictions for trying to address part of the problem.
+	Like Feature creation: "f.one hot" -> call sci kit primitives blah. If we have a number of categories. then do A.
+	
+Yolanda: regularization how does that work
+Lasso is classifier plus sparsity constraint. This is L1
+
+L2 constraints introduce sparsity. 
+
+L0 is hard to optimize.
+
+So you try one then another. Potentially it's more general if it's more simple.
+
+Gregg: look at pairwise correlations to reduce features ahead of time.
+Lasso etc try to apply weights to variables and then try to minimize the error. 
+if you increase the amount of regularization, you might overfit.
+Learning the model AND doing feature selection.
+
+The idea is that feature 1 and 2 together are very good, but 1 and 2 separate are not that good.
+Lasso is L1, but elastic net is L1+L2, which could be better.
+If you want a simpler model, you apply neural nets.
+
+Strategy: feature creation + filtering, but for others we need generalization.
+
+In discrete models it might be not useful to do regularization. That is why Word2vec is popular, because it transform the text into smooth vectors 
+
+Once you determine the pipeline, the parameter tunning is around certain components, the ones that do the modeling, for example. Not the ones doing the data cleaning/feature selection.
+
+Picture Gregg about the flow followed my the machine learning process. The problem is that different components have different settings. And then you can run everything. Maybe make sense to set up one and then tune the components one by one.
+
+The default params are ususally good, but sometimes you may do something wrong.

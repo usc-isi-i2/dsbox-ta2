@@ -1,0 +1,36 @@
+DSBox
+Introductions.
+Pedro summary of what happened in the PI meeting.
+All components should be pip installable. The components will be there in the repo.
+Like a beauty contest. Make sure people use what you produce.
+
+Prem: in terms of budget, they will have to downselect more than 1/3rd of the budget -> more than one third of the teams.
+
+There are many expectations on us in terms what we will deliver.
+Start doing something from the beginning.
+
+Handling raw files (images and sound)
+
+One evaluation with 100 files and figure everuything for itself.
+Another evaluation with a human in the loop.
+
+TA2 components should define an API to plug in with TA3 components.
+
+Pedro introduced how they had been talking to other people to collaborate.
+
+TA2 components are evaluated in terms of discoverability too. That is, list the pipelines we considered in our process.
+
+During the evaluation -> 100 datasets. We cannot assume anything about the domain.
+Any dataset that we used HAS to be reported.
+
+First five weeks we assume that we have clean data.
+
+You run several feature augmentations in paralel, then select the ones that succeed and proceed with the rest.
+
+Keep it simple.
+
+2 meetings: A TA2 meeting (weekly)
+Subs meeting (high level meeting)
+Standup meeting every day.
+
+Add hyperparameter optimization by week 9.
