@@ -1,0 +1,22 @@
+The data_generator.py creates three folders and generate clean,performance and requirement data.
+
+To adjust some important parameters,eg, max number of data points of performance data, just go to data_generator.py and change parameters in the bottom of code.
+Then re execute the file.
+#######
+
+Some crucial meta info are specified in file name like the type of data(float or int)
+#######
+!!!For all data files, the last column is output class with int type.
+
+All performance data are float attribute.
+#######
+For requirement data:
+all_string_version - all attributes are string types.
+some_string_version - some attributes are string types,others are float
+float_negative_version - some attributes have negative value(float version)
+int_negative_version - some attributes have negative value(int version)
+one_missing_version - only first column has missing value
+some_missing_version - more than column has missing value
+unique_value_version - the first column has only one value(1)
+
+

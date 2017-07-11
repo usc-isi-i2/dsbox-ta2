@@ -1,0 +1,18 @@
+[
+	{
+		"class": "sklearn.decomposition.PCA",
+		"name": "PCA",
+		"task": "FeatureExtraction",
+		"type": [],
+		"requirements": ["!SPARSE"],
+		"effects": []
+	},
+	{
+		"class": "sklearn.feature_extraction.text.TfidfVectorizer",
+		"name": "TFIDF",
+		"task": "FeatureExtraction",
+		"type": [],
+		"requirements": ["RAWTEXT"],
+		"effects": []
+	}
+]

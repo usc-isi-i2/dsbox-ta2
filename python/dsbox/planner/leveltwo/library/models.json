@@ -1,0 +1,72 @@
+[
+	{
+		"class": "sklearn.linear_model.LogisticRegression",
+		"name": "Logistic Regression",
+		"task": "Modeling",
+		"type": ["Classification"],
+		"requirements": ["NUMERICAL"]
+	},
+	{
+		"class": "sklearn.svm.SVC",
+		"name": "SVM",
+		"task": "Modeling",
+		"type": ["Classification"],
+		"requirements": ["NUMERICAL", "!MISSING_VALUES"]
+	},
+	{
+		"class": "sklearn.neighbors.KNeighborsClassifier",
+		"name": "KNNClassifier",
+		"task": "Modeling",
+		"type": ["Classification"],
+		"requirements": ["NUMERICAL"]
+	},
+	{
+		"class": "sklearn.naive_bayes.GaussianNB",
+		"name": "Gaussian Naive Bayes",
+		"task": "Modeling",
+		"type": ["Classification"],
+		"requirements": ["NUMERICAL", "NON-NEGATIVE"]
+	},
+	{
+		"class": "sklearn.naive_bayes.BernoulliNB",
+		"name": "Bernoulli Naive Bayes",
+		"task": "Modeling",
+		"type": ["Classification"],
+		"requirements": ["NUMERICAL", "NON-NEGATIVE"]
+	},
+	{
+		"class": "sklearn.naive_bayes.MultinomialNB",
+		"name": "Multinomial Naive Bayes",
+		"task": "Modeling",
+		"type": ["Classification"],
+		"requirements": ["NUMERICAL", "NON-NEGATIVE"]
+	},
+	{
+		"class": "sklearn.linear_model.LinearRegression",
+		"name": "Linear Regression",
+		"task": "Modeling",
+		"type": ["Regression"],
+		"requirements": ["NUMERICAL"]
+	},
+	{
+		"class": "sklearn.linear_model.Ridge",
+		"name": "Ridge Regression",
+		"task": "Modeling",
+		"type": ["Regression"],
+		"requirements": ["NUMERICAL"]
+	},
+	{
+		"class": "sklearn.neighbors.KNeighborsRegressor",
+		"name": "KNNRegressor",
+		"task": "Modeling",
+		"type": ["Regression"],
+		"requirements": ["NUMERICAL"]
+	},
+	{
+		"class": "sklearn.linear_model.Lasso",
+		"name": "Lasso",
+		"task": "Modeling",
+		"type": ["Regression"],
+		"requirements": ["NUMERICAL"]
+	}
+]

@@ -1,0 +1,27 @@
+[
+	{
+		"class": "sklearn.preprocessing.Normalizer",
+		"name": "Normalizer",
+		"task": "PreProcessing",
+		"type": ["Normalization"],
+		"requirements": ["!NORMALIZED"],
+		"effects": ["NORMALIZED"]
+	},
+	{
+		"class": "sklearn.preprocessing.LabelEncoder",
+		"name": "Label Encoder",
+		"task": "PreProcessing",
+		"type": ["Encoding"],
+		"column": true,
+		"requirements": ["!NUMERICAL"],
+		"effects": ["NUMERICAL"]
+	},
+	{
+		"class": "sklearn.preprocessing.Imputer",
+		"name": "Imputer",
+		"task": "PreProcessing",
+		"type": ["Imputation"],
+		"requirements": ["MISSING_VALUES"],
+		"effects": ["!MISSING_VALUES"]
+	}
+]
