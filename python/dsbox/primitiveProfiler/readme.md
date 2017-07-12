@@ -1,5 +1,5 @@
-===========
 Primitive profiler
+===========
 
 At the moment the primitive profiler is a Jupyter notebook which passes a series of tests of a given primitive.
 The status of the profiler is a very early prototype
