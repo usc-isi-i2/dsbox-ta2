@@ -4,7 +4,7 @@
 		"name": "PCA",
 		"task": "FeatureExtraction",
 		"type": [],
-		"requirements": ["!SPARSE"],
+		"requirements": ["NUMERICAL"],
 		"effects": []
 	},
 	{

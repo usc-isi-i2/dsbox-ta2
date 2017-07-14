@@ -1,13 +1,6 @@
-'''
-planner.run -- run the DSBox TA2 Planner
-
-planner.run is a 3 Level Planner that creates a ML pipeline for a given problem
-
-@author:     Varun Ratnakar
-@copyright:  2017 USC/ISI. All rights reserved.
-@license:    ALv2
-@contact:    varunr@isi.edu
-'''
+"""
+Entry-point Command Line Interface for running the DSBox TA2 Planner
+"""
 
 import sys
 import os

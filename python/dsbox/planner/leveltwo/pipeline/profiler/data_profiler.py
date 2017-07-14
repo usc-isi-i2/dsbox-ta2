@@ -7,6 +7,9 @@ import feature_compute_hih as fc_hih
 from collections import defaultdict
 
 class Profiler(object):
+    """
+    Converted the main function of the data profiler into a class
+    """
     def __init__(self, data):
         self.result = self.profile_data(data)
 

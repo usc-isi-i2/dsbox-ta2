@@ -1,7 +1,7 @@
 class Primitive(object):
-    '''
+    """
     Defines a primitive and its details
-    '''
+    """
 
     def __init__(self, name, cls):
         self.name = name

@@ -1,7 +1,7 @@
 class Profile(object):
-    '''
-    Data Profile
-    '''
+    """
+    This class holds the profile for either the whole data, or a column
+    """
     MISSING_VALUES = 0b00000001
     NUMERICAL = 0b00000010
     NON_NEGATIVE = 0b00000100

@@ -3,9 +3,9 @@ import primitive
 from ..schema.profile import Profile
 
 class PrimitiveLibrary(object):
-    '''
-    A Library of Primitives
-    '''
+    """
+    Creates a Library of Primitives given the location of a library json
+    """
     def __init__(self, location):
         self.primitives = []
         self.json = self.loadjson(location)
