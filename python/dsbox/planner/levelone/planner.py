@@ -2,6 +2,7 @@
 """
 
 from collections import defaultdict
+from enum import Enum
 
 import json
 import pkgutil
@@ -10,6 +11,16 @@ import pprint
 
 import numpy as np
 
+def random_choices(population, weights):
+    """Randomly select a element based on weights. Same as random.choices in Python 3.6+"""
+    assert len(population) == len(weights)
+    total_weight = np.sum(weights)
+    rand = total_weight * random.random()
+    i = 0
+    while rand > weights[i]:
+        rand -= weights[i]
+        i += 1
+    return population[i]
 
 class Ontology(object):
     """Primitve ontology"""
@@ -42,7 +53,9 @@ class Primitive(object):
         self.weight = 1
 
     def __str__(self):
-        return 'Primitive({})'.format(self.name)
+        return 'Primitive("{}")'.format(self.name)
+    def __repr__(self):
+        return 'Primitive("{}")'.format(self.name)
 
     def __eq__(self, other):
         """Define equals based on name"""
@@ -70,13 +83,16 @@ class DSBoxPrimitive(Primitive):
         self.ml_algorithm = definition['MachineLearningAlgorithm']
         self.tags = [self.ml_algorithm, self.ml_algorithm]
         self.weight = 1
+    def __str__(self):
+        return 'DSBoxPrimitive("{}")'.format(self.name)
+    def __repr__(self):
+        return 'DSBoxPrimitive("{}")'.format(self.name)
 
-
-class D3Primitive(Primitive):
+class D3mPrimitive(Primitive):
     """Primitive defined using D3M metadata"""
     def __init__(self, definition):
         super().__init__()
-        self.name = definition['common_name']
+        self.name = definition['id'].split('.')[-1]
 
         self.task = ''
         if 'task_type' in definition:
@@ -107,6 +123,11 @@ class D3Primitive(Primitive):
         elif len(self.tags) == 1:
             self.tags = [self.tags[0], self.tags[0]]
         self.weight = 1
+
+    def __str__(self):
+        return 'D3mPrimitive("{}")'.format(self.name)
+    def __repr__(self):
+        return 'D3mPrimitive("{}")'.format(self.name)
 
 class HierarchyNode(object):
     """Node in the Hierarchy"""
@@ -144,6 +165,7 @@ class Hierarchy(object):
         self.root = HierarchyNode(self, 'root')
         self._changed = False
         self._level_count = []
+
     def add_child(self, node, name, content=None):
         """Create and add child node"""
         assert node.hierarchy == self
@@ -178,6 +200,29 @@ class Hierarchy(object):
             counts = self._compute_level_counts(child, level+1, counts)
         return counts
 
+    def get_primitive_count(self):
+        """Returns the number of primitives"""
+        return self._get_primitive_count(self.root)
+
+    def _get_primitive_count(self, curr_node):
+        """Returns the number of primitives"""
+        count = 0
+        if curr_node.content is not None:
+            count += len(curr_node.content)
+        for child in curr_node.children:
+            count += self._get_primitive_count(child)
+        return count
+
+    def get_primitives(self, curr_node=None):
+        if curr_node is None:
+            curr_node = self.root
+        result = []
+        if curr_node.content is not None:
+            result.append(curr_node.content)
+        for child in curr_node.children:
+            result += self.get_primitives(child)
+        return result
+
     def get_nodes_by_level(self, level):
         """Returns node at a specified level of the tree"""
         return self._get_nodes_by_level(self.root, 0, level)
@@ -194,8 +239,33 @@ class Hierarchy(object):
                 result += self._get_nodes_by_level(node, curr_level + 1, target_level)
             return result
 
+    def print(self):
+        """Print hierarchy"""
+        print('Hierarchy({}, level_counts={})'.format(self.name, self.get_level_counts()))
+        self._print(self.root, [])
+
+    def _print(self, curr_node, path, max_depth=2):
+        new_path = path + [curr_node]
+        if len(new_path) > max_depth:
+            print(' '*4 + ':'.join([node.name for node in new_path[1:]]))
+            for line in pprint.pformat(curr_node.content).splitlines():
+                print(' '*8 + line)
+        else:
+            for child in curr_node.children:
+                self._print(child, new_path, max_depth=max_depth)
+
     def __str__(self):
-        return 'Hierarchy({}, level_counts={})'.format(self.name, self.get_level_counts())
+        return 'Hierarchy({}, num_primitives={}, level_node_counts={})'.format(
+            self.name, self.get_primitive_count(), self.get_level_counts())
+
+class Category(Enum):
+    PREPROCESSING = 1
+    FEATURE = 2
+    CLASSIFICATION = 3
+    REGRESSION = 4
+    UNSUPERVISED = 5
+    EVALUATION = 6
+    OTHER = 7
 
 class Primitives(object):
     """Base Primitives class"""
@@ -203,9 +273,13 @@ class Primitives(object):
         self.primitives = []
         self._index = dict()
         self.size = 0
-        self.classification_hierarchy = None
-        self.regression_hierarchy = None
-        self.other_hierarchy = None
+        self.hierarchy_types = [Category.PREPROCESSING, Category.FEATURE,
+                                Category.CLASSIFICATION, Category.REGRESSION,
+                                Category.UNSUPERVISED, Category.EVALUATION,
+                                Category.OTHER]
+        self.hierarchies = dict()
+        for name in Category:
+            self.hierarchies[name] = Hierarchy(name)
 
     def filter_equality(self, aspect, name):
         """Find primitive by aspect and name value"""
@@ -235,7 +309,11 @@ class Primitives(object):
         """Returns the index of the primitive given its name"""
         return self._index[name]
 
-    def print_statistics(self):
+    def get_hierarchies(self):
+        """Returns all primitive hierarchies as dict"""
+        return self.hierarchies
+
+    def print_statistics_old(self):
         """Print statistics of the primitives"""
         classification = 0
         regression = 0
@@ -245,12 +323,12 @@ class Primitives(object):
         for primitive in self.primitives:
             if len(primitive.tags) > 0:
                 tag_str = ':'.join(primitive.tags)
-            if primitive.learning_type == 'Classification':
+            if primitive.learning_type == Category.CLASSIFICATION:
                 classification += 1
                 # classification_algo[primitive.ml_algorithm] += 1
                 classification_algo[tag_str] += 1
                 tag_primitive['C:' + tag_str].append(primitive.name)
-            elif primitive.learning_type == 'Regression':
+            elif primitive.learning_type == Category.REGRESSION:
                 regression += 1
                 regression_algo[tag_str] += 1
                 tag_primitive['R:' + tag_str].append(primitive.name)
@@ -258,24 +336,88 @@ class Primitives(object):
                 tag_primitive['O:' + tag_str].append(primitive.name)
         print('Primtive by Tag:')
         pprint.pprint(tag_primitive)
-        print('size = {}'.format(self.size))
+        print('Total number of primitives = {}'.format(self.size))
         print('num classifiers = {}'.format(classification))
         pprint.pprint(classification_algo)
         print('num regressors = {}'.format(regression))
         pprint.pprint(regression_algo)
 
-    def _compute_tag_hierarchy(self):
-        """Compute hierarchy based on tags"""
-        self.classification_hierarchy = Hierarchy('ClassificationTagHierarchy')
-        self.regression_hierarchy = Hierarchy('RegressionTagHierarchy')
-        self.other_hierarchy = Hierarchy('OtherTagHierarchy')
+    def print_statistics(self):
+        """Print statistics of the primitives"""
+        print('Total number of primitives = {}'.format(self.size))
+        print('Number of primitives by hierarchy:')
+        hierarchies = self.get_hierarchies()
+        for name in Category:
+            print(' '*4 + str(hierarchies[name]))
+
+    def _compute_tag_hierarchy(self, classifer=[], regressor=[]):
+        """Compute hierarchy based on sklearn tags"""
         for primitive in self.primitives:
-            if primitive.learning_type == 'Classification':
-                node = self.classification_hierarchy.add_path(primitive.tags[:2])
-            elif primitive.learning_type == 'Regression':
-                node = self.regression_hierarchy.add_path(primitive.tags[:2])
+            # Put base/mixin and functions into other category
+            if (primitive.tags[0] == 'base'
+                or (primitive.tags[1] == 'base'
+                    and not 'LinearRegression' in primitive.name)
+                or 'Base' in primitive.name
+                or 'Mixin' in primitive.name
+                or primitive.name[0].islower()
+                or primitive.name == 'ForestRegressor'
+                or primitive.name == 'ForestClassifier'):
+
+                node = self.hierarchies[Category.OTHER].add_path(primitive.tags[:2])
+
+            elif (primitive.learning_type == 'Classification'
+                  or primitive.tags[0] in ['lda', 'qda', 'naive_bayes']
+                  or ('Classifier' in primitive.name
+                      and not primitive.tags[0] in
+                      ['multiclass', 'multioutput', 'calibration'])
+                  or 'SVC' in primitive.name
+                  or 'LogisticRegression' in primitive.name
+                  or 'Perceptron' in primitive.name  # Same as SGDClassifier
+            ):
+
+                node = self.hierarchies[Category.CLASSIFICATION].add_path(primitive.tags[:2])
+
+                # Modify primitive learning type
+                primitive.learning_type = 'Classification'
+
+            elif (primitive.learning_type == 'Regression'
+                  or primitive.tags[0] in ['isotonic']
+                  or ('Regressor' in primitive.name
+                      and not primitive.tags[0] in ['multioutput'])
+                  or 'SVR' in primitive.name
+                  or 'ElasticNet' in primitive.name
+                  or 'KernelRidge' in primitive.name
+                  or 'Lars' in primitive.name
+                  or 'Lasso' in primitive.name
+                  or 'LinearRegression' in primitive.name
+                  or 'Ridge' in primitive.name):
+
+                node = self.hierarchies[Category.REGRESSION].add_path(primitive.tags[:2])
+
+                # Modify primitive learning type
+                primitive.learning_type = 'Regression'
+
+            elif primitive.tags[0] in ['cluster', 'mixture']:
+
+                node = self.hierarchies[Category.UNSUPERVISED].add_path(primitive.tags[:2])
+
+            elif (primitive.tags[0] in ['feature_extraction', 'feature_selection', 'decomposition',
+                                       'random_projection', 'manifold']
+                  or 'OrthogonalMatchingPursuit' in primitive.name):
+
+                node = self.hierarchies[Category.FEATURE].add_path(primitive.tags[:2])
+
+            elif primitive.tags[0] == 'preprocessing':
+
+                node = self.hierarchies[Category.PREPROCESSING].add_path(primitive.tags[:2])
+
+            elif (primitive.tags[0] in ['metrics', 'cross_validation', 'model_selection']):
+
+                node = self.hierarchies[Category.EVALUATION].add_path(primitive.tags[:2])
+
             else:
-                node = self.other_hierarchy.add_path(primitive.tags[:2])
+                node = self.hierarchies[Category.OTHER].add_path(primitive.tags[:2])
+
             if node.content is None:
                 node.content = [primitive]
             else:
@@ -300,23 +442,23 @@ class DSBoxPrimitives(Primitives):
         self.primitives = [DSBoxPrimitive(primitive_dict)
                            for primitive_dict in content['Primitives']]
 
-class D3Primitives(Primitives):
+class D3mPrimitives(Primitives):
     """Primitives from D3M metadata"""
 
     PRIMITIVE_FILE = 'sklearn.json'
-    def __init__(self):
+    def __init__(self, classifer=[], regressor=[]):
         super().__init__()
         self._load()
         for index, primitive in enumerate(self.primitives):
             self._index[primitive.name] = index
         self.size = len(self.primitives)
-        self._compute_tag_hierarchy()
+        self._compute_tag_hierarchy(classifer=classifer, regressor=regressor)
 
     def _load(self):
         """Load primitve from json"""
         text = pkgutil.get_data('dsbox.planner.levelone', self.PRIMITIVE_FILE)
         content = json.loads(text.decode())
-        self.primitives = [D3Primitive(primitive_dict)
+        self.primitives = [D3mPrimitive(primitive_dict)
                            for primitive_dict in content['search_primitives']]
 
 
@@ -354,14 +496,10 @@ class ConfigurationSpace(object):
             names = [p.name for p in component_space]
             if components:
                 values = policy.get_affinities(component_names, names)
-                rand = np.sum(values) * random.random()
-                i = 0
-                while rand > values[i]:
-                    rand -= values[i]
-                    i += 1
+                component = random_choices(component_space, values)
             else:
                 i = random.randrange(len(component_space))
-            component = component_space[i]
+                component = component_space[i]
             components.append(component)
             component_names.append(component.name)
         return ConfigurationPoint(self, components)
@@ -459,17 +597,6 @@ class Pipeline(object):
                 out_list.append('{}={}'.format(name, component.name))
         return 'Pipeline(' + ', '.join(out_list) + ')'
 
-def random_choices(population, weights):
-    """Randomly select a element based on weights. Same random.choices in Python 3.6+"""
-    assert len(population) == len(weights)
-    total_weight = np.sum(weights)
-    rand = total_weight * random.random()
-    i = 0
-    while rand > weights[i]:
-        rand -= weights[i]
-        i += 1
-    return population[i]
-
 class LevelOnePlanner(object):
     """Level One Planner"""
     def __init__(self, learning_type='Classification', evaluator_name='F1',
@@ -530,9 +657,9 @@ class LevelOnePlanner(object):
     def generate_pipelines_with_hierarchy(self, level=2):
         """Generate singleton pipeline using tag hierarchy"""
         if self.learning_type == 'Classification':
-            hierarchy = self.primitives.classification_hierarchy
+            hierarchy = self.primitives.hierarchies[Category.CLASSIFICATION]
         elif self.learning_type == 'Regression':
-            hierarchy = self.primitives.regression_hierarchy
+            hierarchy = self.primitives.hierarchies[Category.REGRESSION]
         else:
             raise Exception('Learning type not recoginized: {}'.format(self.learning_type))
         if level == 1:
@@ -571,7 +698,7 @@ def pipelines_by_affinity():
 
 def pipelines_by_hierarchy(level=2):
     """Generate pipelines using tag hierarhcy"""
-    primitives = D3Primitives()
+    primitives = D3mPrimitives()
     planner = LevelOnePlanner(primitives=primitives)
 
     pipelines = planner.generate_pipelines_with_hierarchy(level=level)
@@ -580,7 +707,7 @@ def pipelines_by_hierarchy(level=2):
 
 def testd3():
     """Test method"""
-    primitives = D3Primitives()
+    primitives = D3mPrimitives()
     planner = LevelOnePlanner(primitives=primitives)
 
     pipelines = planner.generate_pipelines(20)
@@ -589,15 +716,62 @@ def testd3():
 
 def print_stat():
     """Print statistics of the primitives"""
-    primitives = D3Primitives()
-    # hierarchy = primitives.classification_hierarchy
+    profile = load_primitive_profile()
+    classifier = [p['Name'] for p in profile
+                  if 'LearningType' in p and p['LearningType']=='Classification']
+    regressor = [p['Name'] for p in profile
+                 if 'LearningType' in p and p['LearningType']=='Regression']
+
+    #primitives = D3mPrimitives(classifer, regressor)
+    primitives = D3mPrimitives()
+    hierarchies = primitives.get_hierarchies()
+
+    for name in Category:
+        hierarchies[name].print()
+    print()
     primitives.print_statistics()
-    print(primitives.classification_hierarchy)
-    print(primitives.regression_hierarchy)
-    print(primitives.other_hierarchy)
+
+def load_primitive_profile():
+    """Load primitive profile"""
+    # filename = pkgutil.get_data(__name__ , 'goodJSON.json')
+    # with open(filename, 'r') as f:
+    #     result = json.load(f)
+    result = json.loads(pkgutil.get_data(__name__ , 'goodJSON.json').decode())
+    for profile in result:
+        if not profile['Name'] == profile['id'].split('.')[-1]:
+            print (profile['Name'], profile['id'])
+
+    return result
+
+def compute_difference():
+    good = load_primitive_profile()
+    # learningType = [p for p in good if 'LearningType' in p]
+    classification = set([p['Name'] for p in good
+                          if 'LearningType' in p and p['LearningType'] == 'Classification'])
+    regression = set([p['Name'] for p in good
+                      if 'LearningType' in p and p['LearningType'] == 'Regression'])
+
+    primitives = D3mPrimitives()
+    hierarchies = primitives.get_hierarchies()
+    cp = hierarchies[Category.CLASSIFICATION].get_primitives()
+    classification2 = set([p.name for l in cp for p in l])
+    rp = hierarchies[Category.REGRESSION].get_primitives()
+    regression2 = set([p.name for l in rp for p in l])
+
+    print("Classification: In Daniel's but not in Ke-Thia's")
+    pprint.pprint(classification.difference(classification2))
+
+    print("Classification: In Ke-Thia's but not in Daniel's")
+    pprint.pprint(classification2.difference(classification))
+
+    print("Regression: In Daniel's but not in Ke-Thia's")
+    pprint.pprint(regression.difference(regression2))
+
+    print("Regression: In Ke-Thia's but not in Daniel's")
+    pprint.pprint(regression2.difference(regression))
 
 
 if __name__ == "__main__":
-    # print_stat()
+    print_stat()
     # pipelines_by_affinity()
     pipelines_by_hierarchy()
