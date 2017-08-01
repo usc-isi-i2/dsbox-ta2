@@ -1,27 +1,27 @@
 [
 	{
-		"class": "sklearn.preprocessing.Normalizer",
-		"name": "Normalizer",
-		"task": "PreProcessing",
-		"type": ["Normalization"],
-		"requirements": ["!NORMALIZED"],
-		"effects": ["NORMALIZED"]
+		"Class": "sklearn.preprocessing.Normalizer",
+		"Name": "Normalizer",
+		"Task": "PreProcessing",
+		"LearningType": "Normalization",
+		"Requirements": ["!NORMALIZED"],
+		"Effects": ["NORMALIZED"]
 	},
 	{
-		"class": "sklearn.preprocessing.LabelEncoder",
-		"name": "Label Encoder",
-		"task": "PreProcessing",
-		"type": ["Encoding"],
-		"column": true,
-		"requirements": ["!NUMERICAL"],
-		"effects": ["NUMERICAL"]
+		"Class": "sklearn.preprocessing.LabelEncoder",
+		"Name": "Label Encoder",
+		"Task": "PreProcessing",
+		"LearningType": "Encoding",
+		"RequiresColumnData": true,
+		"Requirements": ["!NUMERICAL"],
+		"Effects": ["NUMERICAL"]
 	},
 	{
-		"class": "sklearn.preprocessing.Imputer",
-		"name": "Imputer",
-		"task": "PreProcessing",
-		"type": ["Imputation"],
-		"requirements": ["MISSING_VALUES"],
-		"effects": ["!MISSING_VALUES"]
+		"Class": "sklearn.preprocessing.Imputer",
+		"Name": "Imputer",
+		"Task": "PreProcessing",
+		"LearningType": "Imputation",
+		"Requirements": ["NUMERICAL", "MISSING_VALUES"],
+		"Effects": ["!MISSING_VALUES"]
 	}
 ]

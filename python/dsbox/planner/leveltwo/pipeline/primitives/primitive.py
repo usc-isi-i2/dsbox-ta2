@@ -7,16 +7,16 @@ class Primitive(object):
         self.name = name
         self.cls = cls
         self.task = None
-        self.types = []
-        self.preconditions = []
-        self.effects = []
+        self.type = None
+        self.preconditions = {}
+        self.effects = {}
         self.column_primitive = False
         
     def addPrecondition(self, precondition):
-        self.preconditions.append(precondition)
+        self.preconditions = dict(self.preconditions, **precondition)
         
     def addEffect(self, effect):
-        self.effects.append(effect)
+        self.effects = dict(self.effects, **effect)
 
     def getPreconditions(self):
         return self.preconditions
@@ -27,8 +27,8 @@ class Primitive(object):
     def getName(self):
         return self.name
     
-    def getTypes(self):
-        return self.types
+    def getType(self):
+        return self.type
     
     def __str__(self):
         return self.name

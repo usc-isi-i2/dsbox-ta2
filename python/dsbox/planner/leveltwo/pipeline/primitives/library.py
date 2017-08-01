@@ -1,6 +1,6 @@
 import json
 import primitive
-from ..schema.profile import Profile
+from ..schema.constants import ProfileConstants as pc
 
 class PrimitiveLibrary(object):
     """
@@ -10,31 +10,27 @@ class PrimitiveLibrary(object):
         self.primitives = []
         self.json = self.loadjson(location)
         for p in self.json:
-            prim = primitive.Primitive(p['name'], p['class'])
-            for precstr in p.get('requirements', []):
+            prim = primitive.Primitive(p['Name'], p['Class'])
+            for precstr in p.get('Requirements', []):
                 prec = self.parseProfile(precstr)
                 if prec:
                     prim.addPrecondition(prec)
-            for effectstr in p.get('effects', []):
+            for effectstr in p.get('Effects', []):
                 effect = self.parseProfile(effectstr)
                 if effect:
                     prim.addEffect(effect)                
-            prim.types = p.get('type', [])
-            prim.task = p.get('task', None)
-            prim.column_primitive = p.get('column', False)
+            prim.type = p.get('LearningType', None)
+            prim.task = p.get('Task', None)
+            prim.column_primitive = p.get('RequiresColumnData', False)
             self.primitives.append(prim)
     
     def parseProfile(self, profile): 
-        neg = False
+        value = True
         if profile.startswith('!'):
-            neg = True
+            value = False
             profile = profile[1:]
-        if profile == "NUMERICAL":
-            return Profile.NO_NUMERICAL if neg else Profile.NUMERICAL
-        elif profile == "MISSING_VALUES":
-            return Profile.NO_MISSING_VALUES if neg else Profile.MISSING_VALUES
-        elif profile == "NON_NEGATIVE":
-            return Profile.NO_NON_NEGATIVE if neg else Profile.NON_NEGATIVE
+        if hasattr(pc, profile):
+            return {getattr(pc, profile): value}    
         return None 
             
     def loadjson(self, jsonfile):
@@ -43,11 +39,10 @@ class PrimitiveLibrary(object):
             json_data.close()
             return d
     
-    def getPrimitivesByEffect(self, effect):
+    def getPrimitivesByEffect(self, effect, value):
         plist = [];
         for primitive in self.primitives:
-            for peffect in primitive.effects:
-                if peffect == effect:
-                    plist.append(primitive)
-                    break
+            if (primitive.preconditions.get(effect, False) != value and 
+                    primitive.effects.get(effect, False) == value):
+                plist.append(primitive)
         return plist

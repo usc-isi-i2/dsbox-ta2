@@ -1,18 +1,24 @@
 [
 	{
-		"class": "sklearn.decomposition.PCA",
-		"name": "PCA",
-		"task": "FeatureExtraction",
-		"type": [],
-		"requirements": ["NUMERICAL"],
-		"effects": []
+		"Class": "sklearn.decomposition.PCA",
+		"Name": "PCA",
+		"Task": "FeatureExtraction",
+		"Requirements": ["NUMERICAL"],
+		"Effects": []
 	},
 	{
-		"class": "sklearn.feature_extraction.text.TfidfVectorizer",
-		"name": "TFIDF",
-		"task": "FeatureExtraction",
-		"type": [],
-		"requirements": ["RAWTEXT"],
-		"effects": []
+		"Class": "corex.Corex",
+		"Name": "Corex",
+		"Task": "FeatureExtraction",
+		"Requirements": [],
+		"Effects": []
+	},
+	{
+		"Class": "sklearn.feature_extraction.text.TfidfVectorizer",
+		"Name": "TFIDF",
+		"Task": "FeatureExtraction",
+		"RequiresColumnData": true,
+		"Requirements": [],
+		"Effects": []
 	}
 ]
