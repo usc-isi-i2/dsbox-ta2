@@ -38,29 +38,36 @@ class Planner(object):
         print("Metric: %s" % self.metric)
         
         # Get data details
-        indexcol = self._get_index_column()
         df = pd.DataFrame(self.train_data, columns = self.train_data.columns)
         df_lbl = pd.DataFrame(self.train_labels, columns = self.train_labels.columns)
         
         df_profile = self._get_data_profile(df)
         print("Data profile: %s" % df_profile)
 
-        l1_pipelines = self.l1_planner.get_pipelines(self.task_type, df)
+        l1_pipelines = self.l1_planner.get_pipelines(self.task_type, self.task_subtype, df)
         print "\nL1 Pipelines:\n-------------"
         print(l1_pipelines)
         print("-------------")
-        
+                        
         l2_pipelines = []
         for l1_pipeline in l1_pipelines:
-            l2_pipelines.extend(self.l2_planner.expand_pipeline(l1_pipeline, df_profile))
+            l2_pipeline_list = self.l2_planner.expand_pipeline(l1_pipeline, df_profile)
+            if l2_pipeline_list:
+                l2_pipelines.extend(l2_pipeline_list)
+
+        print "\nL2 Pipelines:\n-------------"
+        print(l2_pipelines)
 
         l2_exec_pipelines = []
         for l2_pipeline in l2_pipelines:
-            l2_exec_pipelines.append(
-                self.l2_planner.patch_and_execute_pipeline(
-                    l2_pipeline, df, df_lbl, indexcol, self.metric)) 
+            expipe = self.l2_planner.patch_and_execute_pipeline(
+                    l2_pipeline, df, df_lbl, self.columns, self.metric)
+            if expipe:
+                l2_exec_pipelines.append(expipe)
         
-        print "\nL2 Pipelines:\n-------------"
+        l2_exec_pipelines = sorted(l2_exec_pipelines, key=lambda x: x[1])
+
+        print "\nL2 Executed Pipelines:\n-------------"
         print(l2_exec_pipelines)
     
     def _load_json(self, jsonfile):
@@ -86,20 +93,15 @@ class Planner(object):
         metric = metric.lower()
         if metric != "f1" and metric[0:2] == "f1":
             metric = "f1_" + metric[2:]
+        elif metric == "meansquarederror":
+            metric = "neg_mean_squared_error" # FIXME
         elif metric == "rootmeansquarederror":
-            metric = "neg_mean_squared_error" # FIXME: Not sure if this is ok
+            metric = "neg_mean_squared_error" # FIXME
         return metric
         
     def _get_data_profile(self, df):
         df_profile_raw = Profiler(df)
         return Profile(df_profile_raw)
-
-
-    def _get_index_column(self):
-        for col in self.columns:
-            if col['varRole'] == 'index':
-                return col['varName']
-        return None
     
 
     def stop(self):
