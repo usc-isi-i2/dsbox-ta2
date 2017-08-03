@@ -2,6 +2,7 @@
 """
 
 from dsbox.planner.levelone.planner import (
-    Ontology, Primitives, ConfigurationSpace, Pipeline, LevelOnePlanner, AffinityPolicy,
-    DSBoxPrimitives, D3mPrimitives)
+    Ontology, ConfigurationSpace, Pipeline, LevelOnePlanner, AffinityPolicy)
+from dsbox.planner.levelone.primitives import (
+    Primitives, DSBoxPrimitives, D3mPrimitives, Category, Primitive)
 __path__ = __import__('pkgutil').extend_path(__path__, __name__)

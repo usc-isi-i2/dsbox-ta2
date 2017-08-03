@@ -9,7 +9,7 @@ import csv
 import numpy as np
 import os
 
-# data_dir = 'dsbox-data/r_22/data'
+# data_dir = '/home/ktyao/Projects/DSBox/dev/dsbox-data/r_22/data'
 data_dir = None
 
 if data_dir is None:

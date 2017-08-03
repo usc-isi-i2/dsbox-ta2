@@ -113,7 +113,7 @@
 	    "MachineLearningAlgorithm" : "NA"
 	},
 	{
-	    "Name" : "F1",
+	    "Name" : "f1",
 	    "Task" : "Evaluation",
 	    "LearningType" : "NA",
 	    "MachineLearningAlgorithm" : "NA"

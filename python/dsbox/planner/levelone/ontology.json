@@ -24,10 +24,10 @@
 	    "Name" : "SupervisedLearning",
 	    "Children" : [
 		{
-		    "Name" : "Classification"
+		    "Name" : "classification"
 		},
 		{
-		    "Name" : "Regression"
+		    "Name" : "regression"
 		}
 	    ]
 	},
@@ -71,4 +71,3 @@
 	}
     ]
 }
-

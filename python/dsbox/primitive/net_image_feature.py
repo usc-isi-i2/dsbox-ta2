@@ -2,10 +2,14 @@
 """
 
 from sklearn.base import BaseEstimator, TransformerMixin
-from keras.models import Model
 from scipy.misc import imresize
+
+from keras.models import Model
 import keras.applications.resnet50 as resnet50
 import keras.applications.vgg16 as vgg16
+
+from dsbox.planner.levelone import Primitive
+
 import numpy as np
 
 class ResNet50ImageFeature(BaseEstimator, TransformerMixin):
@@ -42,6 +46,7 @@ class ResNet50ImageFeature(BaseEstimator, TransformerMixin):
         self.org_model = ResNet50ImageFeature.RESNET50_MODEL
         self.model = Model(self.org_model.input,
                            self.org_model.layers[self.layer_number].output)
+        self._annotation = None
 
     def fit(self, X=None, y=None):
         """Fit the model with X"""
@@ -78,6 +83,16 @@ class ResNet50ImageFeature(BaseEstimator, TransformerMixin):
             data = image_tensor
         result = self.model.predict(data)
         return result.reshape(result.shape[0], -1)
+    def annotation(self):
+        if self._annotation is not None:
+            return self._annotation
+        self._annotation = Primitive()
+        self._annotation.name = 'ResNet50ImageFeature'
+        self._annotation.task = 'FeatureExtraction'
+        self._annotation.learning_type = ''
+        self._annotation.ml_algorithm = ['Deep Learning']
+        self._annotation.tags = ['feature_extraction' , 'image']
+        return self._annotation
 
 
 class Vgg16ImageFeature(BaseEstimator, TransformerMixin):
@@ -114,6 +129,7 @@ class Vgg16ImageFeature(BaseEstimator, TransformerMixin):
         self.org_model = self.VGG16_MODEL
         self.model = Model(self.org_model.input,
                            self.org_model.layers[self.layer_number].output)
+        self._annotation = None
 
     def fit(self, X=None, y=None):
         """Fit the model with X"""
@@ -149,3 +165,14 @@ class Vgg16ImageFeature(BaseEstimator, TransformerMixin):
             data = image_tensor
         result = self.model.predict(data)
         return result.reshape(result.shape[0], -1)
+
+    def annotation(self):
+        if self._annotation is not None:
+            return self._annotation
+        self._annotation = Primitive()
+        self._annotation.name = 'Vgg16ImageFeature'
+        self._annotation.task = 'FeatureExtraction'
+        self._annotation.learning_type = ''
+        self._annotation.ml_algorithm = ['Deep Learning']
+        self._annotation.tags = ['feature_extraction' , 'image']
+        return self._annotation

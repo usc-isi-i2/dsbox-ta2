@@ -5,6 +5,8 @@ from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.decomposition import PCA
 from sklearn.cluster import MiniBatchKMeans
 
+from dsbox.planner.levelone import Primitive
+
 import numpy as np
 
 class PcaImageFeature(BaseEstimator, TransformerMixin):
@@ -20,6 +22,7 @@ class PcaImageFeature(BaseEstimator, TransformerMixin):
     def __init__(self, explained_variance=0.9):
         self.explained_variance = explained_variance
         self.pca = None
+        self._annotation = None
 
     def fit(self, image_tensor, y=None):
         """Fit the model with image_tensor.
@@ -37,6 +40,18 @@ class PcaImageFeature(BaseEstimator, TransformerMixin):
         data = image_tensor.reshape(image_tensor.shape[0], -1)
         return self.pca.transform(data)
 
+    def annotation(self):
+        if self._annotation is not None:
+            return self._annotation
+        self._annotation = Primitive()
+        self._annotation.name = 'PcaImageFeature'
+        self._annotation.task = 'FeatureExtraction'
+        self._annotation.learning_type = ''
+        self._annotation.ml_algorithm = ['Dimension Reduction']
+        self._annotation.tags = ['feature_extraction' , 'image']
+        return self._annotation
+
+
 class ColorRegionImageFeature(BaseEstimator, TransformerMixin):
     """
     Image Feature Generation based on color cluster sizes
@@ -49,6 +64,7 @@ class ColorRegionImageFeature(BaseEstimator, TransformerMixin):
     def __init__(self, n_cluster=8):
         self.n_cluster = n_cluster
         self.kmeans = None
+        self._annotation = None
 
     def fit(self, image_tensor, y=None):
         """Fit the model with image_tensor"""
@@ -82,3 +98,14 @@ class ColorRegionImageFeature(BaseEstimator, TransformerMixin):
                 result[4 * j + 1:4 * j + 4] = color
             results.append(result)
         return np.vstack(results)
+
+    def annotation(self):
+        if self._annotation is not None:
+            return self._annotation
+        self._annotation = Primitive()
+        self._annotation.name = 'ColorRegionImageFeature'
+        self._annotation.task = 'FeatureExtraction'
+        self._annotation.learning_type = ''
+        self._annotation.ml_algorithm = ['Clustering']
+        self._annotation.tags = ['feature_extraction' , 'image']
+        return self._annotation
