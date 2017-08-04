@@ -6,7 +6,7 @@ import feature_compute_lfh as fc_lfh
 import feature_compute_hih as fc_hih
 from collections import defaultdict
 
-class Profiler(object):
+class DataProfiler(object):
     """
     Converted the main function of the data profiler into a class
     """

@@ -430,10 +430,10 @@ class LevelOnePlanner(object):
         return similiar_pipelines
 
 def get_d3m_primitives():
-    from dsbox.primitive import DSBOX_PRIMITIVES
+    #from dsbox.primitive import DSBOX_PRIMITIVES
     additional_primitives = []
-    for pclass in DSBOX_PRIMITIVES:
-        additional_primitives.append(pclass().annotation())
+    #for pclass in DSBOX_PRIMITIVES:
+    #    additional_primitives.append(pclass().annotation())
     ps = D3mPrimitives(additional_primitives)
     return ps
 
@@ -486,7 +486,7 @@ def print_stat():
     hierarchies = primitives.get_hierarchies()
 
     for name in Category:
-        hierarchies[name].print()
+        hierarchies[name].pprint()
     print()
     primitives.print_statistics()
 
@@ -530,7 +530,7 @@ def compute_difference():
     pprint.pprint(regression2.difference(regression))
 
 
-if __name__ == "__main__":
-    print_stat()
+#if __name__ == "__main__":
+#    print_stat()
     # pipelines_by_affinity()
-    pipelines_by_hierarchy()
+#    pipelines_by_hierarchy()

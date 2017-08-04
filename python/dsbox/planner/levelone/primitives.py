@@ -41,7 +41,7 @@ class Primitive(object):
 class DSBoxPrimitive(Primitive):
     """A primitive"""
     def __init__(self, definition):
-        super().__init__()
+        super(DSBoxPrimitive, self).__init__()
         self.name = definition['Name']
         self.task = definition['Task']
         self.learning_type = definition['LearningType']
@@ -56,7 +56,7 @@ class DSBoxPrimitive(Primitive):
 class D3mPrimitive(Primitive):
     """Primitive defined using D3M metadata"""
     def __init__(self, definition):
-        super().__init__()
+        super(D3mPrimitive, self).__init__()
         self.name = definition['id'].split('.')[-1]
 
         self.task = ''
@@ -239,7 +239,7 @@ class Hierarchy(object):
     def get_node_by_primitive(self, primitive):
         return self.node_by_primitive[primitive]
 
-    def print(self):
+    def pprint(self):
         """Print hierarchy"""
         print('Hierarchy({}, level_counts={})'.format(self.name, self.get_level_counts()))
         self._print(self.root, [])
@@ -426,7 +426,7 @@ class DSBoxPrimitives(Primitives):
     PRIMITIVE_FILE = 'primitives.json'
 
     def __init__(self):
-        super().__init__()
+        super(DSBoxPrimitives, self).__init__()
         self._load()
         for index, primitive in enumerate(self.primitives):
             self._index[primitive] = index
@@ -485,7 +485,7 @@ class D3mPrimitives(Primitives):
     PRIMITIVE_FILE = 'sklearn.json'
     def __init__(self, additional_primitives):
         # additional_primitives is list of Primitives
-        super().__init__()
+        super(D3mPrimitives, self).__init__()
         self._load()
         if additional_primitives:
             self.primitives += additional_primitives

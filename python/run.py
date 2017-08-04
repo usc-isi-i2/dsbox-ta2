@@ -5,7 +5,7 @@ Entry-point Command Line Interface for running the DSBox TA2 Planner
 import sys
 import os
 import argparse
-import pipeline.planner
+from dsbox.controller import Controller
 
 __all__ = []
 __version__ = 0.1
@@ -40,24 +40,15 @@ def main(argv=None): # IGNORE:C0111
     program_version_message = '%%(prog)s %s (%s)' % (program_version, program_build_date)
     program_shortdesc = __import__('__main__').__doc__.split("\n")[1]
     program_license = '''%s
-
-  Created by Varun Ratnakar on %s.
-  Copyright 2017 USC/ISI. All rights reserved.
-
-  Licensed under the Apache License 2.0
-  http://www.apache.org/licenses/LICENSE-2.0
-
-  Distributed on an "AS IS" basis without warranties
-  or conditions of any kind, either express or implied.
-
 USAGE
-''' % (program_shortdesc, str(__date__))
+''' % program_shortdesc
 
     #try:
     # Setup argument parser
     parser = argparse.ArgumentParser(description=program_license, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("-p", "--problem", dest="problem", help="Problem directory [default: %(default)s]")
-    parser.add_argument("-l", "--library", dest="library", help="Primitives library directory. [default: %(default)s]")
+    parser.add_argument("-p", "--problem", dest="problem", help="Problem directory")
+    parser.add_argument("-l", "--library", dest="library", help="Primitives library directory. [default: %(default)s]", default="library")
+    parser.add_argument("-o", "--output", dest="output", help="Output directory. [default: %(default)s]", default="output")
     parser.add_argument("-v", "--verbose", dest="verbose", action="count", help="set verbosity level [default: %(default)s]")
     parser.add_argument('-V', '--version', action='version', version=program_version_message)
 
@@ -67,12 +58,13 @@ USAGE
     problem = args.problem
     library = args.library
     verbose = args.verbose
+    output = args.output
     
     if verbose > 0:
         print("Verbose mode on")
 
-    planner = pipeline.planner.Planner(problem, library)
-    planner.start()
+    controller = Controller(problem, library, output)
+    controller.start()
 
 '''
     return 0

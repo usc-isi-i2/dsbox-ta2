@@ -1,4 +1,6 @@
-class ProfileConstants(object):
+from enum import Enum
+
+class DataProfileType(Enum):
     '''
     Data profiles
     '''

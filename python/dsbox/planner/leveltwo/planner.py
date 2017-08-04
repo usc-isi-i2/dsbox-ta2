@@ -1,6 +1,6 @@
 from primitives.library import PrimitiveLibrary
-from schema.profile import Profile
-from profiler.data_profiler import Profiler
+from dsbox.schema.data_profile import DataProfile
+from dsbox.profiler.data.data_profiler import DataProfiler
 
 import sys
 import copy
@@ -9,11 +9,8 @@ import itertools
 
 import pandas as pd
 from sklearn.model_selection import cross_val_score
-from numpy import require
-from test.test_sys_setprofile import ProfileSimulator
-import pipes
 
-class L2_Planner(object):
+class LevelTwoPlanner(object):
     """
     The Level-2 DSBox Planner. 
 
@@ -38,7 +35,7 @@ class L2_Planner(object):
 
     
     """
-    Function to expand the pipeline and add "glue" components
+    Function to expand the pipeline and add "glue" primitives
     
     :param pipeline: The input pipeline
     :param profile: The data profile
@@ -50,7 +47,7 @@ class L2_Planner(object):
         if not mod_profile:
             mod_profile = profile
             
-        print "Expanding %s with index %d" % (pipeline , start_index)
+        #print "Expanding %s with index %d" % (pipeline , start_index)
         if start_index >= len(pipeline):
             # Check if there are no issues again
             npipes = self.expand_pipeline(pipeline, profile, mod_profile)
@@ -60,7 +57,7 @@ class L2_Planner(object):
        
         pipelines = []
         issues = self._get_pipeline_issues(pipeline, profile)
-        print "Issues: %s" % issues
+        #print "Issues: %s" % issues
         ok = True
         for index in range(start_index, len(pipeline)):
             primitive = pipeline[index]
@@ -88,7 +85,7 @@ class L2_Planner(object):
             for pipe in pipelines:
                 npipelines.append(
                     self._remove_redundant_processing_primitives(pipe, profile))
-            print "Pipelines: %s " % npipelines
+            #print "Pipelines: %s " % npipelines
             return self._remove_duplicate_pipelines(npipelines)
         else:
             return None
@@ -99,40 +96,37 @@ class L2_Planner(object):
     :param pipeline: The input pipeline to patch & execute
     :param df: The data frame
     :param df_lbl: The labels/targets data frame
-    :param indexcol: The column name that specifies the index in the data frames
     :param metric: The metric to compute after executing    
     :returns: A tuple containing the patched pipeline and the metric score
     """
     # TODO: Currently no patching being done
     def patch_and_execute_pipeline(self, pipeline, df, df_lbl, columns, metric="f1_micro"):
-        print "** Running Pipeline: %s" % pipeline
+        #print "** Running Pipeline: %s" % pipeline
         
         df = copy.deepcopy(df)
-        indexcol = self._get_index_column(columns)
         
         cols = df.columns
-        index = df.index
         
-        accuracy = 0
+        metricvalue = 0
         cachekey = ""
         for primitive in pipeline:
             args = None 
             if primitive.task == "FeatureExtraction":
-                args = {"min_df": 10, "max_features":50}
+                args = {"min_df": 10, "max_features":50} # FIXME: Hack
 
             # TODO: Set some default parameters ?
-            exec_prim = self._instantiate_primitive(primitive, args)
+            primitive.executable = self._instantiate_primitive(primitive, args)
             
-            if not exec_prim:
+            if not primitive.executable:
                 return None
             
             cachekey += ".%s" % primitive
             if cachekey in self.execution_cache:
-                print "Using existing results for %s" % primitive
+                #print "* Using cache for %s" % primitive
                 df = self.execution_cache.get(cachekey)
                 continue;
             
-            print "Executing %s" % primitive.name
+            #print "Executing %s" % primitive.name
             
             try:
                 # TODO: Profile df here. Recheck if it is ok for primitive
@@ -143,9 +137,9 @@ class L2_Planner(object):
                     # TODO: Get feature extraction type (set to "text" here)
                     textcols = self._columns_of_type(columns, "text")
                     for col in textcols:
-                        nvals = exec_prim.fit_transform(df[col])
+                        nvals = primitive.executable.fit_transform(df[col])
                         fcols = [(col.format() + "_" + feature) 
-                                 for feature in exec_prim.get_feature_names()]
+                                 for feature in primitive.executable.get_feature_names()]
                         newdf = pd.DataFrame(nvals.toarray(), 
                                              columns=fcols)
                         del df[col]
@@ -157,37 +151,35 @@ class L2_Planner(object):
                     self.execution_cache[cachekey] = df
                     
                 # If this is a modeling primitive
-                # - we create training/test sets and check the accuracy
+                # - we create training/test sets and check the metricvalue
                 elif primitive.task == "Modeling":
-                    # Remove index columns
-                    df = self._prepare_data_frame(df, indexcol)
-                    df_lbl = self._prepare_data_frame(df_lbl, indexcol)
-    
-                    # Evaluate: Get a cross validation score
-                    scores = cross_val_score(exec_prim, df, df_lbl.values.ravel(), 
+                    # Fit the Model
+                    primitive.executable.fit(df, df_lbl.values.ravel())
+
+                    # Evaluate: Get a cross validation score for the metric
+                    scores = cross_val_score(primitive.executable, df, df_lbl.values.ravel(), 
                                              scoring=metric, cv=5)
     
-                    accuracy = scores.mean()
+                    metricvalue = scores.mean()
                     break
     
                 else:
                     # If this is a non-modeling primitive, do a transformation
                     if primitive.column_primitive:
                         for col in df.columns:
-                            df[col] = exec_prim.fit_transform(df[col])
+                            df[col] = primitive.executable.fit_transform(df[col])
                     else:
-                        df = exec_prim.fit_transform(df)
+                        df = primitive.executable.fit_transform(df)
     
                     df = pd.DataFrame(df)
                     df.columns = cols
-                    df.index = index
                     self.execution_cache[cachekey] = df
             
             except Exception, e:
-                print "ERROR: %s" % e
+                #print "ERROR: %s" % e
                 return None
 
-        return (pipeline, accuracy)
+        return (pipeline, metricvalue)
     
     def _remove_redundant_processing_primitives(self, pipeline, profile):
         curpipe = copy.copy(pipeline)
@@ -283,7 +275,7 @@ class L2_Planner(object):
             itertools.permutations(prim_requirements))
                 
         for requirements in requirement_permutations:
-            print("%s requirement: %s" % (primitive.name, requirements))            
+            #print("%s requirement: %s" % (primitive.name, requirements))            
             xpipe = []
             lst = [xpipe]
             # Fulfill all requirements of the primitive
@@ -292,7 +284,7 @@ class L2_Planner(object):
                 glues = self.glues.getPrimitivesByEffect(requirement, reqvalue)
                 if len(glues) == 1:
                     prim = glues[0]
-                    print("-> Adding one %s" % prim.name)
+                    #print("-> Adding one %s" % prim.name)
                     xpipe.insert(0, prim)
                 elif len(glues) > 1:
                     newlst = []
@@ -300,7 +292,7 @@ class L2_Planner(object):
                         #lst.remove(pipe)
                         for prim in glues:
                             cpipe = copy.deepcopy(pipe)
-                            print("-> Adding %s" % prim.name)
+                            #print("-> Adding %s" % prim.name)
                             cpipe.insert(0, prim)
                             newlst.append(cpipe)
                     lst = newlst
@@ -313,7 +305,7 @@ class L2_Planner(object):
         for primitive in pipeline:
             for effect in primitive.effects.keys():
                 curprofile.profile[effect] = primitive.effects[effect]
-        print ("Predicted profile %s" % curprofile)
+        #print ("Predicted profile %s" % curprofile)
         return curprofile
     
     def _instantiate_primitive(self, primitive, args):
@@ -326,7 +318,7 @@ class L2_Planner(object):
             else:
                 return PrimitiveClass()
         except Exception, e:
-            print "ERROR: %s" % e
+            #print "ERROR: %s" % e
             return None
         
     def _get_data_profile(self, df):
@@ -334,18 +326,6 @@ class L2_Planner(object):
         df_profile = Profile(df_profile_raw)
         return df_profile.profile
     
-    def _prepare_data_frame(self, df, indexcol):
-        df = pd.DataFrame(df, columns = df.columns)
-        if indexcol:
-            df.drop(indexcol, axis=1, inplace=True)
-        return df
-       
-    def _get_index_column(self, columns):
-        for col in columns:
-            if col['varRole'] == 'index':
-                return col['varName']
-        return None
- 
     def _columns_of_type(self, columns, type):
         cols = []
         for c in columns:

@@ -1,6 +1,6 @@
 import json
 import primitive
-from ..schema.constants import ProfileConstants as pc
+from dsbox.schema.profile_schema import DataProfileType as dpt
 
 class PrimitiveLibrary(object):
     """
@@ -29,8 +29,8 @@ class PrimitiveLibrary(object):
         if profile.startswith('!'):
             value = False
             profile = profile[1:]
-        if hasattr(pc, profile):
-            return {getattr(pc, profile): value}    
+        if hasattr(dpt, profile):
+            return {getattr(dpt, profile): value}    
         return None 
             
     def loadjson(self, jsonfile):
