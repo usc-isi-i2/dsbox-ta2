@@ -3,9 +3,9 @@ from primitives.library import PrimitiveLibrary
 
 class LevelOnePlannerProxy(object):
     """
-    The Level-1 DSBox Dummy Planner. 
+    The Level-1 DSBox Proxy Planner. 
 
-    This is here till it is replaced with Ke-Thia's actual L1 Planner
+    This is here to integrate with Ke-Thia's L1 Planner until we come up with a consistent interface
     """    
     def __init__(self, libdir):
         self.models = PrimitiveLibrary(libdir+"/models.json")
