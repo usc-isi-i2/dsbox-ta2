@@ -8,6 +8,7 @@ import pandas as pd
 from dsbox.planner.leveltwo.l1proxy import LevelOnePlannerProxy
 from dsbox.planner.leveltwo.planner import LevelTwoPlanner
 from dsbox.schema.data_profile import DataProfile
+from dsbox.schema import TaskType, TaskSubType
 
 from sklearn.externals import joblib
 
@@ -20,8 +21,12 @@ class Controller(object):
     def __init__(self, directory, libdir, outputdir):
         self.directory = os.path.abspath(directory)
         self.problem = self._load_json(directory + "/problemSchema.json")
-        self.task_type = self.problem['taskType']
-        self.task_subtype = self.problem.get('taskSubType', None)
+        self.task_type = TaskType(self.problem['taskType'])
+        self.task_subtype = None
+        subtype = self.problem.get('taskSubType', None)
+        if subtype:
+            subtype = subtype.replace(self.task_type.value.title(), "")
+            self.task_subtype = TaskSubType(subtype)
         self.metric = self._convert_metric(self.problem.get('metric'))
                 
         self.schema = self._load_json(directory + "/data/dataSchema.json")
@@ -44,7 +49,7 @@ class Controller(object):
         self.logfile = open("%s/log.txt" % self.outputdir, 'w')
         self.pipelinesfile = open("%s/pipelines.txt" % self.outputdir, 'w')
 
-        self.l1_planner = LevelOnePlannerProxy(self.libdir)
+        self.l1_planner = LevelOnePlannerProxy(self.libdir, self.task_type, self.task_subtype)
         self.l2_planner = LevelTwoPlanner(self.libdir)
 
         self.plan_list = []
@@ -53,7 +58,7 @@ class Controller(object):
     def convert_l1_to_l2(self, pipeline):
         pipeline.get_primitives()
 
-    def start(self):
+    def start(self, cutoff=5):
         self.logfile.write("Task type: %s\n" % self.task_type)
         self.logfile.write("Metric: %s\n" % self.metric)
         
@@ -64,47 +69,67 @@ class Controller(object):
         df_profile = self._get_data_profile(df)
         self.logfile.write("Data profile: %s\n" % df_profile)
 
-        l1_pipelines = self.l1_planner.get_pipelines(self.task_type, self.task_subtype, df)
-
-        self.logfile.write("\nL1 Pipelines:\n-------------\n")
-        self.logfile.write("%s\n" % str(l1_pipelines))
-        self.logfile.write("-------------\n")
-                        
-        l2_l1_map = {}
-
-        l2_pipelines = []
-        for l1_pipeline in l1_pipelines:
-            l2_pipeline_list = self.l2_planner.expand_pipeline(l1_pipeline, df_profile)
-            if l2_pipeline_list:
-                for l2_pipeline in l2_pipeline_list:
-                    l2_l1_map[str(l2_pipeline)] = l1_pipeline
-                    l2_pipelines.append(l2_pipeline)
-
-        self.logfile.write("\nL2 Pipelines:\n-------------\n")
-        self.logfile.write("%s\n" % str(l2_pipelines))
-
+        l1_pipelines_handled = {}
+        l1_pipelines = self.l1_planner.get_pipelines(df)
         l2_exec_pipelines = []
-        for l2_pipeline in l2_pipelines:
-            expipe = self.l2_planner.patch_and_execute_pipeline(
-                    l2_pipeline, df, df_lbl, self.columns, self.metric)
-            if expipe:
-                l2_exec_pipelines.append(expipe)
-        
-        l2_exec_pipelines = sorted(l2_exec_pipelines, key=lambda x: -x[1])
-        self.logfile.write("\nL2 Executed Pipelines:\n-------------\n")
-        self.logfile.write("%s\n" % str(l2_exec_pipelines))
 
+        while len(l1_pipelines) > 0:
+            self.logfile.write("\nL1 Pipelines:\n-------------\n")
+            self.logfile.write("%s\n" % str(l1_pipelines))
+            self.logfile.write("-------------\n")
+                            
+            l2_l1_map = {}
+
+            l2_pipelines = []
+            for l1_pipeline in l1_pipelines:
+                l2_pipeline_list = self.l2_planner.expand_pipeline(l1_pipeline, df_profile)
+                l1_pipelines_handled[str(l1_pipeline)] = True
+                if l2_pipeline_list:
+                    for l2_pipeline in l2_pipeline_list:
+                        l2_l1_map[str(l2_pipeline)] = l1_pipeline
+                        l2_pipelines.append(l2_pipeline)
+
+            self.logfile.write("\nL2 Pipelines:\n-------------\n")
+            self.logfile.write("%s\n" % str(l2_pipelines))
+
+            for l2_pipeline in l2_pipelines:
+                expipe = self.l2_planner.patch_and_execute_pipeline(
+                        l2_pipeline, df, df_lbl, self.columns, self.metric)
+                if expipe:
+                    l2_exec_pipelines.append(expipe)
+            
+            l2_exec_pipelines = sorted(l2_exec_pipelines, key=lambda x: -x[1])
+            self.logfile.write("\nL2 Executed Pipelines:\n-------------\n")
+            self.logfile.write("%s\n" % str(l2_exec_pipelines))
+
+            # TODO: Do Pipeline Hyperparameter Tuning
+
+            # Pick top N pipelines, and get similar pipelines to it from the L1 planner to further explore
+            l1_related_pipelines = []
+            for index in range(0, cutoff):
+                if index >= len(l2_exec_pipelines):
+                    break
+                pipeline = l2_l1_map.get(str(l2_exec_pipelines[index][0]))
+                if pipeline:
+                    related_pipelines = self.l1_planner.get_related_pipelines(pipeline)
+                    for related_pipeline in related_pipelines:
+                        if not l1_pipelines_handled.get(str(related_pipeline), False):
+                            l1_related_pipelines.append(related_pipeline)
+
+        
+            self.logfile.write("\nRelated L1 Pipelines to top %d L2 Pipelines:\n-------------\n" % cutoff)
+            self.logfile.write("%s\n" % str(l1_related_pipelines))
+            l1_pipelines = l1_related_pipelines
+
+        # Ended planners
+        
         # Create executables
-        self.pipelinesfile.write("# Pipelines ranked by metric\n")
+        self.pipelinesfile.write("# Pipelines ranked by metric (%s)\n" % self.metric)
         for index in range(0, len(l2_exec_pipelines)):
             pipeline = l2_exec_pipelines[index][0]
             self.pipelinesfile.write("%s : %2.4f\n" % (pipeline, l2_exec_pipelines[index][1]))
             pipeline_name = str(index+1) + "." + str(uuid.uuid1())
             self._create_pipeline_executable(pipeline, pipeline_name)
-
-        #l1_refined_pipelines = self.l1_planner.get_related_pipelines(l2_l1_map.get(str(l2_exec_pipelines[0][0])))
-        #print "\nL1 Refined Pipelines:\n-------------"
-        #print(l2_pipelines)
 
     def _create_pipeline_executable(self, pipeline, pipeid):
         imports = ["sklearn.externals", "pandas"]

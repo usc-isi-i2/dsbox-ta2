@@ -1,5 +1,5 @@
 """
-Entry-point Command Line Interface for running the DSBox TA2 Planner
+Command Line Interface for running the DSBox TA2 Planner
 """
 
 import sys
@@ -56,6 +56,11 @@ USAGE
     args = parser.parse_args()
     
     problem = args.problem
+    if not problem:
+        sys.stderr.write(program_name + ": No problem directory specified\n")
+        sys.stderr.write("  for help use --help\n")
+        exit(1)
+
     library = args.library
     verbose = args.verbose
     output = args.output

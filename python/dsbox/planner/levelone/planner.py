@@ -2,6 +2,7 @@
 """
 #### !!!!
 import sys
+import operator
 sys.path.append('/home/ktyao/dev/dsbox/dsbox-ta2/python')
 
 from dsbox.schema import TaskType, TaskSubType, Metric, VariableFileType
@@ -35,12 +36,23 @@ def random_choices_without_replacement(population, weights, k=1):
     weights = list(weights)
     result = []
     for index in range(k):
-        cum_weights = list(itertools.accumulate(weights))
+        cum_weights = list(accumulate(weights))
         total = cum_weights[-1]
         i = bisect.bisect(cum_weights, random.random() * total)
         result.append(population[i])
         weights[i] = 0
     return result
+
+def accumulate(iterable, func=operator.add):
+    it = iter(iterable)
+    try:
+        total = next(it)
+    except StopIteration:
+        return
+    yield total
+    for element in it:
+        total = func(total, element)
+        yield total
 
 class Ontology(object):
     """Primitve ontology"""

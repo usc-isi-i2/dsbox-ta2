@@ -7,13 +7,13 @@ class LevelOnePlannerProxy(object):
 
     This is here to integrate with Ke-Thia's L1 Planner until we come up with a consistent interface
     """    
-    def __init__(self, libdir):
+    def __init__(self, libdir, task_type, task_subtype):
         self.models = PrimitiveLibrary(libdir+"/models.json")
         self.features = PrimitiveLibrary(libdir+"/features.json")
 
         self.primitives = get_d3m_primitives()
         self.policy = AffinityPolicy(self.primitives)
-        self.l1_planner = LevelOnePlanner(primitives=self.primitives, policy=self.policy)
+        self.l1_planner = LevelOnePlanner(primitives=self.primitives, policy=self.policy, task_type=task_type, task_subtype=task_subtype)
 
         self.model_hash = {}
         for model in self.models.primitives:
@@ -21,9 +21,9 @@ class LevelOnePlannerProxy(object):
 
         self.pipeline_hash = {}
         
-    def get_pipelines(self, problemtype, subtype, data):
+    def get_pipelines(self, data):
         pipelines = []
-        l1_pipelines = self.l1_planner.generate_pipelines_with_hierarchy(level=3)
+        l1_pipelines = self.l1_planner.generate_pipelines_with_hierarchy(level=1)
         for l1_pipeline in l1_pipelines:
             pipeline = self.l1_to_proxy_pipeline(l1_pipeline)
             if pipeline:

@@ -176,7 +176,7 @@ class LevelTwoPlanner(object):
                     self.execution_cache[cachekey] = df
             
             except Exception, e:
-                #print "ERROR: %s" % e
+                print "ERROR: %s" % e
                 return None
 
         return (pipeline, metricvalue)
@@ -318,7 +318,7 @@ class LevelTwoPlanner(object):
             else:
                 return PrimitiveClass()
         except Exception, e:
-            #print "ERROR: %s" % e
+            print "ERROR: %s" % e
             return None
         
     def _get_data_profile(self, df):
