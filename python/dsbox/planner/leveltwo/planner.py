@@ -1,6 +1,7 @@
-from primitives.library import PrimitiveLibrary
+from .primitives.library import PrimitiveLibrary
 from dsbox.schema.data_profile import DataProfile
 from dsbox.profiler.data.data_profiler import DataProfiler
+from dsbox.schema import TaskType
 
 import sys
 import copy
@@ -9,44 +10,46 @@ import itertools
 
 import pandas as pd
 from sklearn.model_selection import cross_val_score
+from sklearn.linear_model import LinearRegression, LogisticRegression
+from sklearn.metrics import make_scorer
 
 class LevelTwoPlanner(object):
     """
-    The Level-2 DSBox Planner. 
+    The Level-2 DSBox Planner.
 
-    The function "expand_pipeline" is used to expand a Level 1 Pipeline (which 
-    contains modeling and possibly featurization steps) into a "Level 2 pipeline" 
-    that can be executed by making sure that the provided data satisfies preconditions 
-    of steps. This is done by inserting "Glue" or "PreProcessing" primitives into 
+    The function "expand_pipeline" is used to expand a Level 1 Pipeline (which
+    contains modeling and possibly featurization steps) into a "Level 2 pipeline"
+    that can be executed by making sure that the provided data satisfies preconditions
+    of steps. This is done by inserting "Glue" or "PreProcessing" primitives into
     the pipeline.
-    
+
     The function "patch_and_execute_pipeline" is used to execute a Level 2 Pipeline
     and while executing ensure that the intermediate data that is produced does indeed
-    match the data profile that was expected in the "expand_pipeline" function. If it 
+    match the data profile that was expected in the "expand_pipeline" function. If it
     does not match, then some more "glue" components are patched in to ensure compliance
-    with primitive preconditions. The result of this function is a list of 
+    with primitive preconditions. The result of this function is a list of
     (patched_pipeline, metric_value) tuples. The metric_value is the value of the type of
-    metric that is passed to the function. Examples are "accuracy", "f1_macro", etc. 
+    metric that is passed to the function. Examples are "accuracy", "f1_macro", etc.
     """
-        
+
     def __init__(self, libdir):
         self.glues = PrimitiveLibrary(libdir+"/glue.json")
         self.execution_cache = {}
 
-    
+
     """
     Function to expand the pipeline and add "glue" primitives
-    
+
     :param pipeline: The input pipeline
     :param profile: The data profile
     :param mod_profile: The modified data profile
     :param index: Specifies from where to start expanding the pipeline (default 0)
     :returns: A list of expanded pipelines
-    """    
+    """
     def expand_pipeline(self, pipeline, profile, mod_profile=None, start_index=0):
         if not mod_profile:
             mod_profile = profile
-            
+
         #print "Expanding %s with index %d" % (pipeline , start_index)
         if start_index >= len(pipeline):
             # Check if there are no issues again
@@ -54,7 +57,7 @@ class LevelTwoPlanner(object):
             if npipes and len(npipes) > 0:
                 return npipes
             return None
-       
+
         pipelines = []
         issues = self._get_pipeline_issues(pipeline, profile)
         #print "Issues: %s" % issues
@@ -66,7 +69,7 @@ class LevelTwoPlanner(object):
                 ok = False
                 # There are some unresolved issues with this primitive
                 # Try to resolve it
-                subpipes = self._create_subpipelines(primitive, issue)          
+                subpipes = self._create_subpipelines(primitive, issue)
                 for subpipe in subpipes:
                     ok = True
                     l2_pipeline = copy.deepcopy(pipeline)
@@ -92,64 +95,73 @@ class LevelTwoPlanner(object):
 
     """
     Function to patch the pipeline if needed, and execute it
-    
+
     :param pipeline: The input pipeline to patch & execute
     :param df: The data frame
     :param df_lbl: The labels/targets data frame
-    :param metric: The metric to compute after executing    
+    :param metric: The metric to compute after executing
     :returns: A tuple containing the patched pipeline and the metric score
     """
     # TODO: Currently no patching being done
-    def patch_and_execute_pipeline(self, pipeline, df, df_lbl, columns, metric="f1_micro"):
+    def patch_and_execute_pipeline(self, pipeline, df, df_lbl, columns, task_type, metric="f1_micro"):
         #print "** Running Pipeline: %s" % pipeline
-        
+
         df = copy.deepcopy(df)
-        
+
         cols = df.columns
-        
+
         metricvalue = 0
         cachekey = ""
         for primitive in pipeline:
-            args = None 
-            if primitive.task == "FeatureExtraction":
-                args = {"min_df": 10, "max_features":50} # FIXME: Hack
+            args = []
+            kwargs = {}
+
+            # if primitive.task == "FeatureExtraction":
+            #     kwargs = {"min_df": 10, "max_features":50} # FIXME: Hack
+            if primitive.getInitKeywordArgs():
+                kwargs = self._process_kwargs(primitive.getInitKwargs(), task_type, metric)
+                # print("Init keywords: {}".format(kwargs))
+
+            if primitive.getInitArgs():
+                args = self._process_args(primitive.getInitArgs(), task_type, metric)
+                # print("Init args: {}".format(args))
 
             # TODO: Set some default parameters ?
-            primitive.executable = self._instantiate_primitive(primitive, args)
-            
+            primitive.executable = self._instantiate_primitive(primitive, args, kwargs)
+
             if not primitive.executable:
                 return None
-            
+
             cachekey += ".%s" % primitive
             if cachekey in self.execution_cache:
                 #print "* Using cache for %s" % primitive
                 df = self.execution_cache.get(cachekey)
                 continue;
-            
+
             #print "Executing %s" % primitive.name
-            
+
             try:
                 # TODO: Profile df here. Recheck if it is ok for primitive
                 #       and patch a component here if necessary
-                
+
                 if primitive.task == "FeatureExtraction":
                     ncols = [col.format() for col in cols]
                     # TODO: Get feature extraction type (set to "text" here)
                     textcols = self._columns_of_type(columns, "text")
                     for col in textcols:
                         nvals = primitive.executable.fit_transform(df[col])
-                        fcols = [(col.format() + "_" + feature) 
+                        fcols = [(col.format() + "_" + feature)
                                  for feature in primitive.executable.get_feature_names()]
-                        newdf = pd.DataFrame(nvals.toarray(), 
+                        newdf = pd.DataFrame(nvals.toarray(),
                                              columns=fcols)
                         del df[col]
                         ncols = ncols + fcols
-                        ncols.remove(col)               
+                        ncols.remove(col)
                         df = pd.concat([df, newdf], axis=1)
                         df.columns=ncols
                     cols = df.columns
                     self.execution_cache[cachekey] = df
-                    
+
                 # If this is a modeling primitive
                 # - we create training/test sets and check the metricvalue
                 elif primitive.task == "Modeling":
@@ -157,30 +169,30 @@ class LevelTwoPlanner(object):
                     primitive.executable.fit(df, df_lbl.values.ravel())
 
                     # Evaluate: Get a cross validation score for the metric
-                    scores = cross_val_score(primitive.executable, df, df_lbl.values.ravel(), 
+                    scores = cross_val_score(primitive.executable, df, df_lbl.values.ravel(),
                                              scoring=metric, cv=5)
-    
+
                     metricvalue = scores.mean()
                     break
-    
+
                 else:
                     # If this is a non-modeling primitive, do a transformation
                     if primitive.column_primitive:
                         for col in df.columns:
                             df[col] = primitive.executable.fit_transform(df[col])
                     else:
-                        df = primitive.executable.fit_transform(df)
-    
+                        df = primitive.executable.fit_transform(df, df_lbl)
+
                     df = pd.DataFrame(df)
                     df.columns = cols
                     self.execution_cache[cachekey] = df
-            
-            except Exception, e:
-                print "ERROR: %s" % e
+
+            except Exception as e:
+                print("ERROR patch_and_execute_pipeline: %s" % e)
                 return None
 
         return (pipeline, metricvalue)
-    
+
     def _remove_redundant_processing_primitives(self, pipeline, profile):
         curpipe = copy.copy(pipeline)
         length = len(curpipe)-1
@@ -188,13 +200,13 @@ class LevelTwoPlanner(object):
         #print "Checking redundancy for %s" % pipeline
         while index <= length:
             prim = curpipe.pop(index)
-            #print "%s / %s: %s" % (index, length, prim)            
+            #print "%s / %s: %s" % (index, length, prim)
             if prim.task == "PreProcessing":
                 issues = self._get_pipeline_issues(curpipe, profile)
                 ok = True
                 for issue in issues:
                     if len(issue):
-                        ok = False 
+                        ok = False
                 if ok:
                     #print "Reduction achieved"
                     # Otherwise reduce the length (and don't increment index)
@@ -202,12 +214,12 @@ class LevelTwoPlanner(object):
                     continue
 
             curpipe[index:index] = [prim]
-            #print curpipe                    
+            #print curpipe
             index += 1
-    
+
         #print "Returning %s" % curpipe
         return curpipe
-            
+
     def _remove_duplicate_pipelines(self, pipelines):
         pipes = []
         pipehash = {}
@@ -220,7 +232,7 @@ class LevelTwoPlanner(object):
         for pipe in pipeset:
             pipes.append(pipehash[pipe])
         return pipes
-    
+
     def _get_pipeline_issues(self, pipeline, profile):
         unmet_requirements = []
         profiles = self._get_predicted_data_profiles(pipeline, profile)
@@ -236,10 +248,10 @@ class LevelTwoPlanner(object):
                     unmet[requirement] = reqvalue
             unmet_requirements.append(unmet)
         return unmet_requirements
-                
+
     def _get_predicted_data_profiles(self, pipeline, profile):
         curprofile = copy.deepcopy(profile)
-        profiles = [curprofile]        
+        profiles = [curprofile]
         for index in range(0, len(pipeline)-1):
             primitive = pipeline[index]
             nprofile = copy.deepcopy(curprofile)
@@ -248,7 +260,7 @@ class LevelTwoPlanner(object):
             profiles.append(nprofile)
             curprofile = nprofile
         return profiles
-    
+
     def _get_pipeline_requirements(self, pipeline):
         requirements = [];
         effects = [];
@@ -264,18 +276,18 @@ class LevelTwoPlanner(object):
                     last_prim = pipeline[oldindex]
                     for effect in last_prim.effects.keys():
                         prim_requirements[effect] = last_prim.effects[effect]
-                                    
+
             requirements.append(prim_requirements)
         return requirements
 
     def _create_subpipelines(self, primitive, prim_requirements):
         mainlst = []
-        
+
         requirement_permutations = list(
             itertools.permutations(prim_requirements))
-                
+
         for requirements in requirement_permutations:
-            #print("%s requirement: %s" % (primitive.name, requirements))            
+            #print("%s requirement: %s" % (primitive.name, requirements))
             xpipe = []
             lst = [xpipe]
             # Fulfill all requirements of the primitive
@@ -298,8 +310,8 @@ class LevelTwoPlanner(object):
                     lst = newlst
             mainlst += lst
 
-        return mainlst    
-    
+        return mainlst
+
     def _predict_profile(self, pipeline, profile):
         curprofile = copy.deepcopy(profile)
         for primitive in pipeline:
@@ -307,32 +319,67 @@ class LevelTwoPlanner(object):
                 curprofile.profile[effect] = primitive.effects[effect]
         #print ("Predicted profile %s" % curprofile)
         return curprofile
-    
-    def _instantiate_primitive(self, primitive, args):
+
+    def _instantiate_primitive(self, primitive, args, kwargs):
         mod, cls = primitive.cls.rsplit('.', 1)
-        try:        
+
+        try:
             module = importlib.import_module(mod)
             PrimitiveClass = getattr(module, cls)
-            if args:
-                return PrimitiveClass(**args)
-            else:
-                return PrimitiveClass()
-        except Exception, e:
-            print "ERROR: %s" % e
+            return PrimitiveClass(*args, **kwargs)
+        except Exception as e:
+            print("ERROR _instantiate_primitive %s: %s" % (primitive, e))
             return None
-        
+
     def _get_data_profile(self, df):
         df_profile_raw = Profiler(df)
         df_profile = Profile(df_profile_raw)
         return df_profile.profile
-    
+
     def _columns_of_type(self, columns, type):
         cols = []
         for c in columns:
             if c['varType'] == type:
                 cols.append(c['varName'])
-        return cols 
-    
+        return cols
+
+    def _process_args(self, args, task_type, metric):
+        result_args = []
+        for arg in args:
+            if isinstance(arg, str) and arg.startswith('*'):
+                result_args.append(self._get_arg_value(arg, task_type, metric))
+            else:
+                result_args.append(arg)
+        return result_args
+
+    def _process_kwargs(self, kwargs, task_type, metric):
+        result_kwargs = {}
+        for key, arg in kwargs.items():
+            if isinstance(arg, str) and arg.startswith('*'):
+                result_kwargs[key] = self._get_arg_value(arg, task_type, metric)
+            else:
+                result_kwargs[key] = arg
+        return result_kwargs
+
+    def _get_arg_value(self, arg_specification, task_type, metric):
+        if not arg_specification.startswith('*'):
+            return arg_specification
+        arg_specification = arg_specification[1:]
+        if arg_specification == "SCORER":
+            return make_scorer(metric, greater_is_better=True)
+        elif arg_specification == "LOSS":
+            return make_scorer(metric, greater_is_better=False)
+        elif arg_specification == "ESTIMATOR":
+            if task_type == TaskType.CLASSIFICATION:
+                return LogisticRegression()
+            elif task_type == TaskType.REGRESSION:
+                return LinearRegression
+            else:
+                raise Exception("Not yet implemented: Arg specification ESTIMATOR task type: {}"
+                                .format(task_type))
+        else:
+            raise Exception("Unkown Arg specification: {}".format(arg_specification))
+
     '''
     def _get_train_test(self, df, indexcol):
         train, test = train_test_split(df, test_size=0.2, random_state=42)
@@ -342,4 +389,3 @@ class LevelTwoPlanner(object):
         test_df.drop(indexcol, axis=1, inplace=True)
         return (train_df, test_df)
     '''
-  

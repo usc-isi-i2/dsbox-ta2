@@ -23,5 +23,14 @@
 		"LearningType": "Imputation",
 		"Requirements": ["NUMERICAL", "MISSING_VALUES"],
 		"Effects": ["!MISSING_VALUES"]
+	},
+	{
+		"Class": "dsbox.datapreprocessing.cleaner.Imputation",
+		"Name": "Imputation",
+		"Task": "PreProcessing",
+	        "LearningType": "Imputation",
+	        "InitArguments" : ["*ESTIMATOR", "*SCORER"],
+		"Requirements": ["NUMERICAL", "MISSING_VALUES"],
+		"Effects": ["!MISSING_VALUES"]
 	}
 ]
