@@ -4,7 +4,7 @@ from keras.preprocessing import image
 from sklearn.svm import SVR
 from sklearn.tree import DecisionTreeRegressor
 from sklearn import preprocessing
-from dsbox.primitive import ResNet50ImageFeature, Vgg16ImageFeature
+from dsbox.custom_primitives.feature import ResNet50ImageFeature, Vgg16ImageFeature
 import csv
 import numpy as np
 import os

@@ -2,6 +2,11 @@
 Command Line Interface for running the DSBox TA2 Planner
 """
 
+# Setup path before loading any dsbox.* packages. Or, alternatively
+# use ../dsbox-dev-setup.sh to setup PYTHONPATH.
+from dsbox_dev_setup import path_setup
+path_setup()
+
 import sys
 import os
 import argparse
@@ -54,7 +59,7 @@ USAGE
 
     # Process arguments
     args = parser.parse_args()
-    
+
     problem = args.problem
     if not problem:
         sys.stderr.write(program_name + ": No problem directory specified\n")
@@ -64,7 +69,7 @@ USAGE
     library = args.library
     verbose = args.verbose
     output = args.output
-    
+
     if verbose > 0:
         print("Verbose mode on")
 

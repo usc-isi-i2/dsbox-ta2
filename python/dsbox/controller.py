@@ -28,15 +28,15 @@ class Controller(object):
             subtype = subtype.replace(self.task_type.value.title(), "")
             self.task_subtype = TaskSubType(subtype)
         self.metric = self._convert_metric(self.problem.get('metric'))
-                
+
         self.schema = self._load_json(directory + "/data/dataSchema.json")
         self.targets = self.schema['trainData']['trainTargets']
-        self.columns = self.schema['trainData']['trainData']        
+        self.columns = self.schema['trainData']['trainData']
         self.indexcol = self._get_index_column(self.columns)
-                
-        self.train_data = self._read_data(directory +'/data/trainData.csv.gz', 
+
+        self.train_data = self._read_data(directory +'/data/trainData.csv.gz',
                                          self.columns, self.indexcol)
-        self.train_labels = self._read_data(directory +'/data/trainTargets.csv.gz', 
+        self.train_labels = self._read_data(directory +'/data/trainTargets.csv.gz',
                                            self.targets, self.indexcol)
 
         self.libdir = os.path.abspath(libdir)
@@ -53,19 +53,19 @@ class Controller(object):
         self.l2_planner = LevelTwoPlanner(self.libdir)
 
         self.plan_list = []
-    
-    
+
+
     def convert_l1_to_l2(self, pipeline):
         pipeline.get_primitives()
 
     def start(self, cutoff=5):
         self.logfile.write("Task type: %s\n" % self.task_type)
         self.logfile.write("Metric: %s\n" % self.metric)
-        
+
         # Get data details
         df = pd.DataFrame(self.train_data, columns = self.train_data.columns)
         df_lbl = pd.DataFrame(self.train_labels, columns = self.train_labels.columns)
-        
+
         df_profile = self._get_data_profile(df)
         self.logfile.write("Data profile: %s\n" % df_profile)
 
@@ -77,7 +77,7 @@ class Controller(object):
             self.logfile.write("\nL1 Pipelines:\n-------------\n")
             self.logfile.write("%s\n" % str(l1_pipelines))
             self.logfile.write("-------------\n")
-                            
+
             l2_l1_map = {}
 
             l2_pipelines = []
@@ -94,10 +94,10 @@ class Controller(object):
 
             for l2_pipeline in l2_pipelines:
                 expipe = self.l2_planner.patch_and_execute_pipeline(
-                        l2_pipeline, df, df_lbl, self.columns, self.metric)
+                        l2_pipeline, df, df_lbl, self.columns, self.task_type, self.metric)
                 if expipe:
                     l2_exec_pipelines.append(expipe)
-            
+
             l2_exec_pipelines = sorted(l2_exec_pipelines, key=lambda x: -x[1])
             self.logfile.write("\nL2 Executed Pipelines:\n-------------\n")
             self.logfile.write("%s\n" % str(l2_exec_pipelines))
@@ -116,13 +116,13 @@ class Controller(object):
                         if not l1_pipelines_handled.get(str(related_pipeline), False):
                             l1_related_pipelines.append(related_pipeline)
 
-        
+
             self.logfile.write("\nRelated L1 Pipelines to top %d L2 Pipelines:\n-------------\n" % cutoff)
             self.logfile.write("%s\n" % str(l1_related_pipelines))
             l1_pipelines = l1_related_pipelines
 
         # Ended planners
-        
+
         # Create executables
         self.pipelinesfile.write("# Pipelines ranked by metric (%s)\n" % self.metric)
         for index in range(0, len(l2_exec_pipelines)):
@@ -166,10 +166,12 @@ class Controller(object):
             return d
 
     def _read_data(self, csvfile, cols, indexcol):
+        if not os.path.exists(csvfile) and csvfile.endswith('.gz'):
+            csvfile = csvfile[:-3]
         df = pd.read_csv(csvfile, index_col=indexcol)
         for col in cols:
             colname = col['varName']
-            if col['varRole'] == 'file':            
+            if col['varRole'] == 'file':
                 for index, row in df.iterrows():
                     filename = row[colname]
                     with open(self.directory + '/data/raw_data/' + filename, 'r') as myfile:
@@ -177,7 +179,7 @@ class Controller(object):
                         df.set_value(index, colname, txt)
 
         return df
-        
+
     def _convert_metric(self, metric):
         metric = metric.lower()
         if metric != "f1" and metric[0:2] == "f1":
@@ -187,10 +189,10 @@ class Controller(object):
         elif metric == "rootmeansquarederror":
             metric = "neg_mean_squared_error" # FIXME
         return metric
-        
+
     def _get_data_profile(self, df):
         return DataProfile(df)
-    
+
     def _get_index_column(self, columns):
         for col in columns:
             if col['varRole'] == 'index':
