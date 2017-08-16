@@ -8,8 +8,10 @@ class Primitive(object):
         self.cls = cls
         self.task = None
         self.type = None
+        self.executable = None
         self.preconditions = {}
         self.effects = {}
+        self.is_persistent = True
         self.column_primitive = False
         self.init_args = []
         self.init_kwargs = {}

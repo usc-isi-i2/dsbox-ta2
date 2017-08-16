@@ -13,6 +13,7 @@
 		"Task": "PreProcessing",
 		"LearningType": "Encoding",
 		"RequiresColumnData": true,
+		"NotPersistent": true,
 		"Requirements": ["!NUMERICAL"],
 		"Effects": ["NUMERICAL"]
 	},
@@ -21,15 +22,7 @@
 		"Name": "Imputer",
 		"Task": "PreProcessing",
 		"LearningType": "Imputation",
-		"Requirements": ["NUMERICAL", "MISSING_VALUES"],
-		"Effects": ["!MISSING_VALUES"]
-	},
-	{
-		"Class": "dsbox.datapreprocessing.cleaner.Imputation",
-		"Name": "Imputation",
-		"Task": "PreProcessing",
-	        "LearningType": "Imputation",
-	        "InitArguments" : ["*ESTIMATOR", "*SCORER"],
+		"NotPersistent": true,
 		"Requirements": ["NUMERICAL", "MISSING_VALUES"],
 		"Effects": ["!MISSING_VALUES"]
 	}

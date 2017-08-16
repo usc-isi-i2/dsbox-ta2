@@ -1,15 +1,18 @@
 import os
+import sys
 import os.path
-import json
 import uuid
+import math
 import shutil
 import pandas as pd
 
 from dsbox.planner.leveltwo.l1proxy import LevelOnePlannerProxy
 from dsbox.planner.leveltwo.planner import LevelTwoPlanner
 from dsbox.schema.data_profile import DataProfile
-from dsbox.schema import TaskType, TaskSubType
+from dsbox.schema import TaskType, TaskSubType, Metric
+from dsbox.executer.helper import ExecutionHelper
 
+import sklearn.metrics
 from sklearn.externals import joblib
 
 class Controller(object):
@@ -20,23 +23,30 @@ class Controller(object):
     """
     def __init__(self, directory, libdir, outputdir):
         self.directory = os.path.abspath(directory)
-        self.problem = self._load_json(directory + "/problemSchema.json")
+        self.helper = ExecutionHelper(directory, outputdir)
+
+        self.problem = self.helper.load_json(directory + "/problemSchema.json")
         self.task_type = TaskType(self.problem['taskType'])
         self.task_subtype = None
         subtype = self.problem.get('taskSubType', None)
         if subtype:
             subtype = subtype.replace(self.task_type.value.title(), "")
             self.task_subtype = TaskSubType(subtype)
-        self.metric = self._convert_metric(self.problem.get('metric'))
 
-        self.schema = self._load_json(directory + "/data/dataSchema.json")
-        self.targets = self.schema['trainData']['trainTargets']
-        self.columns = self.schema['trainData']['trainData']
-        self.indexcol = self._get_index_column(self.columns)
+        metricstr = self.problem.get('metric', 'accuracy')
+        metricstr = metricstr[0].lower() + metricstr[1:]
+        self.metric = Metric(metricstr)
+        self.metric_function = self._get_metric_function(self.metric)
 
-        self.train_data = self._read_data(directory +'/data/trainData.csv.gz',
+        self.schema = self.helper.schema
+        self.columns = self.helper.columns
+        self.targets = self.helper.targets
+        self.indexcol = self.helper.indexcol
+        self.media_type = self.helper.media_type
+
+        self.train_data = self.helper.read_data(directory +'/data/trainData.csv.gz',
                                          self.columns, self.indexcol)
-        self.train_labels = self._read_data(directory +'/data/trainTargets.csv.gz',
+        self.train_labels = self.helper.read_data(directory +'/data/trainTargets.csv.gz',
                                            self.targets, self.indexcol)
 
         self.libdir = os.path.abspath(libdir)
@@ -47,20 +57,27 @@ class Controller(object):
         os.makedirs(self.outputdir+"/executables")
 
         self.logfile = open("%s/log.txt" % self.outputdir, 'w')
+        self.errorfile = open("%s/stderr.txt" % self.outputdir, 'w')
         self.pipelinesfile = open("%s/pipelines.txt" % self.outputdir, 'w')
 
-        self.l1_planner = LevelOnePlannerProxy(self.libdir, self.task_type, self.task_subtype)
-        self.l2_planner = LevelTwoPlanner(self.libdir)
+        # Redirect stderr to error file
+        sys.stderr = self.errorfile
 
-        self.plan_list = []
-
+        self.l1_planner = LevelOnePlannerProxy(self.libdir, self.task_type, self.task_subtype, self.media_type)
+        self.l2_planner = LevelTwoPlanner(self.libdir, self.helper)
 
     def convert_l1_to_l2(self, pipeline):
         pipeline.get_primitives()
 
-    def start(self, cutoff=5):
+    def show_status(self, status):
+        sys.stdout.write("%s\n" % status)
+        sys.stdout.flush()
+
+    def start(self, cutoff=10):
         self.logfile.write("Task type: %s\n" % self.task_type)
         self.logfile.write("Metric: %s\n" % self.metric)
+
+        self.show_status("Planning...")
 
         # Get data details
         df = pd.DataFrame(self.train_data, columns = self.train_data.columns)
@@ -70,6 +87,7 @@ class Controller(object):
         self.logfile.write("Data profile: %s\n" % df_profile)
 
         l1_pipelines_handled = {}
+        l2_pipelines_handled = {}
         l1_pipelines = self.l1_planner.get_pipelines(df)
         l2_exec_pipelines = []
 
@@ -80,25 +98,34 @@ class Controller(object):
 
             l2_l1_map = {}
 
+            self.show_status("Exploring %d basic pipeline(s)..." % len(l1_pipelines))
+
             l2_pipelines = []
             for l1_pipeline in l1_pipelines:
+                if l1_pipelines_handled.get(str(l1_pipeline), False):
+                    continue
                 l2_pipeline_list = self.l2_planner.expand_pipeline(l1_pipeline, df_profile)
                 l1_pipelines_handled[str(l1_pipeline)] = True
                 if l2_pipeline_list:
                     for l2_pipeline in l2_pipeline_list:
-                        l2_l1_map[str(l2_pipeline)] = l1_pipeline
-                        l2_pipelines.append(l2_pipeline)
+                        if not l2_pipelines_handled.get(str(l2_pipeline), False):
+                            l2_l1_map[str(l2_pipeline)] = l1_pipeline
+                            l2_pipelines.append(l2_pipeline)
 
             self.logfile.write("\nL2 Pipelines:\n-------------\n")
             self.logfile.write("%s\n" % str(l2_pipelines))
 
+            self.show_status("Found %d executable pipeline(s). Testing them..." % len(l2_pipelines))
+
             for l2_pipeline in l2_pipelines:
                 expipe = self.l2_planner.patch_and_execute_pipeline(
-                        l2_pipeline, df, df_lbl, self.columns, self.task_type, self.metric)
+                        l2_pipeline, df, df_lbl, self.columns, self.task_type, self.metric, self.metric_function)
+                l2_pipelines_handled[str(l2_pipeline)] = True
                 if expipe:
                     l2_exec_pipelines.append(expipe)
 
-            l2_exec_pipelines = sorted(l2_exec_pipelines, key=lambda x: -x[1])
+            l2_exec_pipelines = sorted(l2_exec_pipelines, key=lambda x: self._sort_by_metric(x))
+
             self.logfile.write("\nL2 Executed Pipelines:\n-------------\n")
             self.logfile.write("%s\n" % str(l2_exec_pipelines))
 
@@ -122,6 +149,7 @@ class Controller(object):
             l1_pipelines = l1_related_pipelines
 
         # Ended planners
+        self.show_status("Found total %d successfully executing pipeline(s)..." % len(l2_exec_pipelines))
 
         # Create executables
         self.pipelinesfile.write("# Pipelines ranked by metric (%s)\n" % self.metric)
@@ -129,77 +157,64 @@ class Controller(object):
             pipeline = l2_exec_pipelines[index][0]
             self.pipelinesfile.write("%s : %2.4f\n" % (pipeline, l2_exec_pipelines[index][1]))
             pipeline_name = str(index+1) + "." + str(uuid.uuid1())
-            self._create_pipeline_executable(pipeline, pipeline_name)
+            self.helper.create_pipeline_executable(pipeline, pipeline_name)
 
-    def _create_pipeline_executable(self, pipeline, pipeid):
-        imports = ["sklearn.externals", "pandas"]
-        statements = ["", "# Pipeline : %s" % str(pipeline), ""]
-        statements.append("testdata = pandas.read_csv('%s/data/testData.csv.gz', index_col='%s')" % (self.directory, self.indexcol))
-        index = 1
-        for primitive in pipeline:
-            primid = "primitive_%s" % str(index)
-            mod, cls = primitive.cls.rsplit('.', 1)
-            imports.append(mod)
-            if primitive.task == "Modeling":
-                statements.append("%s = sklearn.externals.joblib.load('%s/models/%s.pkl')" % (primid, self.outputdir, pipeid))
-                joblib.dump(primitive.executable, "%s/models/%s.pkl" % (self.outputdir, pipeid))
-                statements.append("print %s.predict(testdata)" % primid)
-            if primitive.task == "PreProcessing":
-                statements.append("%s = %s()" % (primid, primitive.cls))
-                if primitive.column_primitive:
-                    statements.append("for col in testdata.columns:")
-                    statements.append("    testdata[col] = %s.fit_transform(testdata[col])" % primid)
-                else:
-                    statements.append("testdata = %s.fit_transform(testdata)" % primid)
-            index += 1
+    def _sort_by_metric(self, pipeline):
+        if "error" in self.metric.value.lower():
+            return pipeline[1]
+        return -pipeline[1]
 
-        with open("%s/executables/%s.py" % (self.outputdir, pipeid), 'a') as exfile:
-            for imp in set(imports):
-                exfile.write("import %s\n" % imp)
-            for st in statements:
-                exfile.write(st+"\n")
-
-    def _load_json(self, jsonfile):
-        with open(jsonfile) as json_data:
-            d = json.load(json_data)
-            json_data.close()
-            return d
-
-    def _read_data(self, csvfile, cols, indexcol):
-        if not os.path.exists(csvfile) and csvfile.endswith('.gz'):
-            csvfile = csvfile[:-3]
-        df = pd.read_csv(csvfile, index_col=indexcol)
-        for col in cols:
-            colname = col['varName']
-            if col['varRole'] == 'file':
-                for index, row in df.iterrows():
-                    filename = row[colname]
-                    with open(self.directory + '/data/raw_data/' + filename, 'r') as myfile:
-                        txt = myfile.read()
-                        df.set_value(index, colname, txt)
-
-        return df
-
-    def _convert_metric(self, metric):
-        metric = metric.lower()
-        if metric != "f1" and metric[0:2] == "f1":
-            metric = "f1_" + metric[2:]
-        elif metric == "meansquarederror":
-            metric = "neg_mean_squared_error" # FIXME
-        elif metric == "rootmeansquarederror":
-            metric = "neg_mean_squared_error" # FIXME
-        return metric
+    def _get_metric_function(self, metric):
+        if metric==Metric.ACCURACY:
+            return sklearn.metrics.accuracy_score
+        elif metric==Metric.F1:
+            return sklearn.metrics.f1_score
+        elif metric==Metric.F1_MICRO:
+            return self.f1_micro
+        elif metric==Metric.F1_MACRO:
+            return self.f1_macro
+        elif metric==Metric.ROC_AUC:
+            return sklearn.metrics.roc_auc_score
+        elif metric==Metric.ROC_AUC_MICRO:
+            return self.roc_auc_micro
+        elif metric==Metric.ROC_AUC_MACRO:
+            return self.roc_auc_macro
+        elif metric==Metric.ROOT_MEAN_SQUARED_ERROR:
+            return self.root_mean_squared_error
+        elif metric==Metric.ROOT_MEAN_SQUARED_ERROR_AVG:
+            return self.root_mean_squared_error
+        elif metric==Metric.MEAN_ABSOLUTE_ERROR:
+            return sklearn.metrics.mean_absolute_error
+        elif metric==Metric.R_SQUARED:
+            return sklearn.metrics.r2_score
+        elif metric==Metric.NORMALIZED_MUTUAL_INFORMATION:
+            return sklearn.metrics.normalized_mutual_info_score
+        elif metric==Metric.JACCARD_SIMILARITY_SCORE:
+            return sklearn.metrics.jaccard_similarity_score
+        return sklearn.metrics.accuracy_score
 
     def _get_data_profile(self, df):
         return DataProfile(df)
-
-    def _get_index_column(self, columns):
-        for col in columns:
-            if col['varRole'] == 'index':
-                return col['varName']
-        return None
 
     def stop(self):
         '''
         Stop planning, and write out the current list (sorted by metric)
         '''
+
+    ''' Custom Metric Functions '''
+    def f1_micro(self, y_true, y_pred):
+        return sklearn.metrics.f1_score(y_true, y_pred, average="micro")
+
+    def f1_macro(self, y_true, y_pred):
+        return sklearn.metrics.f1_score(y_true, y_pred, average="macro")
+
+    def roc_auc_micro(self, y_true, y_pred):
+        return sklearn.metrics.roc_auc_score(y_true, y_pred, average="micro")
+
+    def roc_auc_macro(self, y_true, y_pred):
+        return sklearn.metrics.roc_auc_score(y_true, y_pred, average="macro")
+
+    def root_mean_squared_error(self, y_true, y_pred):
+        import math
+        return math.sqrt(sklearn.metrics.mean_squared_error(y_true, y_pred))
+

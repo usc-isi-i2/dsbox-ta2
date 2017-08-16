@@ -42,48 +42,6 @@
       ]
    },
    {
-      "Name":"LDA",
-      "Class":"sklearn.lda.LDA",
-      "Task":"Modeling",
-      "LearningType":"Classification",
-      "Requirements":[
-         "NUMERICAL",
-         "!MISSING_VALUES"
-      ],
-      "Performance":[
-         {
-            "rows":"100",
-            "columns":"350",
-            "time":0.008002996444702148
-         },
-         {
-            "rows":"100",
-            "columns":"50",
-            "time":0.005002021789550781
-         },
-         {
-            "rows":"300",
-            "columns":"350",
-            "time":0.03200364112854004
-         },
-         {
-            "rows":"300",
-            "columns":"50",
-            "time":0.00600123405456543
-         },
-         {
-            "rows":"600",
-            "columns":"350",
-            "time":0.058013916015625
-         },
-         {
-            "rows":"600",
-            "columns":"50",
-            "time":0.004000663757324219
-         }
-      ]
-   },
-   {
       "Name":"LabelPropagation",
       "Class":"sklearn.semi_supervised.label_propagation.LabelPropagation",
       "Task":"Modeling",
@@ -122,48 +80,6 @@
             "rows":"600",
             "columns":"50",
             "time":0.056502342224121094
-         }
-      ]
-   },
-   {
-      "Name":"QDA",
-      "Class":"sklearn.qda.QDA",
-      "Task":"Modeling",
-      "LearningType":"Classification",
-      "Requirements":[
-         "NUMERICAL",
-         "!MISSING_VALUES"
-      ],
-      "Performance":[
-         {
-            "rows":"100",
-            "columns":"350",
-            "time":0.0065004825592041016
-         },
-         {
-            "rows":"100",
-            "columns":"50",
-            "time":0.005501270294189453
-         },
-         {
-            "rows":"300",
-            "columns":"350",
-            "time":0.01900172233581543
-         },
-         {
-            "rows":"300",
-            "columns":"50",
-            "time":0.011998653411865234
-         },
-         {
-            "rows":"600",
-            "columns":"350",
-            "time":0.04899907112121582
-         },
-         {
-            "rows":"600",
-            "columns":"50",
-            "time":0.011499881744384766
          }
       ]
    },

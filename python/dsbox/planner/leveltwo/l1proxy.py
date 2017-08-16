@@ -7,23 +7,36 @@ class LevelOnePlannerProxy(object):
 
     This is here to integrate with Ke-Thia's L1 Planner until we come up with a consistent interface
     """    
-    def __init__(self, libdir, task_type, task_subtype):
+    def __init__(self, libdir, task_type, task_subtype, media_type=None):
         self.models = PrimitiveLibrary(libdir+"/models.json")
         self.features = PrimitiveLibrary(libdir+"/features.json")
 
         self.primitives = get_d3m_primitives()
         self.policy = AffinityPolicy(self.primitives)
-        self.l1_planner = LevelOnePlanner(primitives=self.primitives, policy=self.policy, task_type=task_type, task_subtype=task_subtype)
+        self.media_type = media_type
+        self.l1_planner = LevelOnePlanner(primitives=self.primitives, policy=self.policy, 
+                task_type=task_type, task_subtype=task_subtype, media_type=self.media_type)
 
-        self.model_hash = {}
+        self.primitive_hash = {}
         for model in self.models.primitives:
-            self.model_hash[model.name] = model
+            self.primitive_hash[model.name] = model
+        for feature in self.features.primitives:
+            self.primitive_hash[feature.name] = feature
 
         self.pipeline_hash = {}
         
     def get_pipelines(self, data):
+        l1_pipelines = self.l1_planner.generate_pipelines_with_hierarchy(level=2)
+
+        # If there is a media type, use featurisation-added pipes instead
+        if self.media_type:
+            new_pipes = []
+            for l1_pipeline in l1_pipelines:
+                refined_pipes = self.l1_planner.fill_feature_by_weights(l1_pipeline, 5)
+                new_pipes = new_pipes + refined_pipes
+            l1_pipelines = new_pipes
+
         pipelines = []
-        l1_pipelines = self.l1_planner.generate_pipelines_with_hierarchy(level=1)
         for l1_pipeline in l1_pipelines:
             pipeline = self.l1_to_proxy_pipeline(l1_pipeline)
             if pipeline:
@@ -35,7 +48,7 @@ class LevelOnePlannerProxy(object):
         pipeline = []
         ok = True
         for prim in l1_pipeline.get_primitives():
-            l2prim = self.model_hash.get(prim.name, None)
+            l2prim = self.primitive_hash.get(prim.name, None)
             if not l2prim:
                 ok = False
                 break
