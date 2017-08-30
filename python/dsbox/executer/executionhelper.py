@@ -20,6 +20,8 @@ import inspect
 import importlib
 import traceback
 
+from builtins import range
+
 REMOTE = False
 
 class ExecutionHelper(object):
@@ -33,6 +35,7 @@ class ExecutionHelper(object):
         self.indexcol = self.get_index_column(self.columns)
         self.media_type = self.get_media_type(self.schema)
         self.data = None
+        self.nested_table = dict()
         if csvfile:
             self.data = self.read_data(directory + "/data/" + csvfile, self.columns, self.indexcol)
 
@@ -52,7 +55,6 @@ class ExecutionHelper(object):
 
     @stopit.threading_timeoutable()
     def execute_primitive(self, primitive, df, df_lbl, cur_profile=None):
-        # If this is a non-modeling primitive, fit & transform
         if primitive.column_primitive:
             for col in df.columns:
                 colprofile = cur_profile.columns[col]
@@ -64,9 +66,10 @@ class ExecutionHelper(object):
                         traceback.print_exc()
                         return None
         else:
-            if self._profile_matches_precondition(primitive.preconditions, profile.profile):
+            if self._profile_matches_precondition(primitive.preconditions, cur_profile.profile):
                 df = self._execute_primitive(primitive, df, df_lbl)
-        return df
+
+        return pd.DataFrame(df)
 
     def _profile_matches_precondition(self, preconditions, profile):
         for precondition in preconditions.keys():
@@ -185,18 +188,37 @@ class ExecutionHelper(object):
         df = pd.read_csv(csvfile, index_col=indexcol)
         #df = df.reindex(pd.RangeIndex(df.index.max()+1)).ffill()
         df = df.reset_index(drop=True)
+
+        # First, read in nested tabular data
         for col in cols:
             colname = col['varName']
             if col['varRole'] == 'file':
-             for index, row in df.iterrows():
-                filepath = self.directory + '/data/raw_data/' + row[colname]
-                if self.media_type == VariableFileType.TEXT:
-                    with open(filepath, 'rb') as myfile:
-                        txt = myfile.read()
-                        df.set_value(index, colname, txt)
-                elif self.media_type == VariableFileType.IMAGE:
-                    from keras.preprocessing import image
-                    df.set_value(index, colname, image.load_img(filepath, target_size=(224, 224)))
+                for index, row in df.iterrows():
+                    filename = row[colname]
+                    if self.media_type is VariableFileType.TABULAR:
+                        if not filename in self.nested_table:
+                            nested_df = self.read_data(self.directory + '/data/raw_data/' + df.loc[index, colname] + ".gz", [], None)
+                            self.nested_table[filename] = nested_df
+
+        for col in cols:
+            colname = col['varName']
+            if col['varRole'] == 'file':
+                for index, row in df.iterrows():
+                    filepath = self.directory + '/data/raw_data/' + row[colname]
+                    if self.media_type == VariableFileType.TEXT:
+                        with open(filepath, 'rb') as myfile:
+                            txt = myfile.read()
+                            df.set_value(index, colname, txt)
+                    elif self.media_type == VariableFileType.IMAGE:
+                        from keras.preprocessing import image
+                        df.set_value(index, colname, image.load_img(filepath, target_size=(224, 224)))
+            if col['varRole'] == 'index' and colname.endswith('_index'):
+                filename_colname = colname[:-6]
+                for index in range(df.shape[0]):
+                    filename = row[filename_colname]
+                    nested_data = NestedData(filename_colname, colname, filename, df.loc[index, colname],
+                                             self.nested_table[filename])
+                    df.set_value(index, colname, nested_data)
         return df
 
     def get_media_type(self, schema):
@@ -313,7 +335,15 @@ class ExecutionHelper(object):
             origfile = origfile.replace(".pyc", ".py")
             shutil.copyfile(origfile, schfile)
 
-
     def _init_initfile(self, dir):
         with open(dir+"/__init__.py", "w") as init_file:
             init_file.write("__path__ = __import__('pkgutil').extend_path(__path__, __name__)")
+
+
+class NestedData(object):
+    def __init__(self, filename_column, index_column, filename, index, nested_data):
+        self.filename_column = filename_column
+        self.index_column = index_column
+        self.filename = filename
+        self.index = index
+        self.nested_data = nested_data

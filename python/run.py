@@ -20,7 +20,8 @@ __updated__ = '2017-08-27'
 DEBUG = 0
 
 def main(argv=None): # IGNORE:C0111
-    '''Command line options.'''
+    '''Command line options.
+    '''
 
     if argv is None:
         argv = sys.argv
