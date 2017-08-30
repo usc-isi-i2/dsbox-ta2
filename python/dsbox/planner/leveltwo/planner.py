@@ -185,7 +185,12 @@ class LevelTwoPlanner(object):
                             df = primitive.executable.fit_transform(df, df_lbl)
 
                     df = pd.DataFrame(df)
-                    df.columns = cols
+
+                    # kyao: why is needed? FlattenTable crashes here. Adding length check.
+                    if len(df.columns) == len(cols):
+                        df.columns = cols
+                    else:
+                        cols = df.columns
                     self.execution_cache[cachekey] = df
 
             except Exception as e:
@@ -385,7 +390,7 @@ class LevelTwoPlanner(object):
         else:
             raise Exception("Unkown Arg specification: {}".format(arg_specification))
 
-    
+
     @stopit.threading_timeoutable()
     def _cross_val_score(self, prim, X, y, metric, metric_function, cv=4):
         kf = KFold(n_splits=cv, shuffle=True, random_state=42)

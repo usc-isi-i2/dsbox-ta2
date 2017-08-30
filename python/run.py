@@ -32,7 +32,8 @@ class CLIError(Exception):
         return self.msg
 
 def main(argv=None): # IGNORE:C0111
-    '''Command line options.'''
+    '''Command line options.
+    '''
 
     if argv is None:
         argv = sys.argv
