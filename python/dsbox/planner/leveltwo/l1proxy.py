@@ -32,7 +32,7 @@ class LevelOnePlannerProxy(object):
         if self.media_type:
             new_pipes = []
             for l1_pipeline in l1_pipelines:
-                refined_pipes = self.l1_planner.fill_feature_by_weights(l1_pipeline, 5)
+                refined_pipes = self.l1_planner.fill_feature_by_weights(l1_pipeline, 1)
                 new_pipes = new_pipes + refined_pipes
             l1_pipelines = new_pipes
 
@@ -68,21 +68,4 @@ class LevelOnePlannerProxy(object):
                 if pipeline:
                     self.pipeline_hash[str(pipeline)] = l1_pipeline
                     pipelines.append(pipeline)
-        return pipelines
-
-    def get_pipelines_old(self, problemtype, subtype, data):
-        pipelines = []
-        feature_to_use = None
-        for feature in self.features.primitives:
-            if feature.name == "TFIDF":
-                feature_to_use = feature
-        
-        for model in self.models.primitives:
-            if model.type:
-                if problemtype.lower() == model.type.lower():
-                    pipeline = []
-                    pipeline.append(model)
-                    # TODO: Add featurisation etc
-                    pipelines.append(pipeline)
-
         return pipelines

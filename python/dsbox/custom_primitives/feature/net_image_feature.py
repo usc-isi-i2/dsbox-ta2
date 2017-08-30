@@ -8,7 +8,7 @@ from keras.models import Model
 import keras.applications.resnet50 as resnet50
 import keras.applications.vgg16 as vgg16
 
-from dsbox.planner.levelone import Primitive
+#from dsbox.planner.levelone import Primitive
 
 import numpy as np
 
@@ -83,6 +83,7 @@ class ResNet50ImageFeature(BaseEstimator, TransformerMixin):
             data = image_tensor
         result = self.model.predict(data)
         return result.reshape(result.shape[0], -1)
+'''
     def annotation(self):
         if self._annotation is not None:
             return self._annotation
@@ -93,7 +94,7 @@ class ResNet50ImageFeature(BaseEstimator, TransformerMixin):
         self._annotation.ml_algorithm = ['Deep Learning']
         self._annotation.tags = ['feature_extraction' , 'image']
         return self._annotation
-
+'''
 
 class Vgg16ImageFeature(BaseEstimator, TransformerMixin):
     """
@@ -166,6 +167,7 @@ class Vgg16ImageFeature(BaseEstimator, TransformerMixin):
         result = self.model.predict(data)
         return result.reshape(result.shape[0], -1)
 
+'''
     def annotation(self):
         if self._annotation is not None:
             return self._annotation
@@ -176,3 +178,4 @@ class Vgg16ImageFeature(BaseEstimator, TransformerMixin):
         self._annotation.ml_algorithm = ['Deep Learning']
         self._annotation.tags = ['feature_extraction' , 'image']
         return self._annotation
+'''

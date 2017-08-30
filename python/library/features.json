@@ -2,24 +2,61 @@
 	{
 		"Class": "sklearn.decomposition.PCA",
 		"Name": "PCA",
-        "Task": "FeatureExtraction",
+	  "Task": "FeatureExtraction",
 		"Requirements": ["NUMERICAL"],
 		"Effects": []
 	},
-	{
-		"Class": "corex.Corex",
-		"Name": "Corex",
-		"Task": "FeatureExtraction",
-        "InitKeywordArguments" : {"min_df": 2, "max_features":50},
-		"Requirements": [],
-		"Effects": []
-	},
+  {
+    "Class": "corex_text.CorexText",
+    "Name": "CorexText",
+    "Task": "FeatureExtraction",
+    "LearningType": "Featurization",
+    "InitKeywordArguments" : {"n_hidden": 20, "min_df": 0, "max_df": 1},
+    "Requirements": ["!MISSING_VALUES"],
+    "Effects": []
+  },
 	{
 		"Class": "sklearn.feature_extraction.text.TfidfVectorizer",
 		"Name": "TfidfVectorizer",
 		"Task": "FeatureExtraction",
 		"RequiresColumnData": true,
-        "InitKeywordArguments" : {"min_df": 2, "max_features":50},
+    "InitKeywordArguments" : {"max_features":512},
+		"Requirements": [],
+		"Effects": []
+	},
+  {
+		"Class": "sklearn.feature_extraction.text.CountVectorizer",
+		"Name": "CountVectorizer",
+		"Task": "FeatureExtraction",
+		"InitKeywordArguments" : {"max_features":512},
+		"RequiresColumnData": true,
+		"Requirements": [],
+		"Effects": []
+	},
+	{
+		"Class": "sklearn.feature_extraction.text.HashingVectorizer",
+		"Name": "HashingVectorizer",
+		"Task": "FeatureExtraction",
+		"InitKeywordArguments" : {"n_features":512},
+		"RequiresColumnData": true,
+		"Requirements": [],
+		"Effects": []
+	},
+  {
+		"Class": "dsbox.custom_primitives.feature.net_image_feature.ResNet50ImageFeature",
+		"Name": "ResNet50ImageFeature",
+		"Task": "FeatureExtraction",
+		"RequiresColumnData": true,
+		"NotPersistent": true,
+		"Requirements": [],
+		"Effects": []
+	},
+	{
+		"Class": "dsbox.custom_primitives.feature.net_image_feature.Vgg16ImageFeature",
+		"Name": "Vgg16ImageFeature",
+		"Task": "FeatureExtraction",
+		"RequiresColumnData": true,
+		"NotPersistent": true,
 		"Requirements": [],
 		"Effects": []
 	}

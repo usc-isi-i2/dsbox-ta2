@@ -5,16 +5,11 @@ from dsbox.schema import TaskType
 
 import sys
 import copy
-import inspect
-import importlib
 import itertools
 import traceback
 
-import stopit
-
 import numpy as np
 import pandas as pd
-from sklearn.model_selection import KFold
 from sklearn.linear_model import LinearRegression, LogisticRegression
 from sklearn.metrics import make_scorer
 
@@ -42,7 +37,6 @@ class LevelTwoPlanner(object):
         self.execution_cache = {}
         self.primitive_cache = {}
         self.helper = helper
-
 
     """
     Function to expand the pipeline and add "glue" primitives
@@ -130,26 +124,28 @@ class LevelTwoPlanner(object):
 
             cachekey += ".%s" % primitive
             if cachekey in self.execution_cache:
-                print "* Using cache for %s" % primitive
+                #print "* Using cache for %s" % primitive
                 df = self.execution_cache.get(cachekey)
                 primitive.executable = self.primitive_cache.get(cachekey)
                 continue;
 
-            # TODO: Set some default parameters ?
-            primitive.executable = self._instantiate_primitive(primitive, args, kwargs)
-            if not primitive.executable:
-                return None
-
-            self.primitive_cache[cachekey] = primitive.executable
-
-            print "Executing %s" % primitive.name
-
             try:
-                # TODO: Profile df here. Recheck if it is ok for primitive
-                #       and patch a component here if necessary
+            	# TODO: Set some default parameters ?
+            	primitive.executable = self.helper.instantiate_primitive(primitive, args, kwargs)
+            	if primitive.executable is None:
+                	return None
+
+            	self.primitive_cache[cachekey] = primitive.executable
+
+            	print "Executing %s" % primitive.name
+
+                # Re-profile intermediate data here.
+                # TODO: Recheck if it is ok for the primitive's preconditions
+                #       and patch pipeline if necessary
+                cur_profile = DataProfile(df)
 
                 if primitive.task == "FeatureExtraction":
-                    df = self.helper.featurise(df, primitive.executable)
+                    df = self.helper.featurise(df, primitive.executable, timeout=60)
                     cols = df.columns
                     self.execution_cache[cachekey] = df
 
@@ -157,35 +153,17 @@ class LevelTwoPlanner(object):
                 # - we create training/test sets and check the metricvalue
                 elif primitive.task == "Modeling":
                     # Evaluate: Get a cross validation score for the metric
-                    metricvalue = self._cross_val_score(primitive.executable, df, df_lbl.values.ravel(),
-                                             metric, metric_function, 3, timeout=60)
-
+                    metricvalue = self.helper.cross_validation_score(primitive.executable, df, df_lbl,
+                                             metric, metric_function, 5, timeout=60)
                     if not metricvalue:
                         return None
-
                     # Do a final fit with all the data before persisting the model
                     #primitive.executable.fit(df, df_lbl.values.ravel())
-
                     break
 
                 else:
-                    # If this is a non-modeling primitive, fit & transform
-                    if primitive.column_primitive:
-                        for col in df.columns:
-                            if primitive.is_persistent:
-                                primitive.executable.fit(df[col])
-                                df[col] = primitive.executable.transform(df[col])
-                            else:
-                                df[col] = primitive.executable.fit_transform(df[col])
-                    else:
-                        if primitive.is_persistent:
-                            primitive.executable.fit(df)
-                            df = primitive.executable.transform(df, df_lbl)
-                        else:
-                            df = primitive.executable.fit_transform(df, df_lbl)
-
-                    df = pd.DataFrame(df)
-                    df.columns = cols
+                    # If this is a glue primitive
+                    df = self.helper.execute_primitive(primitive, df, df_lbl, cur_profile, timeout=60)
                     self.execution_cache[cachekey] = df
 
             except Exception as e:
@@ -322,32 +300,6 @@ class LevelTwoPlanner(object):
         #print ("Predicted profile %s" % curprofile)
         return curprofile
 
-    def _instantiate_primitive(self, primitive, args, kwargs):
-        mod, cls = primitive.cls.rsplit('.', 1)
-        try:
-            module = importlib.import_module(mod)
-            PrimitiveClass = getattr(module, cls)
-            return PrimitiveClass(*args, **kwargs)
-        except Exception as e:
-            sys.stderr.write("ERROR _instantiate_primitive(%s) : %s\n" % (primitive, e))
-            traceback.print_exc()
-            return None
-
-    def _call_function(self, scoring_function, *args):
-        mod = inspect.getmodule(scoring_function)
-        try:
-            module = importlib.import_module(mod.__name__)
-            return scoring_function(*args)
-        except Exception as e:
-            sys.stderr.write("ERROR _call_function %s: %s\n" % (scoring_function, e))
-            traceback.print_exc()
-            return None
-
-    def _get_data_profile(self, df):
-        df_profile_raw = Profiler(df)
-        df_profile = Profile(df_profile_raw)
-        return df_profile.profile
-
     def _process_args(self, args, task_type, metric):
         result_args = []
         for arg in args:
@@ -384,26 +336,3 @@ class LevelTwoPlanner(object):
                                 .format(task_type))
         else:
             raise Exception("Unkown Arg specification: {}".format(arg_specification))
-
-    
-    @stopit.threading_timeoutable()
-    def _cross_val_score(self, prim, X, y, metric, metric_function, cv=4):
-        kf = KFold(n_splits=cv, shuffle=True, random_state=42)
-        vals = []
-        for k, (train, test) in enumerate(kf.split(X, y)):
-            prim.fit(X.take(train, axis=0), y.take(train, axis=0))
-            ypred = prim.predict(X.take(test, axis=0))
-            val = self._call_function(metric_function, y.take(test, axis=0), ypred)
-            vals.append(val)
-        return np.average(vals)
-
-
-    '''
-    def _get_train_test(self, df, indexcol):
-        train, test = train_test_split(df, test_size=0.2, random_state=42)
-        train_df = pd.DataFrame(train, columns = df.columns)
-        train_df.drop(indexcol, axis=1, inplace=True)
-        test_df = pd.DataFrame(test, columns = df.columns)
-        test_df.drop(indexcol, axis=1, inplace=True)
-        return (train_df, test_df)
-    '''

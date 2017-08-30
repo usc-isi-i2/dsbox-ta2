@@ -9,8 +9,8 @@ import pandas as pd
 from dsbox.planner.leveltwo.l1proxy import LevelOnePlannerProxy
 from dsbox.planner.leveltwo.planner import LevelTwoPlanner
 from dsbox.schema.data_profile import DataProfile
-from dsbox.schema import TaskType, TaskSubType, Metric
-from dsbox.executer.helper import ExecutionHelper
+from dsbox.schema.problem_schema import TaskType, TaskSubType, Metric
+from dsbox.executer.executionhelper import ExecutionHelper
 
 import sklearn.metrics
 from sklearn.externals import joblib

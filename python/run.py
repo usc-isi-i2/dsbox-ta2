@@ -13,23 +13,11 @@ import argparse
 from dsbox.controller import Controller
 
 __all__ = []
-__version__ = 0.1
+__version__ = 0.3
 __date__ = '2017-06-27'
-__updated__ = '2017-06-27'
+__updated__ = '2017-08-27'
 
 DEBUG = 0
-TESTRUN = 0
-PROFILE = 0
-
-class CLIError(Exception):
-    '''Generic exception to raise and log different fatal errors.'''
-    def __init__(self, msg):
-        super(CLIError).__init__(type(self))
-        self.msg = "E: %s" % msg
-    def __str__(self):
-        return self.msg
-    def __unicode__(self):
-        return self.msg
 
 def main(argv=None): # IGNORE:C0111
     '''Command line options.'''
@@ -81,18 +69,4 @@ if __name__ == "__main__":
     if DEBUG:
         sys.argv.append("-h")
         sys.argv.append("-v")
-    if TESTRUN:
-        import doctest
-        doctest.testmod()
-    if PROFILE:
-        import cProfile
-        import pstats
-        profile_filename = 'planner.run_profile.txt'
-        cProfile.run('main()', profile_filename)
-        statsfile = open("profile_stats.txt", "wb")
-        p = pstats.Stats(profile_filename, stream=statsfile)
-        stats = p.strip_dirs().sort_stats('cumulative')
-        stats.print_stats()
-        statsfile.close()
-        sys.exit(0)
     sys.exit(main())
