@@ -1,26 +1,26 @@
 [
-	{
-		"Class": "sklearn.decomposition.PCA",
-		"Name": "PCA",
+    {
+	"Class": "sklearn.decomposition.PCA",
+	"Name": "PCA",
         "Task": "FeatureExtraction",
-		"Requirements": ["NUMERICAL"],
-		"Effects": []
-	},
-	{
-		"Class": "corex.Corex",
-		"Name": "Corex",
-		"Task": "FeatureExtraction",
+	"Requirements": ["NUMERICAL", "!NESTED_DATA"],
+	"Effects": []
+    },
+    {
+	"Class": "corex.Corex",
+	"Name": "Corex",
+	"Task": "FeatureExtraction",
         "InitKeywordArguments" : {"min_df": 2, "max_features":50},
-		"Requirements": [],
-		"Effects": []
-	},
-	{
-		"Class": "sklearn.feature_extraction.text.TfidfVectorizer",
-		"Name": "TfidfVectorizer",
-		"Task": "FeatureExtraction",
-		"RequiresColumnData": true,
+	"Requirements": ["!NESTED_DATA"],
+	"Effects": []
+    },
+    {
+	"Class": "sklearn.feature_extraction.text.TfidfVectorizer",
+	"Name": "TfidfVectorizer",
+	"Task": "FeatureExtraction",
+	"RequiresColumnData": true,
         "InitKeywordArguments" : {"min_df": 2, "max_features":50},
-		"Requirements": [],
-		"Effects": []
-	}
+	"Requirements": ["!NESTED_DATA"],
+	"Effects": []
+    }
 ]

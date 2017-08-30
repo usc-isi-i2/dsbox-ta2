@@ -1,12 +1,13 @@
 from dsbox.planner.levelone.planner import (LevelOnePlanner, get_d3m_primitives, AffinityPolicy)
 from primitives.library import PrimitiveLibrary
+from dsbox.schema.dataset_schema import VariableFileType
 
 class LevelOnePlannerProxy(object):
     """
-    The Level-1 DSBox Proxy Planner. 
+    The Level-1 DSBox Proxy Planner.
 
     This is here to integrate with Ke-Thia's L1 Planner until we come up with a consistent interface
-    """    
+    """
     def __init__(self, libdir, task_type, task_subtype, media_type=None):
         self.models = PrimitiveLibrary(libdir+"/models.json")
         self.features = PrimitiveLibrary(libdir+"/features.json")
@@ -14,7 +15,7 @@ class LevelOnePlannerProxy(object):
         self.primitives = get_d3m_primitives()
         self.policy = AffinityPolicy(self.primitives)
         self.media_type = media_type
-        self.l1_planner = LevelOnePlanner(primitives=self.primitives, policy=self.policy, 
+        self.l1_planner = LevelOnePlanner(primitives=self.primitives, policy=self.policy,
                 task_type=task_type, task_subtype=task_subtype, media_type=self.media_type)
 
         self.primitive_hash = {}
@@ -24,12 +25,13 @@ class LevelOnePlannerProxy(object):
             self.primitive_hash[feature.name] = feature
 
         self.pipeline_hash = {}
-        
+
     def get_pipelines(self, data):
         l1_pipelines = self.l1_planner.generate_pipelines_with_hierarchy(level=2)
 
         # If there is a media type, use featurisation-added pipes instead
-        if self.media_type:
+        # kyao: added check to skip if media_type is nested tables
+        if self.media_type and not self.media_type==VariableFileType.TABULAR:
             new_pipes = []
             for l1_pipeline in l1_pipelines:
                 refined_pipes = self.l1_planner.fill_feature_by_weights(l1_pipeline, 5)
@@ -76,7 +78,7 @@ class LevelOnePlannerProxy(object):
         for feature in self.features.primitives:
             if feature.name == "TFIDF":
                 feature_to_use = feature
-        
+
         for model in self.models.primitives:
             if model.type:
                 if problemtype.lower() == model.type.lower():

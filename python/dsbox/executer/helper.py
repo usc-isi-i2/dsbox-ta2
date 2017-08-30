@@ -5,6 +5,15 @@ import os.path
 import pandas as pd
 from sklearn.externals import joblib
 from dsbox.schema import VariableFileType
+from builtins import range
+
+class NestedData(object):
+    def __init__(self, filename_column, index_column, filename, index, nested_data):
+        self.filename_column = filename_column
+        self.index_column = index_column
+        self.filename = filename
+        self.index = index
+        self.nested_data = nested_data
 
 class ExecutionHelper(object):
     def __init__(self, directory, outputdir, csvfile=None):
@@ -16,6 +25,8 @@ class ExecutionHelper(object):
         self.indexcol = self.get_index_column(self.columns)
         self.media_type = self.get_media_type(self.schema)
         self.data = None
+        self.nested_table = dict()
+        self.join_colname = None
         if csvfile:
             self.data = self.read_data(directory + "/data/" + csvfile, self.columns, self.indexcol)
 
@@ -38,15 +49,50 @@ class ExecutionHelper(object):
         df = pd.read_csv(csvfile, index_col=indexcol)
         #df = df.reindex(pd.RangeIndex(df.index.max()+1)).ffill()
         df = df.reset_index(drop=True)
+
+        # First, read in nested tabular data
         for col in cols:
             colname = col['varName']
             if col['varRole'] == 'file':
-             for index, row in df.iterrows():
-                filename = row[colname]
-                with open(self.directory + '/data/raw_data/' + filename, 'rb') as myfile:
-                    txt = myfile.read()
-                    df.set_value(index, colname, txt)
+                for index, row in df.iterrows():
+                    filename = row[colname]
+                    if self.media_type is VariableFileType.TABULAR:
+                        if not filename in self.nested_table:
+                            nested_df = pd.read_csv(
+                                self.directory + '/data/raw_data/' + df.loc[index, colname])
+                            self.nested_table[filename] = nested_df
+
+
+        self.nested_data_filename = None
+        for col in cols:
+            colname = col['varName']
+            if col['varRole'] == 'file':
+                for index, row in df.iterrows():
+                    filename = row[colname]
+                    if self.media_type is VariableFileType.TEXT:
+                        with open(self.directory + '/data/raw_data/' + filename, 'rb') as myfile:
+                            txt = myfile.read()
+                            df.set_value(index, colname, txt)
+                    # elif self.media_type is VariableFileType.TABULAR:
+                    #     if self.nested_data is None:
+                    #         self.nested_data_filename = filename
+                    #         self.nested_data = pd.read_csv(
+                    #             self.directory + '/data/raw_data/' + self.nested_data_filename)
+                    #     elif not (self.nested_data_filename == filename):
+                    #         raise Exception('Multiple raw csv files not yet implmented: {} != {}',
+                    #                         self.nested_data_filename, filename)
+            if col['varRole'] == 'index' and colname.endswith('_index'):
+                filename_colname = colname[:-6]
+                for index in range(df.shape[0]):
+                    filename = row[filename_colname]
+                    nested_data = NestedData(filename_colname, colname, filename, df.loc[index, colname],
+                                             self.nested_table[filename])
+                    df.set_value(index, colname, nested_data)
         return df
+
+    # def has_nested_data(self):
+    #     # !!!!
+    #     return self.nested_data is not None and self.join_colname is not None
 
     def get_media_type(self, schema):
         if schema.get('rawData', False):
@@ -78,7 +124,7 @@ class ExecutionHelper(object):
         for col in featurecols:
             primex.fit(df[col])
             nvals = primex.transform(df[col])
-            fcols = [(col.format() + "_" + feature) 
+            fcols = [(col.format() + "_" + feature)
                     for feature in primex.get_feature_names()]
             newdf = pd.DataFrame(nvals.toarray(), columns=fcols)
             del df[col]
@@ -91,11 +137,11 @@ class ExecutionHelper(object):
     def create_pipeline_executable(self, pipeline, pipeid):
         imports = ["sys", "sklearn.externals", "pandas"]
         statements = [
-                "from os import path", 
-                "from helper import ExecutionHelper", 
+                "from os import path",
+                "from helper import ExecutionHelper",
                 "sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))",
-                "", 
-                "# Pipeline : %s" % str(pipeline), 
+                "",
+                "# Pipeline : %s" % str(pipeline),
                 ""]
         statements.append("hp = ExecutionHelper('%s', '.', 'testData.csv.gz')" % self.directory)
         statements.append("testdata = hp.data")
@@ -103,7 +149,7 @@ class ExecutionHelper(object):
         index = 1
         for primitive in pipeline:
             primid = "primitive_%s" % str(index)
-            
+
             # Initialize primitive
             if primitive.is_persistent:
                 primfile = "%s/models/%s.%s.pkl" % (self.outputdir, pipeid, primid)
@@ -122,7 +168,7 @@ class ExecutionHelper(object):
                 statements.append("args = %s" % args)
                 statements.append("kwargs = %s" % kwargs)
                 statements.append("%s = %s(*args, **kwargs)" % (primid, primitive.cls))
-            
+
             if primitive.task == "Modeling":
                 statements.append("print %s.predict(testdata)" % primid)
             else:
@@ -132,12 +178,12 @@ class ExecutionHelper(object):
                         statements.append("    testdata[col] = %s.fit_transform(testdata[col])" % primid)
                     else:
                         statements.append("testdata = %s.fit_transform(testdata)" % primid)
-            
+
                 elif primitive.task == "FeatureExtraction":
                     statements.append("testdata = hp.featurise(testdata, %s)" % primid)
 
             index += 1
-    
+
         # Write executable
         with open("%s/executables/%s.py" % (self.outputdir, pipeid), 'a') as exfile:
             for imp in set(imports):
@@ -151,4 +197,3 @@ class ExecutionHelper(object):
             thisfile = os.path.abspath(__file__)
             thisfile = thisfile.replace(".pyc", ".py")
             shutil.copyfile(thisfile, helperfile)
-
