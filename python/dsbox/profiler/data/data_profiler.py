@@ -2,8 +2,8 @@ import pandas as pd
 import numpy as np
 
 # from feature computation functions
-import feature_compute_lfh as fc_lfh
-import feature_compute_hih as fc_hih
+import dsbox.profiler.data.feature_compute_lfh as fc_lfh
+import dsbox.profiler.data.feature_compute_hih as fc_hih
 from collections import defaultdict
 
 from dsbox.executer.executionhelper import NestedData

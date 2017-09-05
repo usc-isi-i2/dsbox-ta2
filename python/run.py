@@ -10,7 +10,8 @@ path_setup()
 import sys
 import os
 import argparse
-from dsbox.controller import Controller
+from dsbox.planner.controller import Controller, Feature
+from dsbox.planner.event_handler import PlannerEventHandler
 
 __all__ = []
 __version__ = 0.3
@@ -49,21 +50,32 @@ USAGE
     # Process arguments
     args = parser.parse_args()
 
-    problem = args.problem
-    if not problem:
+    problem_directory = args.problem
+    if not problem_directory:
         sys.stderr.write(program_name + ": No problem directory specified\n")
         sys.stderr.write("  for help use --help\n")
         exit(1)
 
-    library = args.library
+    data_directory = problem_directory + "/data"
+    problem_schema = problem_directory + "/problemSchema.json"
+
+    library_directory = args.library
     verbose = args.verbose
-    output = args.output
+    if not args.verbose:
+        verbose = 0
+    output_directory = args.output
 
     if verbose > 0:
         print("Verbose mode on")
 
-    controller = Controller(problem, library, output)
-    controller.start()
+    train_features = [ Feature(data_directory, "*") ]
+    train_targets = [ Feature(data_directory, "*") ]
+
+    controller = Controller(train_features, train_targets, library_directory, output_directory)
+    controller.load_problem_schema(problem_schema)
+    controller.initialize_planners()
+    for result in controller.start(PlannerEventHandler()):
+        pass
 
 
 if __name__ == "__main__":

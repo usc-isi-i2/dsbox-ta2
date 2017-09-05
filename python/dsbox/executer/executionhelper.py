@@ -25,11 +25,11 @@ from builtins import range
 REMOTE = False
 
 class ExecutionHelper(object):
-    def __init__(self, directory, outputdir, csvfile=None):
+    def __init__(self, data_directory, outputdir, csvfile=None):
         self.e = Execution()
-        self.directory = os.path.abspath(directory)
+        self.directory = os.path.abspath(data_directory)
         self.outputdir = os.path.abspath(outputdir)
-        self.schema = self.load_json(directory + "/data/dataSchema.json")
+        self.schema = self.load_json(self.directory + "/dataSchema.json")
         self.columns = self.schema['trainData']['trainData']
         self.targets = self.schema['trainData']['trainTargets']
         self.indexcol = self.get_index_column(self.columns)
@@ -37,17 +37,17 @@ class ExecutionHelper(object):
         self.data = None
         self.nested_table = dict()
         if csvfile:
-            self.data = self.read_data(directory + "/data/" + csvfile, self.columns, self.indexcol)
+            self.data = self.read_data(self.directory + "/" + csvfile, self.columns, self.indexcol)
 
 
-    def instantiate_primitive(self, primitive, args, kwargs):
+    def instantiate_primitive(self, primitive):
         if REMOTE:
-            return self.e.execute(primitive.cls, args=args, kwargs=kwargs)
+            return self.e.execute(primitive.cls, args=primitive.init_args, kwargs=primitive.init_kwargs)
         mod, cls = primitive.cls.rsplit('.', 1)
         try:
             module = importlib.import_module(mod)
             PrimitiveClass = getattr(module, cls)
-            return PrimitiveClass(*args, **kwargs)
+            return PrimitiveClass(*primitive.init_args, **primitive.init_kwargs)
         except Exception as e:
             sys.stderr.write("ERROR _instantiate_primitive(%s) : %s\n" % (primitive, e))
             traceback.print_exc()
@@ -56,18 +56,22 @@ class ExecutionHelper(object):
     @stopit.threading_timeoutable()
     def execute_primitive(self, primitive, df, df_lbl, cur_profile=None):
         if primitive.column_primitive:
+            primitive.executables = {}
             for col in df.columns:
+                executable = self.instantiate_primitive(primitive)
+                primitive.executables[col.format()] = executable
                 colprofile = cur_profile.columns[col]
                 if self._profile_matches_precondition(primitive.preconditions, colprofile):
                     try:
-                        df[col] = self._execute_primitive(primitive, df[col])
+                        df[col] = self._execute_primitive(primitive, executable, df[col])
                     except Exception as e:
                         sys.stderr.write("ERROR execute_primitive(%s): %s\n" % (primitive, e))
                         traceback.print_exc()
                         return None
         else:
+            primitive.executables = self.instantiate_primitive(primitive)
             if self._profile_matches_precondition(primitive.preconditions, cur_profile.profile):
-                df = self._execute_primitive(primitive, df, df_lbl)
+                df = self._execute_primitive(primitive, primitive.executables, df, df_lbl)
 
         return pd.DataFrame(df)
 
@@ -78,44 +82,46 @@ class ExecutionHelper(object):
                 return False
         return True
 
-    def _execute_primitive(self, primitive, df, df_lbl=None):
+    def _execute_primitive(self, primitive, executable, df, df_lbl=None):
         args = [df]
         if df_lbl is not None:
-            args.append(df_lbl)
-
+            args.append(df_lbl.values.ravel())
         if primitive.is_persistent:
             if REMOTE:
-                primitive.executable = self.e.execute('fit', args=args, kwargs=None, obj=primitive.executable, objreturn=True)
-                return self.e.execute('transform', args=args, kwargs=None, obj=primitive.executable)
+                executable = self.e.execute('fit', args=args, kwargs=None, obj=executable, objreturn=True)
+                return self.e.execute('transform', args=args, kwargs=None, obj=executable)
             else:
-                primitive.executable.fit(*args)
-                return primitive.executable.transform(*args)
+                executable.fit(*args)
+                return executable.transform(*args)
         else:
             if REMOTE:
-                return self.e.execute('fit_transform', args=args, kwargs=None, obj=primitive.executable)
+                return self.e.execute('fit_transform', args=args, kwargs=None, obj=executable)
             else:
-                return primitive.executable.fit_transform(*args)
+                return executable.fit_transform(*args)
 
 
     @stopit.threading_timeoutable()
-    def cross_validation_score(self, prim, X, y, metric, metric_function, cv=4):
+    def cross_validation_score(self, primitive, X, y, metric, metric_function, cv=4):
         kf = KFold(n_splits=cv, shuffle=True, random_state=42)
         vals = []
         for k, (train, test) in enumerate(kf.split(X, y)):
+            executable = self.instantiate_primitive(primitive)
             if REMOTE:
-                prim = self.e.execute('fit', args=[X.take(train, axis=0), y.take(train, axis=0)], kwargs=None, obj=prim, objreturn=True)
-                ypred = self.e.execute('predict', args=[X.take(test, axis=0)], kwargs=None, obj=prim)
+                prim = self.e.execute('fit', args=[X.take(train, axis=0), y.take(train, axis=0)], kwargs=None, obj=executable, objreturn=True)
+                ypred = self.e.execute('predict', args=[X.take(test, axis=0)], kwargs=None, obj=executable)
             else:
-                prim.fit(X.take(train, axis=0), y.take(train, axis=0))
-                ypred = prim.predict(X.take(test, axis=0))
+                executable.fit(X.take(train, axis=0), y.take(train, axis=0))
+                ypred = executable.predict(X.take(test, axis=0))
             val = self._call_function(metric_function, y.take(test, axis=0), ypred)
             vals.append(val)
 
         # fit the model finally over the whole training data for evaluation later over actual test data
+        executable = self.instantiate_primitive(primitive)
         if REMOTE:
-            prim = self.e.execute('fit', args=[X, y], kwargs=None, obj=prim, objreturn=True)
+            executable = self.e.execute('fit', args=[X, y], kwargs=None, obj=executable, objreturn=True)
         else:
-            prim.fit(X, y)
+            executable.fit(X, y)
+        primitive.executables = executable
         return np.average(vals)
 
     def _as_tensor(self, image_list):
@@ -127,20 +133,30 @@ class ExecutionHelper(object):
         return result
 
     @stopit.threading_timeoutable()
-    def featurise(self, df, primex):
+    def featurise(self, df, primitive, testing=False, persistent=False):
+        if not (testing and persistent):
+            primitive.executables = {}
         ncols = [col.format() for col in df.columns]
-        #primeorig = copy.deepcopy(primex)
         featurecols = self.columns_of_role(self.columns, "file")
         for col in featurecols:
+            executable = None
+            if not (testing and persistent):
+                executable = self.instantiate_primitive(primitive)
+            else:
+                executable = primitive.executables[col]
+
             if self.media_type == VariableFileType.TEXT:
                 # Using an unfitted primitive for each column (needed for Corex)
-                #primex = primeorig
                 #df_col = pd.DataFrame(df[col])
-                #primex.fit(df_col)
-                nvals = primex.fit_transform(df[col])
+                #executable.fit(df_col)
+                nvals = None
+                if testing and persistent:
+                    nvals = executable.transform(df[col])
+                else:
+                    nvals = executable.fit_transform(df[col])
                 if isinstance(nvals, scipy.sparse.csr.csr_matrix):
                     nvals = nvals.todense()
-                #fcols = [(col.format() + "_" + feature) for feature in primex.get_feature_names()]
+                #fcols = [(col.format() + "_" + feature) for feature in executable.get_feature_names()]
                 fcols = [(col.format() + "_" + str(index)) for index in range(0, nvals.shape[1])]
                 newdf = pd.DataFrame(nvals, columns=fcols, index=df.index)
                 del df[col]
@@ -150,7 +166,7 @@ class ExecutionHelper(object):
                 df.columns=ncols
             elif self.media_type == VariableFileType.IMAGE:
                 image_tensor = self._as_tensor(df[col].values)
-                nvals = primex.transform(image_tensor)
+                nvals = executable.transform(image_tensor)
                 fcols = [(col.format() + "_" + str(index)) for index in range(0, nvals.shape[1])]
                 newdf = pd.DataFrame(nvals, columns=fcols, index=df.index)
                 del df[col]
@@ -158,6 +174,8 @@ class ExecutionHelper(object):
                 ncols.remove(col)
                 df = pd.concat([df, newdf], axis=1)
                 df.columns=ncols
+            if not (testing and persistent):
+                primitive.executables[col] = executable
         return df
 
     def _call_function(self, scoring_function, *args):
@@ -183,13 +201,25 @@ class ExecutionHelper(object):
             return d
 
     def read_data(self, csvfile, cols, indexcol):
+        # We look for the .csv.gz file by default. If it doesn't exist, try to load the .csv file
         if not os.path.exists(csvfile) and csvfile.endswith('.gz'):
             csvfile = csvfile[:-3]
+
+        # Read the csv file while specifying the index column
         df = pd.read_csv(csvfile, index_col=indexcol)
         #df = df.reindex(pd.RangeIndex(df.index.max()+1)).ffill()
         df = df.reset_index(drop=True)
 
-        # First, read in nested tabular data
+        colnames = []
+        for col in cols:
+            colnames.append(col['varName'])
+
+        # Remove columns not specified
+        for colname, col in df.iteritems():
+            if colname not in colnames:
+                df.drop(colname, axis=1, inplace=True)
+
+        # Check for nested tabular data files, and load them in
         for col in cols:
             colname = col['varName']
             if col['varRole'] == 'file':
@@ -197,19 +227,24 @@ class ExecutionHelper(object):
                     filename = row[colname]
                     if self.media_type is VariableFileType.TABULAR:
                         if not filename in self.nested_table:
-                            nested_df = self.read_data(self.directory + '/data/raw_data/' + df.loc[index, colname] + ".gz", [], None)
+                            nested_df = self.read_data(self.directory + '/raw_data/' + df.loc[index, colname] + ".gz", [], None)
                             self.nested_table[filename] = nested_df
 
+        # Check all columns for special roles
         for col in cols:
             colname = col['varName']
             if col['varRole'] == 'file':
+                # If the role is "file", then load in the raw data files
                 for index, row in df.iterrows():
-                    filepath = self.directory + '/data/raw_data/' + row[colname]
+                    filepath = self.directory + '/raw_data/' + row[colname]
                     if self.media_type == VariableFileType.TEXT:
+                        # Plain data load for text files
                         with open(filepath, 'rb') as myfile:
                             txt = myfile.read()
                             df.set_value(index, colname, txt)
                     elif self.media_type == VariableFileType.IMAGE:
+                        # Load image files using keras with a standard target size
+                        # TODO: Make the (224, 224) size configurable
                         from keras.preprocessing import image
                         df.set_value(index, colname, image.load_img(filepath, target_size=(224, 224)))
             if col['varRole'] == 'index' and colname.endswith('_index'):
@@ -245,6 +280,24 @@ class ExecutionHelper(object):
                 cols.append(c['varName'])
         return cols
 
+    def _process_args(self, args, task_type, metric):
+        result_args = []
+        for arg in args:
+            if isinstance(arg, str) and arg.startswith('*'):
+                result_args.append(self._get_arg_value(arg, task_type, metric))
+            else:
+                result_args.append(arg)
+        return result_args
+
+    def _process_kwargs(self, kwargs, task_type, metric):
+        result_kwargs = {}
+        for key, arg in kwargs.items():
+            if isinstance(arg, str) and arg.startswith('*'):
+                result_kwargs[key] = self._get_arg_value(arg, task_type, metric)
+            else:
+                result_kwargs[key] = arg
+        return result_kwargs
+
     def create_pipeline_executable(self, pipeline, pipeid):
         imports = ["sys", "sklearn.externals", "pandas"]
         statements = [
@@ -261,40 +314,41 @@ class ExecutionHelper(object):
         for primitive in pipeline:
             primid = "primitive_%s" % str(index)
 
+            try:
+                primfile = "%s/models/%s.%s.pkl" % (self.outputdir, pipeid, primid)
+                statements.append("%s = sklearn.externals.joblib.load('%s')" % (primid, primfile))
+                joblib.dump(primitive, primfile)
+            except Exception as e:
+                sys.stderr.write("ERROR pickling %s : %s\n" % (primitive.name, e))
+
             # Initialize primitive
-            if primitive.is_persistent:
-                try:
-                    primfile = "%s/models/%s.%s.pkl" % (self.outputdir, pipeid, primid)
-                    statements.append("%s = sklearn.externals.joblib.load('%s')" % (primid, primfile))
-                    joblib.dump(primitive.executable, primfile)
-                except Exception as e:
-                    sys.stderr.write("ERROR pickling %s : %s\n" % (primitive.name, e))
-            else:
+            if not primitive.is_persistent:
                 mod, cls = primitive.cls.rsplit('.', 1)
                 imports.append(mod)
-
-                args = []
-                kwargs = {}
-                if primitive.getInitKeywordArgs():
-                    kwargs = self.l2_planner._process_kwargs(primitive.getInitKwargs(), self.task_type, self.metric)
-                if primitive.getInitArgs():
-                    args = self.l2_planner._process_args(primitive.getInitArgs(), self.task_type, self.metric)
-                statements.append("args = %s" % args)
-                statements.append("kwargs = %s" % kwargs)
-                statements.append("%s = %s(*args, **kwargs)" % (primid, primitive.cls))
+                statements.append("args = %s" % primitive.init_args)
+                statements.append("kwargs = %s" % primitive.init_kwargs)
+                statements.append("%s.executables = %s(*args, **kwargs)" % (primid, primitive.cls))
 
             if primitive.task == "Modeling":
-                statements.append("print %s.predict(testdata)" % primid)
+                statements.append("print(%s.executables.predict(testdata))" % primid)
             else:
                 if primitive.task == "PreProcessing":
                     if primitive.column_primitive:
                         statements.append("for col in testdata.columns:")
-                        statements.append("    testdata[col] = %s.fit_transform(testdata[col])" % primid)
+                        if primitive.is_persistent:
+                            statements.append("    primex = %s.executables.get(col, None)" % primid)
+                        else:
+                            statements.append("    primex = %s.executables" % primid)
+                        statements.append("    if primex is not None:")
+                        statements.append("        testdata[col] = primex.fit_transform(testdata[col])")
                     else:
-                        statements.append("testdata = %s.fit_transform(testdata)" % primid)
+                        statements.append("testdata = %s.executables.fit_transform(testdata)" % primid)
 
                 elif primitive.task == "FeatureExtraction":
-                    statements.append("testdata = hp.featurise(testdata, %s)" % primid)
+                    persistent = "False"
+                    if primitive.is_persistent:
+                        persistent = "True"
+                    statements.append("testdata = hp.featurise(testdata, %s, True, %s)" % (primid, persistent))
 
             index += 1
 

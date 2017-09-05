@@ -1,38 +1,38 @@
 [
-    {
-	"Class": "sklearn.preprocessing.Normalizer",
-	"Name": "Normalizer",
-	"Task": "PreProcessing",
-	"LearningType": "Normalization",
-	"Requirements": ["!NORMALIZED", "!NESTED_DATA"],
-	"Effects": ["NORMALIZED"]
-    },
-    {
-	"Class": "sklearn.preprocessing.LabelEncoder",
-	"Name": "Label Encoder",
-	"Task": "PreProcessing",
-	"LearningType": "Encoding",
-	"RequiresColumnData": true,
-	"NotPersistent": true,
-	"Requirements": ["!NUMERICAL", "!NESTED_DATA"],
-	"Effects": ["NUMERICAL"]
-    },
-    {
-	"Class": "sklearn.preprocessing.Imputer",
-	"Name": "Imputer",
-	"Task": "PreProcessing",
-	"LearningType": "Imputation",
-	"NotPersistent": true,
-	"Requirements": ["NUMERICAL", "MISSING_VALUES"],
-	"Effects": ["!MISSING_VALUES", "!NESTED_DATA"]
-    },
-    {
-	"Class": "dsbox.custom_primitives.preprocessing.flatten_table.FlattenTable",
-	"Name": "FlattenTable",
-	"Task": "PreProcessing",
-	"LearningType": "Flatten",
-	"NotPersistent": true,
-	"Requirements": ["NESTED_DATA"],
-	"Effects": ["!NESTED_DATA"]
-    }
+  {
+    "Class": "sklearn.preprocessing.Normalizer",
+    "Name": "Normalizer",
+    "Task": "PreProcessing",
+    "LearningType": "Normalization",
+    "Requirements": ["!NORMALIZED", "!NESTED_DATA"],
+    "Effects": ["NORMALIZED"]
+  },
+  {
+    "Class": "sklearn.preprocessing.LabelEncoder",
+    "Name": "Label Encoder",
+    "Task": "PreProcessing",
+    "LearningType": "Encoding",
+    "RequiresColumnData": true,
+    "NotPersistent": true,
+    "Requirements": ["!NUMERICAL", "!NESTED_DATA"],
+    "Effects": ["NUMERICAL"]
+  },
+  {
+    "Class": "sklearn.preprocessing.Imputer",
+    "Name": "Imputer",
+    "Task": "PreProcessing",
+    "LearningType": "Imputation",
+    "NotPersistent": true,
+    "Requirements": ["NUMERICAL", "MISSING_VALUES"],
+    "Effects": ["!MISSING_VALUES", "!NESTED_DATA"]
+  },
+  {
+    "Class": "dsbox.custom_primitives.preprocessing.flatten_table.FlattenTable",
+    "Name": "FlattenTable",
+    "Task": "PreProcessing",
+    "LearningType": "Flatten",
+    "NotPersistent": true,
+    "Requirements": ["NESTED_DATA"],
+    "Effects": ["!NESTED_DATA"]
+  }
 ]

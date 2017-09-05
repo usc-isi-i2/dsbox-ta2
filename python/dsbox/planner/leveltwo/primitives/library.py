@@ -1,5 +1,5 @@
 import json
-import primitive
+from dsbox.planner.leveltwo.primitives.primitive import Primitive
 from dsbox.schema.profile_schema import DataProfileType as dpt
 
 class PrimitiveLibrary(object):
@@ -10,7 +10,7 @@ class PrimitiveLibrary(object):
         self.primitives = []
         self.json = self.loadjson(location)
         for p in self.json:
-            prim = primitive.Primitive(p['Name'], p['Class'])
+            prim = Primitive(p['Name'], p['Class'])
             for precstr in p.get('Requirements', []):
                 prec = self.parseProfile(precstr)
                 if prec:

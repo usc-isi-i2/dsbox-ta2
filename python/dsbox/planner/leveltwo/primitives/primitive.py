@@ -17,10 +17,10 @@ class Primitive(object):
         self.init_kwargs = {}
 
     def addPrecondition(self, precondition):
-        self.preconditions = dict(self.preconditions, **precondition)
+        self.preconditions.update(precondition)
 
     def addEffect(self, effect):
-        self.effects = dict(self.effects, **effect)
+        self.effects.update(effect)
 
     def getPreconditions(self):
         return self.preconditions

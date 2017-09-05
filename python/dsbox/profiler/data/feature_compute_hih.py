@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-import helper_funcs as hf
+import dsbox.profiler.data.helper_funcs as hf
 from collections import OrderedDict
 from collections import defaultdict
 from collections import Counter
@@ -22,10 +22,10 @@ def tryConvert(cell):
     """
     try:
         return int(cell)
-    except ValueError, TypeError:
+    except ValueError as TypeError:
         try:
             return float(cell)
-        except ValueError, TypeError:
+        except ValueError as TypeError:
             return cell
 
 def numerical_stats(column,num_nonblank,sigma=3):
@@ -51,7 +51,7 @@ def numerical_stats(column,num_nonblank,sigma=3):
     idict["num_0"] = column[column==0].count()
     idict["num_1"] = column[column==1].count()
     idict["num_-1"] = column[column==-1].count()
-    
+
     return idict
 
 def compute_numerics(column, feature):
@@ -66,7 +66,7 @@ def compute_numerics(column, feature):
         feature["numeric_stats"]["integer"] = numerical_stats(column,feature["missing"]["num_nonblank"])
     elif column.dtype.kind == 'f' and column.count() > 0:
         feature["numeric_stats"]["decimal"] = numerical_stats(column,feature["missing"]["num_nonblank"])
-    
+
     else:
         convert = lambda v: tryConvert(v)
         col = column.apply(convert, convert_dtype=False)

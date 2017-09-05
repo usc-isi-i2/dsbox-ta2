@@ -1,5 +1,5 @@
 from dsbox.planner.levelone.planner import (LevelOnePlanner, get_d3m_primitives, AffinityPolicy)
-from primitives.library import PrimitiveLibrary
+from dsbox.planner.leveltwo.primitives.library import PrimitiveLibrary
 from dsbox.schema.dataset_schema import VariableFileType
 
 class LevelOnePlannerProxy(object):

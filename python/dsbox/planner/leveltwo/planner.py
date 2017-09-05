@@ -13,6 +13,9 @@ import pandas as pd
 from sklearn.linear_model import LinearRegression, LogisticRegression
 from sklearn.metrics import make_scorer
 
+TIMEOUT = 300  # Time out primitives running for more than 5 minutes
+
+
 class LevelTwoPlanner(object):
     """
     The Level-2 DSBox Planner.
@@ -33,7 +36,7 @@ class LevelTwoPlanner(object):
     """
 
     def __init__(self, libdir, helper):
-        self.glues = PrimitiveLibrary(libdir+"/glue.json")
+        self.glues = PrimitiveLibrary(libdir + "/glue.json")
         self.execution_cache = {}
         self.primitive_cache = {}
         self.helper = helper
@@ -47,11 +50,12 @@ class LevelTwoPlanner(object):
     :param index: Specifies from where to start expanding the pipeline (default 0)
     :returns: A list of expanded pipelines
     """
+
     def expand_pipeline(self, pipeline, profile, mod_profile=None, start_index=0):
         if not mod_profile:
             mod_profile = profile
 
-        #print "Expanding %s with index %d" % (pipeline , start_index)
+        # print "Expanding %s with index %d" % (pipeline , start_index)
         if start_index >= len(pipeline):
             # Check if there are no issues again
             npipes = self.expand_pipeline(pipeline, profile, mod_profile)
@@ -61,7 +65,7 @@ class LevelTwoPlanner(object):
 
         pipelines = []
         issues = self._get_pipeline_issues(pipeline, profile)
-        #print "Issues: %s" % issues
+        # print "Issues: %s" % issues
         ok = True
         for index in range(start_index, len(pipeline)):
             primitive = pipeline[index]
@@ -75,9 +79,10 @@ class LevelTwoPlanner(object):
                     ok = True
                     l2_pipeline = copy.deepcopy(pipeline)
                     l2_pipeline[index:index] = subpipe
-                    nindex = index+len(subpipe)+len(pipeline)
+                    nindex = index + len(subpipe) + len(pipeline)
                     cprofile = self._predict_profile(subpipe, profile)
-                    npipes = self.expand_pipeline(l2_pipeline, profile, cprofile, nindex)
+                    npipes = self.expand_pipeline(
+                        l2_pipeline, profile, cprofile, nindex)
                     if npipes:
                         for npipe in npipes:
                             pipelines.append(copy.deepcopy(npipe))
@@ -85,11 +90,14 @@ class LevelTwoPlanner(object):
                         pipelines.append(l2_pipeline)
 
         if ok:
+            if len(pipelines) == 0:
+                # No additions, use existing pipeline
+                pipelines.append(copy.deepcopy(pipeline))
             npipelines = []
             for pipe in pipelines:
                 npipelines.append(
                     self._remove_redundant_processing_primitives(pipe, profile))
-            #print "Pipelines: %s " % npipelines
+            # print "Pipelines: %s " % npipelines
             return self._remove_duplicate_pipelines(npipelines)
         else:
             return None
@@ -104,8 +112,9 @@ class LevelTwoPlanner(object):
     :returns: A tuple containing the patched pipeline and the metric score
     """
     # TODO: Currently no patching being done
+
     def patch_and_execute_pipeline(self, pipeline, df, df_lbl, columns, task_type, metric, metric_function):
-        print "** Running Pipeline: %s" % pipeline
+        print("** Running Pipeline: %s" % pipeline)
 
         df = copy.deepcopy(df)
         cols = df.columns
@@ -117,27 +126,22 @@ class LevelTwoPlanner(object):
             kwargs = {}
 
             if primitive.getInitKeywordArgs():
-                kwargs = self._process_kwargs(primitive.getInitKeywordArgs(), task_type, metric)
+                primitive.init_kwargs = self.helper._process_kwargs(
+                    primitive.getInitKeywordArgs(), task_type, metric)
 
             if primitive.getInitArgs():
-                args = self._process_args(primitive.getInitArgs(), task_type, metric)
+                primitive.init_args = self.helper._process_args(
+                    primitive.getInitArgs(), task_type, metric)
 
             cachekey += ".%s" % primitive
             if cachekey in self.execution_cache:
-                #print "* Using cache for %s" % primitive
+                # print "* Using cache for %s" % primitive
                 df = self.execution_cache.get(cachekey)
-                primitive.executable = self.primitive_cache.get(cachekey)
-                continue;
+                primitive.executables = self.primitive_cache.get(cachekey)
+                continue
 
             try:
-            	# TODO: Set some default parameters ?
-            	primitive.executable = self.helper.instantiate_primitive(primitive, args, kwargs)
-            	if primitive.executable is None:
-                	return None
-
-            	self.primitive_cache[cachekey] = primitive.executable
-
-            	print "Executing %s" % primitive.name
+                print("Executing %s" % primitive.name)
 
                 # Re-profile intermediate data here.
                 # TODO: Recheck if it is ok for the primitive's preconditions
@@ -145,29 +149,33 @@ class LevelTwoPlanner(object):
                 cur_profile = DataProfile(df)
 
                 if primitive.task == "FeatureExtraction":
-                    df = self.helper.featurise(df, primitive.executable, timeout=60)
+                    # Featurisation Primitive
+                    df = self.helper.featurise(df, primitive, timeout=TIMEOUT)
                     cols = df.columns
                     self.execution_cache[cachekey] = df
+                    self.primitive_cache[cachekey] = primitive.executables
 
-                # If this is a modeling primitive
-                # - we create training/test sets and check the metricvalue
                 elif primitive.task == "Modeling":
+                    # Modeling Primitive
                     # Evaluate: Get a cross validation score for the metric
-                    metricvalue = self.helper.cross_validation_score(primitive.executable, df, df_lbl,
-                                             metric, metric_function, 5, timeout=60)
+                    metricvalue = self.helper.cross_validation_score(primitive, df, df_lbl,
+                                                                     metric, metric_function, 5, timeout=TIMEOUT)
                     if not metricvalue:
                         return None
-                    # Do a final fit with all the data before persisting the model
-                    #primitive.executable.fit(df, df_lbl.values.ravel())
+
+                    self.primitive_cache[cachekey] = primitive.executables
                     break
 
                 else:
-                    # If this is a glue primitive
-                    df = self.helper.execute_primitive(primitive, df, df_lbl, cur_profile, timeout=60)
+                    # Glue primitive
+                    df = self.helper.execute_primitive(
+                        primitive, df, df_lbl, cur_profile, timeout=TIMEOUT)
                     self.execution_cache[cachekey] = df
+                    self.primitive_cache[cachekey] = primitive.executables
 
             except Exception as e:
-                sys.stderr.write("ERROR patch_and_execute_pipeline(%s) : %s\n" % (pipeline, e))
+                sys.stderr.write(
+                    "ERROR patch_and_execute_pipeline(%s) : %s\n" % (pipeline, e))
                 traceback.print_exc()
                 return None
 
@@ -175,12 +183,12 @@ class LevelTwoPlanner(object):
 
     def _remove_redundant_processing_primitives(self, pipeline, profile):
         curpipe = copy.copy(pipeline)
-        length = len(curpipe)-1
+        length = len(curpipe) - 1
         index = 0
-        #print "Checking redundancy for %s" % pipeline
+        # print "Checking redundancy for %s" % pipeline
         while index <= length:
             prim = curpipe.pop(index)
-            #print "%s / %s: %s" % (index, length, prim)
+            # print "%s / %s: %s" % (index, length, prim)
             if prim.task == "PreProcessing":
                 issues = self._get_pipeline_issues(curpipe, profile)
                 ok = True
@@ -188,16 +196,16 @@ class LevelTwoPlanner(object):
                     if len(issue):
                         ok = False
                 if ok:
-                    #print "Reduction achieved"
+                    # print "Reduction achieved"
                     # Otherwise reduce the length (and don't increment index)
                     length = length - 1
                     continue
 
             curpipe[index:index] = [prim]
-            #print curpipe
+            # print curpipe
             index += 1
 
-        #print "Returning %s" % curpipe
+        # print "Returning %s" % curpipe
         return curpipe
 
     def _remove_duplicate_pipelines(self, pipelines):
@@ -217,7 +225,7 @@ class LevelTwoPlanner(object):
         unmet_requirements = []
         profiles = self._get_predicted_data_profiles(pipeline, profile)
         requirements = self._get_pipeline_requirements(pipeline)
-        #print "Profiles: %s\nRequirements: %s" % (profiles, requirements)
+        # print "Profiles: %s\nRequirements: %s" % (profiles, requirements)
         for index in range(0, len(pipeline)):
             unmet = {}
             prim_prec = requirements[index]
@@ -232,7 +240,7 @@ class LevelTwoPlanner(object):
     def _get_predicted_data_profiles(self, pipeline, profile):
         curprofile = copy.deepcopy(profile)
         profiles = [curprofile]
-        for index in range(0, len(pipeline)-1):
+        for index in range(0, len(pipeline) - 1):
             primitive = pipeline[index]
             nprofile = copy.deepcopy(curprofile)
             for effect in primitive.effects.keys():
@@ -242,8 +250,8 @@ class LevelTwoPlanner(object):
         return profiles
 
     def _get_pipeline_requirements(self, pipeline):
-        requirements = [];
-        effects = [];
+        requirements = []
+        effects = []
         for index in range(0, len(pipeline)):
             primitive = pipeline[index]
             prim_requirements = {}
@@ -281,7 +289,7 @@ class LevelTwoPlanner(object):
                 elif len(glues) > 1:
                     newlst = []
                     for pipe in lst:
-                        #lst.remove(pipe)
+                        # lst.remove(pipe)
                         for prim in glues:
                             cpipe = copy.deepcopy(pipe)
                             #print("-> Adding %s" % prim.name)
@@ -300,24 +308,6 @@ class LevelTwoPlanner(object):
         #print ("Predicted profile %s" % curprofile)
         return curprofile
 
-    def _process_args(self, args, task_type, metric):
-        result_args = []
-        for arg in args:
-            if isinstance(arg, str) and arg.startswith('*'):
-                result_args.append(self._get_arg_value(arg, task_type, metric))
-            else:
-                result_args.append(arg)
-        return result_args
-
-    def _process_kwargs(self, kwargs, task_type, metric):
-        result_kwargs = {}
-        for key, arg in kwargs.items():
-            if isinstance(arg, str) and arg.startswith('*'):
-                result_kwargs[key] = self._get_arg_value(arg, task_type, metric)
-            else:
-                result_kwargs[key] = arg
-        return result_kwargs
-
     def _get_arg_value(self, arg_specification, task_type, metric):
         if not arg_specification.startswith('*'):
             return arg_specification
@@ -335,4 +325,5 @@ class LevelTwoPlanner(object):
                 raise Exception("Not yet implemented: Arg specification ESTIMATOR task type: {}"
                                 .format(task_type))
         else:
-            raise Exception("Unkown Arg specification: {}".format(arg_specification))
+            raise Exception(
+                "Unkown Arg specification: {}".format(arg_specification))

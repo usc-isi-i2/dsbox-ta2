@@ -56,7 +56,7 @@ class DataProfile(object):
             profile[dpt.MISSING_VALUES] = True
         if col_data.get('numeric_stats'):
             profile[dpt.NUMERICAL] = True
-            numneg = col_data.get('numeric_stats').get('num_negative')
+            numneg = col_data.get('numeric_stats').get('num_negative', 0)
             if numneg > 0:
                 profile[dpt.NEGATIVE] = True
         if ('special_type' in col_data

@@ -11,7 +11,8 @@
     "Name": "CorexText",
     "Task": "FeatureExtraction",
     "LearningType": "Featurization",
-    "InitKeywordArguments" : {"n_hidden": 20, "min_df": 0, "max_df": 1},
+    "NotPersistent": true,
+    "InitKeywordArguments" : {"n_hidden": 10, "min_df": 0, "max_df": 1},
     "Requirements": ["!MISSING_VALUES"],
     "Effects": []
   },
@@ -20,7 +21,7 @@
     "Name": "TfidfVectorizer",
     "Task": "FeatureExtraction",
     "RequiresColumnData": true,
-    "InitKeywordArguments" : {"max_features":512},
+    "InitKeywordArguments" : {"max_features":128},
     "Requirements": [],
     "Effects": []
   },
@@ -28,7 +29,7 @@
     "Class": "sklearn.feature_extraction.text.CountVectorizer",
     "Name": "CountVectorizer",
     "Task": "FeatureExtraction",
-    "InitKeywordArguments" : {"max_features":512},
+    "InitKeywordArguments" : {"max_features":128},
     "RequiresColumnData": true,
     "Requirements": [],
     "Effects": []
@@ -37,7 +38,7 @@
     "Class": "sklearn.feature_extraction.text.HashingVectorizer",
     "Name": "HashingVectorizer",
     "Task": "FeatureExtraction",
-    "InitKeywordArguments" : {"n_features":512},
+    "InitKeywordArguments" : {"n_features":128},
     "RequiresColumnData": true,
     "Requirements": [],
     "Effects": []

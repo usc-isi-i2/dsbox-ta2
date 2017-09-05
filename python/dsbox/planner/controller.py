@@ -15,39 +15,24 @@ from dsbox.executer.executionhelper import ExecutionHelper
 import sklearn.metrics
 from sklearn.externals import joblib
 
+class Feature:
+    def __init__(self, data_directory, feature_id):
+        self.data_directory = data_directory
+        self.feature_id = feature_id
+
 class Controller(object):
     """
-    This is the overall "planning" coordinator. It is passed in the problem directory
+    This is the overall "planning" coordinator. It is passed in the data directory
     and the primitives library directory, and it generates plans by calling out to L1, L2
     and L3 planners.
     """
-    def __init__(self, directory, libdir, outputdir):
-        self.directory = os.path.abspath(directory)
-        self.helper = ExecutionHelper(directory, outputdir)
-
-        self.problem = self.helper.load_json(directory + "/problemSchema.json")
-        self.task_type = TaskType(self.problem['taskType'])
-        self.task_subtype = None
-        subtype = self.problem.get('taskSubType', None)
-        if subtype:
-            subtype = subtype.replace(self.task_type.value.title(), "")
-            self.task_subtype = TaskSubType(subtype)
-
-        metricstr = self.problem.get('metric', 'accuracy')
-        metricstr = metricstr[0].lower() + metricstr[1:]
-        self.metric = Metric(metricstr)
-        self.metric_function = self._get_metric_function(self.metric)
-
-        self.schema = self.helper.schema
-        self.columns = self.helper.columns
-        self.targets = self.helper.targets
-        self.indexcol = self.helper.indexcol
-        self.media_type = self.helper.media_type
-
-        self.train_data = self.helper.read_data(directory +'/data/trainData.csv.gz',
-                                         self.columns, self.indexcol)
-        self.train_labels = self.helper.read_data(directory +'/data/trainTargets.csv.gz',
-                                           self.targets, self.indexcol)
+    def __init__(self, train_features, target_features, libdir, outputdir):
+        self.columns = []
+        self.targets = []
+        self.train_data = None
+        self.train_labels = None
+        self.indexcol = None
+        self.media_type = None
 
         self.libdir = os.path.abspath(libdir)
         self.outputdir = os.path.abspath(outputdir)
@@ -59,10 +44,107 @@ class Controller(object):
         self.logfile = open("%s/log.txt" % self.outputdir, 'w')
         self.errorfile = open("%s/stderr.txt" % self.outputdir, 'w')
         self.pipelinesfile = open("%s/pipelines.txt" % self.outputdir, 'w')
-
         # Redirect stderr to error file
         sys.stderr = self.errorfile
 
+        # Read training data
+        self.read_feature_data(train_features, target_features)
+
+
+    def read_feature_data(self, train_features, target_features):
+        data_train_features_map = {}
+        data_target_features_map = {}
+
+        print("Loading Data..")
+
+        for feature in train_features:
+            data_train_features = data_train_features_map.get(feature.data_directory, [])
+            data_train_features.append(feature.feature_id)
+            data_train_features_map[feature.data_directory] = data_train_features
+
+        for feature in target_features:
+            data_target_features = data_target_features_map.get(feature.data_directory, [])
+            data_target_features.append(feature.feature_id)
+            data_target_features_map[feature.data_directory] = data_target_features
+
+        for data_directory in data_train_features_map.keys():
+            helper = ExecutionHelper(data_directory, self.outputdir)
+            indexcol = helper.indexcol
+            columns = []
+            data_train_features = data_train_features_map[data_directory]
+            for col in helper.columns:
+                if (col['varName'] in data_train_features) or ("*" in data_train_features):
+                    if(col['varRole'] != 'index'):
+                        columns.append(col)
+            train_data = helper.read_data(data_directory +'/trainData.csv.gz',
+                                         columns, indexcol)
+            if self.train_data is None:
+                self.train_data = train_data
+                self.columns = columns
+            else:
+                self.train_data = pd.concat([self.train_data, train_data], axis=1)
+                self.columns = self.columns + columns
+                self.train_data.columns = self.columns
+
+            self.helper = helper
+            if indexcol is not None:
+                self.indexcol = indexcol
+            if helper.media_type is not None:
+                self.media_type = helper.media_type
+
+        for data_directory in data_target_features_map.keys():
+            helper = ExecutionHelper(data_directory, self.outputdir)
+            indexcol = helper.indexcol
+            targets = []
+            data_target_features = data_target_features_map[data_directory]
+            for col in helper.targets:
+                if (col['varName'] in data_target_features) or ("*" in data_target_features):
+                    if(col['varRole'] != 'index'):
+                        targets.append(col)
+
+            train_labels = helper.read_data(data_directory +'/trainTargets.csv.gz',
+                                         targets, indexcol)
+            if self.train_labels is None:
+                self.train_labels = train_labels
+                self.targets = targets
+            else:
+                self.train_labels = pd.concat([self.train_labels, train_labels], axis=1)
+                self.targets = self.targets + targets
+                self.train_labels.columns = self.targets
+
+        self.helper.columns = self.columns
+        self.helper.targets = self.targets
+        self.helper.indexcol = self.indexcol
+
+
+    """
+    This function loads the problem details via the problem schema file
+    """
+    def load_problem_schema(self, jsonfile):
+        self.problem = self.helper.load_json(jsonfile)
+        self.set_task_type(
+            self.problem.get('taskType', None),
+            self.problem.get('taskSubType', None)
+        )
+        self.set_metric(self.problem.get('metric', 'accuracy'))
+        self.set_output_type(None)
+
+    def set_task_type(self, task_type, task_subtype=None):
+        self.task_type = TaskType(task_type)
+        self.task_subtype = None
+        if task_subtype is not None:
+            task_subtype = task_subtype.replace(self.task_type.value.title(), "")
+            self.task_subtype = TaskSubType(task_subtype)
+
+    def set_metric(self, metric):
+        metric = metric[0].lower() + metric[1:]
+        self.metric = Metric(metric)
+        self.metric_function = self._get_metric_function(self.metric)
+
+    def set_output_type(self, output_type):
+        self.output_type = output_type
+
+    def initialize_planners(self):
         self.l1_planner = LevelOnePlannerProxy(self.libdir, self.task_type, self.task_subtype, self.media_type)
         self.l2_planner = LevelTwoPlanner(self.libdir, self.helper)
 
@@ -73,9 +155,11 @@ class Controller(object):
         sys.stdout.write("%s\n" % status)
         sys.stdout.flush()
 
-    def start(self, cutoff=10):
+    def start(self, planner_event_handler, cutoff=10):
         self.logfile.write("Task type: %s\n" % self.task_type)
         self.logfile.write("Metric: %s\n" % self.metric)
+
+        pe = planner_event_handler
 
         self.show_status("Planning...")
 
@@ -111,6 +195,7 @@ class Controller(object):
                         if not l2_pipelines_handled.get(str(l2_pipeline), False):
                             l2_l1_map[str(l2_pipeline)] = l1_pipeline
                             l2_pipelines.append(l2_pipeline)
+                            yield pe.SubmittedPipeline(l2_pipeline)
 
             self.logfile.write("\nL2 Pipelines:\n-------------\n")
             self.logfile.write("%s\n" % str(l2_pipelines))
@@ -118,9 +203,15 @@ class Controller(object):
             self.show_status("Found %d executable pipeline(s). Testing them..." % len(l2_pipelines))
 
             for l2_pipeline in l2_pipelines:
+                yield pe.RunningPipeline(l2_pipeline)
+
+                # TODO: Execute parallelly (fork, or separate thread)
                 expipe = self.l2_planner.patch_and_execute_pipeline(
                         l2_pipeline, df, df_lbl, self.columns, self.task_type, self.metric, self.metric_function)
                 l2_pipelines_handled[str(l2_pipeline)] = True
+
+                yield pe.CompletedPipeline(l2_pipeline, expipe)
+
                 if expipe:
                     l2_exec_pipelines.append(expipe)
 
@@ -158,6 +249,7 @@ class Controller(object):
             self.pipelinesfile.write("%s : %2.4f\n" % (pipeline, l2_exec_pipelines[index][1]))
             pipeline_name = str(index+1) + "." + str(uuid.uuid1())
             self.helper.create_pipeline_executable(pipeline, pipeline_name)
+
 
     def _sort_by_metric(self, pipeline):
         if "error" in self.metric.value.lower():
@@ -217,4 +309,3 @@ class Controller(object):
     def root_mean_squared_error(self, y_true, y_pred):
         import math
         return math.sqrt(sklearn.metrics.mean_squared_error(y_true, y_pred))
-
