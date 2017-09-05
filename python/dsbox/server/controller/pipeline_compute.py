@@ -11,6 +11,10 @@ from dsbox.planner.controller import Controller, Feature
 from dsbox.schema.problem_schema import TaskType, TaskSubType, Metric
 
 class PipelineCompute(psrpc.PipelineComputeServicer):
+
+    def __init__(self, libdir):
+        self.libdir = libdir
+
     def StartSession(self, request, context):
         """Session management
         """
@@ -33,10 +37,16 @@ class PipelineCompute(psrpc.PipelineComputeServicer):
         context.set_code(grpc.StatusCode.OK)
         return response
 
-    def CreatePipelines(self, request, context):
-        # FIXME: Get the library from a configuration parameter
-        libdir = "/Users/varun/git/dsbox/dsbox-ta2/python/library"
+    def _create_path_from_uri(self, uri):
+        import os
+        try:
+            from urllib import parse as urlparse
+        except ImportError:
+            import urlparse
+        p = urlparse.urlparse(uri)
+        return os.path.abspath(os.path.join(p.netloc, p.path))
 
+    def CreatePipelines(self, request, context):
         session = Session.get(request.context.session_id)
         if session is None:
             yield None
@@ -46,16 +56,16 @@ class PipelineCompute(psrpc.PipelineComputeServicer):
         train_features = []
         target_features = []
         for tfeature in request.train_features:
-            datadir = tfeature.data_uri.replace("file://", "")
+            datadir = self._create_path_from_uri(tfeature.data_uri)
             featureid = tfeature.feature_id
             train_features.append(Feature(datadir, featureid))
         for tfeature in request.target_features:
-            datadir = tfeature.data_uri.replace("file://", "")
+            datadir = self._create_path_from_uri(tfeature.data_uri)
             featureid = tfeature.feature_id
             target_features.append(Feature(datadir, featureid))
 
         # Create the planning controller
-        session.controller = Controller(train_features, target_features, libdir, session.outputdir)
+        session.controller = Controller(train_features, target_features, self.libdir, session.outputdir)
 
         # Get Problem details
         session.controller.task_type = TaskType[ps.TaskType.Name(request.task)]

@@ -15,6 +15,8 @@ from dsbox.executer.execution import Execution
 
 import scipy.sparse.csr
 
+import os
+import sys
 import stopit
 import inspect
 import importlib
@@ -29,7 +31,7 @@ class ExecutionHelper(object):
         self.e = Execution()
         self.directory = os.path.abspath(data_directory)
         self.outputdir = os.path.abspath(outputdir)
-        self.schema = self.load_json(self.directory + "/dataSchema.json")
+        self.schema = self.load_json(self.directory + os.sep + "dataSchema.json")
         self.columns = self.schema['trainData']['trainData']
         self.targets = self.schema['trainData']['trainTargets']
         self.indexcol = self.get_index_column(self.columns)
@@ -37,7 +39,7 @@ class ExecutionHelper(object):
         self.data = None
         self.nested_table = dict()
         if csvfile:
-            self.data = self.read_data(self.directory + "/" + csvfile, self.columns, self.indexcol)
+            self.data = self.read_data(self.directory + os.sep + csvfile, self.columns, self.indexcol)
 
 
     def instantiate_primitive(self, primitive):
@@ -63,6 +65,9 @@ class ExecutionHelper(object):
                 colprofile = cur_profile.columns[col]
                 if self._profile_matches_precondition(primitive.preconditions, colprofile):
                     try:
+                        # FIXME: Hack for Label encoder for python3 (cannot handle missing values)
+                        if (primitive.name == "Label Encoder") and (sys.version_info[0] == 3):
+                            df[col] = df[col].fillna('')
                         df[col] = self._execute_primitive(primitive, executable, df[col])
                     except Exception as e:
                         sys.stderr.write("ERROR execute_primitive(%s): %s\n" % (primitive, e))
@@ -85,7 +90,7 @@ class ExecutionHelper(object):
     def _execute_primitive(self, primitive, executable, df, df_lbl=None):
         args = [df]
         if df_lbl is not None:
-            args.append(df_lbl.values.ravel())
+            args.append(df_lbl)
         if primitive.is_persistent:
             if REMOTE:
                 executable = self.e.execute('fit', args=args, kwargs=None, obj=executable, objreturn=True)
@@ -227,7 +232,8 @@ class ExecutionHelper(object):
                     filename = row[colname]
                     if self.media_type is VariableFileType.TABULAR:
                         if not filename in self.nested_table:
-                            nested_df = self.read_data(self.directory + '/raw_data/' + df.loc[index, colname] + ".gz", [], None)
+                            nested_df = self.read_data(self.directory + os.sep + 'raw_data'
+                                + os.sep + df.loc[index, colname] + ".gz", [], None)
                             self.nested_table[filename] = nested_df
 
         # Check all columns for special roles
@@ -236,7 +242,7 @@ class ExecutionHelper(object):
             if col['varRole'] == 'file':
                 # If the role is "file", then load in the raw data files
                 for index, row in df.iterrows():
-                    filepath = self.directory + '/raw_data/' + row[colname]
+                    filepath = self.directory + os.sep + 'raw_data' + os.sep + row[colname]
                     if self.media_type == VariableFileType.TEXT:
                         # Plain data load for text files
                         with open(filepath, 'rb') as myfile:
@@ -299,7 +305,7 @@ class ExecutionHelper(object):
         return result_kwargs
 
     def create_pipeline_executable(self, pipeline, pipeid):
-        imports = ["sys", "sklearn.externals", "pandas"]
+        imports = ["sys", "sklearn.externals", "pandas", "numpy"]
         statements = [
                 "from os import path",
                 "from dsbox.executer.executionhelper import ExecutionHelper",
@@ -307,15 +313,15 @@ class ExecutionHelper(object):
                 "",
                 "# Pipeline : %s" % str(pipeline),
                 ""]
+        statements.append("numpy.set_printoptions(threshold=numpy.nan)")
         statements.append("hp = ExecutionHelper('%s', '.', 'testData.csv.gz')" % self.directory)
         statements.append("testdata = hp.data")
-        #statements.append("testdata = pandas.read_csv('%s/data/testData.csv.gz', index_col='%s')" % (self.directory, self.indexcol))
         index = 1
         for primitive in pipeline:
             primid = "primitive_%s" % str(index)
 
             try:
-                primfile = "%s/models/%s.%s.pkl" % (self.outputdir, pipeid, primid)
+                primfile = "%s%smodels%s%s.%s.pkl" % (self.outputdir, os.sep, os.sep, pipeid, primid)
                 statements.append("%s = sklearn.externals.joblib.load('%s')" % (primid, primfile))
                 joblib.dump(primitive, primfile)
             except Exception as e:
@@ -353,15 +359,15 @@ class ExecutionHelper(object):
             index += 1
 
         # Write executable
-        with open("%s/executables/%s.py" % (self.outputdir, pipeid), 'a') as exfile:
+        with open("%s%sexecutables%s%s.py" % (self.outputdir, os.sep, os.sep, pipeid), 'a') as exfile:
             for imp in set(imports):
                 exfile.write("import %s\n" % imp)
             for st in statements:
                 exfile.write(st+"\n")
 
-        libdir = self.outputdir + "/executables/dsbox"
-        schemadir = libdir + "/schema"
-        execdir = libdir + "/executer"
+        libdir = self.outputdir + os.sep + "executables" + os.sep + "dsbox"
+        schemadir = libdir + os.sep + "schema"
+        execdir = libdir + os.sep + "executer"
         if not os.path.exists(libdir):
             os.makedirs(libdir)
             self._init_initfile(libdir)
@@ -373,24 +379,27 @@ class ExecutionHelper(object):
             self._init_initfile(execdir)
 
         # Copy executionhelper.py, execution.py & dataset_schema.py file (this file)
-        exfile = "%s/executables/dsbox/executer/executionhelper.py" % self.outputdir
+        exfile = "%s%sexecutables%sdsbox%sexecuter%sexecutionhelper.py" % (
+            self.outputdir, os.sep, os.sep, os.sep, os.sep)
         if not os.path.isfile(exfile):
             thisfile = os.path.abspath(__file__)
             thisfile = thisfile.replace(".pyc", ".py")
             shutil.copyfile(thisfile, exfile)
-        exfile = "%s/executables/dsbox/executer/execution.py" % self.outputdir
+        exfile = "%s%sexecutables%sdsbox%sexecuter%sexecution.py" % (
+            self.outputdir, os.sep, os.sep, os.sep, os.sep)
         if not os.path.isfile(exfile):
-            origfile = os.path.dirname(os.path.abspath(__file__)) + "/execution.py"
+            origfile = os.path.dirname(os.path.abspath(__file__)) + os.sep + "execution.py"
             origfile = origfile.replace(".pyc", ".py")
             shutil.copyfile(origfile, exfile)
-        schfile = "%s/executables/dsbox/schema/dataset_schema.py" % self.outputdir
+        schfile = "%s%sexecutables%sdsbox%sschema%sdataset_schema.py" % (
+            self.outputdir, os.sep, os.sep, os.sep, os.sep)
         if not os.path.isfile(schfile):
-            origfile = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) + "/schema/dataset_schema.py"
+            origfile = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) + os.sep + "schema" + os.sep + "dataset_schema.py"
             origfile = origfile.replace(".pyc", ".py")
             shutil.copyfile(origfile, schfile)
 
     def _init_initfile(self, dir):
-        with open(dir+"/__init__.py", "w") as init_file:
+        with open(dir + os.sep + "__init__.py", "w") as init_file:
             init_file.write("__path__ = __import__('pkgutil').extend_path(__path__, __name__)")
 
 

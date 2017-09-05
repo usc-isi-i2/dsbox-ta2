@@ -3,6 +3,7 @@ from dsbox.schema.data_profile import DataProfile
 from dsbox.profiler.data.data_profiler import DataProfiler
 from dsbox.schema import TaskType
 
+import os
 import sys
 import copy
 import itertools
@@ -36,7 +37,7 @@ class LevelTwoPlanner(object):
     """
 
     def __init__(self, libdir, helper):
-        self.glues = PrimitiveLibrary(libdir + "/glue.json")
+        self.glues = PrimitiveLibrary(libdir + os.sep + "glue.json")
         self.execution_cache = {}
         self.primitive_cache = {}
         self.helper = helper

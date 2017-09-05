@@ -1,3 +1,5 @@
+import os
+
 from dsbox.planner.levelone.planner import (LevelOnePlanner, get_d3m_primitives, AffinityPolicy)
 from dsbox.planner.leveltwo.primitives.library import PrimitiveLibrary
 from dsbox.schema.dataset_schema import VariableFileType
@@ -9,8 +11,8 @@ class LevelOnePlannerProxy(object):
     This is here to integrate with Ke-Thia's L1 Planner until we come up with a consistent interface
     """
     def __init__(self, libdir, task_type, task_subtype, media_type=None):
-        self.models = PrimitiveLibrary(libdir+"/models.json")
-        self.features = PrimitiveLibrary(libdir+"/features.json")
+        self.models = PrimitiveLibrary(libdir + os.sep + "models.json")
+        self.features = PrimitiveLibrary(libdir + os.sep + "features.json")
 
         self.primitives = get_d3m_primitives()
         self.policy = AffinityPolicy(self.primitives)

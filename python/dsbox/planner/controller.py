@@ -38,12 +38,12 @@ class Controller(object):
         self.outputdir = os.path.abspath(outputdir)
         if os.path.exists(self.outputdir):
             shutil.rmtree(self.outputdir)
-        os.makedirs(self.outputdir+"/models")
-        os.makedirs(self.outputdir+"/executables")
+        os.makedirs(self.outputdir + os.sep + "models")
+        os.makedirs(self.outputdir + os.sep + "executables")
 
-        self.logfile = open("%s/log.txt" % self.outputdir, 'w')
-        self.errorfile = open("%s/stderr.txt" % self.outputdir, 'w')
-        self.pipelinesfile = open("%s/pipelines.txt" % self.outputdir, 'w')
+        self.logfile = open("%s%slog.txt" % (self.outputdir, os.sep), 'w')
+        self.errorfile = open("%s%sstderr.txt" % (self.outputdir, os.sep), 'w')
+        self.pipelinesfile = open("%s%spipelines.txt" % (self.outputdir, os.sep), 'w')
         # Redirect stderr to error file
         sys.stderr = self.errorfile
 
@@ -76,7 +76,7 @@ class Controller(object):
                 if (col['varName'] in data_train_features) or ("*" in data_train_features):
                     if(col['varRole'] != 'index'):
                         columns.append(col)
-            train_data = helper.read_data(data_directory +'/trainData.csv.gz',
+            train_data = helper.read_data(data_directory + os.sep + 'trainData.csv.gz',
                                          columns, indexcol)
             if self.train_data is None:
                 self.train_data = train_data
@@ -102,7 +102,7 @@ class Controller(object):
                     if(col['varRole'] != 'index'):
                         targets.append(col)
 
-            train_labels = helper.read_data(data_directory +'/trainTargets.csv.gz',
+            train_labels = helper.read_data(data_directory + os.sep + 'trainTargets.csv.gz',
                                          targets, indexcol)
             if self.train_labels is None:
                 self.train_labels = train_labels
