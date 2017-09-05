@@ -1,0 +1,21 @@
+name: ta2
+dependencies:
+- pip=9.0.1=py27_0
+- python=2.7.12=1
+- scipy>=0.19.0
+- pip:
+  - numpy>=1.11.1
+  - pandas>=0.20.1
+  - langdetect>=1.0.7
+  - scikit-learn>=0.18.0
+  - python-dateutil==2.5.2
+  - six>=1.10.0
+  - enum34 
+  - zerorpc 
+  - stopit 
+  - keras 
+  - tensorflow 
+  - pillow 
+  - h5py
+  - grpcio 
+  - grpcio-tools
