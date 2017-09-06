@@ -52,15 +52,15 @@ class PipelineCompute(psrpc.PipelineComputeServicer):
 
     def _create_uri_from_path(self, path):
         """Return file:// uri from a filename."""
-        # Python 2 and 3 compatible import of urlparse
+        # Python 2 and 3 compatible import of urllib
         try:
-            from urllib import request as urlparse
+            from urllib import request as urllib
         except ImportError:
-            import urlparse
+            import urllib
         path = os.path.abspath(path)
         if isinstance(path, str):
             path = path.encode('utf8')
-        return 'file://' + urlparse.pathname2url(path)
+        return 'file://' + urllib.pathname2url(path)
 
     def CreatePipelines(self, request, context):
         session = Session.get(request.context.session_id)
