@@ -3,6 +3,7 @@ import sys
 import os.path
 import uuid
 import math
+import numpy
 import shutil
 import pandas as pd
 
@@ -33,6 +34,7 @@ class Controller(object):
         self.train_labels = None
         self.indexcol = None
         self.media_type = None
+        self.exec_pipelines = []
 
         self.libdir = os.path.abspath(libdir)
         self.outputdir = os.path.abspath(outputdir)
@@ -51,6 +53,9 @@ class Controller(object):
         self.read_feature_data(train_features, target_features)
 
 
+    """
+    This function creates train_data and train_labels from the set of train and target features
+    """
     def read_feature_data(self, train_features, target_features):
         data_train_features_map = {}
         data_target_features_map = {}
@@ -74,8 +79,7 @@ class Controller(object):
             data_train_features = data_train_features_map[data_directory]
             for col in helper.columns:
                 if (col['varName'] in data_train_features) or ("*" in data_train_features):
-                    if(col['varRole'] != 'index'):
-                        columns.append(col)
+                    columns.append(col)
             train_data = helper.read_data(data_directory + os.sep + 'trainData.csv.gz',
                                          columns, indexcol)
             if self.train_data is None:
@@ -99,8 +103,7 @@ class Controller(object):
             data_target_features = data_target_features_map[data_directory]
             for col in helper.targets:
                 if (col['varName'] in data_target_features) or ("*" in data_target_features):
-                    if(col['varRole'] != 'index'):
-                        targets.append(col)
+                    targets.append(col)
 
             train_labels = helper.read_data(data_directory + os.sep + 'trainTargets.csv.gz',
                                          targets, indexcol)
@@ -116,9 +119,8 @@ class Controller(object):
         self.helper.targets = self.targets
         self.helper.indexcol = self.indexcol
 
-
     """
-    This function loads the problem details via the problem schema file
+    Set the task type, metric and output type via the schema
     """
     def load_problem_schema(self, jsonfile):
         self.problem = self.helper.load_json(jsonfile)
@@ -129,6 +131,9 @@ class Controller(object):
         self.set_metric(self.problem.get('metric', 'accuracy'))
         self.set_output_type(None)
 
+    """
+    Set the task type and task subtype
+    """
     def set_task_type(self, task_type, task_subtype=None):
         self.task_type = TaskType(task_type)
         self.task_subtype = None
@@ -136,32 +141,37 @@ class Controller(object):
             task_subtype = task_subtype.replace(self.task_type.value.title(), "")
             self.task_subtype = TaskSubType(task_subtype)
 
+    """
+    Set the metric
+    """
     def set_metric(self, metric):
         metric = metric[0].lower() + metric[1:]
         self.metric = Metric(metric)
         self.metric_function = self._get_metric_function(self.metric)
 
+    """
+    Set the output type
+    """
     def set_output_type(self, output_type):
         self.output_type = output_type
 
+    """
+    Initialize the L1 and L2 planners
+    """
     def initialize_planners(self):
         self.l1_planner = LevelOnePlannerProxy(self.libdir, self.task_type, self.task_subtype, self.media_type)
         self.l2_planner = LevelTwoPlanner(self.libdir, self.helper)
 
-    def convert_l1_to_l2(self, pipeline):
-        pipeline.get_primitives()
-
-    def show_status(self, status):
-        sys.stdout.write("%s\n" % status)
-        sys.stdout.flush()
-
-    def start(self, planner_event_handler, cutoff=10):
+    """
+    Train and select pipelines
+    """
+    def train(self, planner_event_handler, cutoff=10):
         self.logfile.write("Task type: %s\n" % self.task_type)
         self.logfile.write("Metric: %s\n" % self.metric)
 
         pe = planner_event_handler
 
-        self.show_status("Planning...")
+        self._show_status("Planning...")
 
         # Get data details
         df = pd.DataFrame(self.train_data, columns = self.train_data.columns)
@@ -173,7 +183,7 @@ class Controller(object):
         l1_pipelines_handled = {}
         l2_pipelines_handled = {}
         l1_pipelines = self.l1_planner.get_pipelines(df)
-        l2_exec_pipelines = []
+        self.exec_pipelines = []
 
         while len(l1_pipelines) > 0:
             self.logfile.write("\nL1 Pipelines:\n-------------\n")
@@ -182,7 +192,7 @@ class Controller(object):
 
             l2_l1_map = {}
 
-            self.show_status("Exploring %d basic pipeline(s)..." % len(l1_pipelines))
+            self._show_status("Exploring %d basic pipeline(s)..." % len(l1_pipelines))
 
             l2_pipelines = []
             for l1_pipeline in l1_pipelines:
@@ -200,7 +210,7 @@ class Controller(object):
             self.logfile.write("\nL2 Pipelines:\n-------------\n")
             self.logfile.write("%s\n" % str(l2_pipelines))
 
-            self.show_status("Found %d executable pipeline(s). Testing them..." % len(l2_pipelines))
+            self._show_status("Found %d executable pipeline(s). Testing them..." % len(l2_pipelines))
 
             for l2_pipeline in l2_pipelines:
                 yield pe.RunningPipeline(l2_pipeline)
@@ -213,21 +223,21 @@ class Controller(object):
                 yield pe.CompletedPipeline(l2_pipeline, expipe)
 
                 if expipe:
-                    l2_exec_pipelines.append(expipe)
+                    self.exec_pipelines.append(expipe)
 
-            l2_exec_pipelines = sorted(l2_exec_pipelines, key=lambda x: self._sort_by_metric(x))
+            self.exec_pipelines = sorted(self.exec_pipelines, key=lambda x: self._sort_by_metric(x))
 
             self.logfile.write("\nL2 Executed Pipelines:\n-------------\n")
-            self.logfile.write("%s\n" % str(l2_exec_pipelines))
+            self.logfile.write("%s\n" % str(self.exec_pipelines))
 
             # TODO: Do Pipeline Hyperparameter Tuning
 
             # Pick top N pipelines, and get similar pipelines to it from the L1 planner to further explore
             l1_related_pipelines = []
             for index in range(0, cutoff):
-                if index >= len(l2_exec_pipelines):
+                if index >= len(self.exec_pipelines):
                     break
-                pipeline = l2_l1_map.get(str(l2_exec_pipelines[index][0]))
+                pipeline = l2_l1_map.get(str(self.exec_pipelines[index][0]))
                 if pipeline:
                     related_pipelines = self.l1_planner.get_related_pipelines(pipeline)
                     for related_pipeline in related_pipelines:
@@ -240,16 +250,50 @@ class Controller(object):
             l1_pipelines = l1_related_pipelines
 
         # Ended planners
-        self.show_status("Found total %d successfully executing pipeline(s)..." % len(l2_exec_pipelines))
+        self._show_status("Found total %d successfully executing pipeline(s)..." % len(self.exec_pipelines))
 
         # Create executables
         self.pipelinesfile.write("# Pipelines ranked by metric (%s)\n" % self.metric)
-        for index in range(0, len(l2_exec_pipelines)):
-            pipeline = l2_exec_pipelines[index][0]
-            self.pipelinesfile.write("%s : %2.4f\n" % (pipeline, l2_exec_pipelines[index][1]))
+        for index in range(0, len(self.exec_pipelines)):
+            pipeline = self.exec_pipelines[index][0]
+            self.pipelinesfile.write("%s : %2.4f\n" % (pipeline, self.exec_pipelines[index][1]))
             pipeline_name = str(index+1) + "." + str(uuid.uuid1())
             self.helper.create_pipeline_executable(pipeline, pipeline_name)
 
+    '''
+    Predict results on test data given a pipeline
+    '''
+    def test(self, pipeline, test_directory):
+        helper = ExecutionHelper(test_directory, self.outputdir, 'testData.csv.gz')
+        testdf = helper.data
+        print("** Evaluating pipeline %s" % str(pipeline))
+        for primitive in pipeline:
+            # Initialize primitive
+            print("Executing %s" % primitive)
+            executables = primitive.executables
+            if primitive.task == "Modeling":
+                result = pd.DataFrame(executables.predict(testdf), columns=["prediction"])
+                resultfile = "%s%s%s.csv" % (self.outputdir, os.sep, str(uuid.uuid1()))
+                result.to_csv(resultfile, index_label="d3mIndex")
+                return resultfile
+            elif primitive.task == "PreProcessing":
+                profile = DataProfile(testdf)
+                testdf = helper.execute_primitive(primitive, testdf, None, profile)
+            elif primitive.task == "FeatureExtraction":
+                testdf = helper.featurise(testdf, primitive, True, primitive.is_persistent)
+        return None
+
+    def convert_l1_to_l2(self, pipeline):
+        pipeline.get_primitives()
+
+    def stop(self):
+        '''
+        Stop planning, and write out the current list (sorted by metric)
+        '''
+
+    def _show_status(self, status):
+        sys.stdout.write("%s\n" % status)
+        sys.stdout.flush()
 
     def _sort_by_metric(self, pipeline):
         if "error" in self.metric.value.lower():
@@ -287,11 +331,6 @@ class Controller(object):
 
     def _get_data_profile(self, df):
         return DataProfile(df)
-
-    def stop(self):
-        '''
-        Stop planning, and write out the current list (sorted by metric)
-        '''
 
     ''' Custom Metric Functions '''
     def f1_micro(self, y_true, y_pred):

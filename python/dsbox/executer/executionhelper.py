@@ -215,51 +215,54 @@ class ExecutionHelper(object):
         #df = df.reindex(pd.RangeIndex(df.index.max()+1)).ffill()
         df = df.reset_index(drop=True)
 
-        colnames = []
-        for col in cols:
-            colnames.append(col['varName'])
+        # Filter columns if specified
+        if len(cols) > 0:
+            colnames = []
+            for col in cols:
+                colnames.append(col['varName'])
 
-        # Remove columns not specified
-        for colname, col in df.iteritems():
-            if colname not in colnames:
-                df.drop(colname, axis=1, inplace=True)
+            # Remove columns not specified
+            for colname, col in df.iteritems():
+                if colname not in colnames:
+                    df.drop(colname, axis=1, inplace=True)
 
-        # Check for nested tabular data files, and load them in
-        for col in cols:
-            colname = col['varName']
-            if col['varRole'] == 'file':
-                for index, row in df.iterrows():
-                    filename = row[colname]
-                    if self.media_type is VariableFileType.TABULAR:
-                        if not filename in self.nested_table:
-                            nested_df = self.read_data(self.directory + os.sep + 'raw_data'
-                                + os.sep + df.loc[index, colname] + ".gz", [], None)
-                            self.nested_table[filename] = nested_df
+            # Check for nested tabular data files, and load them in
+            for col in cols:
+                colname = col['varName']
+                if col['varRole'] == 'file':
+                    for index, row in df.iterrows():
+                        filename = row[colname]
+                        if self.media_type is VariableFileType.TABULAR:
+                            if not filename in self.nested_table:
+                                nested_df = self.read_data(self.directory + os.sep + 'raw_data'
+                                    + os.sep + df.loc[index, colname] + ".gz", [], None)
+                                self.nested_table[filename] = nested_df
 
-        # Check all columns for special roles
-        for col in cols:
-            colname = col['varName']
-            if col['varRole'] == 'file':
-                # If the role is "file", then load in the raw data files
-                for index, row in df.iterrows():
-                    filepath = self.directory + os.sep + 'raw_data' + os.sep + row[colname]
-                    if self.media_type == VariableFileType.TEXT:
-                        # Plain data load for text files
-                        with open(filepath, 'rb') as myfile:
-                            txt = myfile.read()
-                            df.set_value(index, colname, txt)
-                    elif self.media_type == VariableFileType.IMAGE:
-                        # Load image files using keras with a standard target size
-                        # TODO: Make the (224, 224) size configurable
-                        from keras.preprocessing import image
-                        df.set_value(index, colname, image.load_img(filepath, target_size=(224, 224)))
-            if col['varRole'] == 'index' and colname.endswith('_index'):
-                filename_colname = colname[:-6]
-                for index in range(df.shape[0]):
-                    filename = row[filename_colname]
-                    nested_data = NestedData(filename_colname, colname, filename, df.loc[index, colname],
-                                             self.nested_table[filename])
-                    df.set_value(index, colname, nested_data)
+            # Check all columns for special roles
+            for col in cols:
+                colname = col['varName']
+                if col['varRole'] == 'file':
+                    # If the role is "file", then load in the raw data files
+                    for index, row in df.iterrows():
+                        filepath = self.directory + os.sep + 'raw_data' + os.sep + row[colname]
+                        if self.media_type == VariableFileType.TEXT:
+                            # Plain data load for text files
+                            with open(filepath, 'rb') as myfile:
+                                txt = myfile.read()
+                                df.set_value(index, colname, txt)
+                        elif self.media_type == VariableFileType.IMAGE:
+                            # Load image files using keras with a standard target size
+                            # TODO: Make the (224, 224) size configurable
+                            from keras.preprocessing import image
+                            df.set_value(index, colname, image.load_img(filepath, target_size=(224, 224)))
+                if col['varRole'] == 'index' and colname.endswith('_index'):
+                    filename_colname = colname[:-6]
+                    for index in range(df.shape[0]):
+                        filename = row[filename_colname]
+                        nested_data = NestedData(filename_colname, colname, filename, df.loc[index, colname],
+                                                 self.nested_table[filename])
+                        df.set_value(index, colname, nested_data)
+
         return df
 
     def get_media_type(self, schema):

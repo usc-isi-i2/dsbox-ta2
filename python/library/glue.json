@@ -23,8 +23,8 @@
     "Task": "PreProcessing",
     "LearningType": "Imputation",
     "NotPersistent": true,
-    "Requirements": ["NUMERICAL", "MISSING_VALUES"],
-    "Effects": ["!MISSING_VALUES", "!NESTED_DATA"]
+    "Requirements": ["NUMERICAL", "MISSING_VALUES", "!NESTED_DATA"],
+    "Effects": ["!MISSING_VALUES"]
   },
   {
     "Class": "dsbox.custom_primitives.preprocessing.flatten_table.FlattenTable",

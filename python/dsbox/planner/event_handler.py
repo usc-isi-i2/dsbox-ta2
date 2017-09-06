@@ -13,5 +13,11 @@ class PlannerEventHandler(object):
     def CompletedPipeline(self, pipeline, result):
         pass
 
+    def StartExecutingPipeline(self, pipeline):
+        pass
+
+    def ExecutedPipeline(self, pipeline, result):
+        pass
+
     def EndedPlanning(self):
         pass

@@ -74,7 +74,7 @@ USAGE
     controller = Controller(train_features, train_targets, library_directory, output_directory)
     controller.load_problem_schema(problem_schema)
     controller.initialize_planners()
-    for result in controller.start(PlannerEventHandler()):
+    for result in controller.train(PlannerEventHandler()):
         pass
 
 

@@ -56,7 +56,7 @@ class LevelTwoPlanner(object):
         if not mod_profile:
             mod_profile = profile
 
-        # print "Expanding %s with index %d" % (pipeline , start_index)
+        #print("Expanding %s with index %d" % (pipeline , start_index))
         if start_index >= len(pipeline):
             # Check if there are no issues again
             npipes = self.expand_pipeline(pipeline, profile, mod_profile)
@@ -66,7 +66,7 @@ class LevelTwoPlanner(object):
 
         pipelines = []
         issues = self._get_pipeline_issues(pipeline, profile)
-        # print "Issues: %s" % issues
+        #print("Issues: %s" % issues)
         ok = True
         for index in range(start_index, len(pipeline)):
             primitive = pipeline[index]

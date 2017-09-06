@@ -1,86 +1,114 @@
 """The Python implementation of the GRPC pipeline.PipelineCompute client."""
 
 import grpc
+import urllib
 
 import pipeline_service_pb2 as ps
 import pipeline_service_pb2_grpc as psrpc
 
+import pandas
 
 def run():
-  channel = grpc.insecure_channel('localhost:50051')
-  stub = psrpc.PipelineComputeStub(channel)
+    channel = grpc.insecure_channel('localhost:50051')
+    stub = psrpc.PipelineComputeStub(channel)
 
-  # Start Session
-  session_response = stub.StartSession(ps.SessionRequest(user_agent="xxx", version="1.0"))
-  session_context = session_response.context
-  print("Session started (%s)" % str(session_context.session_id))
+    # Start Session
+    session_response = stub.StartSession(
+        ps.SessionRequest(user_agent="xxx", version="1.0"))
+    session_context = session_response.context
+    print("Session started (%s)" % str(session_context.session_id))
 
-  # Send pipeline creation request
-  # FIXME: Only using the data_uri in the first train_features for now
-  # - Everything else is gotten from the problemSchema
-  # - Later we shall replace the problem schema with items from the request
-  # - Then the data uri will point to the problem directory, problem's data
-  #     directory , or the data itself ?
-  # - If it is to the problem directory (i.e. with the problem schema, then why
-  #     do we have these other attributes in the request)
-  # - If to the data itself, then what about the data schema ?
-  # - Currently there is a separate file for trainTargets,
-  #   - Will the target_features change it ?
+    # Send pipeline creation request
+    # FIXME: Only using the data_uri in the first train_features for now
+    # - Everything else is gotten from the problemSchema
+    # - Later we shall replace the problem schema with items from the request
+    # - Then the data uri will point to the problem directory, problem's data
+    #     directory , or the data itself ?
+    # - If it is to the problem directory (i.e. with the problem schema, then why
+    #     do we have these other attributes in the request)
+    # - If to the data itself, then what about the data schema ?
+    # - Currently there is a separate file for trainTargets,
+    #   - Will the target_features change it ?
 
-  train_features = [
-    ps.Feature(data_uri="file:///Users/Varun/git/dsbox/data/o_185/data", feature_id="*")
+    train_features = [
+        ps.Feature(
+            data_uri="file:///Users/Varun/git/dsbox/data/o_185/data", feature_id="*")
     ]
-  train_features_some = [
-    ps.Feature(data_uri="file:///Users/Varun/git/dsbox/data/o_185/data", feature_id="Games_played"),
-    ps.Feature(data_uri="file:///Users/Varun/git/dsbox/data/o_185/data", feature_id="Runs"),
-    ps.Feature(data_uri="file:///Users/Varun/git/dsbox/data/o_185/data", feature_id="Hits"),
-    ps.Feature(data_uri="file:///Users/Varun/git/dsbox/data/o_185/data", feature_id="Home_runs")
+    train_features_some = [
+        ps.Feature(data_uri="file:///Users/Varun/git/dsbox/data/o_185/data",
+                   feature_id="Games_played"),
+        ps.Feature(
+            data_uri="file:///Users/Varun/git/dsbox/data/o_185/data", feature_id="Runs"),
+        ps.Feature(
+            data_uri="file:///Users/Varun/git/dsbox/data/o_185/data", feature_id="Hits"),
+        ps.Feature(data_uri="file:///Users/Varun/git/dsbox/data/o_185/data",
+                   feature_id="Home_runs")
     ]
-  task = ps.TaskType.Value('CLASSIFICATION')
-  task_subtype = ps.TaskSubtype.Value('MULTICLASS')
-  task_description = "Classify Hall of Fame"
-  output = ps.OutputType.Value('FILE')
-  metrics = [ps.Metric.Value('F1_MICRO')]
-  target_features = [
-    ps.Feature(data_uri="file:///Users/Varun/git/dsbox/data/o_185/data", feature_id="*")
+    task = ps.TaskType.Value('CLASSIFICATION')
+    task_subtype = ps.TaskSubtype.Value('MULTICLASS')
+    task_description = "Classify Hall of Fame"
+    output = ps.OutputType.Value('FILE')
+    metrics = [ps.Metric.Value('F1_MICRO')]
+    target_features = [
+        ps.Feature(
+            data_uri="file:///Users/Varun/git/dsbox/data/o_185/data", feature_id="*")
     ]
-  max_pipelines = 20
+    max_pipelines = 20
 
-  print("Training with all features")
-  pc_request = ps.PipelineCreateRequest(
-    context = session_context,
-    train_features = train_features,
-    task = task,
-    task_subtype = task_subtype,
-    task_description = task_description,
-    output = output,
-    metrics = metrics,
-    target_features = target_features,
-    max_pipelines = max_pipelines
-  )
+    print("Training with all features")
+    pc_request = ps.PipelineCreateRequest(
+        context=session_context,
+        train_features=train_features,
+        task=task,
+        task_subtype=task_subtype,
+        task_description=task_description,
+        output=output,
+        metrics=metrics,
+        target_features=target_features,
+        max_pipelines=max_pipelines
+    )
 
-  # Iterate over results
-  for pcr in stub.CreatePipelines(pc_request):
-      print(str(pcr))
+    # Iterate over results
+    pipeline_ids = []
+    for pcr in stub.CreatePipelines(pc_request):
+        print(str(pcr))
+        if len(pcr.pipeline_info.scores) > 0:
+            pipeline_ids.append(pcr.pipeline_id)
 
-  print("Training with some features")
-  pc_request = ps.PipelineCreateRequest(
-    context = session_context,
-    train_features = train_features_some,
-    task = task,
-    task_subtype = task_subtype,
-    task_description = task_description,
-    output = output,
-    metrics = metrics,
-    target_features = target_features,
-    max_pipelines = max_pipelines
-  )
+    '''
+    print("Training with some features")
+    pc_request = ps.PipelineCreateRequest(
+        context = session_context,
+        train_features = train_features_some,
+        task = task,
+        task_subtype = task_subtype,
+        task_description = task_description,
+        output = output,
+        metrics = metrics,
+        target_features = target_features,
+        max_pipelines = max_pipelines
+    )
 
-  # Iterate over results
-  for pcr in stub.CreatePipelines(pc_request):
-      print(str(pcr))
+    # Iterate over results
+    pipeline_id = None
+    for pcr in stub.CreatePipelines(pc_request):
+        print(str(pcr))
+        pipeline_id = pcr.pipeline_id
+    '''
 
-  stub.EndSession(session_context)
+    for pipeline_id in pipeline_ids:
+        print("Executing Pipeline %s" % pipeline_id)
+        ep_request = ps.PipelineExecuteRequest(
+            context=session_context,
+            pipeline_id=pipeline_id,
+            predict_dataset_uris=["file:///Users/Varun/git/dsbox/data/o_185/data"]
+        )
+        for ecr in stub.ExecutePipeline(ep_request):
+            print(str(ecr))
+            df = pandas.read_csv(ecr.result_uris[0], index_col="d3mIndex")
+            print(df)
+
+    stub.EndSession(session_context)
 
 if __name__ == '__main__':
-  run()
+    run()
