@@ -14,6 +14,7 @@ from dsbox.schema.problem_schema import TaskType, TaskSubType, Metric
 from dsbox.executer.executionhelper import ExecutionHelper
 
 import sklearn.metrics
+from sklearn.metrics import make_scorer
 from sklearn.externals import joblib
 
 class Feature:
@@ -35,6 +36,9 @@ class Controller(object):
         self.indexcol = None
         self.media_type = None
         self.exec_pipelines = []
+
+        self.l1_planner = None
+        self.l2_planner = None
 
         self.libdir = os.path.abspath(libdir)
         self.outputdir = os.path.abspath(outputdir)
@@ -73,7 +77,7 @@ class Controller(object):
             data_target_features_map[feature.data_directory] = data_target_features
 
         for data_directory in data_train_features_map.keys():
-            helper = ExecutionHelper(data_directory, self.outputdir)
+            helper = ExecutionHelper(self, data_directory, self.outputdir)
             indexcol = helper.indexcol
             columns = []
             data_train_features = data_train_features_map[data_directory]
@@ -97,7 +101,7 @@ class Controller(object):
                 self.media_type = helper.media_type
 
         for data_directory in data_target_features_map.keys():
-            helper = ExecutionHelper(data_directory, self.outputdir)
+            helper = ExecutionHelper(self, data_directory, self.outputdir)
             indexcol = helper.indexcol
             targets = []
             data_target_features = data_target_features_map[data_directory]
@@ -264,7 +268,7 @@ class Controller(object):
     Predict results on test data given a pipeline
     '''
     def test(self, pipeline, test_directory):
-        helper = ExecutionHelper(test_directory, self.outputdir, 'testData.csv.gz')
+        helper = ExecutionHelper(self, test_directory, self.outputdir, 'testData.csv.gz')
         testdf = helper.data
         print("** Evaluating pipeline %s" % str(pipeline))
         for primitive in pipeline:
@@ -348,3 +352,26 @@ class Controller(object):
     def root_mean_squared_error(self, y_true, y_pred):
         import math
         return math.sqrt(sklearn.metrics.mean_squared_error(y_true, y_pred))
+
+    def _get_arg_value(self, arg_specification, task_type, metric):
+        if not arg_specification.startswith('*'):
+            return arg_specification
+        arg_specification = arg_specification[1:]
+        metric_func = self._get_metric_function(metric)
+        if arg_specification == "SCORER":
+            return make_scorer(metric_func, greater_is_better=True)
+        elif arg_specification == "LOSS":
+            return make_scorer(metric_func, greater_is_better=False)
+        elif arg_specification == "ESTIMATOR":
+            if task_type == TaskType.CLASSIFICATION:
+                from sklearn.linear_model import LogisticRegression
+                return LogisticRegression()
+            elif task_type == TaskType.REGRESSION:
+                from sklearn.linear_model import LinearRegression
+                return LinearRegression()
+            else:
+                raise Exception("Not yet implemented: Arg specification ESTIMATOR task type: {}"
+                                .format(task_type))
+        else:
+            raise Exception(
+                "Unkown Arg specification: {}".format(arg_specification))

@@ -16,7 +16,6 @@ from dsbox.executer.execution import Execution
 import scipy.sparse.csr
 
 import os
-import sys
 import stopit
 import inspect
 import importlib
@@ -27,7 +26,8 @@ from builtins import range
 REMOTE = False
 
 class ExecutionHelper(object):
-    def __init__(self, data_directory, outputdir, csvfile=None):
+    def __init__(self, planner, data_directory, outputdir, csvfile=None):
+        self.planner = planner
         self.e = Execution()
         self.directory = os.path.abspath(data_directory)
         self.outputdir = os.path.abspath(outputdir)
@@ -292,8 +292,8 @@ class ExecutionHelper(object):
     def _process_args(self, args, task_type, metric):
         result_args = []
         for arg in args:
-            if isinstance(arg, str) and arg.startswith('*'):
-                result_args.append(self._get_arg_value(arg, task_type, metric))
+            if (isinstance(arg, str) or isinstance(arg, unicode)) and arg.startswith('*'):
+                result_args.append(self.planner._get_arg_value(arg, task_type, metric))
             else:
                 result_args.append(arg)
         return result_args
@@ -302,7 +302,7 @@ class ExecutionHelper(object):
         result_kwargs = {}
         for key, arg in kwargs.items():
             if isinstance(arg, str) and arg.startswith('*'):
-                result_kwargs[key] = self._get_arg_value(arg, task_type, metric)
+                result_kwargs[key] = self.planner._get_arg_value(arg, task_type, metric)
             else:
                 result_kwargs[key] = arg
         return result_kwargs

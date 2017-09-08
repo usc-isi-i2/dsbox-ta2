@@ -27,6 +27,16 @@
     "Effects": ["!MISSING_VALUES"]
   },
   {
+    "Class": "dsbox.datapreprocessing.cleaner.Imputation",
+    "Name": "DSBox Imputer",
+    "Task": "PreProcessing",
+    "LearningType": "Imputation",
+    "NotPersistent": false,
+    "InitArguments": ["*ESTIMATOR", "*SCORER"],
+    "Requirements": ["NUMERICAL", "MISSING_VALUES", "!NESTED_DATA"],
+    "Effects": ["!MISSING_VALUES"]
+  },
+  {
     "Class": "dsbox.custom_primitives.preprocessing.flatten_table.FlattenTable",
     "Name": "FlattenTable",
     "Task": "PreProcessing",

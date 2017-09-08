@@ -36,6 +36,6 @@ class Metric(Enum):
     ROOT_MEAN_SQUARED_ERROR = "rootMeanSquaredError"  #sqrt(sklearn.metrics.mean_squared_error)
     ROOT_MEAN_SQUARED_ERROR_AVG = "rootMeanSquaredError_avg"  #sum(mean_squared_error_list)/len(mean_squared_error_list)
     MEAN_ABSOLUTE_ERROR = "meanAbsoluteError"  #sklearn.metrics.median_absolute_error
-    R_SQAURED = "rSquared"  #sklearn.metrics.r2_score
+    R_SQUARED = "rSquared"  #sklearn.metrics.r2_score
     NORMALIZED_MUTUAL_INFORMATION = "normalizedMutualInformation"  # see nmi.py
     JACCARD_SIMILARITY_SCORE = "jaccardSimilarityScore" # see jaccard.py script
