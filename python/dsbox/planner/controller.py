@@ -69,7 +69,6 @@ class Controller(object):
         self.errorfile = open("%s%sstderr.txt" % (self.tmp_dir, os.sep), 'w')
         self.pipelinesfile = open("%s%spipelines.txt" % (self.tmp_dir, os.sep), 'w')
 
->>>>>>> Stashed changes
         # Redirect stderr to error file
         sys.stderr = self.errorfile
 
@@ -310,11 +309,7 @@ class Controller(object):
     Predict results on test data given a pipeline
     '''
     def test(self, pipeline, test_directory):
-<<<<<<< Updated upstream
-        helper = ExecutionHelper(self, test_directory, self.outputdir, 'testData.csv.gz')
-=======
-        helper = ExecutionHelper(test_directory, self.exec_dir, 'testData.csv.gz')
->>>>>>> Stashed changes
+        helper = ExecutionHelper(self, test_directory, self.exec_dir, 'testData.csv.gz')
         testdf = helper.data
         print("** Evaluating pipeline %s" % str(pipeline))
         for primitive in pipeline.primitives:
