@@ -5,7 +5,8 @@ import sys
 import operator
 sys.path.append('/home/ktyao/dev/dsbox/dsbox-ta2/python')
 
-from dsbox.schema import TaskType, TaskSubType, Metric, VariableFileType
+from dsbox.schema.problem_schema import TaskType, TaskSubType, Metric
+from dsbox.schema.dataset_schema import VariableFileType
 from dsbox.planner.levelone.primitives import Primitives, Category, DSBoxPrimitives, D3mPrimitives
 
 import json

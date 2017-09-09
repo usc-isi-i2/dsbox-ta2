@@ -7,6 +7,9 @@ import os.path
 import numpy as np
 import pandas as pd
 
+import copy_reg
+import types
+
 from sklearn.externals import joblib
 from sklearn.model_selection import KFold
 
@@ -417,6 +420,14 @@ class ExecutionHelper(object):
         with open(dir + os.sep + "__init__.py", "w") as init_file:
             init_file.write("__path__ = __import__('pkgutil').extend_path(__path__, __name__)")
 
+
+# Specific pickle method
+def _pickle_method(m):
+    if m.im_self is None:
+        return getattr, (m.im_class, m.im_func.func_name)
+    else:
+        return getattr, (m.im_self, m.im_func.func_name)
+copy_reg.pickle(types.MethodType, _pickle_method)
 
 class NestedData(object):
     def __init__(self, filename_column, index_column, filename, index, nested_data):

@@ -2,7 +2,7 @@ from dsbox.planner.common.library import PrimitiveLibrary
 from dsbox.planner.common.pipeline import Pipeline
 from dsbox.schema.data_profile import DataProfile
 from dsbox.profiler.data.data_profiler import DataProfiler
-from dsbox.schema import TaskType
+from dsbox.schema.problem_schema import TaskType
 
 import os
 import sys
