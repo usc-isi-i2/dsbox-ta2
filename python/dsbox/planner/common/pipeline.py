@@ -1,4 +1,5 @@
 import uuid
+import copy
 
 class Pipeline(object):
     """
@@ -12,6 +13,12 @@ class Pipeline(object):
             primitives = []
         self.id = id
         self.primitives = primitives
+
+    def clone(self, idcopy=False):
+        pipeline = copy.deepcopy(self)
+        if not idcopy:
+            pipeline.id = str(uuid.uuid1())
+        return pipeline
 
     def setPipelineId(self, id):
         self.id = id

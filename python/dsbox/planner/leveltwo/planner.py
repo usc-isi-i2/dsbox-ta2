@@ -79,7 +79,7 @@ class LevelTwoPlanner(object):
                 subpipes = self._create_subpipelines(primitive, issue)
                 for subpipe in subpipes:
                     ok = True
-                    l2_pipeline = copy.deepcopy(pipeline)
+                    l2_pipeline = pipeline.clone()
                     l2_pipeline.replaceSubpipelineAt(index, subpipe)
                     nindex = index + subpipe.length() + pipeline.length()
                     cprofile = self._predict_profile(subpipe, profile)
@@ -87,14 +87,14 @@ class LevelTwoPlanner(object):
                         l2_pipeline, profile, cprofile, nindex)
                     if npipes:
                         for npipe in npipes:
-                            pipelines.append(copy.deepcopy(npipe))
+                            pipelines.append(npipe.clone())
                     else:
                         pipelines.append(l2_pipeline)
 
         if ok:
             if len(pipelines) == 0:
                 # No additions, use existing pipeline
-                pipelines.append(copy.deepcopy(pipeline))
+                pipelines.append(pipeline.clone())
             npipelines = []
             for pipe in pipelines:
                 npipelines.append(
@@ -293,7 +293,7 @@ class LevelTwoPlanner(object):
                     for pipe in lst:
                         # lst.remove(pipe)
                         for prim in glues:
-                            cpipe = copy.deepcopy(pipe)
+                            cpipe = pipe.clone()
                             #print("-> Adding %s" % prim.name)
                             cpipe.insertPrimitiveAt(0, prim)
                             newlst.append(cpipe)

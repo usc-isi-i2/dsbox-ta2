@@ -37,22 +37,9 @@ class Controller(object):
         self.indexcol = None
         self.media_type = None
         self.exec_pipelines = []
-
-<<<<<<< Updated upstream
         self.l1_planner = None
         self.l2_planner = None
 
-        self.libdir = os.path.abspath(libdir)
-        self.outputdir = os.path.abspath(outputdir)
-        if os.path.exists(self.outputdir):
-            shutil.rmtree(self.outputdir)
-        os.makedirs(self.outputdir + os.sep + "models")
-        os.makedirs(self.outputdir + os.sep + "executables")
-
-        self.logfile = open("%s%slog.txt" % (self.outputdir, os.sep), 'w')
-        self.errorfile = open("%s%sstderr.txt" % (self.outputdir, os.sep), 'w')
-        self.pipelinesfile = open("%s%spipelines.txt" % (self.outputdir, os.sep), 'w')
-=======
     '''
     Set config directories and data schema file
     '''
@@ -89,7 +76,7 @@ class Controller(object):
     This function creates train_data and train_labels from trainData.csv and trainTargets.csv
     """
     def initialize_data_from_defaults(self):
-        self.helper = ExecutionHelper(self.train_dir, self.exec_dir, None, self.data_schema)
+        self.helper = ExecutionHelper(self, self.train_dir, self.exec_dir, None, self.data_schema)
         self.columns = self.helper.columns
         self.targets = self.helper.targets
         self.indexcol = self.helper.indexcol

@@ -28,6 +28,7 @@ REMOTE = False
 class ExecutionHelper(object):
     def __init__(self, planner, data_directory, outputdir, csvfile=None, schema_file=None):
         self.e = Execution()
+        self.planner = planner
         self.directory = os.path.abspath(data_directory)
         self.outputdir = os.path.abspath(outputdir)
         if schema_file is None:
@@ -96,10 +97,10 @@ class ExecutionHelper(object):
         if primitive.is_persistent:
             if REMOTE:
                 executable = self.e.execute('fit', args=args, kwargs=None, obj=executable, objreturn=True)
-                return self.e.execute('transform', args=args, kwargs=None, obj=executable)
+                return self.e.execute('fit_transform', args=args, kwargs=None, obj=executable)
             else:
                 executable.fit(*args)
-                return executable.transform(*args)
+                return executable.fit_transform(*args)
         else:
             if REMOTE:
                 return self.e.execute('fit_transform', args=args, kwargs=None, obj=executable)
@@ -321,7 +322,7 @@ class ExecutionHelper(object):
                 "# Pipeline : %s" % str(pipeline),
                 ""]
         statements.append("numpy.set_printoptions(threshold=numpy.nan)")
-        statements.append("hp = ExecutionHelper('%s', '.', 'testData.csv.gz')" % self.directory)
+        statements.append("hp = ExecutionHelper(None, '%s', '.', 'testData.csv.gz')" % self.directory)
         statements.append("testdata = hp.data")
         index = 1
         for primitive in pipeline.primitives:
