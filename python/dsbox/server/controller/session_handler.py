@@ -1,3 +1,4 @@
+import os
 import uuid
 import shutil
 import tempfile
@@ -10,22 +11,15 @@ class Session:
         self.id = str(uuid.uuid1())
         self.controller = None
         self.pipelines = {}
-        self.outputdir = tempfile.gettempdir() + "/dsbox-ta2/" + self.id
+        self.outputdir = tempfile.gettempdir() + os.sep + "dsbox-ta2" + os.sep + self.id
         #print(self.outputdir)
-
-    def get_pipeline_id(self, pipeline, key):
-        m = hashlib.md5()
-        m.update((str(pipeline)+":"+key).encode('utf-8'))
-        pipelineid = str(m.hexdigest())
-        return pipelineid
 
     def get_pipeline(self, pipelineid):
         return self.pipelines.get(pipelineid, None)
 
-    def add_pipeline(self, pipeline, key):
-        pipelineid = self.get_pipeline_id(pipeline, key)
-        self.pipelines[pipelineid] = pipeline
-        return pipelineid
+    def add_pipeline(self, pipeline):
+        self.pipelines[pipeline.id] = pipeline
+        return pipeline.id
 
     @staticmethod
     def new():

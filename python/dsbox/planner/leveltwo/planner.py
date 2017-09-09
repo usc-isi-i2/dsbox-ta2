@@ -1,4 +1,5 @@
-from .primitives.library import PrimitiveLibrary
+from dsbox.planner.common.library import PrimitiveLibrary
+from dsbox.planner.common.pipeline import Pipeline
 from dsbox.schema.data_profile import DataProfile
 from dsbox.profiler.data.data_profiler import DataProfiler
 from dsbox.schema import TaskType
@@ -57,7 +58,7 @@ class LevelTwoPlanner(object):
             mod_profile = profile
 
         #print("Expanding %s with index %d" % (pipeline , start_index))
-        if start_index >= len(pipeline):
+        if start_index >= pipeline.length():
             # Check if there are no issues again
             npipes = self.expand_pipeline(pipeline, profile, mod_profile)
             if npipes and len(npipes) > 0:
@@ -68,8 +69,8 @@ class LevelTwoPlanner(object):
         issues = self._get_pipeline_issues(pipeline, profile)
         #print("Issues: %s" % issues)
         ok = True
-        for index in range(start_index, len(pipeline)):
-            primitive = pipeline[index]
+        for index in range(start_index, pipeline.length()):
+            primitive = pipeline.getPrimitiveAt(index)
             issue = issues[index]
             if len(issue) > 0:
                 ok = False
@@ -79,8 +80,8 @@ class LevelTwoPlanner(object):
                 for subpipe in subpipes:
                     ok = True
                     l2_pipeline = copy.deepcopy(pipeline)
-                    l2_pipeline[index:index] = subpipe
-                    nindex = index + len(subpipe) + len(pipeline)
+                    l2_pipeline.replaceSubpipelineAt(index, subpipe)
+                    nindex = index + subpipe.length() + pipeline.length()
                     cprofile = self._predict_profile(subpipe, profile)
                     npipes = self.expand_pipeline(
                         l2_pipeline, profile, cprofile, nindex)
@@ -122,7 +123,7 @@ class LevelTwoPlanner(object):
 
         metricvalue = 0
         cachekey = ""
-        for primitive in pipeline:
+        for primitive in pipeline.primitives:
             args = []
             kwargs = {}
 
@@ -184,11 +185,11 @@ class LevelTwoPlanner(object):
 
     def _remove_redundant_processing_primitives(self, pipeline, profile):
         curpipe = copy.copy(pipeline)
-        length = len(curpipe) - 1
+        length = curpipe.length() - 1
         index = 0
         # print "Checking redundancy for %s" % pipeline
         while index <= length:
-            prim = curpipe.pop(index)
+            prim = curpipe.primitives.pop(index)
             # print "%s / %s: %s" % (index, length, prim)
             if prim.task == "PreProcessing":
                 issues = self._get_pipeline_issues(curpipe, profile)
@@ -202,7 +203,7 @@ class LevelTwoPlanner(object):
                     length = length - 1
                     continue
 
-            curpipe[index:index] = [prim]
+            curpipe.primitives[index:index] = [prim]
             # print curpipe
             index += 1
 
@@ -227,7 +228,7 @@ class LevelTwoPlanner(object):
         profiles = self._get_predicted_data_profiles(pipeline, profile)
         requirements = self._get_pipeline_requirements(pipeline)
         # print "Profiles: %s\nRequirements: %s" % (profiles, requirements)
-        for index in range(0, len(pipeline)):
+        for index in range(0, pipeline.length()):
             unmet = {}
             prim_prec = requirements[index]
             profile = profiles[index]
@@ -241,8 +242,8 @@ class LevelTwoPlanner(object):
     def _get_predicted_data_profiles(self, pipeline, profile):
         curprofile = copy.deepcopy(profile)
         profiles = [curprofile]
-        for index in range(0, len(pipeline) - 1):
-            primitive = pipeline[index]
+        for index in range(0, pipeline.length() - 1):
+            primitive = pipeline.getPrimitiveAt(index)
             nprofile = copy.deepcopy(curprofile)
             for effect in primitive.effects.keys():
                 nprofile.profile[effect] = primitive.effects[effect]
@@ -253,8 +254,8 @@ class LevelTwoPlanner(object):
     def _get_pipeline_requirements(self, pipeline):
         requirements = []
         effects = []
-        for index in range(0, len(pipeline)):
-            primitive = pipeline[index]
+        for index in range(0, pipeline.length()):
+            primitive = pipeline.getPrimitiveAt(index)
             prim_requirements = {}
             for prec in primitive.preconditions.keys():
                 prim_requirements[prec] = primitive.preconditions[prec]
@@ -262,7 +263,7 @@ class LevelTwoPlanner(object):
             if index > 0:
                 # Make effects of previous primitives satisfy any preconditions
                 for oldindex in range(0, index):
-                    last_prim = pipeline[oldindex]
+                    last_prim = pipeline.getPrimitiveAt(oldindex)
                     for effect in last_prim.effects.keys():
                         prim_requirements[effect] = last_prim.effects[effect]
 
@@ -277,7 +278,7 @@ class LevelTwoPlanner(object):
 
         for requirements in requirement_permutations:
             #print("%s requirement: %s" % (primitive.name, requirements))
-            xpipe = []
+            xpipe = Pipeline()
             lst = [xpipe]
             # Fulfill all requirements of the primitive
             for requirement in requirements:
@@ -286,7 +287,7 @@ class LevelTwoPlanner(object):
                 if len(glues) == 1:
                     prim = glues[0]
                     #print("-> Adding one %s" % prim.name)
-                    xpipe.insert(0, prim)
+                    xpipe.insertPrimitiveAt(0, prim)
                 elif len(glues) > 1:
                     newlst = []
                     for pipe in lst:
@@ -294,7 +295,7 @@ class LevelTwoPlanner(object):
                         for prim in glues:
                             cpipe = copy.deepcopy(pipe)
                             #print("-> Adding %s" % prim.name)
-                            cpipe.insert(0, prim)
+                            cpipe.insertPrimitiveAt(0, prim)
                             newlst.append(cpipe)
                     lst = newlst
             mainlst += lst
@@ -303,7 +304,7 @@ class LevelTwoPlanner(object):
 
     def _predict_profile(self, pipeline, profile):
         curprofile = copy.deepcopy(profile)
-        for primitive in pipeline:
+        for primitive in pipeline.primitives:
             for effect in primitive.effects.keys():
                 curprofile.profile[effect] = primitive.effects[effect]
         #print ("Predicted profile %s" % curprofile)

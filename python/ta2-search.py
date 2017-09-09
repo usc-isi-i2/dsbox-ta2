@@ -1,0 +1,55 @@
+"""
+Command Line Interface for running the DSBox TA2 Search
+"""
+
+from dsbox_dev_setup import path_setup
+path_setup()
+
+import sys
+import os
+import json
+from dsbox.planner.controller import Controller, Feature
+from dsbox.planner.event_handler import PlannerEventHandler
+
+DEBUG = 0
+LIB_DIRECTORY = os.path.dirname(os.path.realpath(__file__)) + "/library"
+
+def main(argv=None): # IGNORE:C0111
+    '''Command line options.'''
+
+    if argv is None:
+        argv = sys.argv
+    else:
+        sys.argv.extend(argv)
+
+    program_name = os.path.basename(sys.argv[0])
+    program_shortdesc = __import__('__main__').__doc__.split("\n")[1]
+    program_usage = '''%s
+USAGE
+ta2-search.py <search_config_file>
+''' % program_shortdesc
+
+    if len(sys.argv) < 2:
+        print(program_usage)
+        exit(1)
+
+    conf_file = sys.argv[1]
+    config = {}
+    with open(conf_file) as conf_data:
+        config = json.load(conf_data)
+        conf_data.close()
+
+    controller = Controller(LIB_DIRECTORY)
+    controller.set_config(config)
+    controller.initialize_data_from_defaults()
+    controller.load_problem_schema()    
+    controller.initialize_planners()
+    for result in controller.train(PlannerEventHandler()):
+        pass
+
+
+if __name__ == "__main__":
+    if DEBUG:
+        sys.argv.append("-h")
+        sys.argv.append("-v")
+    sys.exit(main())

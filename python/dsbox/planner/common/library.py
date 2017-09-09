@@ -1,5 +1,5 @@
 import json
-from dsbox.planner.leveltwo.primitives.primitive import Primitive
+from dsbox.planner.common.primitive import Primitive
 from dsbox.schema.profile_schema import DataProfileType as dpt
 
 class PrimitiveLibrary(object):

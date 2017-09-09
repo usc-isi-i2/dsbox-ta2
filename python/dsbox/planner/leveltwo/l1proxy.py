@@ -1,7 +1,8 @@
 import os
 
 from dsbox.planner.levelone.planner import (LevelOnePlanner, get_d3m_primitives, AffinityPolicy)
-from dsbox.planner.leveltwo.primitives.library import PrimitiveLibrary
+from dsbox.planner.common.library import PrimitiveLibrary
+from dsbox.planner.common.pipeline import Pipeline
 from dsbox.schema.dataset_schema import VariableFileType
 
 class LevelOnePlannerProxy(object):
@@ -46,17 +47,18 @@ class LevelOnePlannerProxy(object):
             if pipeline:
                 self.pipeline_hash[str(pipeline)] = l1_pipeline
                 pipelines.append(pipeline)
+
         return pipelines
 
     def l1_to_proxy_pipeline(self, l1_pipeline):
-        pipeline = []
+        pipeline = Pipeline()
         ok = True
         for prim in l1_pipeline.get_primitives():
             l2prim = self.primitive_hash.get(prim.name, None)
             if not l2prim:
                 ok = False
                 break
-            pipeline.append(l2prim)
+            pipeline.addPrimitive(l2prim)
 
         if ok:
             return pipeline

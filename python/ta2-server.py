@@ -5,6 +5,7 @@ from concurrent import futures
 import time
 import grpc
 
+import os.path
 import argparse
 
 from dsbox.server.controller.pipeline_compute import PipelineCompute
@@ -13,6 +14,7 @@ from dsbox.server.controller.dataflow import Dataflow
 
 _ONE_DAY_IN_SECONDS = 60 * 60 * 24
 
+DEFAULT_LIB_DIRECTORY = os.path.dirname(os.path.realpath(__file__)) + "/library"
 
 def serve():
     parser = argparse.ArgumentParser()
@@ -20,7 +22,11 @@ def serve():
     args = parser.parse_args()
 
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
-    PipelineCompute(args.library).add_to_server(server)
+    library = args.library
+    if library is None:
+        library = DEFAULT_LIB_DIRECTORY
+
+    PipelineCompute(library).add_to_server(server)
     PipelineData().add_to_server(server)
     Dataflow().add_to_server(server)
 

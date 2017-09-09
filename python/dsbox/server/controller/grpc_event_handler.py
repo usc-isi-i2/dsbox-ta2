@@ -6,7 +6,6 @@ from dsbox.planner.event_handler import PlannerEventHandler
 class GRPC_PlannerEventHandler(PlannerEventHandler):
     def __init__(self, session):
         self.session = session
-        self.key = session.controller.key
         self.session_context = ps.SessionContext(session_id = session.id)
 
     def StartedPlanning(self):
@@ -15,29 +14,27 @@ class GRPC_PlannerEventHandler(PlannerEventHandler):
     def SubmittedPipeline(self, pipeline):
         response = self._create_response("Pipeline Submitted")
         progress = self._create_progress("SUBMITTED")
-        pipeline_id = self.session.add_pipeline(pipeline, self.key)
+        self.session.add_pipeline(pipeline)
         result = ps.PipelineCreateResult(
             response_info = response,
             progress_info = progress,
-            pipeline_id = pipeline_id
+            pipeline_id = pipeline.id
         )
         return result
 
     def RunningPipeline(self, pipeline):
         response = self._create_response("Pipeline Running")
         progress = self._create_progress("RUNNING")
-        pipeline_id = self.session.get_pipeline_id(pipeline, self.key)
         result = ps.PipelineCreateResult(
             response_info = response,
             progress_info = progress,
-            pipeline_id = pipeline_id
+            pipeline_id = pipeline.id
         )
         return result
 
     def CompletedPipeline(self, pipeline, result):
         response = self._create_response("Pipeline Completed", "OK")
         progress = self._create_progress("COMPLETED")
-        pipeline_id = self.session.get_pipeline_id(pipeline, self.key)
         pipeline_info = None
         if result is None:
             response = self._create_response("Pipeline Failed", "UNKNOWN")
@@ -46,7 +43,7 @@ class GRPC_PlannerEventHandler(PlannerEventHandler):
         return ps.PipelineCreateResult(
             response_info = response,
             progress_info = progress,
-            pipeline_id = pipeline_id,
+            pipeline_id = pipeline.id,
             pipeline_info = pipeline_info
         )
 
@@ -56,21 +53,19 @@ class GRPC_PlannerEventHandler(PlannerEventHandler):
     def StartExecutingPipeline(self, pipeline):
         response = self._create_response("Pipeline Started Running", "OK")
         progress = self._create_progress("RUNNING")
-        pipeline_id = self.session.get_pipeline_id(pipeline, self.key)
         return ps.PipelineExecuteResult(
             response_info = response,
             progress_info = progress,
-            pipeline_id = pipeline_id
+            pipeline_id = pipeline.id
         )
 
     def ExecutedPipeline(self, pipeline, result_uris):
         response = self._create_response("Pipeline Completed", "OK")
         progress = self._create_progress("COMPLETED")
-        pipeline_id = self.session.get_pipeline_id(pipeline, self.key)
         return ps.PipelineExecuteResult(
             response_info = response,
             progress_info = progress,
-            pipeline_id = pipeline_id,
+            pipeline_id = pipeline.id,
             result_uris = result_uris
         )
 

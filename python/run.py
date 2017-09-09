@@ -56,8 +56,7 @@ USAGE
         sys.stderr.write("  for help use --help\n")
         exit(1)
 
-    data_directory = problem_directory + "/data"
-    problem_schema = problem_directory + "/problemSchema.json"
+    data_directory = problem_directory + os.sep + "data"
 
     library_directory = args.library
     verbose = args.verbose
@@ -68,11 +67,10 @@ USAGE
     if verbose > 0:
         print("Verbose mode on")
 
-    train_features = [ Feature(data_directory, "*") ]
-    train_targets = [ Feature(data_directory, "*") ]
-
-    controller = Controller(train_features, train_targets, library_directory, output_directory)
-    controller.load_problem_schema(problem_schema)
+    controller = Controller(library_directory)
+    controller.set_config_simple(data_directory, output_directory)
+    controller.initialize_data_from_defaults()
+    controller.load_problem_schema()
     controller.initialize_planners()
     for result in controller.train(PlannerEventHandler()):
         pass

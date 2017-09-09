@@ -26,12 +26,13 @@ from builtins import range
 REMOTE = False
 
 class ExecutionHelper(object):
-    def __init__(self, planner, data_directory, outputdir, csvfile=None):
-        self.planner = planner
+    def __init__(self, planner, data_directory, outputdir, csvfile=None, schema_file=None):
         self.e = Execution()
         self.directory = os.path.abspath(data_directory)
         self.outputdir = os.path.abspath(outputdir)
-        self.schema = self.load_json(self.directory + os.sep + "dataSchema.json")
+        if schema_file is None:
+            schema_file = self.directory + os.sep + "dataSchema.json"
+        self.schema = self.load_json(schema_file)
         self.columns = self.schema['trainData']['trainData']
         self.targets = self.schema['trainData']['trainTargets']
         self.indexcol = self.get_index_column(self.columns)
@@ -77,6 +78,7 @@ class ExecutionHelper(object):
             primitive.executables = self.instantiate_primitive(primitive)
             if self._profile_matches_precondition(primitive.preconditions, cur_profile.profile):
                 df = self._execute_primitive(primitive, primitive.executables, df, df_lbl)
+
 
         return pd.DataFrame(df)
 
@@ -308,6 +310,8 @@ class ExecutionHelper(object):
         return result_kwargs
 
     def create_pipeline_executable(self, pipeline, pipeid):
+        self._initialize_execution_folder()
+
         imports = ["sys", "sklearn.externals", "pandas", "numpy"]
         statements = [
                 "from os import path",
@@ -320,7 +324,7 @@ class ExecutionHelper(object):
         statements.append("hp = ExecutionHelper('%s', '.', 'testData.csv.gz')" % self.directory)
         statements.append("testdata = hp.data")
         index = 1
-        for primitive in pipeline:
+        for primitive in pipeline.primitives:
             primid = "primitive_%s" % str(index)
 
             try:
@@ -362,13 +366,19 @@ class ExecutionHelper(object):
             index += 1
 
         # Write executable
-        with open("%s%sexecutables%s%s.py" % (self.outputdir, os.sep, os.sep, pipeid), 'a') as exfile:
+        with open("%s%s%s.py" % (self.outputdir, os.sep, pipeid), 'a') as exfile:
             for imp in set(imports):
                 exfile.write("import %s\n" % imp)
             for st in statements:
                 exfile.write(st+"\n")
 
-        libdir = self.outputdir + os.sep + "executables" + os.sep + "dsbox"
+    def _initialize_execution_folder(self):
+        # Create directories
+        modelsdir = self.outputdir + os.sep + "models"
+        if not os.path.exists(modelsdir):
+            os.makedirs(modelsdir)
+
+        libdir = self.outputdir + os.sep + "dsbox"
         schemadir = libdir + os.sep + "schema"
         execdir = libdir + os.sep + "executer"
         if not os.path.exists(libdir):
@@ -382,24 +392,25 @@ class ExecutionHelper(object):
             self._init_initfile(execdir)
 
         # Copy executionhelper.py, execution.py & dataset_schema.py file (this file)
-        exfile = "%s%sexecutables%sdsbox%sexecuter%sexecutionhelper.py" % (
-            self.outputdir, os.sep, os.sep, os.sep, os.sep)
+        exfile = "%s%sdsbox%sexecuter%sexecutionhelper.py" % (
+            self.outputdir, os.sep, os.sep, os.sep)
         if not os.path.isfile(exfile):
             thisfile = os.path.abspath(__file__)
             thisfile = thisfile.replace(".pyc", ".py")
             shutil.copyfile(thisfile, exfile)
-        exfile = "%s%sexecutables%sdsbox%sexecuter%sexecution.py" % (
-            self.outputdir, os.sep, os.sep, os.sep, os.sep)
+        exfile = "%s%sdsbox%sexecuter%sexecution.py" % (
+            self.outputdir, os.sep, os.sep, os.sep)
         if not os.path.isfile(exfile):
             origfile = os.path.dirname(os.path.abspath(__file__)) + os.sep + "execution.py"
             origfile = origfile.replace(".pyc", ".py")
             shutil.copyfile(origfile, exfile)
-        schfile = "%s%sexecutables%sdsbox%sschema%sdataset_schema.py" % (
-            self.outputdir, os.sep, os.sep, os.sep, os.sep)
+        schfile = "%s%sdsbox%sschema%sdataset_schema.py" % (
+            self.outputdir, os.sep, os.sep, os.sep)
         if not os.path.isfile(schfile):
             origfile = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) + os.sep + "schema" + os.sep + "dataset_schema.py"
             origfile = origfile.replace(".pyc", ".py")
             shutil.copyfile(origfile, schfile)
+
 
     def _init_initfile(self, dir):
         with open(dir + os.sep + "__init__.py", "w") as init_file:

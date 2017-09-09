@@ -82,8 +82,9 @@ class PipelineCompute(psrpc.PipelineComputeServicer):
 
         cutoff = request.max_pipelines
         # Create the planning controller
-        session.controller = Controller(train_features, target_features, self.libdir, session.outputdir)
-        session.controller.key = str(uuid.uuid1())
+        session.controller = Controller(self.libdir)
+        session.controller.set_config_simple('', session.outputdir)
+        session.controller.initialize_data_from_features(train_features, target_features)
 
         # Get Problem details
         session.controller.task_type = TaskType[ps.TaskType.Name(request.task)]

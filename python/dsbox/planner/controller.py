@@ -28,7 +28,8 @@ class Controller(object):
     and the primitives library directory, and it generates plans by calling out to L1, L2
     and L3 planners.
     """
-    def __init__(self, train_features, target_features, libdir, outputdir):
+    def __init__(self, libdir):
+        self.libdir = os.path.abspath(libdir)
         self.columns = []
         self.targets = []
         self.train_data = None
@@ -37,6 +38,7 @@ class Controller(object):
         self.media_type = None
         self.exec_pipelines = []
 
+<<<<<<< Updated upstream
         self.l1_planner = None
         self.l2_planner = None
 
@@ -50,17 +52,58 @@ class Controller(object):
         self.logfile = open("%s%slog.txt" % (self.outputdir, os.sep), 'w')
         self.errorfile = open("%s%sstderr.txt" % (self.outputdir, os.sep), 'w')
         self.pipelinesfile = open("%s%spipelines.txt" % (self.outputdir, os.sep), 'w')
+=======
+    '''
+    Set config directories and data schema file
+    '''
+    def set_config(self, config):
+        self.data_schema = config.get('dataset_schema', None)
+        self.problem_schema = config.get('problem_schema', None)
+        self.train_dir = self._dir(config, 'training_data_root')
+        self.log_dir = self._dir(config, 'pipeline_logs_root')
+        self.exec_dir = self._dir(config, 'executables_root')
+        self.tmp_dir = self._dir(config, 'temp_storage_root')
+
+        # Create some debugging files
+        self.logfile = open("%s%slog.txt" % (self.tmp_dir, os.sep), 'w')
+        self.errorfile = open("%s%sstderr.txt" % (self.tmp_dir, os.sep), 'w')
+        self.pipelinesfile = open("%s%spipelines.txt" % (self.tmp_dir, os.sep), 'w')
+
+>>>>>>> Stashed changes
         # Redirect stderr to error file
         sys.stderr = self.errorfile
 
-        # Read training data
-        self.read_feature_data(train_features, target_features)
+    '''
+    Set config directories and schema from just datadir and outputdir
+    '''
+    def set_config_simple(self, datadir, outputdir):
+        self.set_config({
+            'dataset_schema': datadir + os.sep + "dataSchema.json",
+            'problem_schema': datadir + os.sep + ".." + os.sep + "problemSchema.json",
+            'training_data_root': datadir,
+            'pipeline_logs_root': outputdir + os.sep + "logs",
+            'executables_root': outputdir + os.sep + "executables",
+            'temp_storage_root': outputdir + os.sep + "temp"
+        })
 
+    """
+    This function creates train_data and train_labels from trainData.csv and trainTargets.csv
+    """
+    def initialize_data_from_defaults(self):
+        self.helper = ExecutionHelper(self.train_dir, self.exec_dir, None, self.data_schema)
+        self.columns = self.helper.columns
+        self.targets = self.helper.targets
+        self.indexcol = self.helper.indexcol
+        self.media_type = self.helper.media_type
+        self.train_data = self.helper.read_data(self.train_dir + os.sep + 'trainData.csv.gz',
+                                                 self.columns, self.indexcol)
+        self.train_labels = self.helper.read_data(self.train_dir + os.sep + 'trainTargets.csv.gz',
+                                                 self.targets, self.indexcol)
 
     """
     This function creates train_data and train_labels from the set of train and target features
     """
-    def read_feature_data(self, train_features, target_features):
+    def initialize_data_from_features(self, train_features, target_features):
         data_train_features_map = {}
         data_target_features_map = {}
 
@@ -77,7 +120,7 @@ class Controller(object):
             data_target_features_map[feature.data_directory] = data_target_features
 
         for data_directory in data_train_features_map.keys():
-            helper = ExecutionHelper(self, data_directory, self.outputdir)
+            helper = ExecutionHelper(self, data_directory, self.exec_dir)
             indexcol = helper.indexcol
             columns = []
             data_train_features = data_train_features_map[data_directory]
@@ -101,7 +144,7 @@ class Controller(object):
                 self.media_type = helper.media_type
 
         for data_directory in data_target_features_map.keys():
-            helper = ExecutionHelper(self, data_directory, self.outputdir)
+            helper = ExecutionHelper(self, data_directory, self.exec_dir)
             indexcol = helper.indexcol
             targets = []
             data_target_features = data_target_features_map[data_directory]
@@ -126,8 +169,8 @@ class Controller(object):
     """
     Set the task type, metric and output type via the schema
     """
-    def load_problem_schema(self, jsonfile):
-        self.problem = self.helper.load_json(jsonfile)
+    def load_problem_schema(self):
+        self.problem = self.helper.load_json(self.problem_schema)
         self.set_task_type(
             self.problem.get('taskType', None),
             self.problem.get('taskSubType', None)
@@ -260,24 +303,27 @@ class Controller(object):
         self.pipelinesfile.write("# Pipelines ranked by metric (%s)\n" % self.metric)
         for index in range(0, len(self.exec_pipelines)):
             pipeline = self.exec_pipelines[index][0]
-            self.pipelinesfile.write("%s : %2.4f\n" % (pipeline, self.exec_pipelines[index][1]))
-            pipeline_name = str(index+1) + "." + str(uuid.uuid1())
-            self.helper.create_pipeline_executable(pipeline, pipeline_name)
+            self.pipelinesfile.write("%s ( %s ) : %2.4f\n" % (pipeline.id, pipeline, self.exec_pipelines[index][1]))
+            self.helper.create_pipeline_executable(pipeline, pipeline.id)
 
     '''
     Predict results on test data given a pipeline
     '''
     def test(self, pipeline, test_directory):
+<<<<<<< Updated upstream
         helper = ExecutionHelper(self, test_directory, self.outputdir, 'testData.csv.gz')
+=======
+        helper = ExecutionHelper(test_directory, self.exec_dir, 'testData.csv.gz')
+>>>>>>> Stashed changes
         testdf = helper.data
         print("** Evaluating pipeline %s" % str(pipeline))
-        for primitive in pipeline:
+        for primitive in pipeline.primitives:
             # Initialize primitive
             print("Executing %s" % primitive)
             executables = primitive.executables
             if primitive.task == "Modeling":
                 result = pd.DataFrame(executables.predict(testdf), columns=["prediction"])
-                resultfile = "%s%s%s.csv" % (self.outputdir, os.sep, str(uuid.uuid1()))
+                resultfile = "%s%s%s.csv" % (self.tmp_dir, os.sep, str(uuid.uuid1()))
                 result.to_csv(resultfile, index_label="d3mIndex")
                 return resultfile
             elif primitive.task == "PreProcessing":
@@ -287,13 +333,20 @@ class Controller(object):
                 testdf = helper.featurise(testdf, primitive, True, primitive.is_persistent)
         return None
 
-    def convert_l1_to_l2(self, pipeline):
-        pipeline.get_primitives()
-
     def stop(self):
         '''
         Stop planning, and write out the current list (sorted by metric)
         '''
+
+
+    def _dir(self, config, key):
+        dir = config.get(key)
+        if dir is None:
+            return None
+        dir = os.path.abspath(dir)
+        if not os.path.exists(dir):
+            os.makedirs(dir)
+        return dir
 
     def _show_status(self, status):
         sys.stdout.write("%s\n" % status)
