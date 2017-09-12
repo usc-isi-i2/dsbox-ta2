@@ -11,15 +11,15 @@ class LevelOnePlannerProxy(object):
 
     This is here to integrate with Ke-Thia's L1 Planner until we come up with a consistent interface
     """
-    def __init__(self, libdir, task_type, task_subtype, media_type=None):
+    def __init__(self, libdir, helper):
         self.models = PrimitiveLibrary(libdir + os.sep + "models.json")
         self.features = PrimitiveLibrary(libdir + os.sep + "features.json")
 
         self.primitives = get_d3m_primitives()
         self.policy = AffinityPolicy(self.primitives)
-        self.media_type = media_type
+        self.media_type = helper.media_type
         self.l1_planner = LevelOnePlanner(primitives=self.primitives, policy=self.policy,
-                task_type=task_type, task_subtype=task_subtype, media_type=self.media_type)
+                task_type=helper.task_type, task_subtype=helper.task_subtype, media_type=helper.media_type)
 
         self.primitive_hash = {}
         for model in self.models.primitives:

@@ -1,12 +1,21 @@
-"""The Python implementation of the GRPC pipeline.PipelineCompute client."""
+#!/usr/bin/env python
+
+import sys
+import os.path
+
+# Setup Paths
+PARENTDIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(PARENTDIR)
+
+from dsbox_dev_setup import path_setup
+path_setup()
 
 import grpc
 import urllib
+import pandas
 
 import pipeline_service_pb2 as ps
 import pipeline_service_pb2_grpc as psrpc
-
-import pandas
 
 def run():
     channel = grpc.insecure_channel('localhost:50051')
@@ -19,17 +28,6 @@ def run():
     print("Session started (%s)" % str(session_context.session_id))
 
     # Send pipeline creation request
-    # FIXME: Only using the data_uri in the first train_features for now
-    # - Everything else is gotten from the problemSchema
-    # - Later we shall replace the problem schema with items from the request
-    # - Then the data uri will point to the problem directory, problem's data
-    #     directory , or the data itself ?
-    # - If it is to the problem directory (i.e. with the problem schema, then why
-    #     do we have these other attributes in the request)
-    # - If to the data itself, then what about the data schema ?
-    # - Currently there is a separate file for trainTargets,
-    #   - Will the target_features change it ?
-
     train_features = [
         ps.Feature(
             data_uri="file:///Users/Varun/git/dsbox/data/o_185/data", feature_id="*")
@@ -96,6 +94,7 @@ def run():
         pipeline_id = pcr.pipeline_id
     '''
 
+    # Execute pipelines
     for pipeline_id in pipeline_ids:
         print("Executing Pipeline %s" % pipeline_id)
         ep_request = ps.PipelineExecuteRequest(

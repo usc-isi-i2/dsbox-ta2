@@ -2,7 +2,6 @@ from dsbox.planner.common.library import PrimitiveLibrary
 from dsbox.planner.common.pipeline import Pipeline
 from dsbox.schema.data_profile import DataProfile
 from dsbox.profiler.data.data_profiler import DataProfiler
-from dsbox.schema.problem_schema import TaskType
 
 import os
 import sys
@@ -12,8 +11,6 @@ import traceback
 
 import numpy as np
 import pandas as pd
-from sklearn.linear_model import LinearRegression, LogisticRegression
-from sklearn.metrics import make_scorer
 
 TIMEOUT = 300  # Time out primitives running for more than 5 minutes
 
@@ -115,7 +112,7 @@ class LevelTwoPlanner(object):
     """
     # TODO: Currently no patching being done
 
-    def patch_and_execute_pipeline(self, pipeline, df, df_lbl, columns, task_type, metric, metric_function):
+    def patch_and_execute_pipeline(self, pipeline, df, df_lbl, columns):
         print("** Running Pipeline: %s" % pipeline)
 
         df = copy.deepcopy(df)
@@ -124,17 +121,6 @@ class LevelTwoPlanner(object):
         metricvalue = 0
         cachekey = ""
         for primitive in pipeline.primitives:
-            args = []
-            kwargs = {}
-
-            if primitive.getInitKeywordArgs():
-                primitive.init_kwargs = self.helper._process_kwargs(
-                    primitive.getInitKeywordArgs(), task_type, metric)
-
-            if primitive.getInitArgs():
-                primitive.init_args = self.helper._process_args(
-                    primitive.getInitArgs(), task_type, metric)
-
             cachekey += ".%s" % primitive
             if cachekey in self.execution_cache:
                 # print "* Using cache for %s" % primitive
@@ -152,7 +138,7 @@ class LevelTwoPlanner(object):
 
                 if primitive.task == "FeatureExtraction":
                     # Featurisation Primitive
-                    df = self.helper.featurise(df, primitive, timeout=TIMEOUT)
+                    df = self.helper.featurise(primitive, df, timeout=TIMEOUT)
                     cols = df.columns
                     self.execution_cache[cachekey] = df
                     self.primitive_cache[cachekey] = primitive.executables
@@ -160,8 +146,7 @@ class LevelTwoPlanner(object):
                 elif primitive.task == "Modeling":
                     # Modeling Primitive
                     # Evaluate: Get a cross validation score for the metric
-                    metricvalue = self.helper.cross_validation_score(primitive, df, df_lbl,
-                                                                     metric, metric_function, 5, timeout=TIMEOUT)
+                    metricvalue = self.helper.cross_validation_score(primitive, df, df_lbl, 5, timeout=TIMEOUT)
                     if not metricvalue:
                         return None
 
@@ -309,23 +294,3 @@ class LevelTwoPlanner(object):
                 curprofile.profile[effect] = primitive.effects[effect]
         #print ("Predicted profile %s" % curprofile)
         return curprofile
-
-    def _get_arg_value(self, arg_specification, task_type, metric):
-        if not arg_specification.startswith('*'):
-            return arg_specification
-        arg_specification = arg_specification[1:]
-        if arg_specification == "SCORER":
-            return make_scorer(metric, greater_is_better=True)
-        elif arg_specification == "LOSS":
-            return make_scorer(metric, greater_is_better=False)
-        elif arg_specification == "ESTIMATOR":
-            if task_type == TaskType.CLASSIFICATION:
-                return LogisticRegression()
-            elif task_type == TaskType.REGRESSION:
-                return LinearRegression
-            else:
-                raise Exception("Not yet implemented: Arg specification ESTIMATOR task type: {}"
-                                .format(task_type))
-        else:
-            raise Exception(
-                "Unkown Arg specification: {}".format(arg_specification))

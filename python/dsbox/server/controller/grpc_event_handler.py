@@ -39,7 +39,10 @@ class GRPC_PlannerEventHandler(PlannerEventHandler):
         if result is None:
             response = self._create_response("Pipeline Failed", "UNKNOWN")
         else:
-            pipeline_info = self._create_pipeline(self.session.controller.metric.name, result)
+            pipeline_info = self._create_pipeline(self.session.controller.helper.metric.name, result)
+
+        self.session.update_pipeline(pipeline)        
+
         return ps.PipelineCreateResult(
             response_info = response,
             progress_info = progress,

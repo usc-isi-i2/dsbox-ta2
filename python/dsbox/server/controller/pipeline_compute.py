@@ -82,21 +82,22 @@ class PipelineCompute(psrpc.PipelineComputeServicer):
 
         cutoff = request.max_pipelines
         # Create the planning controller
-        session.controller = Controller(self.libdir)
-        session.controller.set_config_simple('', session.outputdir)
-        session.controller.initialize_data_from_features(train_features, target_features)
+        c = Controller(self.libdir)
+        c.set_config_simple('', session.outputdir)
+        c.initialize_data_from_features(train_features, target_features)
 
         # Get Problem details
-        session.controller.task_type = TaskType[ps.TaskType.Name(request.task)]
+        c.helper.task_type = TaskType[ps.TaskType.Name(request.task)]
         if request.task_subtype is not None:
-            session.controller.task_subtype = TaskSubType[ps.TaskSubtype.Name(request.task_subtype)]
-        session.controller.output_type = ps.OutputType.Name(request.output)
+            c.task_subtype = TaskSubType[ps.TaskSubtype.Name(request.task_subtype)]
+        c.output_type = ps.OutputType.Name(request.output)
 
         # FIXME: Handle multiple metrics
-        session.controller.metric = Metric[ ps.Metric.Name(request.metrics[0]) ]
-        session.controller.metric_function = session.controller._get_metric_function(session.controller.metric)
+        c.helper.metric = Metric[ ps.Metric.Name(request.metrics[0]) ]
+        c.helper.metric_function = c.helper._get_metric_function(c.helper.metric)
 
         # Start planning
+        session.controller = c
         session.controller.initialize_planners()
         for result in session.controller.train(GRPC_PlannerEventHandler(session), cutoff=cutoff):
             yield result

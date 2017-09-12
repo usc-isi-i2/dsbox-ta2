@@ -8,7 +8,7 @@ class Pipeline(object):
 
     def __init__(self, id=None, primitives=None):
         if id is None:
-            id = str(uuid.uuid1())
+            id = str(uuid.uuid4())
         if primitives is None:
             primitives = []
         self.id = id
@@ -17,7 +17,7 @@ class Pipeline(object):
     def clone(self, idcopy=False):
         pipeline = copy.deepcopy(self)
         if not idcopy:
-            pipeline.id = str(uuid.uuid1())
+            pipeline.id = str(uuid.uuid4())
         return pipeline
 
     def setPipelineId(self, id):

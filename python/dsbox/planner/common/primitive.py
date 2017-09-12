@@ -8,7 +8,7 @@ class Primitive(object):
         self.cls = cls
         self.task = None
         self.type = None
-        self.executable = None
+        self.executables = {}
         self.preconditions = {}
         self.effects = {}
         self.is_persistent = True

@@ -8,7 +8,7 @@ class Session:
     sessions = {}
 
     def __init__(self):
-        self.id = str(uuid.uuid1())
+        self.id = str(uuid.uuid4())
         self.controller = None
         self.pipelines = {}
         self.outputdir = tempfile.gettempdir() + os.sep + "dsbox-ta2" + os.sep + self.id
@@ -20,6 +20,9 @@ class Session:
     def add_pipeline(self, pipeline):
         self.pipelines[pipeline.id] = pipeline
         return pipeline.id
+
+    def update_pipeline(self, pipeline):
+        self.pipelines[pipeline.id] = pipeline
 
     @staticmethod
     def new():
