@@ -1,12 +1,12 @@
 """The Python implementation of the GRPC pipeline.DataflowServicer server."""
 import grpc
 
-import dataflow_service_pb2
-import dataflow_service_pb2_grpc
+import dataflow_ext_pb2 as dataflow_ext
+import dataflow_ext_pb2_grpc as drpc
 
 from dsbox.server.controller.session_handler import Session
 
-class Dataflow(dataflow_service_pb2_grpc.DataflowServicer):
+class DataflowExt(drpc.DataflowExtServicer):
     def DescribeDataflow(self, request, context):
         # missing associated documentation comment in .proto file
         pass
@@ -22,4 +22,4 @@ class Dataflow(dataflow_service_pb2_grpc.DataflowServicer):
         raise NotImplementedError('Method not implemented!')
 
     def add_to_server(self, server):
-        dataflow_service_pb2_grpc.add_DataflowServicer_to_server(self, server)
+        drpc.add_DataflowExtServicer_to_server(self, server)

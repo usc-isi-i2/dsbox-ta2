@@ -482,18 +482,25 @@ class ExecutionHelper(object):
         if not os.path.exists(modelsdir):
             os.makedirs(modelsdir)
 
-        imports = ["sys", "json", "numpy", "pandas", "os.path", "sklearn.externals"]
+        rdir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        imports = []
         statements = [
+                "import sys",
+                "sys.path.append('%s')" % rdir,
+                "from dsbox_dev_setup import path_setup",
+                "path_setup()",
+                "",
+                "import json",
+                "import numpy",
+                "import pandas",
+                "import os.path",
+                ""
+                "import sklearn.externals",
                 "from dsbox.executer.executionhelper import ExecutionHelper",
                 "from dsbox.schema.problem_schema import TaskType, Metric",
                 "",
                 "# Pipeline : %s" % str(pipeline),
                 ""]
-
-        rdir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-        statements.append("sys.path.append('%s')" % rdir)
-        statements.append("from dsbox_dev_setup import path_setup")
-        statements.append("path_setup()")
 
         statements.append("\ncurdir = os.path.dirname(os.path.abspath(__file__))")
         statements.append("numpy.set_printoptions(threshold=numpy.nan)")

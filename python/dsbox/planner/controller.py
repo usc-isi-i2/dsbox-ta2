@@ -2,10 +2,12 @@ import os
 import sys
 import os.path
 import uuid
+import copy
 import math
 import json
 import numpy
 import shutil
+import traceback
 import pandas as pd
 
 from dsbox.planner.leveltwo.l1proxy import LevelOnePlannerProxy
@@ -34,6 +36,8 @@ class Controller(object):
         self.indexcol = None
         self.media_type = None
         self.exec_pipelines = []
+        self.test_data = None
+        self.test_indexcol = None
         self.l1_planner = None
         self.l2_planner = None
 
@@ -151,6 +155,47 @@ class Controller(object):
         self.helper.columns = self.columns
         self.helper.targets = self.targets
         self.helper.indexcol = self.indexcol
+
+
+    """
+    This function creates test_data from the set of test features
+    """
+    def initialize_test_data_from_features(self, test_features):
+        data_test_features_map = {}
+
+        print("Loading Data..")
+        self.test_data = None
+
+        for feature in test_features:
+            data_test_features = data_test_features_map.get(feature.data_directory, [])
+            data_test_features.append(feature.feature_id)
+            data_test_features_map[feature.data_directory] = data_test_features
+
+        for data_directory in data_test_features_map.keys():
+            helper = ExecutionHelper(data_directory, self.exec_dir)
+            indexcol = helper.indexcol
+            columns = []
+            data_test_features = data_test_features_map[data_directory]
+            for col in helper.columns:
+                if (col['varName'] in data_test_features) or ("*" in data_test_features):
+                    columns.append(col)
+            test_data = helper.read_data(data_directory + os.sep + 'testData.csv.gz',
+                                         columns, indexcol)
+            if self.test_data is None:
+                self.test_data = test_data
+                self.test_columns = columns
+            else:
+                self.test_data = pd.concat([self.test_data, test_data], axis=1)
+                self.test_columns = self.test_columns + columns
+
+            self.test_helper = helper
+            if indexcol is not None:
+                self.test_indexcol = indexcol
+            if helper.media_type is not None:
+                self.test_media_type = helper.media_type
+
+        self.test_helper.columns = self.test_columns
+        self.test_helper.indexcol = self.test_indexcol
 
     """
     Set the task type, metric and output type via the schema
@@ -279,22 +324,28 @@ class Controller(object):
     '''
     Predict results on test data given a pipeline
     '''
-    def test(self, pipeline, test_directory):
-        helper = ExecutionHelper(test_directory, self.exec_dir, 'testData.csv.gz')
-        testdf = helper.data
+    def test(self, pipeline):
+        helper = self.test_helper
+        testdf = self.test_data
         print("** Evaluating pipeline %s" % str(pipeline))
         for primitive in pipeline.primitives:
             # Initialize primitive
-            print("Executing %s" % primitive)
-            if primitive.task == "Modeling":
-                result = pd.DataFrame(primitive.executables.predict(testdf), columns=["result"])
-                resultfile = "%s%s%s.csv" % (self.tmp_dir, os.sep, str(uuid.uuid4()))
-                result.to_csv(resultfile, index_label="d3mIndex")
-                return resultfile
-            elif primitive.task == "PreProcessing":
-                testdf = helper.test_execute_primitive(primitive, testdf)
-            elif primitive.task == "FeatureExtraction":
-                testdf = helper.test_featurise(testdf, primitive)
+            try:
+                print("Executing %s" % primitive)
+                if primitive.task == "Modeling":
+                    result = pd.DataFrame(primitive.executables.predict(testdf), columns=["result"])
+                    resultfile = "%s%s%s.csv" % (self.tmp_dir, os.sep, str(uuid.uuid4()))
+                    result.to_csv(resultfile, index_label=self.test_indexcol)
+                    return resultfile
+                elif primitive.task == "PreProcessing":
+                    testdf = helper.test_execute_primitive(primitive, testdf)
+                elif primitive.task == "FeatureExtraction":
+                    testdf = helper.test_featurise(testdf, primitive)
+            except Exception as e:
+                sys.stderr.write(
+                    "ERROR test(%s) : %s\n" % (pipeline, e))
+                traceback.print_exc()
+                return None
         return None
 
     def stop(self):

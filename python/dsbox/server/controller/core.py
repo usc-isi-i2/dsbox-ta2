@@ -1,11 +1,11 @@
-"""The Python implementation of the GRPC pipeline.PipelineComputeServicer server."""
+"""The Python implementation of the GRPC pipeline.CoreServicer server."""
 import os
 import os.path
 import grpc
 import uuid
 
-import pipeline_service_pb2 as ps
-import pipeline_service_pb2_grpc as psrpc
+import core_pb2 as core
+import core_pb2_grpc as crpc
 
 from dsbox.server.controller.grpc_event_handler import GRPC_PlannerEventHandler
 from dsbox.server.controller.session_handler import Session
@@ -13,7 +13,7 @@ from dsbox.server.controller.session_handler import Session
 from dsbox.planner.controller import Controller, Feature
 from dsbox.schema.problem_schema import TaskType, TaskSubType, Metric
 
-class PipelineCompute(psrpc.PipelineComputeServicer):
+class Core(crpc.CoreServicer):
 
     def __init__(self, libdir):
         self.libdir = libdir
@@ -22,10 +22,10 @@ class PipelineCompute(psrpc.PipelineComputeServicer):
         """Session management
         """
         session = Session.new()
-        session_context = ps.SessionContext(session_id = session.id)
-        status = ps.Status(code=ps.StatusCode.Value('OK'), details="Session started")
-        response = ps.Response(status=status)
-        session_response = ps.SessionResponse(
+        session_context = core.SessionContext(session_id = session.id)
+        status = core.Status(code=core.StatusCode.Value('OK'), details="Session started")
+        response = core.Response(status=status)
+        session_response = core.SessionResponse(
             response_info=response,
             user_agent = request.user_agent,
             version = request.version,
@@ -35,8 +35,8 @@ class PipelineCompute(psrpc.PipelineComputeServicer):
 
     def EndSession(self, request, context):
         Session.delete(request.session_id)
-        status = ps.Status(code=ps.StatusCode.Value('OK'), details="Session ended")
-        response = ps.Response(status=status)
+        status = core.Status(code=core.StatusCode.Value('OK'), details="Session ended")
+        response = core.Response(status=status)
         context.set_code(grpc.StatusCode.OK)
         return response
 
@@ -87,13 +87,13 @@ class PipelineCompute(psrpc.PipelineComputeServicer):
         c.initialize_data_from_features(train_features, target_features)
 
         # Get Problem details
-        c.helper.task_type = TaskType[ps.TaskType.Name(request.task)]
+        c.helper.task_type = TaskType[core.TaskType.Name(request.task)]
         if request.task_subtype is not None:
-            c.task_subtype = TaskSubType[ps.TaskSubtype.Name(request.task_subtype)]
-        c.output_type = ps.OutputType.Name(request.output)
+            c.task_subtype = TaskSubType[core.TaskSubtype.Name(request.task_subtype)]
+        c.output_type = core.OutputType.Name(request.output)
 
         # FIXME: Handle multiple metrics
-        c.helper.metric = Metric[ ps.Metric.Name(request.metrics[0]) ]
+        c.helper.metric = Metric[ core.Metric.Name(request.metrics[0]) ]
         c.helper.metric_function = c.helper._get_metric_function(c.helper.metric)
 
         # Start planning
@@ -115,28 +115,43 @@ class PipelineCompute(psrpc.PipelineComputeServicer):
             yield None
             return
 
+        # Get test features
+        test_features = []
+        for tfeature in request.predict_features:
+            datadir = self._create_path_from_uri(tfeature.data_uri)
+            featureid = tfeature.feature_id
+            test_features.append(Feature(datadir, featureid))
+
         # Get test data directories
         handler = GRPC_PlannerEventHandler(session)
         handler.StartExecutingPipeline(pipeline)
         result_uris = []
-        for data_uri in request.predict_dataset_uris:
-            test_directory = self._create_path_from_uri(data_uri)
-            resultfile = session.controller.test(pipeline, test_directory)
+
+        session.controller.initialize_test_data_from_features(test_features)
+
+        resultfile = session.controller.test(pipeline)
+        if resultfile is not None:
             result_uris.append(self._create_uri_from_path(resultfile))
 
         yield handler.ExecutedPipeline(pipeline, result_uris)
 
-
     def ListPipelines(self, request, context):
-        """Get pipelines already present in the session.
+        """Manage pipelines already present in the session.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    def GetCreatePipelineResults(self, request, context):
+    def DeletePipelines(self, request, context):
         # missing associated documentation comment in .proto file
         pass
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetCreatePipelineResults(self, request, context):
+        """Obtain results
+        """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
@@ -144,6 +159,13 @@ class PipelineCompute(psrpc.PipelineComputeServicer):
     def GetExecutePipelineResults(self, request, context):
         # missing associated documentation comment in .proto file
         pass
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ExportPipeline(self, request, context):
+        """Export executable of a pipeline, including any optional preprocessing used in session
+        """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
@@ -156,4 +178,4 @@ class PipelineCompute(psrpc.PipelineComputeServicer):
         raise NotImplementedError('Method not implemented!')
 
     def add_to_server(self, server):
-        psrpc.add_PipelineComputeServicer_to_server(self, server)
+        crpc.add_CoreServicer_to_server(self, server)

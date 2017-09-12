@@ -17,9 +17,9 @@ import numpy
 import argparse
 from concurrent import futures
 
-from dsbox.server.controller.pipeline_compute import PipelineCompute
-from dsbox.server.controller.pipeline_data import PipelineData
-from dsbox.server.controller.dataflow import Dataflow
+from dsbox.server.controller.core import Core
+from dsbox.server.controller.data_ext import DataExt
+from dsbox.server.controller.dataflow_ext import DataflowExt
 
 numpy.set_printoptions(threshold=numpy.nan)
 
@@ -35,9 +35,9 @@ def serve():
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
     library = args.library
 
-    PipelineCompute(library).add_to_server(server)
-    PipelineData().add_to_server(server)
-    Dataflow().add_to_server(server)
+    Core(library).add_to_server(server)
+    DataExt().add_to_server(server)
+    DataflowExt().add_to_server(server)
 
     server.add_insecure_port('[::]:50051')
     server.start()

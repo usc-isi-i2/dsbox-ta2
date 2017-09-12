@@ -1,12 +1,13 @@
-"""The Python implementation of the GRPC pipeline.PipelineDataServicer server."""
+"""The Python implementation of the GRPC pipeline.DataExtServicer server."""
 import grpc
 
-import pipeline_data_pb2
-import pipeline_data_pb2_grpc
+import data_ext_pb2 as data_ext
+import data_ext_pb2_grpc as drpc
 
 from dsbox.server.controller.session_handler import Session
 
-class PipelineData(pipeline_data_pb2_grpc.PipelineDataServicer):
+
+class DataExt(drpc.DataExtServicer):
     def AddFeatures(self, request, context):
         """Add and remove features to/from datasets
         """
@@ -64,5 +65,5 @@ class PipelineData(pipeline_data_pb2_grpc.PipelineDataServicer):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    def add_to_server(self, server):
-        pipeline_data_pb2_grpc.add_PipelineDataServicer_to_server(self, server)
+        def add_to_server(self, server):
+            drpc.add_DataExtServicer_to_server(self, server)

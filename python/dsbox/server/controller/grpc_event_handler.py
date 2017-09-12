@@ -1,12 +1,12 @@
-import pipeline_service_pb2 as ps
-import pipeline_service_pb2_grpc as psrpc
+import core_pb2 as core
+import core_pb2_grpc as crpc
 
 from dsbox.planner.event_handler import PlannerEventHandler
 
 class GRPC_PlannerEventHandler(PlannerEventHandler):
     def __init__(self, session):
         self.session = session
-        self.session_context = ps.SessionContext(session_id = session.id)
+        self.session_context = core.SessionContext(session_id = session.id)
 
     def StartedPlanning(self):
         pass
@@ -15,7 +15,7 @@ class GRPC_PlannerEventHandler(PlannerEventHandler):
         response = self._create_response("Pipeline Submitted")
         progress = self._create_progress("SUBMITTED")
         self.session.add_pipeline(pipeline)
-        result = ps.PipelineCreateResult(
+        result = core.PipelineCreateResult(
             response_info = response,
             progress_info = progress,
             pipeline_id = pipeline.id
@@ -25,7 +25,7 @@ class GRPC_PlannerEventHandler(PlannerEventHandler):
     def RunningPipeline(self, pipeline):
         response = self._create_response("Pipeline Running")
         progress = self._create_progress("RUNNING")
-        result = ps.PipelineCreateResult(
+        result = core.PipelineCreateResult(
             response_info = response,
             progress_info = progress,
             pipeline_id = pipeline.id
@@ -41,9 +41,9 @@ class GRPC_PlannerEventHandler(PlannerEventHandler):
         else:
             pipeline_info = self._create_pipeline(self.session.controller.helper.metric.name, result)
 
-        self.session.update_pipeline(pipeline)        
+        self.session.update_pipeline(pipeline)
 
-        return ps.PipelineCreateResult(
+        return core.PipelineCreateResult(
             response_info = response,
             progress_info = progress,
             pipeline_id = pipeline.id,
@@ -56,16 +56,20 @@ class GRPC_PlannerEventHandler(PlannerEventHandler):
     def StartExecutingPipeline(self, pipeline):
         response = self._create_response("Pipeline Started Running", "OK")
         progress = self._create_progress("RUNNING")
-        return ps.PipelineExecuteResult(
+        return core.PipelineExecuteResult(
             response_info = response,
             progress_info = progress,
             pipeline_id = pipeline.id
         )
 
     def ExecutedPipeline(self, pipeline, result_uris):
-        response = self._create_response("Pipeline Completed", "OK")
+        if len(result_uris) > 0:
+            response = self._create_response("Pipeline Completed", "OK")
+        else:
+            response = self._create_response("Pipeline Failed to run", "INTERNAL")
+
         progress = self._create_progress("COMPLETED")
-        return ps.PipelineExecuteResult(
+        return core.PipelineExecuteResult(
             response_info = response,
             progress_info = progress,
             pipeline_id = pipeline.id,
@@ -73,21 +77,21 @@ class GRPC_PlannerEventHandler(PlannerEventHandler):
         )
 
     def _create_response(self, message, code="OK"):
-        status = ps.Status(code=ps.StatusCode.Value('OK'), details=message)
-        response = ps.Response(status=status)
+        status = core.Status(code=core.StatusCode.Value('OK'), details=message)
+        response = core.Response(status=status)
 
     def _create_progress(self, value):
-        return ps.Progress.Value(value)
+        return core.Progress.Value(value)
 
     def _create_score(self, metric, value):
-        return ps.Score(metric = ps.Metric.Value(metric), value=value)
+        return core.Score(metric = core.Metric.Value(metric), value=value)
 
     def _create_pipeline(self, metric, result):
         score = self._create_score(metric, result[1])
         # FIXME: Change output type to what is mentioned in request
         # FIXME: Set output result uris
-        output = ps.OutputType.Value("FILE")
-        pipeline = ps.Pipeline(
+        output = core.OutputType.Value("FILE")
+        pipeline = core.Pipeline(
             output = output,
             predict_result_uris = [],
             scores = [score]
