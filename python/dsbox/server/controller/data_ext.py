@@ -65,5 +65,5 @@ class DataExt(drpc.DataExtServicer):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-        def add_to_server(self, server):
-            drpc.add_DataExtServicer_to_server(self, server)
+    def add_to_server(self, server):
+        drpc.add_DataExtServicer_to_server(self, server)
