@@ -257,6 +257,7 @@ class ExecutionHelper(object):
 
     @stopit.threading_timeoutable()
     def test_featurise(self, primitive, df):
+        persistent = primitive.is_persistent
         ncols = [col.format() for col in df.columns]
         featurecols = self.raw_data_columns(self.columns)
         for col in featurecols:
@@ -575,8 +576,9 @@ class ExecutionHelper(object):
                 statements.append("resultsdir = os.path.dirname(results_path)")
                 statements.append("if not os.path.exists(resultsdir):")
                 statements.append("    os.makedirs(resultsdir)")
-                statements.append("result = pandas.DataFrame(%s.executables.predict(testdata), columns=['result'])" % primid)
-                statements.append("result.to_csv(results_path, index_label='%s')" % self.indexcol)
+                statements.append("result = pandas.DataFrame(%s.executables.predict(testdata), columns=['%s'])" %
+                    (primid, self.targets[1]['varName']))
+                statements.append("result.to_csv(results_path, index_label='%s')" % self.targets[0]['varName'])
             else:
                 if primitive.task == "PreProcessing":
                     statements.append("testdata = hp.test_execute_primitive(%s, testdata)" % primid)
