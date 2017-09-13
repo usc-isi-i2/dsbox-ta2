@@ -611,6 +611,8 @@ class ExecutionHelper(object):
             return self.roc_auc_micro
         elif metric==Metric.ROC_AUC_MACRO:
             return self.roc_auc_macro
+        elif metric==Metric.MEAN_SQUARED_ERROR:
+            return sklearn.metrics.mean_squared_error
         elif metric==Metric.ROOT_MEAN_SQUARED_ERROR:
             return self.root_mean_squared_error
         elif metric==Metric.ROOT_MEAN_SQUARED_ERROR_AVG:

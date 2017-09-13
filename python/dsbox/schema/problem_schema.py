@@ -20,8 +20,8 @@ class TaskSubType(Enum):
     BINARY = "binary"  # applicable for classification, vertexNomination
     MULTICLASS = "multiClass"  # applicable for classification, vertexNomination
     MULTILABEL = "multiLabel"  # applicable for classification
-    UNIVARIATE = "univariate"  # applicable for regression
-    MULTIVARIATE = "multivariate"  # applicable for regression
+    UNIVARIATE = "uniVariate"  # applicable for regression
+    MULTIVARIATE = "multiVariate"  # applicable for regression
     OVERLAPPING = "overlapping"  # applicable for community detection
     NONOVERLAPPING = "nonOverlapping" # applicable for community detection
 
@@ -33,6 +33,7 @@ class Metric(Enum):
     ROC_AUC = "rocAuc"  #sklearn.metrics.roc_auc_score
     ROC_AUC_MICRO = "rocAucMicro"  #sklearn.metrics.roc_auc_score(average='micro')
     ROC_AUC_MACRO = "rocAucMacro"  #sklearn.metrics.roc_auc_score(average='macro')
+    MEAN_SQUARED_ERROR = "meanSquaredError"  #sklearn.metrics.mean_squared_error
     ROOT_MEAN_SQUARED_ERROR = "rootMeanSquaredError"  #sqrt(sklearn.metrics.mean_squared_error)
     ROOT_MEAN_SQUARED_ERROR_AVG = "rootMeanSquaredError_avg"  #sum(mean_squared_error_list)/len(mean_squared_error_list)
     MEAN_ABSOLUTE_ERROR = "meanAbsoluteError"  #sklearn.metrics.median_absolute_error
