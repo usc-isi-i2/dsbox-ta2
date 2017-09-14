@@ -87,7 +87,7 @@ class Controller(object):
         self.train_data = self.helper.read_data(self.train_dir + os.sep + 'trainData.csv.gz',
                                                  self.columns, self.indexcol)
         self.train_labels = self.helper.read_data(self.train_dir + os.sep + 'trainTargets.csv.gz',
-                                                 self.targets, self.indexcol)
+                                                 self.targets, self.indexcol, labeldata=True)
         self.helper.tmp_dir = self.tmp_dir
 
     """
