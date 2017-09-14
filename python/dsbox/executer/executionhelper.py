@@ -392,6 +392,21 @@ class ExecutionHelper(object):
                             # TODO: Make the (224, 224) size configurable
                             from keras.preprocessing import image
                             df.set_value(index, colname, image.load_img(filepath, target_size=(224, 224)))
+                        elif self.media_type == VariableFileType.AUDIO:
+                            # In python 2.7, librosa.load does not correctly handle 24-bit wav files.
+                            # This is resolved in python 3.x
+                            #
+                            # If the sr parameter is set to None, loads the actual sampling rate
+                            # from the audio file. Otherwise, will load the audio file and resample
+                            # it to the given sample rate. This is good if you want all audio at the
+                            # same sample rate, but can be slow. Default is 22050 Hz.
+                            import librosa
+                            audio, sr = librosa.load(filepath, sr=None)
+
+                            #  For now we are going to use only one audio slice - we will need a soft voting system to use
+                            # them all.
+                            sub_clips = self.make_subclips([audio], [sr], 1.0)
+                            df.set_value(index, colname, sub_clips[0])
                 if varRole == 'index' and colname.endswith('_index'):
                     filename_colname = colname[:-6]
                     for index in range(df.shape[0]):
@@ -401,6 +416,32 @@ class ExecutionHelper(object):
                         df.set_value(index, colname, nested_data)
 
         return df
+
+    def make_subclips(audio, sr, clip_size, pad=True):
+        # Given a list of audio files and corresponding sample rates,
+        # return a 2D list of subclips, each of size clip_size
+        # Optional padding takes care of audio files shorter than clip size
+        clips = []
+        for idx, a in enumerate(audio):
+
+            # Size of a single subclip in samples
+            step = int(sr[idx] * clip_size)
+
+            # Optional padding for short clips
+            overhang = len(a) % step
+            if overhang != 0 and pad:
+                a = np.concatenate([a, np.zeros(step - overhang)])
+
+                subclips = []
+                for start in range(0, len(a), step):
+
+                    end = start + step
+                    if end > len(a):
+                        break
+
+                    subclips.append(a[start: end])
+
+            return subclips
 
     def get_media_type(self, schema, cols):
         if schema.get('rawData', False):
