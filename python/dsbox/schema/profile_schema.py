@@ -8,3 +8,4 @@ class DataProfileType(Enum):
     NUMERICAL = "Numerical"
     UNIQUE = "Unique"
     NEGATIVE = "Negative"
+    TEXT = "Text"

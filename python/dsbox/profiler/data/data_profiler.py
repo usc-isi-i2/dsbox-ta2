@@ -69,8 +69,8 @@ class DataProfiler(object):
 
                 # compute_missing_space Must be put as the first one because it may change the data content, see function def for details
                 #fc_lfh.compute_missing_space(col, each_res)
-                fc_lfh.compute_filename(col, each_res)
-                #fc_lfh.compute_length_distinct(col, each_res, delimiter=token_delimiter)
+                #fc_lfh.compute_filename(col, each_res)
+                fc_lfh.compute_length_distinct(col, each_res, delimiter=token_delimiter)
                 #if detect_language: fc_lfh.compute_lang(col, each_res)
                 #fc_lfh.compute_punctuation(col, each_res, weight_outlier=punctuation_outlier_weight)
 

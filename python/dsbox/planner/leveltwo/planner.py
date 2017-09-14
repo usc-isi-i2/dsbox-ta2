@@ -146,7 +146,7 @@ class LevelTwoPlanner(object):
                 elif primitive.task == "Modeling":
                     # Modeling Primitive
                     # Evaluate: Get a cross validation score for the metric
-                    metricvalue = self.helper.cross_validation_score(primitive, df, df_lbl, 5, timeout=TIMEOUT)
+                    metricvalue = self.helper.cross_validation_score(primitive, df, df_lbl, 10, timeout=TIMEOUT)
                     if not metricvalue:
                         return None
 

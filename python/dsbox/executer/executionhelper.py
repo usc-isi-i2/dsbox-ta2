@@ -11,6 +11,7 @@ from sklearn.externals import joblib
 from sklearn.model_selection import KFold
 
 from dsbox.schema.dataset_schema import VariableFileType
+from dsbox.schema.profile_schema import DataProfileType as dpt
 from dsbox.executer.execution import Execution
 from dsbox.executer import pickle_patch
 
@@ -26,6 +27,7 @@ from builtins import range
 
 # For DSBox Imputation arguments
 from dsbox.schema.problem_schema import TaskType, TaskSubType, Metric
+from dsbox.schema.data_profile import DataProfile
 from sklearn.linear_model import LinearRegression, LogisticRegression
 from sklearn.metrics import make_scorer
 
@@ -87,6 +89,7 @@ class ExecutionHelper(object):
     def execute_primitive(self, primitive, df, df_lbl, cur_profile=None):
         persistent = primitive.is_persistent
         if primitive.column_primitive:
+            # print(df.columns)
             # A primitive that is run per column
             for col in df.columns:
                 colname = col.format()
@@ -101,6 +104,7 @@ class ExecutionHelper(object):
                         # FIXME: Hack for Label encoder for python3 (cannot handle missing values)
                         if (primitive.name == "Label Encoder") and (sys.version_info[0] == 3):
                             df[col] = df[col].fillna('')
+                        # print("Running on {}".format(colname))
                         (df[col], executable) = self._execute_primitive(
                             primitive, executable, df[col], None, False, persistent)
                         primitive.executables[colname] = executable
@@ -197,6 +201,7 @@ class ExecutionHelper(object):
             else:
                 executable.fit(X.take(train, axis=0), y.take(train, axis=0))
                 ypred = executable.predict(X.take(test, axis=0))
+            #print ("Trained on {} samples, Tested on {} samples".format(len(train), len(ypred)))
             val = self._call_function(self.metric_function, y.take(test, axis=0), ypred)
             vals.append(val)
 
@@ -207,6 +212,7 @@ class ExecutionHelper(object):
         else:
             executable.fit(X, y)
         primitive.executables = executable
+        #print "Returning {} : {}".format(vals, np.average(vals))
         return np.average(vals)
 
     def _as_tensor(self, image_list):
@@ -338,7 +344,7 @@ class ExecutionHelper(object):
             json_data.close()
             return d
 
-    def read_data(self, csvfile, cols, indexcol):
+    def read_data(self, csvfile, cols, indexcol, labeldata=False):
         # We look for the .csv.gz file by default. If it doesn't exist, try to load the .csv file
         if not os.path.exists(csvfile) and csvfile.endswith('.gz'):
             csvfile = csvfile[:-3]
@@ -379,6 +385,7 @@ class ExecutionHelper(object):
                             csvfile += '.gz'
                         nested_df = self.read_data(csvfile, [], None)
                         self.nested_table[filename] = nested_df
+
 
             # Match index columns to tabular columns
             if len(tabular_columns) == len(index_columns) - 1:
@@ -434,11 +441,29 @@ class ExecutionHelper(object):
                         cols.append({'varName': nested_colname})
 
             if cols:
-                self.columns = cols
+                if labeldata:
+                    self.targets = cols
+                else:
+                    self.columns = cols
 
         if indexcol is not None:
             # Set the table's index column
             df = df.set_index(indexcol, drop=True)
+
+            if not labeldata:
+                # Check if we need to set the media type for any columns
+                profile = DataProfile(df)
+                if profile.profile[dpt.TEXT]:
+                    if self.media_type == VariableFileType.TABULAR or self.media_type is None:
+                        self.media_type = VariableFileType.TEXT
+                        for colname in profile.columns.keys():
+                            colprofile = profile.columns[colname]
+                            if colprofile[dpt.TEXT]:
+                                for col in self.columns:
+                                    if col['varName'] == colname:
+                                        col['varType'] = 'file'
+                                        col['varFileType'] = 'text'
+                                        col['varFileFormat'] = 'text/plain'
 
         return df
 

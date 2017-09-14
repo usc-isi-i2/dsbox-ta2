@@ -6,6 +6,8 @@ class DataProfile(object):
     This class holds the profile for either the whole data, or a column
     """
 
+    MINCHARS_FOR_TEXT = 25
+
     def __init__(self, dataframe):
         self.profiler_data = DataProfiler(dataframe)
         self.profile = self.getDefaultProfile()
@@ -25,6 +27,8 @@ class DataProfile(object):
             self.profile[dpt.UNIQUE] = True
         if profile.get(dpt.NEGATIVE):
             self.profile[dpt.NEGATIVE] = True
+        if profile.get(dpt.TEXT):
+            self.profile[dpt.TEXT] = True
 
     def getDefaultProfile(self):
         # By default, we mark profile as
@@ -37,6 +41,7 @@ class DataProfile(object):
             dpt.MISSING_VALUES: False,
             dpt.UNIQUE : False,
             dpt.NEGATIVE : False,
+            dpt.TEXT : False
         }
 
     def getProfile(self):
@@ -49,13 +54,32 @@ class DataProfile(object):
     def parseColumnProfile(self, col_data):
         profile = self.getDefaultProfile()
         profile[dpt.NUMERICAL] = False
+        # Mark missing values
         if col_data['missing'].get('num_missing', 0) > 0:
             profile[dpt.MISSING_VALUES] = True
-        if col_data.get('numeric_stats'):
-            profile[dpt.NUMERICAL] = True
-            numneg = col_data.get('numeric_stats').get('num_negative', 0)
-            if numneg > 0:
-                profile[dpt.NEGATIVE] = True
+
+        # Mark Numeric Values
+        if col_data.get('numeric_stats', None) is not None:
+            stats = col_data.get('numeric_stats').get('integer', None)
+            if stats is None:
+                stats = col_data.get('numeric_stats').get('decimal', None)
+            if stats is not None:
+                # If all values numeric, mark as numeric
+                num_nonblank = col_data['missing'].get('num_nonblank')
+                if stats['count'] == num_nonblank:
+                    profile[dpt.NUMERICAL] = True
+                    # Mark Negative
+                    numneg = col_data.get('numeric_stats').get('num_negative', 0)
+                    if numneg > 0:
+                        profile[dpt.NEGATIVE] = True
+
+        # Mark Text
+        if col_data.get('length', None) is not None:
+            stats = col_data.get('length')
+            avg = stats['character']['average']
+            if avg > DataProfile.MINCHARS_FOR_TEXT:
+                profile[dpt.TEXT] = True
+
         return profile
 
     def __str__(self):
