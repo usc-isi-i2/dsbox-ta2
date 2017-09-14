@@ -4,7 +4,7 @@
     "Name": "Normalizer",
     "Task": "PreProcessing",
     "LearningType": "Normalization",
-    "Requirements": ["!NORMALIZED", "!NESTED_DATA"],
+    "Requirements": ["!NORMALIZED"],
     "Effects": ["NORMALIZED"]
   },
   {
@@ -14,7 +14,7 @@
     "LearningType": "Encoding",
     "RequiresColumnData": true,
     "NotPersistent": true,
-    "Requirements": ["!NUMERICAL", "!NESTED_DATA"],
+    "Requirements": ["!NUMERICAL"],
     "Effects": ["NUMERICAL"]
   },
   {
@@ -23,7 +23,7 @@
     "Task": "PreProcessing",
     "LearningType": "Imputation",
     "NotPersistent": true,
-    "Requirements": ["NUMERICAL", "MISSING_VALUES", "!NESTED_DATA"],
+    "Requirements": ["NUMERICAL", "MISSING_VALUES"],
     "Effects": ["!MISSING_VALUES"]
   },
   {
@@ -33,16 +33,7 @@
     "LearningType": "Imputation",
     "NotPersistent": false,
     "InitArguments": ["*ESTIMATOR", "*SCORER"],
-    "Requirements": ["NUMERICAL", "MISSING_VALUES", "!NESTED_DATA"],
+    "Requirements": ["NUMERICAL", "MISSING_VALUES"],
     "Effects": ["!MISSING_VALUES"]
-  },
-  {
-    "Class": "dsbox.custom_primitives.preprocessing.flatten_table.FlattenTable",
-    "Name": "FlattenTable",
-    "Task": "PreProcessing",
-    "LearningType": "Flatten",
-    "NotPersistent": true,
-    "Requirements": ["NESTED_DATA"],
-    "Effects": ["!NESTED_DATA"]
   }
 ]

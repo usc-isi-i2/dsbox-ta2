@@ -25,8 +25,6 @@ class DataProfile(object):
             self.profile[dpt.UNIQUE] = True
         if profile.get(dpt.NEGATIVE):
             self.profile[dpt.NEGATIVE] = True
-        if profile.get(dpt.NESTED_DATA):
-            self.profile[dpt.NESTED_DATA] = True
 
     def getDefaultProfile(self):
         # By default, we mark profile as
@@ -39,7 +37,6 @@ class DataProfile(object):
             dpt.MISSING_VALUES: False,
             dpt.UNIQUE : False,
             dpt.NEGATIVE : False,
-            dpt.NESTED_DATA : False
         }
 
     def getProfile(self):
@@ -59,10 +56,6 @@ class DataProfile(object):
             numneg = col_data.get('numeric_stats').get('num_negative', 0)
             if numneg > 0:
                 profile[dpt.NEGATIVE] = True
-        if ('special_type' in col_data
-            and 'data_type' in col_data['special_type']
-            and col_data['special_type']['data_type'] == 'Nested Data'):
-            profile[dpt.NESTED_DATA] = True
         return profile
 
     def __str__(self):
