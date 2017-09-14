@@ -1,12 +1,13 @@
 import pandas as pd
 import numpy as np
 
+# This is a pared-down version of the main Data profiling entry point
+# for faster processing
+
 # from feature computation functions
 import dsbox.datapreprocessing.profiler.feature_compute_lfh as fc_lfh
 import dsbox.datapreprocessing.profiler.feature_compute_hih as fc_hih
 from collections import defaultdict
-
-from dsbox.executer.executionhelper import NestedData
 
 class DataProfiler(object):
     """
@@ -59,9 +60,6 @@ class DataProfiler(object):
 
             elif col.dtype.kind == 'm':
                 each_res["special_type"]["data_type"] = "timedelta"
-
-            elif col.dtype.kind == 'O' and isinstance(col.iloc[0], NestedData):
-                each_res["special_type"]["data_type"] = "Nested Data"
 
             else:
                 if isDF:

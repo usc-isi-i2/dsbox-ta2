@@ -343,10 +343,8 @@ class ExecutionHelper(object):
         if not os.path.exists(csvfile) and csvfile.endswith('.gz'):
             csvfile = csvfile[:-3]
 
-        # Read the csv file while specifying the index column
-        df = pd.read_csv(csvfile, index_col=indexcol)
-        #df = df.reindex(pd.RangeIndex(df.index.max()+1)).ffill()
-        df = df.reset_index(drop=True)
+        # Read the csv file
+        df = pd.read_csv(csvfile)
 
         # Filter columns if specified
         if len(cols) > 0:
@@ -360,45 +358,87 @@ class ExecutionHelper(object):
                     df.drop(colname, axis=1, inplace=True)
 
             # Check for nested tabular data files, and load them in
+            tabular_columns = []
+            index_columns = []
             for col in cols:
                 colname = col['varName']
                 varRole = col.get('varRole', None)
                 varType = col.get('varType', None)
-                if varRole == 'file' or varType == 'file':
-                    for index, row in df.iterrows():
-                        filename = row[colname]
-                        if self.media_type is VariableFileType.TABULAR:
-                            if not filename in self.nested_table:
-                                nested_df = self.read_data(self.directory + os.sep + 'raw_data'
-                                    + os.sep + df.loc[index, colname] + ".gz", [], None)
-                                self.nested_table[filename] = nested_df
+                varFileType = col.get('varFileType', None)
+                if varRole == 'index':
+                    index_columns.append(colname)
+                if varType == 'file' and varFileType == 'tabular':
+                    tabular_columns.append(colname)
+                    filename = df.loc[:, colname].unique()
+                    if len(filename) > 1:
+                        raise AssertionError('Expecting one unique filename per column: {}'.format(colname))
+                    filename = filename[0]
+                    if not filename in self.nested_table:
+                        csvfile = self.directory + os.sep + 'raw_data' + os.sep + filename
+                        if not os.path.exists(csvfile):
+                            csvfile += '.gz'
+                        nested_df = self.read_data(csvfile, [], None)
+                        self.nested_table[filename] = nested_df
+
+            # Match index columns to tabular columns
+            if len(tabular_columns) == len(index_columns) - 1:
+                # New r_32 dataset has two tabular columns and three index columns. Need to remove d3mIndex
+                # New r_26 dataset has exactly one tabular column and one index column (d3mIndex)
+                index_columns = index_columns[1:]
+            if not len(tabular_columns) == len(index_columns):
+                raise AssertionError('Number tabular and index columns do not match: {} != {}'
+                                     .format(len(tabular_columns), (index_columns)))
 
             # Check all columns for special roles
             for col in cols:
                 colname = col['varName']
                 varRole = col.get('varRole', None)
                 varType = col.get('varType', None)
+                varFileType = col.get('varFileType', None)
                 if varRole == 'file' or varType == 'file':
                     # If the role is "file", then load in the raw data files
-                    for index, row in df.iterrows():
-                        filepath = self.directory + os.sep + 'raw_data' + os.sep + row[colname]
-                        if self.media_type == VariableFileType.TEXT:
-                            # Plain data load for text files
-                            with open(filepath, 'rb') as myfile:
-                                txt = myfile.read()
-                                df.set_value(index, colname, txt)
-                        elif self.media_type == VariableFileType.IMAGE:
-                            # Load image files using keras with a standard target size
-                            # TODO: Make the (224, 224) size configurable
-                            from keras.preprocessing import image
-                            df.set_value(index, colname, image.load_img(filepath, target_size=(224, 224)))
-                if varRole == 'index' and colname.endswith('_index'):
-                    filename_colname = colname[:-6]
-                    for index in range(df.shape[0]):
-                        filename = row[filename_colname]
-                        nested_data = NestedData(filename_colname, colname, filename, df.loc[index, colname],
-                                                 self.nested_table[filename])
-                        df.set_value(index, colname, nested_data)
+                    if self.media_type in (VariableFileType.TEXT, VariableFileType.IMAGE):
+                        for index, row in df.iterrows():
+                            filepath = self.directory + os.sep + 'raw_data' + os.sep + row[colname]
+                            if self.media_type == VariableFileType.TEXT:
+                                # Plain data load for text files
+                                with open(filepath, 'rb') as myfile:
+                                    txt = myfile.read()
+                                    df.set_value(index, colname, txt)
+                            elif self.media_type == VariableFileType.IMAGE:
+                                # Load image files using keras with a standard target size
+                                # TODO: Make the (224, 224) size configurable
+                                from keras.preprocessing import image
+                                df.set_value(index, colname, image.load_img(filepath, target_size=(224, 224)))
+
+            for file_colname, index_colname in zip(tabular_columns, index_columns):
+                # FIXME: Assumption here that all entries for the filename are the same per column
+                filename = df.iloc[0][file_colname]
+
+                # Merge the nested table with parent table on the index column
+                nested_table = self.nested_table[filename]
+                df = pd.merge(df, nested_table, on=index_colname)
+
+                # Remove file and index columns since the content has been replaced
+                del df[file_colname]
+                if index_colname != self.indexcol:
+                    del df[index_colname]
+                ncols = []
+                for col in cols:
+                    if col['varName'] not in [file_colname, index_colname]:
+                        ncols.append(col)
+                cols = ncols
+                # Add nested table columns
+                for nested_colname in nested_table.columns:
+                    if not nested_colname == index_colname:
+                        cols.append({'varName': nested_colname})
+
+            if cols:
+                self.columns = cols
+
+        if indexcol is not None:
+            # Set the table's index column
+            df = df.set_index(indexcol, drop=True)
 
         return df
 
@@ -576,7 +616,7 @@ class ExecutionHelper(object):
                 statements.append("resultsdir = os.path.dirname(results_path)")
                 statements.append("if not os.path.exists(resultsdir):")
                 statements.append("    os.makedirs(resultsdir)")
-                statements.append("result = pandas.DataFrame(%s.executables.predict(testdata), columns=['%s'])" %
+                statements.append("result = pandas.DataFrame(%s.executables.predict(testdata), index=testdata.index, columns=['%s'])" %
                     (primid, self.targets[1]['varName']))
                 statements.append("result.to_csv(results_path, index_label='%s')" % self.targets[0]['varName'])
             else:
@@ -645,11 +685,3 @@ class ExecutionHelper(object):
     def root_mean_squared_error(self, y_true, y_pred):
         import math
         return math.sqrt(sklearn.metrics.mean_squared_error(y_true, y_pred))
-
-class NestedData(object):
-    def __init__(self, filename_column, index_column, filename, index, nested_data):
-        self.filename_column = filename_column
-        self.index_column = index_column
-        self.filename = filename
-        self.index = index
-        self.nested_data = nested_data

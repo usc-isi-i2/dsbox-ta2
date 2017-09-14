@@ -8,4 +8,3 @@ class DataProfileType(Enum):
     NUMERICAL = "Numerical"
     UNIQUE = "Unique"
     NEGATIVE = "Negative"
-    NESTED_DATA = "Nested Data"
