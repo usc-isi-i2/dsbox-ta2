@@ -498,17 +498,25 @@ class ExecutionHelper(object):
         return None
 
     def _mime_to_media_type(self, mime):
-        if mime.startswith("text/csv"):
-            return VariableFileType.TABULAR
-        elif mime.startswith("text"):
-            return VariableFileType.TEXT
-        elif mime.startswith("image"):
-            return VariableFileType.IMAGE
-        elif mime.startswith("audio"):
-            return VariableFileType.AUDIO
-        elif mime.startswith("video"):
-            return VariableFileType.VIDEO
-        return None
+        if (isinstance(mime, list)):
+            for x in mime[:]:
+                if x.startswith("wav") or x.startswith("mp3") or x.startswith("aiff") \
+                        or x.startswith("flac") or x.startswith("aif") or x.startswith("ogg"):
+                    return VariableFileType.AUDIO
+                return None
+        else:
+            if mime.startswith("text/csv"):
+                return VariableFileType.TABULAR
+            elif mime.startswith("text"):
+                return VariableFileType.TEXT
+            elif mime.startswith("image"):
+                return VariableFileType.IMAGE
+            elif mime.startswith("wav") or mime.startswith("mp3") or mime.startswith("aiff") \
+                        or mime.startswith("flac") or mime.startswith("aif") or mime.startswith("ogg"):
+                return VariableFileType.AUDIO
+            elif mime.startswith("video"):
+                return VariableFileType.VIDEO
+            return None
 
     def raw_data_columns(self, columns):
         cols = []
