@@ -410,21 +410,21 @@ class ExecutionHelper(object):
                                 # TODO: Make the (224, 224) size configurable
                                 from keras.preprocessing import image
                                 df.set_value(index, colname, image.load_img(filepath, target_size=(224, 224)))
-                        elif self.media_type == VariableFileType.AUDIO:
-                            # In python 2.7, librosa.load does not correctly handle 24-bit wav files.
-                            # This is resolved in python 3.x
-                            #
-                            # If the sr parameter is set to None, loads the actual sampling rate
-                            # from the audio file. Otherwise, will load the audio file and resample
-                            # it to the given sample rate. This is good if you want all audio at the
-                            # same sample rate, but can be slow. Default is 22050 Hz.
-                            import librosa
-                            audio, sr = librosa.load(filepath, sr=None)
+                            elif self.media_type == VariableFileType.AUDIO:
+                                # In python 2.7, librosa.load does not correctly handle 24-bit wav files.
+                                # This is resolved in python 3.x
+                                #
+                                # If the sr parameter is set to None, loads the actual sampling rate
+                                # from the audio file. Otherwise, will load the audio file and resample
+                                # it to the given sample rate. This is good if you want all audio at the
+                                # same sample rate, but can be slow. Default is 22050 Hz.
+                                import librosa
+                                audio, sr = librosa.load(filepath, sr=None)
 
-                            #  For now we are going to use only one audio slice - we will need a soft voting system to use
-                            # them all.
-                            sub_clips = self.make_subclips([audio], [sr], 1.0)
-                            df.set_value(index, colname, sub_clips[0])
+                                #  For now we are going to use only one audio slice - we will need a soft voting system to use
+                                # them all.
+                                sub_clips = self.make_subclips([audio], [sr], 1.0)
+                                df.set_value(index, colname, sub_clips[0])
 
             for file_colname, index_colname in zip(tabular_columns, index_columns):
                 # FIXME: Assumption here that all entries for the filename are the same per column
