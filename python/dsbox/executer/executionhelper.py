@@ -417,6 +417,21 @@ class ExecutionHelper(object):
                                 # TODO: Make the (224, 224) size configurable
                                 from keras.preprocessing import image
                                 df.set_value(index, colname, image.load_img(filepath, target_size=(224, 224)))
+                            elif self.media_type == VariableFileType.AUDIO:
+                                # In python 2.7, librosa.load does not correctly handle 24-bit wav files.
+                                # This is resolved in python 3.x
+                                #
+                                # If the sr parameter is set to None, loads the actual sampling rate
+                                # from the audio file. Otherwise, will load the audio file and resample
+                                # it to the given sample rate. This is good if you want all audio at the
+                                # same sample rate, but can be slow. Default is 22050 Hz.
+                                import librosa
+                                audio, sr = librosa.load(filepath, sr=None)
+
+                                #  For now we are going to use only one audio slice - we will need a soft voting system to use
+                                # them all.
+                                sub_clips = self.make_subclips([audio], [sr], 1.0)
+                                df.set_value(index, colname, sub_clips[0])
 
             for file_colname, index_colname in zip(tabular_columns, index_columns):
                 # FIXME: Assumption here that all entries for the filename are the same per column
@@ -467,6 +482,32 @@ class ExecutionHelper(object):
 
         return df
 
+    def make_subclips(audio, sr, clip_size, pad=True):
+        # Given a list of audio files and corresponding sample rates,
+        # return a 2D list of subclips, each of size clip_size
+        # Optional padding takes care of audio files shorter than clip size
+        clips = []
+        for idx, a in enumerate(audio):
+
+            # Size of a single subclip in samples
+            step = int(sr[idx] * clip_size)
+
+            # Optional padding for short clips
+            overhang = len(a) % step
+            if overhang != 0 and pad:
+                a = np.concatenate([a, np.zeros(step - overhang)])
+
+                subclips = []
+                for start in range(0, len(a), step):
+
+                    end = start + step
+                    if end > len(a):
+                        break
+
+                    subclips.append(a[start: end])
+
+            return subclips
+
     def get_media_type(self, schema, cols):
         if schema.get('rawData', False):
             types = schema.get('rawDataFileTypes', {})
@@ -482,17 +523,25 @@ class ExecutionHelper(object):
         return None
 
     def _mime_to_media_type(self, mime):
-        if mime.startswith("text/csv"):
-            return VariableFileType.TABULAR
-        elif mime.startswith("text"):
-            return VariableFileType.TEXT
-        elif mime.startswith("image"):
-            return VariableFileType.IMAGE
-        elif mime.startswith("audio"):
-            return VariableFileType.AUDIO
-        elif mime.startswith("video"):
-            return VariableFileType.VIDEO
-        return None
+        if (isinstance(mime, list)):
+            for x in mime[:]:
+                if x.startswith("wav") or x.startswith("mp3") or x.startswith("aiff") \
+                        or x.startswith("flac") or x.startswith("aif") or x.startswith("ogg"):
+                    return VariableFileType.AUDIO
+                return None
+        else:
+            if mime.startswith("text/csv"):
+                return VariableFileType.TABULAR
+            elif mime.startswith("text"):
+                return VariableFileType.TEXT
+            elif mime.startswith("image"):
+                return VariableFileType.IMAGE
+            elif mime.startswith("wav") or mime.startswith("mp3") or mime.startswith("aiff") \
+                        or mime.startswith("flac") or mime.startswith("aif") or mime.startswith("ogg"):
+                return VariableFileType.AUDIO
+            elif mime.startswith("video"):
+                return VariableFileType.VIDEO
+            return None
 
     def raw_data_columns(self, columns):
         cols = []
