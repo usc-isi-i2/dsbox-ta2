@@ -308,7 +308,8 @@ class LevelOnePlanner(object):
     def get_primitive_weight(self, primitive, hierarchy):
         if not hierarchy.name == Category.FEATURE:
             return primitive.weight
-        if not (self.media_type == VariableFileType.IMAGE or self.media_type == VariableFileType.TEXT):
+        if not (self.media_type == VariableFileType.IMAGE or self.media_type == VariableFileType.TEXT
+                or self.media_type == VariableFileType.AUDIO):
             return primitive.weight
 
         factor = 100
