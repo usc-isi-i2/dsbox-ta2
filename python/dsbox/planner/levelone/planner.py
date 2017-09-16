@@ -308,16 +308,20 @@ class LevelOnePlanner(object):
     def get_primitive_weight(self, primitive, hierarchy):
         if not hierarchy.name == Category.FEATURE:
             return primitive.weight
-        if not (self.media_type == VariableFileType.IMAGE or self.media_type == VariableFileType.TEXT):
+        if not (self.media_type == VariableFileType.IMAGE
+            or self.media_type == VariableFileType.TEXT
+            or self.media_type == VariableFileType.AUDIO):
             return primitive.weight
 
         factor = 100
         node = hierarchy.get_node_by_primitive(primitive)
         if ((self.media_type == VariableFileType.IMAGE and node.name == 'image')
-            or (self.media_type == VariableFileType.TEXT and node.name == 'text')):
+            or (self.media_type == VariableFileType.TEXT and node.name == 'text')
+            or (self.media_type == VariableFileType.AUDIO and node.name == 'audio')):
             return factor * primitive.weight
         else:
             return primitive.weight
+
     def generate_pipelines(self, num_pipelines=5):
         """Generation pipelines"""
 

@@ -12,7 +12,7 @@ import traceback
 import numpy as np
 import pandas as pd
 
-TIMEOUT = 300  # Time out primitives running for more than 5 minutes
+TIMEOUT = 600  # Time out primitives running for more than 10 minutes
 
 
 class LevelTwoPlanner(object):
@@ -96,7 +96,7 @@ class LevelTwoPlanner(object):
             for pipe in pipelines:
                 npipelines.append(
                     self._remove_redundant_processing_primitives(pipe, profile))
-            # print "Pipelines: %s " % npipelines
+            # print ("Pipelines: %s " % npipelines)
             return self._remove_duplicate_pipelines(npipelines)
         else:
             return None
@@ -123,7 +123,7 @@ class LevelTwoPlanner(object):
         for primitive in pipeline.primitives:
             cachekey += ".%s" % primitive
             if cachekey in self.execution_cache:
-                # print "* Using cache for %s" % primitive
+                # print ("* Using cache for %s" % primitive)
                 df = self.execution_cache.get(cachekey)
                 primitive.executables = self.primitive_cache.get(cachekey)
                 continue
@@ -135,7 +135,6 @@ class LevelTwoPlanner(object):
                 # TODO: Recheck if it is ok for the primitive's preconditions
                 #       and patch pipeline if necessary
                 cur_profile = DataProfile(df)
-
                 if primitive.task == "FeatureExtraction":
                     # Featurisation Primitive
                     df = self.helper.featurise(primitive, df, timeout=TIMEOUT)
@@ -172,10 +171,10 @@ class LevelTwoPlanner(object):
         curpipe = copy.copy(pipeline)
         length = curpipe.length() - 1
         index = 0
-        # print "Checking redundancy for %s" % pipeline
+        # print ("Checking redundancy for %s" % pipeline)
         while index <= length:
             prim = curpipe.primitives.pop(index)
-            # print "%s / %s: %s" % (index, length, prim)
+            # print ("%s / %s: %s" % (index, length, prim))
             if prim.task == "PreProcessing":
                 issues = self._get_pipeline_issues(curpipe, profile)
                 ok = True
@@ -183,16 +182,16 @@ class LevelTwoPlanner(object):
                     if len(issue):
                         ok = False
                 if ok:
-                    # print "Reduction achieved"
+                    # print ("Reduction achieved")
                     # Otherwise reduce the length (and don't increment index)
                     length = length - 1
                     continue
 
             curpipe.primitives[index:index] = [prim]
-            # print curpipe
+            # print (curpipe)
             index += 1
 
-        # print "Returning %s" % curpipe
+        # print ("Returning %s" % curpipe)
         return curpipe
 
     def _remove_duplicate_pipelines(self, pipelines):
@@ -212,7 +211,7 @@ class LevelTwoPlanner(object):
         unmet_requirements = []
         profiles = self._get_predicted_data_profiles(pipeline, profile)
         requirements = self._get_pipeline_requirements(pipeline)
-        # print "Profiles: %s\nRequirements: %s" % (profiles, requirements)
+        #print "Profiles: %s\nRequirements: %s" % (profiles, requirements)
         for index in range(0, pipeline.length()):
             unmet = {}
             prim_prec = requirements[index]
@@ -250,7 +249,9 @@ class LevelTwoPlanner(object):
                 for oldindex in range(0, index):
                     last_prim = pipeline.getPrimitiveAt(oldindex)
                     for effect in last_prim.effects.keys():
-                        prim_requirements[effect] = last_prim.effects[effect]
+                        if last_prim.preconditions.get(effect, None) is not None:
+                            if last_prim.preconditions[effect] is not last_prim.effects[effect]:
+                                prim_requirements[effect] = last_prim.effects[effect]
 
             requirements.append(prim_requirements)
         return requirements

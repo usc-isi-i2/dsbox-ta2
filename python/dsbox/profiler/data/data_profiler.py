@@ -30,6 +30,14 @@ class DataProfiler(object):
         result = {} # final result: dict of dict
         for column_name in data:
             col = data[column_name]
+
+            # Get a sample value of the column
+            samplevalue = None
+
+            validindices = col.index.get_indexer(col.index[~col.isnull()])
+            if len(validindices > 0):
+                samplevalue = col.iloc[validindices[0]]
+
             # dict: map feature name to content
             each_res = defaultdict(lambda: defaultdict())
 
@@ -60,6 +68,9 @@ class DataProfiler(object):
 
             elif col.dtype.kind == 'm':
                 each_res["special_type"]["data_type"] = "timedelta"
+
+            elif col.dtype.kind == 'O' and isinstance(samplevalue, (np.ndarray, list, tuple)):
+                each_res["special_type"]["data_type"] = "list"
 
             else:
                 if isDF:

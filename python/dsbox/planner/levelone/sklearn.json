@@ -73057,6 +73057,56 @@
         "modeling"
       ],
       "version": "0.18.1"
-    }
+    },
+    {
+      "common_name": "AudioFeaturization",
+      "description": "Converts time series audio data into a vector of features",
+      "id": "spider.featurization.audio_featurization.AudioFeaturization",
+      "is_class": true,
+      "language": "python",
+      "library": "spider",
+      "name": "spider.featurization.audio_featurization.AudioFeaturization",
+      "tags": [
+        "feature_extraction",
+        "audio"
+      ],
+      "parameters":
+      [
+        {
+          "name": "sampling_rate",
+          "description": "uniform sampling rate of the incoming audio data",
+          "type": "int",
+          "optional": true,
+          "default": "44100",
+          "is_hyperparameter": false
+        },
+        {
+          "name": "frame_length",
+          "description": "duration in seconds that defines the length of the audio processing window",
+          "type": "float",
+          "optional": true,
+          "default": "0.050",
+          "is_hyperparameter": true
+        },
+        {
+          "name": "overlap",
+          "description": "duration in seconds that defines the step size taken along the time series during subsequent processing steps",
+          "type": "float",
+          "optional": true,
+          "default": "0.025",
+          "is_hyperparameter": true
+        }
+      ],
+     "returns": {
+        "description": "the type of sound'",
+        "name": "audio",
+        "type": "array"
+      },
+      "tags": [
+        "feature_extraction",
+        "audio"
+      ],
+      "version": "0.18.1"
+    }    
   ]
 }

@@ -48,6 +48,7 @@ class ExecutionHelper(object):
         self.columns = self.schema['trainData']['trainData']
         self.targets = self.schema['trainData']['trainTargets']
         self.indexcol = self.get_index_column(self.columns)
+        self.boundarycols = self.get_boundary_columns(self.columns)
         self.media_type = self.get_media_type(self.schema, self.columns)
         self.data = None
         self.nested_table = dict()
@@ -88,6 +89,7 @@ class ExecutionHelper(object):
     @stopit.threading_timeoutable()
     def execute_primitive(self, primitive, df, df_lbl, cur_profile=None):
         persistent = primitive.is_persistent
+        indices = df.index
         if primitive.column_primitive:
             # print(df.columns)
             # A primitive that is run per column
@@ -97,14 +99,13 @@ class ExecutionHelper(object):
                 if cur_profile is not None:
                     colprofile = cur_profile.columns[colname]
 
-                if self._profile_matches_precondition(primitive.preconditions, colprofile):
+                if self._profile_matches_precondition(primitive.preconditions, colprofile) and not colprofile[dpt.LIST]:
                     try:
                         executable = self.instantiate_primitive(primitive)
 
                         # FIXME: Hack for Label encoder for python3 (cannot handle missing values)
                         if (primitive.name == "Label Encoder") and (sys.version_info[0] == 3):
                             df[col] = df[col].fillna('')
-                        # print("Running on {}".format(colname))
                         (df[col], executable) = self._execute_primitive(
                             primitive, executable, df[col], None, False, persistent)
                         primitive.executables[colname] = executable
@@ -119,12 +120,13 @@ class ExecutionHelper(object):
                     primitive, primitive.executables, df, df_lbl, False, persistent)
                 primitive.executables = executable
 
-        return pd.DataFrame(df)
+        return pd.DataFrame(df, index=indices)
 
 
     @stopit.threading_timeoutable()
     def test_execute_primitive(self, primitive, df):
         persistent = primitive.is_persistent
+        indices = df.index
         if primitive.column_primitive:
             # A primitive that is run per column
             for col in df.columns:
@@ -156,7 +158,7 @@ class ExecutionHelper(object):
             (df, executable) = self._execute_primitive(
                 primitive, primitive.executables, df, None, True, persistent)
 
-        return pd.DataFrame(df)
+        return pd.DataFrame(df, index=indices)
 
     def _profile_matches_precondition(self, preconditions, profile):
         for precondition in preconditions.keys():
@@ -188,11 +190,11 @@ class ExecutionHelper(object):
                 executable = executable.fit(*args)
         return (retval, executable)
 
-
     @stopit.threading_timeoutable()
     def cross_validation_score(self, primitive, X, y, cv=4):
         kf = KFold(n_splits=cv, shuffle=True, random_state=42)
         vals = []
+
         for k, (train, test) in enumerate(kf.split(X, y)):
             executable = self.instantiate_primitive(primitive)
             if REMOTE:
@@ -212,7 +214,7 @@ class ExecutionHelper(object):
         else:
             executable.fit(X, y)
         primitive.executables = executable
-        #print "Returning {} : {}".format(vals, np.average(vals))
+        #print ("Returning {} : {}".format(vals, np.average(vals)))
         return np.average(vals)
 
     def _as_tensor(self, image_list):
@@ -228,10 +230,11 @@ class ExecutionHelper(object):
         persistent = primitive.is_persistent
         ncols = [col.format() for col in df.columns]
         featurecols = self.raw_data_columns(self.columns)
+        indices = df.index
         for col in featurecols:
-            executable = self.instantiate_primitive(primitive)
-
             if self.media_type == VariableFileType.TEXT:
+                executable = self.instantiate_primitive(primitive)
+
                 # Using an unfitted primitive for each column (needed for Corex)
                 #df_col = pd.DataFrame(df[col])
                 #executable.fit(df_col)
@@ -249,6 +252,8 @@ class ExecutionHelper(object):
                 df = pd.concat([df, newdf], axis=1)
                 df.columns=ncols
             elif self.media_type == VariableFileType.IMAGE:
+                executable = self.instantiate_primitive(primitive)
+
                 image_tensor = self._as_tensor(df[col].values)
                 nvals = executable.transform(image_tensor)
                 fcols = [(col.format() + "_" + str(index)) for index in range(0, nvals.shape[1])]
@@ -258,14 +263,61 @@ class ExecutionHelper(object):
                 ncols.remove(col)
                 df = pd.concat([df, newdf], axis=1)
                 df.columns=ncols
+            elif self.media_type == VariableFileType.AUDIO:
+                # Featurize audio
+                fcols = []
+                for idx, row in df.iterrows():
+                    if row[col] is None:
+                        continue
+                    (audio_clip, sampling_rate) = row[col]
+                    start = None
+                    end = None
+                    bcols = self.boundarycols
+                    if len(bcols) == 2:
+                        start = int(sampling_rate * float(row[bcols[0]]))
+                        end = int(sampling_rate * float(row[bcols[1]]))
+                        if start > end:
+                            tmp = start
+                            start = end
+                            end = tmp
+                        audio_clip = audio_clip[start:end]
+
+                    primitive.init_kwargs['sampling_rate'] = sampling_rate
+                    executable = self.instantiate_primitive(primitive)
+                    executable.fit('time_series', [audio_clip])
+                    nvals = executable.transform('array2+N')
+                    features = nvals[1]
+
+                    allfeatures = {}
+                    for feature in features:
+                        for index in range(0, len(feature)):
+                            fcol = col.format() + "_" + str(index)
+                            featurevals = allfeatures.get(fcol, [])
+                            featurevals.append(feature[index])
+                            allfeatures[fcol] = featurevals
+
+                    for fcol in allfeatures.keys():
+                        if df.get(fcol) is None:
+                            fcols.append(fcol)
+                            df.set_value(idx, fcol, 0)
+                            #df[fcol] = df[fcol].astype(object)
+                        df.set_value(idx, fcol, np.average(allfeatures[fcol]))
+
+                del df[col]
+                if len(self.boundarycols) == 2:
+                    del df[self.boundarycols[0]]
+                    del df[self.boundarycols[1]]
+
             primitive.executables[col] = executable
-        return df
+
+        return pd.DataFrame(df, index=indices)
 
     @stopit.threading_timeoutable()
     def test_featurise(self, primitive, df):
         persistent = primitive.is_persistent
         ncols = [col.format() for col in df.columns]
         featurecols = self.raw_data_columns(self.columns)
+        indices = df.index
         for col in featurecols:
             executable = None
             if not persistent:
@@ -302,7 +354,52 @@ class ExecutionHelper(object):
                 ncols.remove(col)
                 df = pd.concat([df, newdf], axis=1)
                 df.columns=ncols
-        return df
+            elif self.media_type == VariableFileType.AUDIO:
+                # Featurize audio
+                fcols = []
+                for idx, row in df.iterrows():
+                    if row[col] is None:
+                        continue
+                    (audio_clip, sampling_rate) = row[col]
+                    start = None
+                    end = None
+                    bcols = self.boundarycols
+                    if len(bcols) == 2:
+                        start = int(sampling_rate * float(row[bcols[0]]))
+                        end = int(sampling_rate * float(row[bcols[1]]))
+                        if start > end:
+                            tmp = start
+                            start = end
+                            end = tmp
+                        audio_clip = audio_clip[start:end]
+
+                    primitive.init_kwargs['sampling_rate'] = sampling_rate
+                    executable = self.instantiate_primitive(primitive)
+                    executable.fit('time_series', [audio_clip])
+                    nvals = executable.transform('array2+N')
+                    features = nvals[1]
+
+                    allfeatures = {}
+                    for feature in features:
+                        for i in range(0, len(feature)):
+                            fcol = col.format() + "_" + str(i)
+                            featurevals = allfeatures.get(fcol, [])
+                            featurevals.append(feature[i])
+                            allfeatures[fcol] = featurevals
+
+                    for fcol in allfeatures.keys():
+                        if df.get(fcol) is None:
+                            fcols.append(fcol)
+                            df.set_value(idx, fcol, 0)
+                            #df[fcol] = df[fcol].astype(object)
+                        df.set_value(idx, fcol, np.average(allfeatures[fcol]))
+
+                del df[col]
+                if len(self.boundarycols) == 2:
+                    del df[self.boundarycols[0]]
+                    del df[self.boundarycols[1]]
+
+        return pd.DataFrame(df, index=indices)
 
     """
     Set the task type and task subtype
@@ -337,6 +434,13 @@ class ExecutionHelper(object):
             if col['varRole'] == 'index':
                 return col['varName']
         return None
+
+    def get_boundary_columns(self, columns):
+        cols = []
+        for col in columns:
+            if col.get('varRole', None) == 'boundary':
+                cols.append(col['varName'])
+        return cols
 
     def load_json(self, jsonfile):
         with open(jsonfile) as json_data:
@@ -404,7 +508,7 @@ class ExecutionHelper(object):
                 varFileType = col.get('varFileType', None)
                 if varRole == 'file' or varType == 'file':
                     # If the role is "file", then load in the raw data files
-                    if self.media_type in (VariableFileType.TEXT, VariableFileType.IMAGE):
+                    if self.media_type in (VariableFileType.TEXT, VariableFileType.IMAGE, VariableFileType.AUDIO):
                         for index, row in df.iterrows():
                             filepath = self.directory + os.sep + 'raw_data' + os.sep + row[colname]
                             if self.media_type == VariableFileType.TEXT:
@@ -417,6 +521,16 @@ class ExecutionHelper(object):
                                 # TODO: Make the (224, 224) size configurable
                                 from keras.preprocessing import image
                                 df.set_value(index, colname, image.load_img(filepath, target_size=(224, 224)))
+                            elif self.media_type == VariableFileType.AUDIO:
+                                # Load audio files
+                                import librosa
+                                # Load file
+                                try:
+                                    print (filepath)
+                                    audiodata = librosa.load(filepath, sr=None)
+                                    df.set_value(index, colname, audiodata)
+                                except Exception as e:
+                                    df.set_value(index, colname, None)
 
             for file_colname, index_colname in zip(tabular_columns, index_columns):
                 # FIXME: Assumption here that all entries for the filename are the same per column
@@ -478,7 +592,7 @@ class ExecutionHelper(object):
             for col in cols:
                 varType = col.get('varType', None)
                 if varType == 'file':
-                    return self._mime_to_media_type(col.get('varFileFormat', ''))
+                    return VariableFileType(col.get('varFileType'))
         return None
 
     def _mime_to_media_type(self, mime):

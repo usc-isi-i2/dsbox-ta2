@@ -9,3 +9,4 @@ class DataProfileType(Enum):
     UNIQUE = "Unique"
     NEGATIVE = "Negative"
     TEXT = "Text"
+    LIST = "List"

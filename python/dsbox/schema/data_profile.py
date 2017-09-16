@@ -29,6 +29,8 @@ class DataProfile(object):
             self.profile[dpt.NEGATIVE] = True
         if profile.get(dpt.TEXT):
             self.profile[dpt.TEXT] = True
+        if profile.get(dpt.LIST):
+            self.profile[dpt.LIST] = True
 
     def getDefaultProfile(self):
         # By default, we mark profile as
@@ -41,7 +43,8 @@ class DataProfile(object):
             dpt.MISSING_VALUES: False,
             dpt.UNIQUE : False,
             dpt.NEGATIVE : False,
-            dpt.TEXT : False
+            dpt.TEXT : False,
+            dpt.LIST : False
         }
 
     def getProfile(self):
@@ -73,12 +76,19 @@ class DataProfile(object):
                     if numneg > 0:
                         profile[dpt.NEGATIVE] = True
 
+        # Mark List
+        if col_data.get('special_type', None) is not None:
+            stype = col_data.get('special_type')
+            if stype['data_type'] == 'list':
+                profile[dpt.LIST] = True
+
         # Mark Text
         if col_data.get('length', None) is not None:
             stats = col_data.get('length')
             avg = stats['character']['average']
             if avg > DataProfile.MINCHARS_FOR_TEXT:
                 profile[dpt.TEXT] = True
+
 
         return profile
 

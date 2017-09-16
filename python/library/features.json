@@ -51,5 +51,15 @@
     "NotPersistent": true,
     "Requirements": [],
     "Effects": []
+  },
+  {
+    "Class": "spider.featurization.audio_featurization.AudioFeaturization",
+    "Name": "AudioFeaturization",
+    "Task": "FeatureExtraction",
+    "RequiresColumnData": true,
+    "InitKeywordArguments": {"frame_length":0.20, "overlap":0.10},
+    "NotPersistent": true,
+    "Requirements": [],
+    "Effects": ["MISSING_VALUES"]
   }
 ]
