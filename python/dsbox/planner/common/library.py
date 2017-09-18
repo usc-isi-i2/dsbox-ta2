@@ -23,6 +23,7 @@ class PrimitiveLibrary(object):
             prim.task = p.get('Task', None)
             prim.column_primitive = p.get('RequiresColumnData', False)
             prim.is_persistent = (prim.task == "Modeling") or (not p.get('NotPersistent', False))
+            prim.unified_interface = p.get('UnifiedInterface', False)
             prim.init_args = p.get('InitArguments', [])
             prim.init_kwargs = p.get('InitKeywordArguments', {})
             self.primitives.append(prim)

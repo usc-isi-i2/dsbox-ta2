@@ -64,6 +64,8 @@ class ExecutionHelper(object):
 
 
     def instantiate_primitive(self, primitive):
+        executable = None
+        # Parse arguments
         args = []
         kwargs = {}
         if primitive.getInitKeywordArgs():
@@ -73,18 +75,31 @@ class ExecutionHelper(object):
             args = self._process_args(
                 primitive.getInitArgs(), self.task_type, self.metric_function)
 
+        # Instantiate primitive
         if REMOTE:
-            return self.e.execute(primitive.cls, args=args, kwargs=kwargs)
+            executable = self.e.execute(primitive.cls, args=args, kwargs=kwargs)
+        else:
+            mod, cls = primitive.cls.rsplit('.', 1)
+            try:
+                module = importlib.import_module(mod)
+                PrimitiveClass = getattr(module, cls)
+                executable = PrimitiveClass(*args, **kwargs)
+            except Exception as e:
+                sys.stderr.write("ERROR _instantiate_primitive(%s) : %s\n" % (primitive, e))
+                traceback.print_exc()
+                return None
 
-        mod, cls = primitive.cls.rsplit('.', 1)
+        # Check if the executable is a unified interface executable
+        primitive.unified_interface = True
         try:
-            module = importlib.import_module(mod)
-            PrimitiveClass = getattr(module, cls)
-            return PrimitiveClass(*args, **kwargs)
-        except Exception as e:
-            sys.stderr.write("ERROR _instantiate_primitive(%s) : %s\n" % (primitive, e))
-            traceback.print_exc()
-            return None
+            executable.set_training_data()
+        except AttributeError:
+            # No method set_training_data. This is not a unified interface primitive
+            primitive.unified_interface = False
+        except:
+            pass
+        return executable
+
 
     @stopit.threading_timeoutable()
     def execute_primitive(self, primitive, df, df_lbl, cur_profile=None):
@@ -172,22 +187,30 @@ class ExecutionHelper(object):
         if df_lbl is not None:
             args.append(df_lbl)
         retval = None
-        if (testing and persistent):
-            if REMOTE:
-                retval = self.e.execute('transform', args=args, kwargs=None, obj=executable)
+        if primitive.unified_interface:
+            if (testing and persistent):
+                retval = executable.produce(inputs=df)
             else:
-                retval = executable.transform(*args)
+                executable.set_training_data(inputs=df, outputs=df_lbl)
+                executable.fit()
+                retval = executable.produce(inputs=df)
         else:
-            if REMOTE:
-                retval = self.e.execute('fit_transform', args=args, kwargs=None, obj=executable)
+            if (testing and persistent):
+                if REMOTE:
+                    retval = self.e.execute('transform', args=args, kwargs=None, obj=executable)
+                else:
+                    retval = executable.transform(*args)
             else:
-                retval = executable.fit_transform(*args)
+                if REMOTE:
+                    retval = self.e.execute('fit_transform', args=args, kwargs=None, obj=executable)
+                else:
+                    retval = executable.fit_transform(*args)
 
-        if persistent and not testing:
-            if REMOTE:
-                executable = self.e.execute('fit', args=args, kwargs=None, obj=executable, objreturn=True)
-            else:
-                executable = executable.fit(*args)
+            if persistent and not testing:
+                if REMOTE:
+                    executable = self.e.execute('fit', args=args, kwargs=None, obj=executable, objreturn=True)
+                else:
+                    executable = executable.fit(*args)
         return (retval, executable)
 
     @stopit.threading_timeoutable()
@@ -197,23 +220,39 @@ class ExecutionHelper(object):
 
         for k, (train, test) in enumerate(kf.split(X, y)):
             executable = self.instantiate_primitive(primitive)
-            if REMOTE:
-                prim = self.e.execute('fit', args=[X.take(train, axis=0), y.take(train, axis=0)], kwargs=None, obj=executable, objreturn=True)
-                ypred = self.e.execute('predict', args=[X.take(test, axis=0)], kwargs=None, obj=executable)
+            trainX = X.take(train, axis=0)
+            trainY = y.take(train, axis=0).values.ravel()
+            testX = X.take(test, axis=0)
+            testY = y.take(test, axis=0).values.ravel()
+
+            if primitive.unified_interface:
+                executable.set_training_data(inputs=trainX, outputs=trainY)
+                executable.fit()
+                ypred = executable.produce(inputs=testX)
             else:
-                executable.fit(X.take(train, axis=0), y.take(train, axis=0))
-                ypred = executable.predict(X.take(test, axis=0))
+                if REMOTE:
+                    prim = self.e.execute('fit', args=[trainX, trainY], kwargs=None, obj=executable, objreturn=True)
+                    ypred = self.e.execute('predict', args=[testX], kwargs=None, obj=executable)
+                else:
+                    executable.fit(trainX, trainY)
+                    ypred = executable.predict(testX)
+
             #print ("Trained on {} samples, Tested on {} samples".format(len(train), len(ypred)))
-            val = self._call_function(self.metric_function, y.take(test, axis=0), ypred)
+            val = self._call_function(self.metric_function, testY, ypred)
             vals.append(val)
 
         # fit the model finally over the whole training data for evaluation later over actual test data
         executable = self.instantiate_primitive(primitive)
-        if REMOTE:
-            executable = self.e.execute('fit', args=[X, y], kwargs=None, obj=executable, objreturn=True)
+        if primitive.unified_interface:
+            executable.set_training_data(inputs=X, outputs=y.values.ravel())
+            executable.fit()
         else:
-            executable.fit(X, y)
+            if REMOTE:
+                executable = self.e.execute('fit', args=[X, y], kwargs=None, obj=executable, objreturn=True)
+            else:
+                executable.fit(X, y.values.ravel())
         primitive.executables = executable
+
         #print ("Returning {} : {}".format(vals, np.average(vals)))
         return np.average(vals)
 
@@ -755,8 +794,12 @@ class ExecutionHelper(object):
                 statements.append("resultsdir = os.path.dirname(results_path)")
                 statements.append("if not os.path.exists(resultsdir):")
                 statements.append("    os.makedirs(resultsdir)")
-                statements.append("result = pandas.DataFrame(%s.executables.predict(testdata), index=testdata.index, columns=['%s'])" %
-                    (primid, self.targets[1]['varName']))
+                if primitive.unified_interface:
+                    statements.append("result = pandas.DataFrame(%s.executables.produce(inputs=testdata), index=testdata.index, columns=['%s'])" %
+                        (primid, self.targets[1]['varName']))
+                else:
+                    statements.append("result = pandas.DataFrame(%s.executables.predict(testdata), index=testdata.index, columns=['%s'])" %
+                        (primid, self.targets[1]['varName']))
                 statements.append("result.to_csv(results_path, index_label='%s')" % self.targets[0]['varName'])
             else:
                 if primitive.task == "PreProcessing":

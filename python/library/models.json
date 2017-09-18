@@ -5,8 +5,7 @@
     "LearningType": "Classification",
     "Requirements": [
       "NUMERICAL",
-      "!MISSING_VALUES",
-      "!NESTED_DATA"
+      "!MISSING_VALUES"
     ],
     "Performance": [{
         "rows": "100",
@@ -47,8 +46,7 @@
     "LearningType": "Classification",
     "Requirements": [
       "NUMERICAL",
-      "!MISSING_VALUES",
-      "!NESTED_DATA"
+      "!MISSING_VALUES"
     ],
     "Performance": [{
         "rows": "100",
@@ -89,8 +87,7 @@
     "LearningType": "Classification",
     "Requirements": [
       "NUMERICAL",
-      "!MISSING_VALUES",
-      "!NESTED_DATA"
+      "!MISSING_VALUES"
     ],
     "Performance": [{
         "rows": "100",
@@ -131,8 +128,7 @@
     "LearningType": "Regression",
     "Requirements": [
       "NUMERICAL",
-      "!MISSING_VALUES",
-      "!NESTED_DATA"
+      "!MISSING_VALUES"
     ],
     "Performance": [{
         "rows": "100",
@@ -173,8 +169,7 @@
     "LearningType": "Regression",
     "Requirements": [
       "NUMERICAL",
-      "!MISSING_VALUES",
-      "!NESTED_DATA"
+      "!MISSING_VALUES"
     ],
     "Performance": [{
         "rows": "100",
@@ -215,8 +210,7 @@
     "LearningType": "Regression",
     "Requirements": [
       "NUMERICAL",
-      "!MISSING_VALUES",
-      "!NESTED_DATA"
+      "!MISSING_VALUES"
     ],
     "Performance": [{
         "rows": "100",
@@ -257,8 +251,7 @@
     "LearningType": "Classification",
     "Requirements": [
       "NUMERICAL",
-      "!MISSING_VALUES",
-      "!NESTED_DATA"
+      "!MISSING_VALUES"
     ],
     "Performance": [{
         "rows": "100",
@@ -299,8 +292,7 @@
     "LearningType": "Classification",
     "Requirements": [
       "NUMERICAL",
-      "!MISSING_VALUES",
-      "!NESTED_DATA"
+      "!MISSING_VALUES"
     ],
     "Performance": [{
         "rows": "100",
@@ -341,8 +333,7 @@
     "LearningType": "Regression",
     "Requirements": [
       "NUMERICAL",
-      "!MISSING_VALUES",
-      "!NESTED_DATA"
+      "!MISSING_VALUES"
     ],
     "Performance": [{
         "rows": "100",
@@ -383,8 +374,7 @@
     "LearningType": "Classification",
     "Requirements": [
       "NUMERICAL",
-      "!MISSING_VALUES",
-      "!NESTED_DATA"
+      "!MISSING_VALUES"
     ],
     "Performance": [{
         "rows": "100",
@@ -425,8 +415,7 @@
     "LearningType": "Classification",
     "Requirements": [
       "NUMERICAL",
-      "!MISSING_VALUES",
-      "!NESTED_DATA"
+      "!MISSING_VALUES"
     ],
     "Performance": [{
         "rows": "100",
@@ -467,8 +456,7 @@
     "LearningType": "Classification",
     "Requirements": [
       "NUMERICAL",
-      "!MISSING_VALUES",
-      "!NESTED_DATA"
+      "!MISSING_VALUES"
     ],
     "Performance": [{
         "rows": "100",
@@ -509,8 +497,7 @@
     "LearningType": "Regression",
     "Requirements": [
       "NUMERICAL",
-      "!MISSING_VALUES",
-      "!NESTED_DATA"
+      "!MISSING_VALUES"
     ],
     "Performance": [{
         "rows": "100",
@@ -551,8 +538,7 @@
     "LearningType": "Classification",
     "Requirements": [
       "NUMERICAL",
-      "!MISSING_VALUES",
-      "!NESTED_DATA"
+      "!MISSING_VALUES"
     ],
     "Performance": [{
         "rows": "100",
@@ -593,8 +579,7 @@
     "LearningType": "Classification",
     "Requirements": [
       "NUMERICAL",
-      "!MISSING_VALUES",
-      "!NESTED_DATA"
+      "!MISSING_VALUES"
     ],
     "Performance": [{
         "rows": "100",
@@ -635,8 +620,7 @@
     "LearningType": "Regression",
     "Requirements": [
       "NUMERICAL",
-      "!MISSING_VALUES",
-      "!NESTED_DATA"
+      "!MISSING_VALUES"
     ],
     "Performance": [{
         "rows": "100",
@@ -677,8 +661,7 @@
     "LearningType": "Classification",
     "Requirements": [
       "NUMERICAL",
-      "!MISSING_VALUES",
-      "!NESTED_DATA"
+      "!MISSING_VALUES"
     ],
     "Performance": [{
         "rows": "100",
@@ -719,8 +702,7 @@
     "LearningType": "Regression",
     "Requirements": [
       "NUMERICAL",
-      "!MISSING_VALUES",
-      "!NESTED_DATA"
+      "!MISSING_VALUES"
     ],
     "Performance": [{
         "rows": "100",
@@ -761,8 +743,7 @@
     "LearningType": "Regression",
     "Requirements": [
       "NUMERICAL",
-      "!MISSING_VALUES",
-      "!NESTED_DATA"
+      "!MISSING_VALUES"
     ],
     "Performance": [{
         "rows": "100",
@@ -803,8 +784,7 @@
     "LearningType": "Regression",
     "Requirements": [
       "NUMERICAL",
-      "!MISSING_VALUES",
-      "!NESTED_DATA"
+      "!MISSING_VALUES"
     ],
     "Performance": [{
         "rows": "100",
@@ -845,8 +825,7 @@
     "LearningType": "Regression",
     "Requirements": [
       "NUMERICAL",
-      "!MISSING_VALUES",
-      "!NESTED_DATA"
+      "!MISSING_VALUES"
     ],
     "Performance": [{
         "rows": "100",
@@ -888,8 +867,7 @@
     "Requirements": [
       "NUMERICAL",
       "!NEGATIVE",
-      "!MISSING_VALUES",
-      "!NESTED_DATA"
+      "!MISSING_VALUES"
     ],
     "Performance": [{
         "rows": "100",
@@ -930,8 +908,7 @@
     "LearningType": "Regression",
     "Requirements": [
       "NUMERICAL",
-      "!MISSING_VALUES",
-      "!NESTED_DATA"
+      "!MISSING_VALUES"
     ],
     "Performance": [{
         "rows": "100",
@@ -972,8 +949,7 @@
     "LearningType": "Regression",
     "Requirements": [
       "NUMERICAL",
-      "!MISSING_VALUES",
-      "!NESTED_DATA"
+      "!MISSING_VALUES"
     ],
     "Performance": [{
         "rows": "100",
@@ -1014,8 +990,7 @@
     "LearningType": "Classification",
     "Requirements": [
       "NUMERICAL",
-      "!MISSING_VALUES",
-      "!NESTED_DATA"
+      "!MISSING_VALUES"
     ],
     "Performance": [{
         "rows": "100",
@@ -1056,8 +1031,7 @@
     "LearningType": "Classification",
     "Requirements": [
       "NUMERICAL",
-      "!MISSING_VALUES",
-      "!NESTED_DATA"
+      "!MISSING_VALUES"
     ],
     "Performance": [{
         "rows": "100",
@@ -1098,8 +1072,7 @@
     "LearningType": "Regression",
     "Requirements": [
       "NUMERICAL",
-      "!MISSING_VALUES",
-      "!NESTED_DATA"
+      "!MISSING_VALUES"
     ],
     "Performance": [{
         "rows": "100",
@@ -1140,8 +1113,7 @@
     "LearningType": "Regression",
     "Requirements": [
       "NUMERICAL",
-      "!MISSING_VALUES",
-      "!NESTED_DATA"
+      "!MISSING_VALUES"
     ],
     "Performance": [{
         "rows": "100",
@@ -1182,8 +1154,7 @@
     "LearningType": "Classification",
     "Requirements": [
       "NUMERICAL",
-      "!MISSING_VALUES",
-      "!NESTED_DATA"
+      "!MISSING_VALUES"
     ],
     "Performance": [{
         "rows": "100",
@@ -1224,8 +1195,7 @@
     "LearningType": "Regression",
     "Requirements": [
       "NUMERICAL",
-      "!MISSING_VALUES",
-      "!NESTED_DATA"
+      "!MISSING_VALUES"
     ],
     "Performance": [{
         "rows": "100",
@@ -1266,8 +1236,7 @@
     "LearningType": "Regression",
     "Requirements": [
       "NUMERICAL",
-      "!MISSING_VALUES",
-      "!NESTED_DATA"
+      "!MISSING_VALUES"
     ],
     "Performance": [{
         "rows": "100",
@@ -1308,8 +1277,7 @@
     "LearningType": "Regression",
     "Requirements": [
       "NUMERICAL",
-      "!MISSING_VALUES",
-      "!NESTED_DATA"
+      "!MISSING_VALUES"
     ],
     "Performance": [{
         "rows": "100",
@@ -1350,8 +1318,7 @@
     "LearningType": "Regression",
     "Requirements": [
       "NUMERICAL",
-      "!MISSING_VALUES",
-      "!NESTED_DATA"
+      "!MISSING_VALUES"
     ],
     "Performance": [{
         "rows": "100",
@@ -1392,8 +1359,7 @@
     "LearningType": "Regression",
     "Requirements": [
       "NUMERICAL",
-      "!MISSING_VALUES",
-      "!NESTED_DATA"
+      "!MISSING_VALUES"
     ],
     "Performance": [{
         "rows": "100",
@@ -1434,8 +1400,7 @@
     "LearningType": "Classification",
     "Requirements": [
       "NUMERICAL",
-      "!MISSING_VALUES",
-      "!NESTED_DATA"
+      "!MISSING_VALUES"
     ],
     "Performance": [{
         "rows": "100",
@@ -1476,8 +1441,7 @@
     "LearningType": "Classification",
     "Requirements": [
       "NUMERICAL",
-      "!MISSING_VALUES",
-      "!NESTED_DATA"
+      "!MISSING_VALUES"
     ],
     "Performance": [{
         "rows": "100",
@@ -1518,8 +1482,7 @@
     "LearningType": "Classification",
     "Requirements": [
       "NUMERICAL",
-      "!MISSING_VALUES",
-      "!NESTED_DATA"
+      "!MISSING_VALUES"
     ],
     "Performance": [{
         "rows": "100",
@@ -1560,8 +1523,7 @@
     "LearningType": "Regression",
     "Requirements": [
       "NUMERICAL",
-      "!MISSING_VALUES",
-      "!NESTED_DATA"
+      "!MISSING_VALUES"
     ],
     "Performance": [{
         "rows": "100",
@@ -1602,8 +1564,7 @@
     "LearningType": "Regression",
     "Requirements": [
       "NUMERICAL",
-      "!MISSING_VALUES",
-      "!NESTED_DATA"
+      "!MISSING_VALUES"
     ],
     "Performance": [{
         "rows": "100",
@@ -1644,8 +1605,7 @@
     "LearningType": "Regression",
     "Requirements": [
       "NUMERICAL",
-      "!MISSING_VALUES",
-      "!NESTED_DATA"
+      "!MISSING_VALUES"
     ],
     "Performance": [{
         "rows": "100",
@@ -1686,8 +1646,7 @@
     "LearningType": "Regression",
     "Requirements": [
       "NUMERICAL",
-      "!MISSING_VALUES",
-      "!NESTED_DATA"
+      "!MISSING_VALUES"
     ],
     "Performance": [{
         "rows": "100",
@@ -1728,8 +1687,7 @@
     "LearningType": "Regression",
     "Requirements": [
       "NUMERICAL",
-      "!MISSING_VALUES",
-      "!NESTED_DATA"
+      "!MISSING_VALUES"
     ],
     "Performance": [{
         "rows": "100",
@@ -1771,8 +1729,7 @@
     "Requirements": [
       "NUMERICAL",
       "!MISSING_VALUES",
-      "!UNIQUE",
-      "!NESTED_DATA"
+      "!UNIQUE"
     ],
     "Performance": [{
         "rows": "100",
@@ -1813,8 +1770,7 @@
     "LearningType": "Regression",
     "Requirements": [
       "NUMERICAL",
-      "!MISSING_VALUES",
-      "!NESTED_DATA"
+      "!MISSING_VALUES"
     ],
     "Performance": [{
         "rows": "100",
@@ -1855,8 +1811,7 @@
     "LearningType": "Regression",
     "Requirements": [
       "NUMERICAL",
-      "!MISSING_VALUES",
-      "!NESTED_DATA"
+      "!MISSING_VALUES"
     ],
     "Performance": [{
         "rows": "100",
@@ -1897,8 +1852,7 @@
     "LearningType": "Regression",
     "Requirements": [
       "NUMERICAL",
-      "!MISSING_VALUES",
-      "!NESTED_DATA"
+      "!MISSING_VALUES"
     ],
     "Performance": [{
         "rows": "100",
@@ -1939,8 +1893,7 @@
     "LearningType": "Classification",
     "Requirements": [
       "NUMERICAL",
-      "!MISSING_VALUES",
-      "!NESTED_DATA"
+      "!MISSING_VALUES"
     ],
     "Performance": [{
         "rows": "100",
@@ -1981,8 +1934,7 @@
     "LearningType": "Regression",
     "Requirements": [
       "NUMERICAL",
-      "!MISSING_VALUES",
-      "!NESTED_DATA"
+      "!MISSING_VALUES"
     ],
     "Performance": [{
         "rows": "100",
@@ -2023,8 +1975,7 @@
     "LearningType": "Classification",
     "Requirements": [
       "NUMERICAL",
-      "!MISSING_VALUES",
-      "!NESTED_DATA"
+      "!MISSING_VALUES"
     ],
     "Performance": [{
         "rows": "100",
@@ -2065,8 +2016,7 @@
     "LearningType": "Regression",
     "Requirements": [
       "NUMERICAL",
-      "!MISSING_VALUES",
-      "!NESTED_DATA"
+      "!MISSING_VALUES"
     ],
     "Performance": [{
         "rows": "100",
@@ -2107,8 +2057,7 @@
     "LearningType": "Regression",
     "Requirements": [
       "NUMERICAL",
-      "!MISSING_VALUES",
-      "!NESTED_DATA"
+      "!MISSING_VALUES"
     ],
     "Performance": [{
         "rows": "100",
@@ -2149,8 +2098,7 @@
     "LearningType": "Regression",
     "Requirements": [
       "NUMERICAL",
-      "!MISSING_VALUES",
-      "!NESTED_DATA"
+      "!MISSING_VALUES"
     ],
     "Performance": [{
         "rows": "100",
@@ -2191,8 +2139,7 @@
     "LearningType": "Regression",
     "Requirements": [
       "NUMERICAL",
-      "!MISSING_VALUES",
-      "!NESTED_DATA"
+      "!MISSING_VALUES"
     ],
     "Performance": [{
         "rows": "100",
@@ -2233,8 +2180,7 @@
     "LearningType": "Classification",
     "Requirements": [
       "NUMERICAL",
-      "!MISSING_VALUES",
-      "!NESTED_DATA"
+      "!MISSING_VALUES"
     ],
     "Performance": [{
         "rows": "100",
@@ -2275,8 +2221,7 @@
     "LearningType": "Regression",
     "Requirements": [
       "NUMERICAL",
-      "!MISSING_VALUES",
-      "!NESTED_DATA"
+      "!MISSING_VALUES"
     ],
     "Performance": [{
         "rows": "100",
@@ -2317,8 +2262,7 @@
     "LearningType": "Classification",
     "Requirements": [
       "NUMERICAL",
-      "!MISSING_VALUES",
-      "!NESTED_DATA"
+      "!MISSING_VALUES"
     ],
     "Performance": [{
         "rows": "100",
@@ -2359,8 +2303,7 @@
     "LearningType": "Classification",
     "Requirements": [
       "NUMERICAL",
-      "!MISSING_VALUES",
-      "!NESTED_DATA"
+      "!MISSING_VALUES"
     ],
     "Performance": [{
         "rows": "100",
@@ -2401,8 +2344,7 @@
     "LearningType": "Classification",
     "Requirements": [
       "NUMERICAL",
-      "!MISSING_VALUES",
-      "!NESTED_DATA"
+      "!MISSING_VALUES"
     ],
     "Performance": [{
         "rows": "100",
@@ -2443,8 +2385,7 @@
     "LearningType": "Regression",
     "Requirements": [
       "NUMERICAL",
-      "!MISSING_VALUES",
-      "!NESTED_DATA"
+      "!MISSING_VALUES"
     ],
     "Performance": [{
         "rows": "100",
@@ -2485,8 +2426,7 @@
     "LearningType": "Classification",
     "Requirements": [
       "NUMERICAL",
-      "!MISSING_VALUES",
-      "!NESTED_DATA"
+      "!MISSING_VALUES"
     ],
     "Performance": [{
         "rows": "100",
@@ -2527,8 +2467,7 @@
     "LearningType": "Regression",
     "Requirements": [
       "NUMERICAL",
-      "!MISSING_VALUES",
-      "!NESTED_DATA"
+      "!MISSING_VALUES"
     ],
     "Performance": [{
         "rows": "100",
@@ -2569,8 +2508,7 @@
     "LearningType": "Classification",
     "Requirements": [
       "NUMERICAL",
-      "!MISSING_VALUES",
-      "!NESTED_DATA"
+      "!MISSING_VALUES"
     ],
     "Performance": [{
         "rows": "100",
@@ -2611,8 +2549,7 @@
     "LearningType": "Classification",
     "Requirements": [
       "NUMERICAL",
-      "!MISSING_VALUES",
-      "!NESTED_DATA"
+      "!MISSING_VALUES"
     ],
     "Performance": [{
         "rows": "100",
@@ -2653,8 +2590,7 @@
     "LearningType": "Classification",
     "Requirements": [
       "NUMERICAL",
-      "!MISSING_VALUES",
-      "!NESTED_DATA"
+      "!MISSING_VALUES"
     ],
     "Performance": [{
         "rows": "100",
@@ -2695,8 +2631,7 @@
     "LearningType": "Classification",
     "Requirements": [
       "NUMERICAL",
-      "!MISSING_VALUES",
-      "!NESTED_DATA"
+      "!MISSING_VALUES"
     ],
     "Performance": [{
         "rows": "100",
@@ -2737,8 +2672,7 @@
     "LearningType": "Classification",
     "Requirements": [
       "NUMERICAL",
-      "!MISSING_VALUES",
-      "!NESTED_DATA"
+      "!MISSING_VALUES"
     ],
     "Performance": [{
         "rows": "100",
@@ -2779,8 +2713,7 @@
     "LearningType": "Regression",
     "Requirements": [
       "NUMERICAL",
-      "!MISSING_VALUES",
-      "!NESTED_DATA"
+      "!MISSING_VALUES"
     ],
     "Performance": [{
         "rows": "100",
@@ -2821,8 +2754,7 @@
     "LearningType": "Classification",
     "Requirements": [
       "NUMERICAL",
-      "!MISSING_VALUES",
-      "!NESTED_DATA"
+      "!MISSING_VALUES"
     ],
     "Performance": [{
         "rows": "100",
@@ -2863,8 +2795,7 @@
     "LearningType": "Regression",
     "Requirements": [
       "NUMERICAL",
-      "!MISSING_VALUES",
-      "!NESTED_DATA"
+      "!MISSING_VALUES"
     ],
     "Performance": [{
         "rows": "100",
@@ -2905,8 +2836,7 @@
     "LearningType": "Regression",
     "Requirements": [
       "NUMERICAL",
-      "!MISSING_VALUES",
-      "!NESTED_DATA"
+      "!MISSING_VALUES"
     ],
     "Performance": [{
         "rows": "100",
@@ -2947,8 +2877,7 @@
     "LearningType": "Classification",
     "Requirements": [
       "NUMERICAL",
-      "!MISSING_VALUES",
-      "!NESTED_DATA"
+      "!MISSING_VALUES"
     ],
     "Performance": [{
         "rows": "100",
@@ -2989,8 +2918,7 @@
     "LearningType": "Classification",
     "Requirements": [
       "NUMERICAL",
-      "!MISSING_VALUES",
-      "!NESTED_DATA"
+      "!MISSING_VALUES"
     ],
     "Performance": [{
         "rows": "100",
@@ -3031,8 +2959,7 @@
     "LearningType": "Regression",
     "Requirements": [
       "NUMERICAL",
-      "!MISSING_VALUES",
-      "!NESTED_DATA"
+      "!MISSING_VALUES"
     ],
     "Performance": [{
         "rows": "100",
@@ -3073,8 +3000,7 @@
     "LearningType": "Regression",
     "Requirements": [
       "NUMERICAL",
-      "!MISSING_VALUES",
-      "!NESTED_DATA"
+      "!MISSING_VALUES"
     ],
     "Performance": [{
         "rows": "100",
@@ -3115,8 +3041,7 @@
     "LearningType": "Classification",
     "Requirements": [
       "NUMERICAL",
-      "!MISSING_VALUES",
-      "!NESTED_DATA"
+      "!MISSING_VALUES"
     ],
     "Performance": [{
         "rows": "100",
@@ -3157,8 +3082,7 @@
     "LearningType": "Classification",
     "Requirements": [
       "NUMERICAL",
-      "!MISSING_VALUES",
-      "!NESTED_DATA"
+      "!MISSING_VALUES"
     ],
     "Performance": [{
         "rows": "100",
@@ -3199,8 +3123,7 @@
     "LearningType": "Classification",
     "Requirements": [
       "NUMERICAL",
-      "!MISSING_VALUES",
-      "!NESTED_DATA"
+      "!MISSING_VALUES"
     ],
     "Performance": [{
         "rows": "100",
@@ -3241,8 +3164,7 @@
     "LearningType": "Classification",
     "Requirements": [
       "NUMERICAL",
-      "!MISSING_VALUES",
-      "!NESTED_DATA"
+      "!MISSING_VALUES"
     ],
     "Performance": [{
         "rows": "100",
@@ -3283,8 +3205,7 @@
     "LearningType": "Regression",
     "Requirements": [
       "NUMERICAL",
-      "!MISSING_VALUES",
-      "!NESTED_DATA"
+      "!MISSING_VALUES"
     ],
     "Performance": [{
         "rows": "100",
@@ -3325,8 +3246,7 @@
     "LearningType": "Classification",
     "Requirements": [
       "NUMERICAL",
-      "!MISSING_VALUES",
-      "!NESTED_DATA"
+      "!MISSING_VALUES"
     ],
     "Performance": [{
         "rows": "100",
@@ -3367,8 +3287,7 @@
     "LearningType": "Regression",
     "Requirements": [
       "NUMERICAL",
-      "!MISSING_VALUES",
-      "!NESTED_DATA"
+      "!MISSING_VALUES"
     ],
     "Performance": [{
         "rows": "100",
@@ -3409,8 +3328,7 @@
     "LearningType": "Classification",
     "Requirements": [
       "NUMERICAL",
-      "!MISSING_VALUES",
-      "!NESTED_DATA"
+      "!MISSING_VALUES"
     ],
     "Performance": [{
         "rows": "100",
@@ -3451,8 +3369,7 @@
     "LearningType": "Classification",
     "Requirements": [
       "NUMERICAL",
-      "!MISSING_VALUES",
-      "!NESTED_DATA"
+      "!MISSING_VALUES"
     ],
     "Performance": [{
         "rows": "100",

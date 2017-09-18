@@ -129,12 +129,16 @@ class LevelTwoPlanner(object):
                 continue
 
             try:
+                if df is None:
+                    return None
+
                 print("Executing %s" % primitive.name)
 
                 # Re-profile intermediate data here.
                 # TODO: Recheck if it is ok for the primitive's preconditions
                 #       and patch pipeline if necessary
                 cur_profile = DataProfile(df)
+
                 if primitive.task == "FeatureExtraction":
                     # Featurisation Primitive
                     df = self.helper.featurise(primitive, df, timeout=TIMEOUT)

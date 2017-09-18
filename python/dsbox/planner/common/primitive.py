@@ -13,6 +13,7 @@ class Primitive(object):
         self.effects = {}
         self.is_persistent = True
         self.column_primitive = False
+        self.unified_interface = False
         self.init_args = []
         self.init_kwargs = {}
 
