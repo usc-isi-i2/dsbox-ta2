@@ -20,5 +20,5 @@ ENV CODE /home
 COPY python $CODE
 
 # work-around for non-interactive shells
-RUN echo '#!/bin/bash\npython $CODE/main.py search "$@"' > /usr/bin/ta2_search
+RUN echo '#!/bin/bash\npython3 $CODE/ta2_search "$@"' > /usr/bin/ta2_search
 RUN chmod +x /usr/bin/ta2_search
