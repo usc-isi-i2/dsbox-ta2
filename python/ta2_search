@@ -3,6 +3,7 @@
 """
 Command Line Interface for running the DSBox TA2 Search
 """
+from pprint import pprint
 
 from dsbox_dev_setup import path_setup
 path_setup()
@@ -40,6 +41,9 @@ ta2_search <search_config_file>
     with open(conf_file) as conf_data:
         config = json.load(conf_data)
         conf_data.close()
+
+    # Print out the config.json contents for NIST Eval Pipeline debugging purposes
+    pprint(config)
 
     controller = Controller(LIB_DIRECTORY)
     controller.set_config(config)

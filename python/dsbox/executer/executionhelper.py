@@ -812,7 +812,7 @@ class ExecutionHelper(object):
         # Write executable
         exfilename = "%s%s%s" % (self.outputdir, os.sep, pipeid)
         with open(exfilename, 'a') as exfile:
-            exfile.write("#!/usr/bin/env python\n\n")
+            exfile.write("#!/usr/bin/env python3\n\n")
             for imp in set(imports):
                 exfile.write("import %s\n" % imp)
             for st in statements:

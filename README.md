@@ -44,5 +44,16 @@ correct credentials, urls and commands.
    > docker push registry.datadrivendiscovery.org/ta2/isi_ta2:latest 
    ```
    
-5. Run the Docker CI pipeline (documentation to follow when I figure it out.)
+5. Run the Docker CI pipeline by opening the following in a browser: 
+
+      https://gitlab.datadrivendiscovery.org/TA2/ISI_ta2
+    
+   - Click on 'Pipelines' in the top menu and then 'Pipelines' in the sub menu. 
+   - Click on Run Pipeline
+   - Click on Create Pipeline
+   - Click on the Play button in the setup node.
+   - In the logs, you should be able to see the latest image id (63e81a8c1fed for example) embedded in the long 
+   identifier for the latest docker image being used (Using docker image registry.datadrivendiscovery.org/ta2/isi_ta2:
+   latest ID=sha256:**63e81a8c1fed**c2beabb2e8ee3b2cb84b4ed96dc97ebc071d0a2217d984716708...)
+   
 
