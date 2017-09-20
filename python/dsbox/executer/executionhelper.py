@@ -584,7 +584,7 @@ class ExecutionHelper(object):
 
                 # Remove file and index columns since the content has been replaced
                 del df[file_colname]
-                if index_colname != self.indexcol:
+                if index_colname != indexcol:
                     del df[index_colname]
                 ncols = []
                 for col in cols:

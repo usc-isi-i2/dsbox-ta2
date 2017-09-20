@@ -26,6 +26,7 @@ numpy.set_printoptions(threshold=numpy.nan)
 _ONE_DAY_IN_SECONDS = 60 * 60 * 24
 
 DEFAULT_LIB_DIRECTORY = PARENTDIR + os.sep + "library"
+PORT = 8888
 
 def serve():
     parser = argparse.ArgumentParser()
@@ -39,7 +40,7 @@ def serve():
     DataExt().add_to_server(server)
     DataflowExt().add_to_server(server)
 
-    server.add_insecure_port('[::]:50051')
+    server.add_insecure_port('[::]:' + str(PORT))
     server.start()
 
     try:

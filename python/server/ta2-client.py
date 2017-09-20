@@ -18,7 +18,7 @@ import core_pb2 as core
 import core_pb2_grpc as crpc
 
 def run():
-    channel = grpc.insecure_channel('localhost:50051')
+    channel = grpc.insecure_channel('localhost:8888')
     stub = crpc.CoreStub(channel)
 
     # Start Session
@@ -30,21 +30,23 @@ def run():
     # Send pipeline creation request
     all_features = [
         core.Feature(
-            data_uri="file:///Users/Varun/git/dsbox/data/o_185/data", feature_id="*")
+            data_uri="file:///tmp/data/o_185/data", feature_id="*")
     ]
     some_features = [
-        core.Feature(data_uri="file:///Users/Varun/git/dsbox/data/o_185/data",
+        core.Feature(data_uri="file:///tmp/data/o_185/data",
+                   feature_id="d3mIndex"),
+        core.Feature(data_uri="file:///tmp/data/o_185/data",
                    feature_id="Games_played"),
         core.Feature(
-            data_uri="file:///Users/Varun/git/dsbox/data/o_185/data", feature_id="Runs"),
+            data_uri="file:///tmp/data/o_185/data", feature_id="Runs"),
         core.Feature(
-            data_uri="file:///Users/Varun/git/dsbox/data/o_185/data", feature_id="Hits"),
-        core.Feature(data_uri="file:///Users/Varun/git/dsbox/data/o_185/data",
+            data_uri="file:///tmp/data/o_185/data", feature_id="Hits"),
+        core.Feature(data_uri="file:///tmp/data/o_185/data",
                    feature_id="Home_runs")
     ]
     target_features = [
         core.Feature(
-            data_uri="file:///Users/Varun/git/dsbox/data/o_185/data", feature_id="*")
+            data_uri="file:///tmp/data/o_185/data", feature_id="*")
     ]
     task = core.TaskType.Value('CLASSIFICATION')
     task_subtype = core.TaskSubtype.Value('MULTICLASS')
