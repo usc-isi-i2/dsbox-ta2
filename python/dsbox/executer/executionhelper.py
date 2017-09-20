@@ -749,7 +749,7 @@ class ExecutionHelper(object):
         statements.append("    temp_storage_root = config['temp_storage_root']")
 
         statements.append("\nprint('Loading Data..')")
-        statements.append("hp = ExecutionHelper('%s', '.', 'testData.csv.gz')" % self.directory)
+        statements.append("hp = ExecutionHelper(test_data_root, temp_storage_root, 'testData.csv.gz')" % self.directory)
         statements.append("hp.task_type = %s" % self.task_type)
         statements.append("hp.metric = %s" % self.metric)
         statements.append("hp.metric_function = hp._get_metric_function(hp.metric)")
