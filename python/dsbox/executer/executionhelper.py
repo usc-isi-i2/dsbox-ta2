@@ -584,7 +584,7 @@ class ExecutionHelper(object):
 
                 # Remove file and index columns since the content has been replaced
                 del df[file_colname]
-                if index_colname != indexcol:
+                if index_colname != self.indexcol:
                     del df[index_colname]
                 ncols = []
                 for col in cols:
@@ -697,7 +697,7 @@ class ExecutionHelper(object):
                 result_kwargs[key] = arg
         return result_kwargs
 
-    def create_pipeline_executable(self, pipeline):
+    def create_pipeline_executable(self, pipeline, data_schema_file):
         pipeid = pipeline.id
 
         modelsdir = self.outputdir + os.sep + "models"
@@ -749,7 +749,7 @@ class ExecutionHelper(object):
         statements.append("    temp_storage_root = config['temp_storage_root']")
 
         statements.append("\nprint('Loading Data..')")
-        statements.append("hp = ExecutionHelper(test_data_root, temp_storage_root, 'testData.csv.gz')")
+        statements.append("hp = ExecutionHelper(test_data_root, temp_storage_root, 'testData.csv.gz', '%s')" % data_schema_file)
         statements.append("hp.task_type = %s" % self.task_type)
         statements.append("hp.metric = %s" % self.metric)
         statements.append("hp.metric_function = hp._get_metric_function(hp.metric)")
