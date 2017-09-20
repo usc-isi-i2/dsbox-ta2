@@ -7,6 +7,11 @@ import os.path
 import numpy as np
 import pandas as pd
 
+
+from primitive_interfaces.base import PrimitiveBase
+from primitive_interfaces.generator import GeneratorPrimitiveBase
+from primitive_interfaces.supervised_learning import SupervisedLearnerPrimitiveBase
+from primitive_interfaces.unsupervised_learning import UnsupervisedLearnerPrimitiveBase
 from sklearn.externals import joblib
 from sklearn.model_selection import KFold
 
@@ -17,7 +22,6 @@ from dsbox.executer import pickle_patch
 
 import scipy.sparse.csr
 
-import os
 import stopit
 import inspect
 import importlib
@@ -90,14 +94,8 @@ class ExecutionHelper(object):
                 return None
 
         # Check if the executable is a unified interface executable
-        primitive.unified_interface = True
-        try:
-            executable.set_training_data()
-        except AttributeError:
-            # No method set_training_data. This is not a unified interface primitive
-            primitive.unified_interface = False
-        except:
-            pass
+        primitive.unified_interface = isinstance(executable, PrimitiveBase)
+
         return executable
 
 
@@ -191,7 +189,12 @@ class ExecutionHelper(object):
             if (testing and persistent):
                 retval = executable.produce(inputs=df)
             else:
-                executable.set_training_data(inputs=df, outputs=df_lbl)
+                if isinstance(executable, SupervisedLearnerPrimitiveBase):
+                    executable.set_training_data(inputs=df, outputs=df_lbl)
+                elif isinstance(executable, UnsupervisedLearnerPrimitiveBase):
+                    executable.set_training_data(inputs=df)
+                elif isinstance(executable, GeneratorPrimitiveBase):
+                    executable.set_training_data(outputs=df_lbl)
                 executable.fit()
                 retval = executable.produce(inputs=df)
         else:
