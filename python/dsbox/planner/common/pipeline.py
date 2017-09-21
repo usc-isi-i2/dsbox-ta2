@@ -13,6 +13,8 @@ class Pipeline(object):
             primitives = []
         self.id = id
         self.primitives = primitives
+        self.planner_result = None
+        self.test_result = None
 
     def clone(self, idcopy=False):
         pipeline = copy.deepcopy(self)

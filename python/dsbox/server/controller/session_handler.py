@@ -24,6 +24,9 @@ class Session:
     def update_pipeline(self, pipeline):
         self.pipelines[pipeline.id] = pipeline
 
+    def delete_pipeline(self, pipelineid):
+        self.pipelines.pop(pipelineid, None)
+
     @staticmethod
     def new():
         session = Session()

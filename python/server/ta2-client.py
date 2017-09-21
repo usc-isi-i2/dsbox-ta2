@@ -112,6 +112,26 @@ def run():
                 df = pandas.read_csv(ecr.result_uris[0], index_col="d3mIndex")
                 print(df)
 
+    list_request = core.PipelineListRequest(context=session_context)
+    lrr = stub.ListPipelines(list_request)
+    print (lrr.pipeline_ids)
+
+    print ("************** Cached pipeline create results")
+    pcrr = core.PipelineCreateResultsRequest(
+        context = session_context,
+        pipeline_ids = lrr.pipeline_ids
+    )
+    for gcpr in stub.GetCreatePipelineResults(pcrr):
+        print(str(gcpr))
+
+    print ("************** Cached pipeline execute results")
+    perr = core.PipelineExecuteResultsRequest(
+        context = session_context,
+        pipeline_ids = lrr.pipeline_ids
+    )
+    for gepr in stub.GetExecutePipelineResults(perr):
+        print(str(gepr))
+
     stub.EndSession(session_context)
 
 if __name__ == '__main__':

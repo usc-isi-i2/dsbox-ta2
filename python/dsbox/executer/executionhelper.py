@@ -46,9 +46,10 @@ class ExecutionHelper(object):
         self.e = Execution()
         self.directory = os.path.abspath(data_directory)
         self.outputdir = os.path.abspath(outputdir)
+        self.schema_file = schema_file
         if schema_file is None:
-            schema_file = self.directory + os.sep + "dataSchema.json"
-        self.schema = self.load_json(schema_file)
+            self.schema_file = self.directory + os.sep + "dataSchema.json"
+        self.schema = self.load_json(self.schema_file)
         self.columns = self.schema['trainData']['trainData']
         self.targets = self.schema['trainData']['trainTargets']
         self.indexcol = self.get_index_column(self.columns)
@@ -312,18 +313,6 @@ class ExecutionHelper(object):
                     if row[col] is None:
                         continue
                     (audio_clip, sampling_rate) = row[col]
-                    start = None
-                    end = None
-                    bcols = self.boundarycols
-                    if len(bcols) == 2:
-                        start = int(sampling_rate * float(row[bcols[0]]))
-                        end = int(sampling_rate * float(row[bcols[1]]))
-                        if start > end:
-                            tmp = start
-                            start = end
-                            end = tmp
-                        audio_clip = audio_clip[start:end]
-
                     primitive.init_kwargs['sampling_rate'] = sampling_rate
                     executable = self.instantiate_primitive(primitive)
                     executable.fit('time_series', [audio_clip])
@@ -569,8 +558,19 @@ class ExecutionHelper(object):
                                 # Load file
                                 try:
                                     print (filepath)
-                                    audiodata = librosa.load(filepath, sr=None)
-                                    df.set_value(index, colname, audiodata)
+                                    (audio_clip, sampling_rate) = librosa.load(filepath, sr=None)
+                                    start = None
+                                    end = None
+                                    bcols = self.boundarycols
+                                    if len(bcols) == 2:
+                                        start = int(sampling_rate * float(row[bcols[0]]))
+                                        end = int(sampling_rate * float(row[bcols[1]]))
+                                        if start > end:
+                                            tmp = start
+                                            start = end
+                                            end = tmp
+                                        audio_clip = audio_clip[start:end]
+                                    df.set_value(index, colname, (audio_clip, sampling_rate))
                                 except Exception as e:
                                     df.set_value(index, colname, None)
 

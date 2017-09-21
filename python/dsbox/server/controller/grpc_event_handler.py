@@ -20,6 +20,7 @@ class GRPC_PlannerEventHandler(PlannerEventHandler):
             progress_info = progress,
             pipeline_id = pipeline.id
         )
+        pipeline.planner_result = result;
         return result
 
     def RunningPipeline(self, pipeline):
@@ -30,6 +31,7 @@ class GRPC_PlannerEventHandler(PlannerEventHandler):
             progress_info = progress,
             pipeline_id = pipeline.id
         )
+        pipeline.planner_result = result;
         return result
 
     def CompletedPipeline(self, pipeline, result):
@@ -43,12 +45,14 @@ class GRPC_PlannerEventHandler(PlannerEventHandler):
 
         self.session.update_pipeline(pipeline)
 
-        return core.PipelineCreateResult(
+        result = core.PipelineCreateResult(
             response_info = response,
             progress_info = progress,
             pipeline_id = pipeline.id,
             pipeline_info = pipeline_info
         )
+        pipeline.planner_result = result;
+        return result;
 
     def EndedPlanning(self):
         pass
@@ -56,11 +60,13 @@ class GRPC_PlannerEventHandler(PlannerEventHandler):
     def StartExecutingPipeline(self, pipeline):
         response = self._create_response("Pipeline Started Running", "OK")
         progress = self._create_progress("RUNNING")
-        return core.PipelineExecuteResult(
+        result = core.PipelineExecuteResult(
             response_info = response,
             progress_info = progress,
             pipeline_id = pipeline.id
         )
+        pipeline.test_result = result;
+        return result
 
     def ExecutedPipeline(self, pipeline, result_uris):
         if len(result_uris) > 0:
@@ -69,12 +75,14 @@ class GRPC_PlannerEventHandler(PlannerEventHandler):
             response = self._create_response("Pipeline Failed to run", "INTERNAL")
 
         progress = self._create_progress("COMPLETED")
-        return core.PipelineExecuteResult(
+        result = core.PipelineExecuteResult(
             response_info = response,
             progress_info = progress,
             pipeline_id = pipeline.id,
             result_uris = result_uris
         )
+        pipeline.test_result = result;
+        return result
 
     def _create_response(self, message, code="OK"):
         status = core.Status(code=core.StatusCode.Value('OK'), details=message)

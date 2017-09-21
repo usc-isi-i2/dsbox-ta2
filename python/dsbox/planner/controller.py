@@ -111,6 +111,8 @@ class Controller(object):
 
         for data_directory in data_train_features_map.keys():
             helper = ExecutionHelper(data_directory, self.exec_dir)
+            # FIXME: Should handle multiple schema files here
+            self.data_schema = helper.schema_file
             indexcol = helper.indexcol
             columns = []
             data_train_features = data_train_features_map[data_directory]
@@ -276,11 +278,10 @@ class Controller(object):
             for l2_pipeline in l2_pipelines:
                 yield pe.RunningPipeline(l2_pipeline)
 
-                # TODO: Execute parallelly (fork, or separate thread)
+                # TODO: Execute in parallel (fork, or separate thread)
                 expipe = self.l2_planner.patch_and_execute_pipeline(
                         l2_pipeline, df, df_lbl, self.columns)
                 l2_pipelines_handled[str(l2_pipeline)] = True
-
                 yield pe.CompletedPipeline(l2_pipeline, expipe)
 
                 if expipe:
@@ -322,7 +323,7 @@ class Controller(object):
             pipeline = self.exec_pipelines[index][0]
             rank = index + 1
             self.pipelinesfile.write("%s ( %s ) : %2.4f\n" % (pipeline.id, pipeline, self.exec_pipelines[index][1]))
-            self.helper.create_pipeline_executable(pipeline, data_schema_file)
+            self.helper.create_pipeline_executable(pipeline, self.helper.schema_file)
             self.create_pipeline_logfile(pipeline, rank)
 
     '''
