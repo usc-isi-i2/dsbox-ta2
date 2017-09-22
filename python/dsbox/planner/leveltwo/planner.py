@@ -6,6 +6,7 @@ from dsbox.profiler.data.data_profiler import DataProfiler
 import os
 import sys
 import copy
+import time
 import itertools
 import traceback
 
@@ -120,6 +121,7 @@ class LevelTwoPlanner(object):
 
         metricvalue = 0
         cachekey = ""
+
         for primitive in pipeline.primitives:
             cachekey += ".%s" % primitive
             if cachekey in self.execution_cache:

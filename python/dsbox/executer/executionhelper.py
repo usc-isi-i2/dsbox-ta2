@@ -62,8 +62,8 @@ class ExecutionHelper(object):
         # To be set manually later (not via constructor)
         self.task_type = None
         self.task_subtype = None
-        self.metric = None
-        self.metric_function = None
+        self.metrics = []
+        self.metric_functions = []
         self.problemid = None
         self.tmp_dir = outputdir + os.sep + ".." + os.sep + "temp" # Default
 
@@ -75,10 +75,10 @@ class ExecutionHelper(object):
         kwargs = {}
         if primitive.getInitKeywordArgs():
             kwargs = self._process_kwargs(
-                primitive.getInitKeywordArgs(), self.task_type, self.metric_function)
+                primitive.getInitKeywordArgs(), self.task_type, self.metric_functions)
         if primitive.getInitArgs():
             args = self._process_args(
-                primitive.getInitArgs(), self.task_type, self.metric_function)
+                primitive.getInitArgs(), self.task_type, self.metric_functions)
 
         # Instantiate primitive
         if REMOTE:
@@ -221,6 +221,8 @@ class ExecutionHelper(object):
     def cross_validation_score(self, primitive, X, y, cv=4):
         kf = KFold(n_splits=cv, shuffle=True, random_state=42)
         vals = []
+        for metric in self.metrics:
+            vals.append([])
 
         for k, (train, test) in enumerate(kf.split(X, y)):
             executable = self.instantiate_primitive(primitive)
@@ -242,8 +244,9 @@ class ExecutionHelper(object):
                     ypred = executable.predict(testX)
 
             #print ("Trained on {} samples, Tested on {} samples".format(len(train), len(ypred)))
-            val = self._call_function(self.metric_function, testY, ypred)
-            vals.append(val)
+            for i in range(0, len(self.metrics)):
+                val = self._call_function(self.metric_functions[i], testY, ypred)
+                vals[i].append(val)
 
         # fit the model finally over the whole training data for evaluation later over actual test data
         executable = self.instantiate_primitive(primitive)
@@ -258,7 +261,10 @@ class ExecutionHelper(object):
         primitive.executables = executable
 
         #print ("Returning {} : {}".format(vals, np.average(vals)))
-        return np.average(vals)
+        average_vals = []
+        for metricvals in vals:
+            average_vals.append(np.average(metricvals))
+        return average_vals
 
     def _as_tensor(self, image_list):
         from keras.preprocessing import image
@@ -447,8 +453,17 @@ class ExecutionHelper(object):
     """
     def set_metric(self, metric):
         metric = metric[0].lower() + metric[1:]
-        self.metric = Metric(metric)
-        self.metric_function = self._get_metric_function(self.metric)
+        self.metrics = [Metric(metric)]
+        self.set_metric_functions()
+
+    def set_metrics(self, metrics):
+        self.metrics = metrics
+        self.set_metric_functions()
+
+    def set_metric_functions(self):
+        self.metric_functions = []
+        for metric in self.metrics:
+            self.metric_functions.append(self._get_metric_function(metric))
 
     def _call_function(self, scoring_function, *args):
         mod = inspect.getmodule(scoring_function)
@@ -660,23 +675,25 @@ class ExecutionHelper(object):
                 cols.append(col['varName'])
         return cols
 
-    def _process_args(self, args, task_type, metric):
+    def _process_args(self, args, task_type, metrics):
         result_args = []
         for arg in args:
             if (isinstance(arg, str) or isinstance(arg, unicode)) and arg.startswith('*'):
-                result_args.append(self._get_arg_value(arg, task_type, metric))
+                result_args.append(self._get_arg_value(arg, task_type, metrics))
             else:
                 result_args.append(arg)
         return result_args
 
-    def _get_arg_value(self, arg_specification, task_type, metric):
+    def _get_arg_value(self, arg_specification, task_type, metrics):
         if not arg_specification.startswith('*'):
             return arg_specification
         arg_specification = arg_specification[1:]
         if arg_specification == "SCORER":
-            return make_scorer(metric, greater_is_better=True)
+            # Just use the first metric to make the scorer
+            return make_scorer(metrics[0], greater_is_better=True)
         elif arg_specification == "LOSS":
-            return make_scorer(metric, greater_is_better=False)
+            # Just use the first metric to make the scorer
+            return make_scorer(metrics[0], greater_is_better=False)
         elif arg_specification == "ESTIMATOR":
             if task_type == TaskType.CLASSIFICATION:
                 return LogisticRegression()
@@ -689,11 +706,11 @@ class ExecutionHelper(object):
             raise Exception(
                 "Unkown Arg specification: {}".format(arg_specification))
 
-    def _process_kwargs(self, kwargs, task_type, metric):
+    def _process_kwargs(self, kwargs, task_type, metrics):
         result_kwargs = {}
         for key, arg in kwargs.items():
             if isinstance(arg, str) and arg.startswith('*'):
-                result_kwargs[key] = self._get_arg_value(arg, task_type, metric)
+                result_kwargs[key] = self._get_arg_value(arg, task_type, metrics)
             else:
                 result_kwargs[key] = arg
         return result_kwargs
@@ -752,8 +769,15 @@ class ExecutionHelper(object):
         statements.append("\nprint('Loading Data..')")
         statements.append("hp = ExecutionHelper(test_data_root, temp_storage_root, 'testData.csv.gz', temp_storage_root + '/%s')" % data_schema_file)
         statements.append("hp.task_type = %s" % self.task_type)
-        statements.append("hp.metric = %s" % self.metric)
-        statements.append("hp.metric_function = hp._get_metric_function(hp.metric)")
+
+        metricstrs = "["
+        for i in range(0, len(self.metrics)):
+            if i > 0:
+                metricstrs += ","
+            metricstrs += str(self.metrics[i])
+        metricstrs += "]"
+        statements.append("hp.metrics = %s" % metricstrs)
+        statements.append("hp.set_metric_functions()")
         statements.append("testdata = hp.data")
         index = 1
         for primitive in pipeline.primitives:

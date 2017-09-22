@@ -65,9 +65,11 @@ class Core(crpc.CoreServicer):
             c.task_subtype = TaskSubType[core.TaskSubtype.Name(request.task_subtype)]
         c.output_type = core.OutputType.Name(request.output)
 
-        # FIXME: Handle multiple metrics
-        c.helper.metric = Metric[ core.Metric.Name(request.metrics[0]) ]
-        c.helper.metric_function = c.helper._get_metric_function(c.helper.metric)
+        # Load metrics
+        metrics = []
+        for rm in request.metrics:
+            metrics.append( Metric[core.Metric.Name(rm)] )
+        c.helper.set_metrics(metrics)
 
         # Start planning
         session.controller = c

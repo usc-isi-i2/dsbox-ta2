@@ -40,3 +40,4 @@ class Metric(Enum):
     R_SQUARED = "rSquared"  #sklearn.metrics.r2_score
     NORMALIZED_MUTUAL_INFORMATION = "normalizedMutualInformation"  # see nmi.py
     JACCARD_SIMILARITY_SCORE = "jaccardSimilarityScore" # see jaccard.py script
+    EXECUTION_TIME = "executionTime"

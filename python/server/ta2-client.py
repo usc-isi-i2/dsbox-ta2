@@ -52,7 +52,7 @@ def run():
     task_subtype = core.TaskSubtype.Value('MULTICLASS')
     task_description = "Classify Hall of Fame"
     output = core.OutputType.Value('FILE')
-    metrics = [core.Metric.Value('F1_MICRO')]
+    metrics = [core.Metric.Value('F1_MICRO'), core.Metric.Value('F1_MACRO')]
     max_pipelines = 20
 
     pipeline_ids = []

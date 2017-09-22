@@ -58,7 +58,7 @@ class Controller(object):
         self.pipelinesfile = open("%s%spipelines.txt" % (self.tmp_dir, os.sep), 'w')
 
         # Redirect stderr to error file
-        sys.stderr = self.errorfile
+        #sys.stderr = self.errorfile
 
     '''
     Set config directories and schema from just datadir and outputdir
@@ -230,7 +230,7 @@ class Controller(object):
     """
     def train(self, planner_event_handler, cutoff=10):
         self.logfile.write("Task type: %s\n" % self.helper.task_type)
-        self.logfile.write("Metric: %s\n" % self.helper.metric)
+        self.logfile.write("Metrics: %s\n" % self.helper.metrics)
 
         pe = planner_event_handler
 
@@ -318,11 +318,15 @@ class Controller(object):
         shutil.copyfile(self.helper.schema_file, self.tmp_dir + os.sep + data_schema_file)
 
         # Create executables
-        self.pipelinesfile.write("# Pipelines ranked by metric (%s)\n" % self.helper.metric)
+        self.pipelinesfile.write("# Pipelines ranked by metrics (%s)\n" % self.helper.metrics)
         for index in range(0, len(self.exec_pipelines)):
             pipeline = self.exec_pipelines[index][0]
             rank = index + 1
-            self.pipelinesfile.write("%s ( %s ) : %2.4f\n" % (pipeline.id, pipeline, self.exec_pipelines[index][1]))
+            metric_values = []
+            for metric_value in self.exec_pipelines[index][1]:
+                metric_values.append("%2.4f" % metric_value)
+
+            self.pipelinesfile.write("%s ( %s ) : %s\n" % (pipeline.id, pipeline, metric_values))
             self.helper.create_pipeline_executable(pipeline, data_schema_file)
             self.create_pipeline_logfile(pipeline, rank)
 
@@ -387,9 +391,11 @@ class Controller(object):
         sys.stdout.flush()
 
     def _sort_by_metric(self, pipeline):
-        if "error" in self.helper.metric.value.lower():
-            return pipeline[1]
-        return -pipeline[1]
+        # NOTE: Sorting/Ranking by first metric only
+        metric_name = self.helper.metrics[0].value.lower()
+        if "error" in metric_name or "loss" in metric_name or "time" in metric_name:
+            return pipeline[1][0]
+        return -pipeline[1][0]
 
     def _get_data_profile(self, df):
         return DataProfile(df)

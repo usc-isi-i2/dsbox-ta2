@@ -41,7 +41,7 @@ class GRPC_PlannerEventHandler(PlannerEventHandler):
         if result is None:
             response = self._create_response("Pipeline Failed", "UNKNOWN")
         else:
-            pipeline_info = self._create_pipeline(self.session.controller.helper.metric.name, result)
+            pipeline_info = self._create_pipeline(self.session.controller.helper.metrics, result)
 
         self.session.update_pipeline(pipeline)
 
@@ -92,16 +92,19 @@ class GRPC_PlannerEventHandler(PlannerEventHandler):
         return core.Progress.Value(value)
 
     def _create_score(self, metric, value):
-        return core.Score(metric = core.Metric.Value(metric), value=value)
+        return core.Score(metric = core.Metric.Value(metric.name), value=value)
 
-    def _create_pipeline(self, metric, result):
-        score = self._create_score(metric, result[1])
+    def _create_pipeline(self, metrics, result):
+        scores = []
+        for i in range(0, len(metrics)):
+            scores.append(self._create_score(metrics[i], result[1][i]))
+
         # FIXME: Change output type to what is mentioned in request
         # FIXME: Set output result uris
         output = core.OutputType.Value("FILE")
         pipeline = core.Pipeline(
             output = output,
             predict_result_uris = [],
-            scores = [score]
+            scores = scores
         )
         return pipeline
