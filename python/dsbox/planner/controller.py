@@ -314,8 +314,8 @@ class Controller(object):
         self._show_status("Found total %d successfully executing pipeline(s)..." % len(self.exec_pipelines))
 
         # Copy over the data schema
-        data_schema_file = self.tmp_dir + os.sep + str(uuid.uuid4()) + ".json"
-        shutil.copyfile(self.data_schema, data_schema_file)
+        data_schema_file = str(uuid.uuid4()) + ".json"
+        shutil.copyfile(self.helper.schema_file, self.tmp_dir + os.sep + data_schema_file)
 
         # Create executables
         self.pipelinesfile.write("# Pipelines ranked by metric (%s)\n" % self.helper.metric)
@@ -323,7 +323,7 @@ class Controller(object):
             pipeline = self.exec_pipelines[index][0]
             rank = index + 1
             self.pipelinesfile.write("%s ( %s ) : %2.4f\n" % (pipeline.id, pipeline, self.exec_pipelines[index][1]))
-            self.helper.create_pipeline_executable(pipeline, self.helper.schema_file)
+            self.helper.create_pipeline_executable(pipeline, data_schema_file)
             self.create_pipeline_logfile(pipeline, rank)
 
     '''

@@ -574,9 +574,10 @@ class ExecutionHelper(object):
                                 except Exception as e:
                                     df.set_value(index, colname, None)
 
+            origdf = df
             for file_colname, index_colname in zip(tabular_columns, index_columns):
                 # FIXME: Assumption here that all entries for the filename are the same per column
-                filename = df.iloc[0][file_colname]
+                filename = origdf.iloc[0][file_colname]
 
                 # Merge the nested table with parent table on the index column
                 nested_table = self.nested_table[filename]
@@ -584,7 +585,7 @@ class ExecutionHelper(object):
 
                 # Remove file and index columns since the content has been replaced
                 del df[file_colname]
-                if index_colname != self.indexcol:
+                if index_colname != indexcol:
                     del df[index_colname]
                 ncols = []
                 for col in cols:
@@ -749,7 +750,7 @@ class ExecutionHelper(object):
         statements.append("    temp_storage_root = config['temp_storage_root']")
 
         statements.append("\nprint('Loading Data..')")
-        statements.append("hp = ExecutionHelper(test_data_root, temp_storage_root, 'testData.csv.gz', '%s')" % data_schema_file)
+        statements.append("hp = ExecutionHelper(test_data_root, temp_storage_root, 'testData.csv.gz', temp_storage_root + '/%s')" % data_schema_file)
         statements.append("hp.task_type = %s" % self.task_type)
         statements.append("hp.metric = %s" % self.metric)
         statements.append("hp.metric_function = hp._get_metric_function(hp.metric)")
