@@ -58,7 +58,7 @@ class Controller(object):
         self.pipelinesfile = open("%s%spipelines.txt" % (self.tmp_dir, os.sep), 'w')
 
         # Redirect stderr to error file
-        #sys.stderr = self.errorfile
+        sys.stderr = self.errorfile
 
     '''
     Set config directories and schema from just datadir and outputdir
