@@ -11,6 +11,8 @@ class Session:
         self.id = str(uuid.uuid4())
         self.controller = None
         self.pipelines = {}
+        self.test_results = {}
+        self.planner_results = {}
         self.outputdir = tempfile.gettempdir() + os.sep + "dsbox-ta2" + os.sep + self.id
         #print(self.outputdir)
 
@@ -26,6 +28,17 @@ class Session:
 
     def delete_pipeline(self, pipelineid):
         self.pipelines.pop(pipelineid, None)
+
+    def save_prediction_file(self, result):
+        resultfile = "%s%s%s.csv" % (self.outputdir, os.sep, str(uuid.uuid4()))
+        result.predictions.to_csv(resultfile, index_label=result.predictions.index.name)
+        return resultfile
+
+    def cache_planner_result(self, pipeline, result):
+        self.planner_results[pipeline.id] = result
+
+    def cache_test_result(self, pipeline, result):
+        self.test_results[pipeline.id] = result
 
     @staticmethod
     def new():

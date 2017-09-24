@@ -92,11 +92,15 @@ def run():
     )
 
     # Iterate over results
-    pipeline_id = None
     for pcr in stub.CreatePipelines(pc_request):
         print(str(pcr))
         if len(pcr.pipeline_info.scores) > 0:
             pipeline_ids.append(pcr.pipeline_id)
+        '''
+        if len(pcr.pipeline_info.predict_result_uris) > 0:
+            df = pandas.read_csv(pcr.pipeline_info.predict_result_uris[0], index_col="d3mIndex")
+            print(df)
+        '''
 
     # Execute pipelines
     for pipeline_id in pipeline_ids:
@@ -131,6 +135,22 @@ def run():
     )
     for gepr in stub.GetExecutePipelineResults(perr):
         print(str(gepr))
+
+    metric = core.Metric.Value('ACCURACY')
+    ups_request = core.UpdateProblemSchemaRequest(
+        context=session_context,
+        updates=[
+            core.UpdateProblemSchemaRequest.ReplaceProblemSchemaField(metric=metric)
+        ]
+    )
+    stub.UpdateProblemSchema(ups_request)
+
+    '''
+    for pcr in stub.CreatePipelines(pc_request):
+        print(str(pcr))
+        if len(pcr.pipeline_info.scores) > 0:
+            pipeline_ids.append(pcr.pipeline_id)
+    '''
 
     stub.EndSession(session_context)
 

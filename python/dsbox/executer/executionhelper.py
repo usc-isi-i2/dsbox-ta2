@@ -2,6 +2,7 @@ import os
 import sys
 import json
 import copy
+import time
 import shutil
 import os.path
 import numpy as np
@@ -219,11 +220,11 @@ class ExecutionHelper(object):
 
     @stopit.threading_timeoutable()
     def cross_validation_score(self, primitive, X, y, cv=4):
-        kf = KFold(n_splits=cv, shuffle=True, random_state=42)
-        vals = []
-        for metric in self.metrics:
-            vals.append([])
+        kf = KFold(n_splits=cv, shuffle=True, random_state=int(time.time()))
+        metric_values = {}
 
+        tcols = [self.targets[1]['varName']]
+        yPredictions = None
         for k, (train, test) in enumerate(kf.split(X, y)):
             executable = self.instantiate_primitive(primitive)
             trainX = X.take(train, axis=0)
@@ -243,10 +244,20 @@ class ExecutionHelper(object):
                     executable.fit(trainX, trainY)
                     ypred = executable.predict(testX)
 
-            #print ("Trained on {} samples, Tested on {} samples".format(len(train), len(ypred)))
-            for i in range(0, len(self.metrics)):
-                val = self._call_function(self.metric_functions[i], testY, ypred)
-                vals[i].append(val)
+            ypredDF = pd.DataFrame(ypred, index=testX.index, columns=tcols)
+            if yPredictions is None:
+                yPredictions = ypredDF
+            else:
+                yPredictions = pd.concat([yPredictions, ypredDF])
+
+        yPredictions = yPredictions.sort_index()
+
+        #print ("Trained on {} samples, Tested on {} samples".format(len(train), len(ypred)))
+        for i in range(0, len(self.metrics)):
+            metric = self.metrics[i]
+            fn = self.metric_functions[i]
+            metric_val = self._call_function(fn, y, yPredictions)
+            metric_values[metric.name] = metric_val
 
         # fit the model finally over the whole training data for evaluation later over actual test data
         executable = self.instantiate_primitive(primitive)
@@ -260,11 +271,8 @@ class ExecutionHelper(object):
                 executable.fit(X, y.values.ravel())
         primitive.executables = executable
 
-        #print ("Returning {} : {}".format(vals, np.average(vals)))
-        average_vals = []
-        for metricvals in vals:
-            average_vals.append(np.average(metricvals))
-        return average_vals
+        #print ("Returning {}".format(metric_values))
+        return (yPredictions, metric_values)
 
     def _as_tensor(self, image_list):
         from keras.preprocessing import image
@@ -276,6 +284,7 @@ class ExecutionHelper(object):
 
     @stopit.threading_timeoutable()
     def featurise(self, primitive, df):
+        df = copy.deepcopy(df) # Featurise will alter the dataframe, so we take a copy
         persistent = primitive.is_persistent
         ncols = [col.format() for col in df.columns]
         featurecols = self.raw_data_columns(self.columns)

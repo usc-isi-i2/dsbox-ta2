@@ -15,6 +15,7 @@ from dsbox.planner.leveltwo.planner import LevelTwoPlanner
 from dsbox.schema.data_profile import DataProfile
 from dsbox.schema.problem_schema import TaskType, TaskSubType, Metric
 from dsbox.executer.executionhelper import ExecutionHelper
+from dsbox.planner.common.pipeline import Pipeline, PipelineExecutionResult
 
 class Feature:
     def __init__(self, data_directory, feature_id):
@@ -266,7 +267,7 @@ class Controller(object):
                 if l2_pipeline_list:
                     for l2_pipeline in l2_pipeline_list:
                         if not l2_pipelines_handled.get(str(l2_pipeline), False):
-                            l2_l1_map[str(l2_pipeline)] = l1_pipeline
+                            l2_l1_map[l2_pipeline.id] = l1_pipeline
                             l2_pipelines.append(l2_pipeline)
                             yield pe.SubmittedPipeline(l2_pipeline)
 
@@ -279,13 +280,13 @@ class Controller(object):
                 yield pe.RunningPipeline(l2_pipeline)
 
                 # TODO: Execute in parallel (fork, or separate thread)
-                expipe = self.l2_planner.patch_and_execute_pipeline(
+                exec_pipeline = self.l2_planner.patch_and_execute_pipeline(
                         l2_pipeline, df, df_lbl, self.columns)
                 l2_pipelines_handled[str(l2_pipeline)] = True
-                yield pe.CompletedPipeline(l2_pipeline, expipe)
+                yield pe.CompletedPipeline(l2_pipeline, exec_pipeline)
 
-                if expipe:
-                    self.exec_pipelines.append(expipe)
+                if exec_pipeline:
+                    self.exec_pipelines.append(exec_pipeline)
 
             self.exec_pipelines = sorted(self.exec_pipelines, key=lambda x: self._sort_by_metric(x))
             self.logfile.write("\nL2 Executed Pipelines:\n-------------\n")
@@ -298,13 +299,12 @@ class Controller(object):
             for index in range(0, cutoff):
                 if index >= len(self.exec_pipelines):
                     break
-                pipeline = l2_l1_map.get(str(self.exec_pipelines[index][0]))
-                if pipeline:
-                    related_pipelines = self.l1_planner.get_related_pipelines(pipeline)
+                l1_pipeline = l2_l1_map.get(self.exec_pipelines[index].id)
+                if l1_pipeline:
+                    related_pipelines = self.l1_planner.get_related_pipelines(l1_pipeline)
                     for related_pipeline in related_pipelines:
                         if not l1_pipelines_handled.get(str(related_pipeline), False):
                             l1_related_pipelines.append(related_pipeline)
-
 
             self.logfile.write("\nRelated L1 Pipelines to top %d L2 Pipelines:\n-------------\n" % cutoff)
             self.logfile.write("%s\n" % str(l1_related_pipelines))
@@ -320,11 +320,13 @@ class Controller(object):
         # Create executables
         self.pipelinesfile.write("# Pipelines ranked by metrics (%s)\n" % self.helper.metrics)
         for index in range(0, len(self.exec_pipelines)):
-            pipeline = self.exec_pipelines[index][0]
+            pipeline = self.exec_pipelines[index]
             rank = index + 1
+            # Format the metric values
             metric_values = []
-            for metric_value in self.exec_pipelines[index][1]:
-                metric_values.append("%2.4f" % metric_value)
+            for metric in pipeline.planner_result.metric_values.keys():
+                metric_value = pipeline.planner_result.metric_values[metric]
+                metric_values.append("%s = %2.4f" % (metric, metric_value))
 
             self.pipelinesfile.write("%s ( %s ) : %s\n" % (pipeline.id, pipeline, metric_values))
             self.helper.create_pipeline_executable(pipeline, data_schema_file)
@@ -333,7 +335,7 @@ class Controller(object):
     '''
     Predict results on test data given a pipeline
     '''
-    def test(self, pipeline):
+    def test(self, pipeline, test_event_handler):
         helper = self.test_helper
         testdf = self.test_data
         print("** Evaluating pipeline %s" % str(pipeline))
@@ -342,10 +344,9 @@ class Controller(object):
             try:
                 print("Executing %s" % primitive)
                 if primitive.task == "Modeling":
-                    result = pd.DataFrame(primitive.executables.predict(testdf), columns=["result"])
-                    resultfile = "%s%s%s.csv" % (self.tmp_dir, os.sep, str(uuid.uuid4()))
-                    result.to_csv(resultfile, index_label=self.test_indexcol)
-                    return resultfile
+                    result = pd.DataFrame(primitive.executables.predict(testdf), index=testdf.index, columns=[self.targets[1]['varName']])
+                    pipeline.test_result = PipelineExecutionResult(result, None)
+                    break
                 elif primitive.task == "PreProcessing":
                     testdf = helper.test_execute_primitive(primitive, testdf)
                 elif primitive.task == "FeatureExtraction":
@@ -354,8 +355,8 @@ class Controller(object):
                 sys.stderr.write(
                     "ERROR test(%s) : %s\n" % (pipeline, e))
                 traceback.print_exc()
-                return None
-        return None
+
+        yield test_event_handler.ExecutedPipeline(pipeline)
 
     def stop(self):
         '''
@@ -392,10 +393,11 @@ class Controller(object):
 
     def _sort_by_metric(self, pipeline):
         # NOTE: Sorting/Ranking by first metric only
-        metric_name = self.helper.metrics[0].value.lower()
-        if "error" in metric_name or "loss" in metric_name or "time" in metric_name:
-            return pipeline[1][0]
-        return -pipeline[1][0]
+        metric_name = self.helper.metrics[0].name
+        mlower = metric_name.lower()
+        if "error" in mlower or "loss" in mlower or "time" in mlower:
+            return pipeline.planner_result.metric_values[metric_name]
+        return -pipeline.planner_result.metric_values[metric_name]
 
     def _get_data_profile(self, df):
         return DataProfile(df)

@@ -75,7 +75,8 @@ class Core(crpc.CoreServicer):
         session.controller = c
         session.controller.initialize_planners()
         for result in session.controller.train(GRPC_PlannerEventHandler(session), cutoff=cutoff):
-            yield result
+            if result is not None:
+                yield result
 
     def ExecutePipeline(self, request, context):
         """Predict step - multiple results messages returned via GRPC streaming.
@@ -100,15 +101,13 @@ class Core(crpc.CoreServicer):
         # Get test data directories
         handler = GRPC_PlannerEventHandler(session)
         handler.StartExecutingPipeline(pipeline)
-        result_uris = []
 
         session.controller.initialize_test_data_from_features(test_features)
 
-        resultfile = session.controller.test(pipeline)
-        if resultfile is not None:
-            result_uris.append(self._create_uri_from_path(resultfile))
-
-        yield handler.ExecutedPipeline(pipeline, result_uris)
+        # Change this to be a yield too.. Save should happen within the handler
+        for result in session.controller.test(pipeline, handler):
+            if result is not None:
+                yield result
 
     def ListPipelines(self, request, context):
         pipeline_ids = []
@@ -140,17 +139,17 @@ class Core(crpc.CoreServicer):
         session = Session.get(request.context.session_id)
         if session is not None:
             for pipeline_id in request.pipeline_ids:
-                pipeline = session.get_pipeline(pipeline_id)
-                if pipeline is not None and pipeline.planner_result is not None:
-                    yield pipeline.planner_result
+                result = session.planner_results.get(pipeline_id, None)
+                if result is not None:
+                    yield result
 
     def GetExecutePipelineResults(self, request, context):
         session = Session.get(request.context.session_id)
         if session is not None:
             for pipeline_id in request.pipeline_ids:
-                pipeline = session.get_pipeline(pipeline_id)
-                if pipeline is not None and pipeline.test_result is not None:
-                    yield pipeline.test_result
+                result = session.test_results.get(pipeline_id, None)
+                if result is not None:
+                    yield result
 
     def ExportPipeline(self, request, context):
         """Export executable of a pipeline, including any optional preprocessing used in session
@@ -164,20 +163,23 @@ class Core(crpc.CoreServicer):
         if session is not None:
             c = session.controller
             for update in request.updates:
-                if update.task_type is not None:
+                if update.task_type:
                     # Get Problem details
                     c.helper.task_type = TaskType[core.TaskType.Name(update.task_type)]
-                if update.task_subtype is not None:
+                if update.task_subtype:
                     c.task_subtype = TaskSubType[core.TaskSubtype.Name(update.task_subtype)]
-                if update.output_type is not None:
+                if update.output_type:
                     c.output_type = core.OutputType.Name(update.output_type)
-                if update.metric is not None:
-                    # FIXME: Handle multiple metrics
-                    c.helper.metric = Metric[ core.Metric.Name(update.metric) ]
-                    c.helper.metric_function = c.helper._get_metric_function(c.helper.metric)
-                return core.PipelineListResult(
-                    response_info = self._create_response("Updated Problem Schema")
-                )
+                if update.metric:
+                    metric = Metric[core.Metric.Name(update.metric)]
+                    c.helper.set_metrics([metric])
+            #print(c.helper.metrics)
+
+            session.controller.l2_planner.execution_cache.clear()
+            session.controller.l2_planner.primitive_cache.clear()
+            session.controller.train(GRPC_PlannerEventHandler(session))
+
+            return self._create_response("Updated Problem Schema")
 
     def add_to_server(self, server):
         crpc.add_CoreServicer_to_server(self, server)
@@ -195,18 +197,6 @@ class Core(crpc.CoreServicer):
             import urlparse
         p = urlparse.urlparse(uri)
         return os.path.abspath(os.path.join(p.netloc, p.path))
-
-    def _create_uri_from_path(self, path):
-        """Return file:// uri from a filename."""
-        # Python 2 and 3 compatible import of urllib
-        try:
-            from urllib import request as urllib
-        except ImportError:
-            import urllib
-        path = os.path.abspath(path)
-        if isinstance(path, str):
-            path = path.encode('utf8')
-        return 'file://' + urllib.pathname2url(path)
 
     def _create_response(self, message, code="OK"):
         status = core.Status(code=core.StatusCode.Value(code), details=message)

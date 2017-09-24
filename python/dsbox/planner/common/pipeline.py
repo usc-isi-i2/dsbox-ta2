@@ -1,11 +1,18 @@
 import uuid
 import copy
 
+class PipelineExecutionResult(object):
+    """
+    Defines a pipeline execution result
+    """
+    def __init__(self, predictions, metric_values):
+        self.predictions = predictions # Predictions dataframe
+        self.metric_values = metric_values # Dictionary of metric to value
+
 class Pipeline(object):
     """
     Defines a pipeline
     """
-
     def __init__(self, id=None, primitives=None):
         if id is None:
             id = str(uuid.uuid4())
@@ -13,6 +20,8 @@ class Pipeline(object):
             primitives = []
         self.id = id
         self.primitives = primitives
+
+        # Execution Results
         self.planner_result = None
         self.test_result = None
 

@@ -1,5 +1,5 @@
 from dsbox.planner.common.library import PrimitiveLibrary
-from dsbox.planner.common.pipeline import Pipeline
+from dsbox.planner.common.pipeline import Pipeline, PipelineExecutionResult
 from dsbox.schema.data_profile import DataProfile
 from dsbox.profiler.data.data_profiler import DataProfiler
 
@@ -116,13 +116,13 @@ class LevelTwoPlanner(object):
     def patch_and_execute_pipeline(self, pipeline, df, df_lbl, columns):
         print("** Running Pipeline: %s" % pipeline)
 
-        df = copy.deepcopy(df)
+        #df = copy.deepcopy(df)
+        exec_pipeline = pipeline.clone(idcopy=True)
         cols = df.columns
 
-        metricvalue = 0
         cachekey = ""
 
-        for primitive in pipeline.primitives:
+        for primitive in exec_pipeline.primitives:
             cachekey += ".%s" % primitive
             if cachekey in self.execution_cache:
                 # print ("* Using cache for %s" % primitive)
@@ -151,9 +151,10 @@ class LevelTwoPlanner(object):
                 elif primitive.task == "Modeling":
                     # Modeling Primitive
                     # Evaluate: Get a cross validation score for the metric
-                    metricvalue = self.helper.cross_validation_score(primitive, df, df_lbl, 10, timeout=TIMEOUT)
-                    if not metricvalue:
+                    (predictions, metric_values) = self.helper.cross_validation_score(primitive, df, df_lbl, 10, timeout=TIMEOUT)
+                    if not metric_values or len(metric_values) == 0:
                         return None
+                    exec_pipeline.planner_result = PipelineExecutionResult(predictions, metric_values)
 
                     self.primitive_cache[cachekey] = primitive.executables
                     break
@@ -167,11 +168,11 @@ class LevelTwoPlanner(object):
 
             except Exception as e:
                 sys.stderr.write(
-                    "ERROR patch_and_execute_pipeline(%s) : %s\n" % (pipeline, e))
+                    "ERROR patch_and_execute_pipeline(%s) : %s\n" % (exec_pipeline, e))
                 traceback.print_exc()
                 return None
 
-        return (pipeline, metricvalue)
+        return exec_pipeline
 
     def _remove_redundant_processing_primitives(self, pipeline, profile):
         curpipe = copy.copy(pipeline)
