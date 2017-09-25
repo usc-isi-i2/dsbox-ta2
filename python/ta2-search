@@ -43,8 +43,8 @@ ta2-search <search_config_file>
 
     controller = Controller(LIB_DIRECTORY)
     controller.set_config(config)
-    controller.initialize_data_from_defaults()
     controller.load_problem_schema()
+    controller.initialize_training_data_from_defaults()
     controller.initialize_planners()
     for result in controller.train(PlannerEventHandler()):
         pass

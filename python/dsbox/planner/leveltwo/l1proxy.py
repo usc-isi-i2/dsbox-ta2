@@ -17,9 +17,9 @@ class LevelOnePlannerProxy(object):
 
         self.primitives = get_d3m_primitives()
         self.policy = AffinityPolicy(self.primitives)
-        self.media_type = helper.media_type
+        self.media_type = helper.dm.data.media_type
         self.l1_planner = LevelOnePlanner(primitives=self.primitives, policy=self.policy,
-                task_type=helper.task_type, task_subtype=helper.task_subtype, media_type=helper.media_type)
+                task_type=helper.sm.task_type, task_subtype=helper.sm.task_subtype, media_type=helper.dm.data.media_type)
 
         self.primitive_hash = {}
         for model in self.models.primitives:

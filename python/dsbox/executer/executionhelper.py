@@ -3,6 +3,7 @@ import sys
 import json
 import copy
 import time
+import uuid
 import shutil
 import os.path
 import numpy as np
@@ -31,43 +32,17 @@ import traceback
 from builtins import range
 
 # For DSBox Imputation arguments
-from dsbox.schema.problem_schema import TaskType, TaskSubType, Metric
 from dsbox.schema.data_profile import DataProfile
 from sklearn.linear_model import LinearRegression, LogisticRegression
 from sklearn.metrics import make_scorer
 
-# sklearn metric functions
-import sklearn.metrics
-
-
 REMOTE = False
 
 class ExecutionHelper(object):
-    def __init__(self, data_directory, outputdir, csvfile=None, schema_file=None):
+    def __init__(self, data_manager, schema_manager):
         self.e = Execution()
-        self.directory = os.path.abspath(data_directory)
-        self.outputdir = os.path.abspath(outputdir)
-        self.schema_file = schema_file
-        if schema_file is None:
-            self.schema_file = self.directory + os.sep + "dataSchema.json"
-        self.schema = self.load_json(self.schema_file)
-        self.columns = self.schema['trainData']['trainData']
-        self.targets = self.schema['trainData']['trainTargets']
-        self.indexcol = self.get_index_column(self.columns)
-        self.boundarycols = self.get_boundary_columns(self.columns)
-        self.media_type = self.get_media_type(self.schema, self.columns)
-        self.data = None
-        self.nested_table = dict()
-        if csvfile:
-            self.data = self.read_data(self.directory + os.sep + csvfile, self.columns, self.indexcol)
-        # To be set manually later (not via constructor)
-        self.task_type = None
-        self.task_subtype = None
-        self.metrics = []
-        self.metric_functions = []
-        self.problemid = None
-        self.tmp_dir = outputdir + os.sep + ".." + os.sep + "temp" # Default
-
+        self.dm = data_manager
+        self.sm = schema_manager
 
     def instantiate_primitive(self, primitive):
         executable = None
@@ -76,10 +51,10 @@ class ExecutionHelper(object):
         kwargs = {}
         if primitive.getInitKeywordArgs():
             kwargs = self._process_kwargs(
-                primitive.getInitKeywordArgs(), self.task_type, self.metric_functions)
+                primitive.getInitKeywordArgs(), self.sm.task_type, self.sm.metric_functions)
         if primitive.getInitArgs():
             args = self._process_args(
-                primitive.getInitArgs(), self.task_type, self.metric_functions)
+                primitive.getInitArgs(), self.sm.task_type, self.sm.metric_functions)
 
         # Instantiate primitive
         if REMOTE:
@@ -223,7 +198,7 @@ class ExecutionHelper(object):
         kf = KFold(n_splits=cv, shuffle=True, random_state=int(time.time()))
         metric_values = {}
 
-        tcols = [self.targets[1]['varName']]
+        tcols = [self.dm.data.target_columns[0]['varName']]
         yPredictions = None
         for k, (train, test) in enumerate(kf.split(X, y)):
             executable = self.instantiate_primitive(primitive)
@@ -253,9 +228,9 @@ class ExecutionHelper(object):
         yPredictions = yPredictions.sort_index()
 
         #print ("Trained on {} samples, Tested on {} samples".format(len(train), len(ypred)))
-        for i in range(0, len(self.metrics)):
-            metric = self.metrics[i]
-            fn = self.metric_functions[i]
+        for i in range(0, len(self.sm.metrics)):
+            metric = self.sm.metrics[i]
+            fn = self.sm.metric_functions[i]
             metric_val = self._call_function(fn, y, yPredictions)
             metric_values[metric.name] = metric_val
 
@@ -447,234 +422,6 @@ class ExecutionHelper(object):
 
         return pd.DataFrame(df, index=indices)
 
-    """
-    Set the task type and task subtype
-    """
-    def set_task_type(self, task_type, task_subtype=None):
-        self.task_type = TaskType(task_type)
-        self.task_subtype = None
-        if task_subtype is not None:
-            task_subtype = task_subtype.replace(self.task_type.value.title(), "")
-            self.task_subtype = TaskSubType(task_subtype)
-
-    """
-    Set the metric
-    """
-    def set_metric(self, metric):
-        metric = metric[0].lower() + metric[1:]
-        self.metrics = [Metric(metric)]
-        self.set_metric_functions()
-
-    def set_metrics(self, metrics):
-        self.metrics = metrics
-        self.set_metric_functions()
-
-    def set_metric_functions(self):
-        self.metric_functions = []
-        for metric in self.metrics:
-            self.metric_functions.append(self._get_metric_function(metric))
-
-    def _call_function(self, scoring_function, *args):
-        mod = inspect.getmodule(scoring_function)
-        try:
-            module = importlib.import_module(mod.__name__)
-            return scoring_function(*args)
-        except Exception as e:
-            sys.stderr.write("ERROR _call_function %s: %s\n" % (scoring_function, e))
-            traceback.print_exc()
-            return None
-
-    def get_index_column(self, columns):
-        for col in columns:
-            if col['varRole'] == 'index':
-                return col['varName']
-        return None
-
-    def get_boundary_columns(self, columns):
-        cols = []
-        for col in columns:
-            if col.get('varRole', None) == 'boundary':
-                cols.append(col['varName'])
-        return cols
-
-    def load_json(self, jsonfile):
-        with open(jsonfile) as json_data:
-            d = json.load(json_data)
-            json_data.close()
-            return d
-
-    def read_data(self, csvfile, cols, indexcol, labeldata=False):
-        # We look for the .csv.gz file by default. If it doesn't exist, try to load the .csv file
-        if not os.path.exists(csvfile) and csvfile.endswith('.gz'):
-            csvfile = csvfile[:-3]
-
-        # Read the csv file
-        df = pd.read_csv(csvfile)
-
-        # Filter columns if specified
-        if len(cols) > 0:
-            colnames = []
-            for col in cols:
-                colnames.append(col['varName'])
-
-            # Remove columns not specified
-            for colname, col in df.iteritems():
-                if colname not in colnames:
-                    df.drop(colname, axis=1, inplace=True)
-
-            # Check for nested tabular data files, and load them in
-            tabular_columns = []
-            index_columns = []
-            for col in cols:
-                colname = col['varName']
-                varRole = col.get('varRole', None)
-                varType = col.get('varType', None)
-                varFileType = col.get('varFileType', None)
-                if varRole == 'index':
-                    index_columns.append(colname)
-                if varType == 'file' and varFileType == 'tabular':
-                    tabular_columns.append(colname)
-                    filename = df.loc[:, colname].unique()
-                    if len(filename) > 1:
-                        raise AssertionError('Expecting one unique filename per column: {}'.format(colname))
-                    filename = filename[0]
-                    if not filename in self.nested_table:
-                        csvfile = self.directory + os.sep + 'raw_data' + os.sep + filename
-                        if not os.path.exists(csvfile):
-                            csvfile += '.gz'
-                        nested_df = self.read_data(csvfile, [], None)
-                        self.nested_table[filename] = nested_df
-
-
-            # Match index columns to tabular columns
-            if len(tabular_columns) == len(index_columns) - 1:
-                # New r_32 dataset has two tabular columns and three index columns. Need to remove d3mIndex
-                # New r_26 dataset has exactly one tabular column and one index column (d3mIndex)
-                index_columns = index_columns[1:]
-            if not len(tabular_columns) == len(index_columns):
-                raise AssertionError('Number tabular and index columns do not match: {} != {}'
-                                     .format(len(tabular_columns), (index_columns)))
-
-            # Check all columns for special roles
-            for col in cols:
-                colname = col['varName']
-                varRole = col.get('varRole', None)
-                varType = col.get('varType', None)
-                varFileType = col.get('varFileType', None)
-                if varRole == 'file' or varType == 'file':
-                    # If the role is "file", then load in the raw data files
-                    if self.media_type in (VariableFileType.TEXT, VariableFileType.IMAGE, VariableFileType.AUDIO):
-                        for index, row in df.iterrows():
-                            filepath = self.directory + os.sep + 'raw_data' + os.sep + row[colname]
-                            if self.media_type == VariableFileType.TEXT:
-                                # Plain data load for text files
-                                with open(filepath, 'rb') as myfile:
-                                    txt = myfile.read()
-                                    df.set_value(index, colname, txt)
-                            elif self.media_type == VariableFileType.IMAGE:
-                                # Load image files using keras with a standard target size
-                                # TODO: Make the (224, 224) size configurable
-                                from keras.preprocessing import image
-                                df.set_value(index, colname, image.load_img(filepath, target_size=(224, 224)))
-                            elif self.media_type == VariableFileType.AUDIO:
-                                # Load audio files
-                                import librosa
-                                # Load file
-                                try:
-                                    print (filepath)
-                                    (audio_clip, sampling_rate) = librosa.load(filepath, sr=None)
-                                    start = None
-                                    end = None
-                                    bcols = self.boundarycols
-                                    if len(bcols) == 2:
-                                        start = int(sampling_rate * float(row[bcols[0]]))
-                                        end = int(sampling_rate * float(row[bcols[1]]))
-                                        if start > end:
-                                            tmp = start
-                                            start = end
-                                            end = tmp
-                                        audio_clip = audio_clip[start:end]
-                                    df.set_value(index, colname, (audio_clip, sampling_rate))
-                                except Exception as e:
-                                    df.set_value(index, colname, None)
-
-            origdf = df
-            for file_colname, index_colname in zip(tabular_columns, index_columns):
-                # FIXME: Assumption here that all entries for the filename are the same per column
-                filename = origdf.iloc[0][file_colname]
-
-                # Merge the nested table with parent table on the index column
-                nested_table = self.nested_table[filename]
-                df = pd.merge(df, nested_table, on=index_colname)
-
-                # Remove file and index columns since the content has been replaced
-                del df[file_colname]
-                if index_colname != indexcol:
-                    del df[index_colname]
-                ncols = []
-                for col in cols:
-                    if col['varName'] not in [file_colname, index_colname]:
-                        ncols.append(col)
-                cols = ncols
-                # Add nested table columns
-                for nested_colname in nested_table.columns:
-                    if not nested_colname == index_colname:
-                        cols.append({'varName': nested_colname})
-
-            if cols:
-                if labeldata:
-                    self.targets = cols
-                else:
-                    self.columns = cols
-
-        if indexcol is not None:
-            # Set the table's index column
-            df = df.set_index(indexcol, drop=True)
-
-            if not labeldata:
-                # Check if we need to set the media type for any columns
-                profile = DataProfile(df)
-                if profile.profile[dpt.TEXT]:
-                    if self.media_type == VariableFileType.TABULAR or self.media_type is None:
-                        self.media_type = VariableFileType.TEXT
-                        for colname in profile.columns.keys():
-                            colprofile = profile.columns[colname]
-                            if colprofile[dpt.TEXT]:
-                                for col in self.columns:
-                                    if col['varName'] == colname:
-                                        col['varType'] = 'file'
-                                        col['varFileType'] = 'text'
-                                        col['varFileFormat'] = 'text/plain'
-
-        return df
-
-    def get_media_type(self, schema, cols):
-        if schema.get('rawData', False):
-            types = schema.get('rawDataFileTypes', {})
-            for ext in types.keys():
-                typ = types[ext]
-                return self._mime_to_media_type(typ)
-
-            # Check for nested tabular data files, and load them in
-            for col in cols:
-                varType = col.get('varType', None)
-                if varType == 'file':
-                    return VariableFileType(col.get('varFileType'))
-        return None
-
-    def _mime_to_media_type(self, mime):
-        if mime.startswith("text/csv"):
-            return VariableFileType.TABULAR
-        elif mime.startswith("text"):
-            return VariableFileType.TEXT
-        elif mime.startswith("image"):
-            return VariableFileType.IMAGE
-        elif mime.startswith("audio"):
-            return VariableFileType.AUDIO
-        elif mime.startswith("video"):
-            return VariableFileType.VIDEO
-        return None
-
     def raw_data_columns(self, columns):
         cols = []
         for col in columns:
@@ -727,10 +474,22 @@ class ExecutionHelper(object):
                 result_kwargs[key] = arg
         return result_kwargs
 
-    def create_pipeline_executable(self, pipeline, data_schema_file):
+    def create_pipeline_executable(self, pipeline, config):
         pipeid = pipeline.id
 
-        modelsdir = self.outputdir + os.sep + "models"
+        # Get directory information
+        train_dir = config['training_data_root']
+        exec_dir = config['executables_root']
+        tmp_dir = config['temp_storage_root']
+
+        # Copy over the data schema
+        # FIXME: Deal with multiple schemas (when dealing with multiple data uris from TA3)
+        orig_data_schema = config['dataset_schema']
+        data_schema_file = str(uuid.uuid4()) + ".json"
+        shutil.copyfile(orig_data_schema, tmp_dir + os.sep + data_schema_file)
+
+
+        modelsdir = exec_dir + os.sep + "models"
         if not os.path.exists(modelsdir):
             os.makedirs(modelsdir)
 
@@ -749,6 +508,8 @@ class ExecutionHelper(object):
                 ""
                 "import sklearn.externals",
                 "from dsbox.executer.executionhelper import ExecutionHelper",
+                "from dsbox.planner.common.data_manager import DataManager",
+                "from dsbox.planner.common.schema_manager import SchemaManager",
                 "from dsbox.schema.problem_schema import TaskType, Metric",
                 "",
                 "# Pipeline : %s" % str(pipeline),
@@ -758,11 +519,11 @@ class ExecutionHelper(object):
         statements.append("numpy.set_printoptions(threshold=numpy.nan)")
 
         statements.append("\n# Defaults unless overridden by config json")
-        resultsdir = os.path.abspath(self.outputdir + os.sep + ".." + os.sep + "results")
-        statements.append("test_data_root = '%s'" % self.directory)
+        resultsdir = os.path.abspath(exec_dir + os.sep + ".." + os.sep + "results")
+        statements.append("test_data_root = '%s'" % train_dir)
         statements.append("results_path = '%s%s%s.csv'" % (resultsdir, os.sep, pipeid))
         statements.append("executables_root = curdir")
-        statements.append("temp_storage_root = '%s'" % self.tmp_dir)
+        statements.append("temp_storage_root = '%s'" % tmp_dir)
 
         statements.append("\nconfig = {}")
         statements.append("if len(sys.argv) > 1:")
@@ -778,19 +539,22 @@ class ExecutionHelper(object):
         statements.append("if config.get('temp_storage_root', None) is not None:")
         statements.append("    temp_storage_root = config['temp_storage_root']")
 
-        statements.append("\nprint('Loading Data..')")
-        statements.append("hp = ExecutionHelper(test_data_root, temp_storage_root, 'testData.csv.gz', temp_storage_root + '/%s')" % data_schema_file)
-        statements.append("hp.task_type = %s" % self.task_type)
-
+        statements.append("\nsm = SchemaManager()")
+        statements.append("sm.task_type = %s" % self.sm.task_type)
         metricstrs = "["
-        for i in range(0, len(self.metrics)):
+        for i in range(0, len(self.sm.metrics)):
             if i > 0:
                 metricstrs += ","
-            metricstrs += str(self.metrics[i])
+            metricstrs += str(self.sm.metrics[i])
         metricstrs += "]"
-        statements.append("hp.metrics = %s" % metricstrs)
-        statements.append("hp.set_metric_functions()")
-        statements.append("testdata = hp.data")
+        statements.append("sm.metrics = %s" % metricstrs)
+        statements.append("sm.set_metric_functions()")
+
+        statements.append("\ndm = DataManager()")
+        statements.append("dm.initialize_test_data_from_defaults(temp_storage_root + '/%s', test_data_root)" % data_schema_file)
+        statements.append("testdata = dm.data.input_data")
+
+        statements.append("\nhp = ExecutionHelper(dm, sm)")
         index = 1
         for primitive in pipeline.primitives:
             primid = "primitive_%s" % str(index)
@@ -811,7 +575,7 @@ class ExecutionHelper(object):
                         primitive.executables = None
 
                 primfilename = "models%s%s.%s.pkl" % (os.sep, pipeid, primid)
-                primfile = "%s%s%s" % (self.outputdir, os.sep, primfilename)
+                primfile = "%s%s%s" % (exec_dir, os.sep, primfilename)
                 statements.append("primfile = executables_root + '%s%s'" % (os.sep, primfilename))
                 statements.append("%s = sklearn.externals.joblib.load(primfile)" % primid)
                 joblib.dump(primitive, primfile)
@@ -834,13 +598,14 @@ class ExecutionHelper(object):
                 statements.append("resultsdir = os.path.dirname(results_path)")
                 statements.append("if not os.path.exists(resultsdir):")
                 statements.append("    os.makedirs(resultsdir)")
+                target_column = self.dm.data.target_columns[0]['varName']
                 if primitive.unified_interface:
                     statements.append("result = pandas.DataFrame(%s.executables.produce(inputs=testdata), index=testdata.index, columns=['%s'])" %
-                        (primid, self.targets[1]['varName']))
+                        (primid, target_column))
                 else:
                     statements.append("result = pandas.DataFrame(%s.executables.predict(testdata), index=testdata.index, columns=['%s'])" %
-                        (primid, self.targets[1]['varName']))
-                statements.append("result.to_csv(results_path, index_label='%s')" % self.targets[0]['varName'])
+                        (primid, target_column))
+                statements.append("result.to_csv(results_path, index_label='%s')" % self.dm.data.index_column)
             else:
                 if primitive.task == "PreProcessing":
                     statements.append("testdata = hp.test_execute_primitive(%s, testdata)" % primid)
@@ -850,7 +615,7 @@ class ExecutionHelper(object):
             index += 1
 
         # Write executable
-        exfilename = "%s%s%s" % (self.outputdir, os.sep, pipeid)
+        exfilename = "%s%s%s" % (exec_dir, os.sep, pipeid)
         with open(exfilename, 'a') as exfile:
             exfile.write("#!/usr/bin/env python\n\n")
             for imp in set(imports):
@@ -859,51 +624,12 @@ class ExecutionHelper(object):
                 exfile.write(st+"\n")
         os.chmod(exfilename, 0o755)
 
-
-    def _get_metric_function(self, metric):
-        if metric==Metric.ACCURACY:
-            return sklearn.metrics.accuracy_score
-        elif metric==Metric.F1:
-            return sklearn.metrics.f1_score
-        elif metric==Metric.F1_MICRO:
-            return self.f1_micro
-        elif metric==Metric.F1_MACRO:
-            return self.f1_macro
-        elif metric==Metric.ROC_AUC:
-            return sklearn.metrics.roc_auc_score
-        elif metric==Metric.ROC_AUC_MICRO:
-            return self.roc_auc_micro
-        elif metric==Metric.ROC_AUC_MACRO:
-            return self.roc_auc_macro
-        elif metric==Metric.MEAN_SQUARED_ERROR:
-            return sklearn.metrics.mean_squared_error
-        elif metric==Metric.ROOT_MEAN_SQUARED_ERROR:
-            return self.root_mean_squared_error
-        elif metric==Metric.ROOT_MEAN_SQUARED_ERROR_AVG:
-            return self.root_mean_squared_error
-        elif metric==Metric.MEAN_ABSOLUTE_ERROR:
-            return sklearn.metrics.mean_absolute_error
-        elif metric==Metric.R_SQUARED:
-            return sklearn.metrics.r2_score
-        elif metric==Metric.NORMALIZED_MUTUAL_INFORMATION:
-            return sklearn.metrics.normalized_mutual_info_score
-        elif metric==Metric.JACCARD_SIMILARITY_SCORE:
-            return sklearn.metrics.jaccard_similarity_score
-        return sklearn.metrics.accuracy_score
-
-    ''' Custom Metric Functions '''
-    def f1_micro(self, y_true, y_pred):
-        return sklearn.metrics.f1_score(y_true, y_pred, average="micro")
-
-    def f1_macro(self, y_true, y_pred):
-        return sklearn.metrics.f1_score(y_true, y_pred, average="macro")
-
-    def roc_auc_micro(self, y_true, y_pred):
-        return sklearn.metrics.roc_auc_score(y_true, y_pred, average="micro")
-
-    def roc_auc_macro(self, y_true, y_pred):
-        return sklearn.metrics.roc_auc_score(y_true, y_pred, average="macro")
-
-    def root_mean_squared_error(self, y_true, y_pred):
-        import math
-        return math.sqrt(sklearn.metrics.mean_squared_error(y_true, y_pred))
+    def _call_function(self, scoring_function, *args):
+        mod = inspect.getmodule(scoring_function)
+        try:
+            module = importlib.import_module(mod.__name__)
+            return scoring_function(*args)
+        except Exception as e:
+            sys.stderr.write("ERROR _call_function %s: %s\n" % (scoring_function, e))
+            traceback.print_exc()
+            return None

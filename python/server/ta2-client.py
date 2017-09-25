@@ -16,13 +16,16 @@ import pandas
 
 import core_pb2 as core
 import core_pb2_grpc as crpc
+import data_ext_pb2 as dext
+import data_ext_pb2_grpc as drpc
 import dataflow_ext_pb2 as dfext
 import dataflow_ext_pb2_grpc as dfrpc
 
 def run():
     channel = grpc.insecure_channel('localhost:8888')
     stub = crpc.CoreStub(channel)
-    dfstub = dfext.DataflowExtStub(channel)
+    dstub = drpc.DataExtStub(channel)
+    dfstub = dfrpc.DataflowExtStub(channel)
 
     # Start Session
     session_response = stub.StartSession(
@@ -36,31 +39,25 @@ def run():
             data_uri="file:///tmp/data/o_185/data", feature_id="*")
     ]
     some_features = [
-        core.Feature(data_uri="file:///tmp/data/o_185/data",
-                   feature_id="d3mIndex"),
-        core.Feature(data_uri="file:///tmp/data/o_185/data",
-                   feature_id="Games_played"),
-        core.Feature(
-            data_uri="file:///tmp/data/o_185/data", feature_id="Runs"),
-        core.Feature(
-            data_uri="file:///tmp/data/o_185/data", feature_id="Hits"),
-        core.Feature(data_uri="file:///tmp/data/o_185/data",
-                   feature_id="Home_runs")
+        core.Feature(data_uri="file:///tmp/data/o_185/data", feature_id="d3mIndex"),
+        core.Feature(data_uri="file:///tmp/data/o_185/data", feature_id="Games_played"),
+        core.Feature(data_uri="file:///tmp/data/o_185/data", feature_id="Runs"),
+        core.Feature(data_uri="file:///tmp/data/o_185/data", feature_id="Hits"),
+        core.Feature(data_uri="file:///tmp/data/o_185/data", feature_id="Home_runs")
     ]
     target_features = [
-        core.Feature(
-            data_uri="file:///tmp/data/o_185/data", feature_id="*")
+        core.Feature(data_uri="file:///tmp/data/o_185/data", feature_id="*")
     ]
     task = core.TaskType.Value('CLASSIFICATION')
     task_subtype = core.TaskSubtype.Value('MULTICLASS')
     task_description = "Classify Hall of Fame"
     output = core.OutputType.Value('FILE')
     metrics = [core.Metric.Value('F1_MICRO'), core.Metric.Value('F1_MACRO')]
-    max_pipelines = 20
+    max_pipelines = 10
 
     pipeline_ids = []
 
-    print("Training with all features")
+    print("Training with some features")
     pc_request = core.PipelineCreateRequest(
         context=session_context,
         train_features=all_features,
@@ -93,7 +90,7 @@ def run():
         max_pipelines = max_pipelines
     )
     '''
-    
+
     # Iterate over results
     for pcr in stub.CreatePipelines(pc_request):
         print(str(pcr))
@@ -104,11 +101,13 @@ def run():
                 pipeline_id = pcr.pipeline_id
             ))
             print(dflow)
-        '''
-        if len(pcr.pipeline_info.predict_result_uris) > 0:
-            df = pandas.read_csv(pcr.pipeline_info.predict_result_uris[0], index_col="d3mIndex")
-            print(df)
-        '''
+            '''
+            if len(pcr.pipeline_info.predict_result_uris) > 0:
+                df = pandas.read_csv(pcr.pipeline_info.predict_result_uris[0], index_col="d3mIndex")
+                print(df)
+            '''
+
+    print ("************** Executing/Testing Pipelines")
 
     # Execute pipelines
     for pipeline_id in pipeline_ids:
@@ -116,7 +115,7 @@ def run():
         ep_request = core.PipelineExecuteRequest(
             context=session_context,
             pipeline_id=pipeline_id,
-            predict_features=some_features
+            predict_features=all_features
         )
         for ecr in stub.ExecutePipeline(ep_request):
             print(str(ecr))
@@ -144,6 +143,7 @@ def run():
     for gepr in stub.GetExecutePipelineResults(perr):
         print(str(gepr))
 
+    print ("*********** Updating Metric to Accuracy.. Create pipelines again")
     metric = core.Metric.Value('ACCURACY')
     ups_request = core.UpdateProblemSchemaRequest(
         context=session_context,
@@ -152,15 +152,11 @@ def run():
         ]
     )
     stub.UpdateProblemSchema(ups_request)
-
-    '''
-    for pcr in stub.CreatePipelines(pc_request):
+    for pcr in stub.CreatePipelines(core.PipelineCreateRequest(context=session_context)):
         print(str(pcr))
-        if len(pcr.pipeline_info.scores) > 0:
-            pipeline_ids.append(pcr.pipeline_id)
-    '''
 
     stub.EndSession(session_context)
+
 
 if __name__ == '__main__':
     run()

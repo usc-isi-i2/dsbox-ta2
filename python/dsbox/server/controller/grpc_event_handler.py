@@ -90,8 +90,9 @@ class GRPC_PlannerEventHandler(PlannerEventHandler):
         return result
 
     def _create_response(self, message, code="OK"):
-        status = core.Status(code=core.StatusCode.Value('OK'), details=message)
+        status = core.Status(code=core.StatusCode.Value(code), details=message)
         response = core.Response(status=status)
+        return response
 
     def _create_progress(self, value):
         return core.Progress.Value(value)

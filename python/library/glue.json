@@ -25,15 +25,5 @@
     "NotPersistent": true,
     "Requirements": ["NUMERICAL", "MISSING_VALUES"],
     "Effects": ["!MISSING_VALUES"]
-  },
-  {
-    "Class": "dsbox.datapreprocessing.cleaner.Imputation",
-    "Name": "DSBox Imputer",
-    "Task": "PreProcessing",
-    "LearningType": "Imputation",
-    "NotPersistent": false,
-    "InitArguments": ["*ESTIMATOR", "*SCORER"],
-    "Requirements": ["NUMERICAL", "MISSING_VALUES"],
-    "Effects": ["!MISSING_VALUES"]
   }
 ]

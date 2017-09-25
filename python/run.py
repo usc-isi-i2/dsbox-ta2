@@ -69,8 +69,8 @@ USAGE
 
     controller = Controller(library_directory)
     controller.set_config_simple(data_directory, output_directory)
-    controller.initialize_data_from_defaults()
     controller.load_problem_schema()
+    controller.initialize_training_data_from_defaults()
     controller.initialize_planners()
     for result in controller.train(PlannerEventHandler()):
         pass

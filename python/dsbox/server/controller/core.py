@@ -44,39 +44,54 @@ class Core(crpc.CoreServicer):
         # Get training and target features
         train_features = []
         target_features = []
-        for tfeature in request.train_features:
-            datadir = self._create_path_from_uri(tfeature.data_uri)
-            featureid = tfeature.feature_id
-            train_features.append(Feature(datadir, featureid))
-        for tfeature in request.target_features:
-            datadir = self._create_path_from_uri(tfeature.data_uri)
-            featureid = tfeature.feature_id
-            target_features.append(Feature(datadir, featureid))
+        if len(request.train_features) > 0:
+            for tfeature in request.train_features:
+                datadir = self._create_path_from_uri(tfeature.data_uri)
+                featureid = tfeature.feature_id
+                train_features.append(Feature(datadir, featureid))
+        if len(request.target_features) > 0:
+            for tfeature in request.target_features:
+                datadir = self._create_path_from_uri(tfeature.data_uri)
+                featureid = tfeature.feature_id
+                target_features.append(Feature(datadir, featureid))
 
-        cutoff = request.max_pipelines
-        # Create the planning controller
-        c = Controller(self.libdir)
-        c.set_config_simple('', session.outputdir)
-        c.initialize_data_from_features(train_features, target_features)
+        # Create the planning controller if not already present
+        c = session.controller
+        if c is None:
+            c = Controller(self.libdir)
+            c.set_config_simple(datadir, session.outputdir)
 
-        # Get Problem details
-        c.helper.task_type = TaskType[core.TaskType.Name(request.task)]
-        if request.task_subtype is not None:
-            c.task_subtype = TaskSubType[core.TaskSubtype.Name(request.task_subtype)]
-        c.output_type = core.OutputType.Name(request.output)
+        # Initialize Data
+        if len(train_features) > 0 or len(target_features) > 0:
+            c.train_dm.initialize_training_data_from_features(train_features, target_features)
+
+        # Set Problem schema
+        if request.task > 0:
+            c.sm.task_type = TaskType[core.TaskType.Name(request.task)]
+        if request.task_subtype > 0:
+            c.sm.task_subtype = TaskSubType[core.TaskSubtype.Name(request.task_subtype)]
+        if request.output > 0:
+            c.sm.output_type = core.OutputType.Name(request.output)
 
         # Load metrics
         metrics = []
-        for rm in request.metrics:
-            metrics.append( Metric[core.Metric.Name(rm)] )
-        c.helper.set_metrics(metrics)
+        if len(request.metrics) > 0:
+            for rm in request.metrics:
+                metrics.append( Metric[core.Metric.Name(rm)] )
+            c.sm.set_metrics(metrics)
 
-        # Start planning
+        # Set the max pipelines cutoff
+        cutoff = None
+        if request.max_pipelines is not None:
+            cutoff = request.max_pipelines
+
+        # Start planning / training
         session.controller = c
         session.controller.initialize_planners()
         for result in session.controller.train(GRPC_PlannerEventHandler(session), cutoff=cutoff):
             if result is not None:
                 yield result
+
 
     def ExecutePipeline(self, request, context):
         """Predict step - multiple results messages returned via GRPC streaming.
@@ -102,7 +117,7 @@ class Core(crpc.CoreServicer):
         handler = GRPC_PlannerEventHandler(session)
         handler.StartExecutingPipeline(pipeline)
 
-        session.controller.initialize_test_data_from_features(test_features)
+        session.controller.test_dm.initialize_test_data_from_features(test_features)
 
         # Change this to be a yield too.. Save should happen within the handler
         for result in session.controller.test(pipeline, handler):
@@ -165,25 +180,19 @@ class Core(crpc.CoreServicer):
             for update in request.updates:
                 if update.task_type:
                     # Get Problem details
-                    c.helper.task_type = TaskType[core.TaskType.Name(update.task_type)]
+                    c.sm.task_type = TaskType[core.TaskType.Name(update.task_type)]
                 if update.task_subtype:
-                    c.task_subtype = TaskSubType[core.TaskSubtype.Name(update.task_subtype)]
+                    c.sm.task_subtype = TaskSubType[core.TaskSubtype.Name(update.task_subtype)]
                 if update.output_type:
-                    c.output_type = core.OutputType.Name(update.output_type)
+                    c.sm.output_type = core.OutputType.Name(update.output_type)
                 if update.metric:
                     metric = Metric[core.Metric.Name(update.metric)]
-                    c.helper.set_metrics([metric])
-            #print(c.helper.metrics)
-
-            session.controller.l2_planner.execution_cache.clear()
-            session.controller.l2_planner.primitive_cache.clear()
-            session.controller.train(GRPC_PlannerEventHandler(session))
-
+                    c.sm.set_metrics([metric])
+            session.controller = c
             return self._create_response("Updated Problem Schema")
 
     def add_to_server(self, server):
         crpc.add_CoreServicer_to_server(self, server)
-
 
     '''
     Helper functions

@@ -113,7 +113,7 @@ class LevelTwoPlanner(object):
     """
     # TODO: Currently no patching being done
 
-    def patch_and_execute_pipeline(self, pipeline, df, df_lbl, columns):
+    def patch_and_execute_pipeline(self, pipeline, df, df_lbl):
         print("** Running Pipeline: %s" % pipeline)
 
         #df = copy.deepcopy(df)
