@@ -687,7 +687,10 @@ class ExecutionHelper(object):
     def _process_args(self, args, task_type, metrics):
         result_args = []
         for arg in args:
-            if (isinstance(arg, str) or isinstance(arg, unicode)) and arg.startswith('*'):
+            if isinstance(arg, str) and arg.startswith('*'):
+                result_args.append(self._get_arg_value(arg, task_type, metrics))
+            elif sys.version_info[0]==2 and isinstance(arg, unicode) and arg.startswith('*'):
+                # For python 2 need to check for unicode strings
                 result_args.append(self._get_arg_value(arg, task_type, metrics))
             else:
                 result_args.append(arg)

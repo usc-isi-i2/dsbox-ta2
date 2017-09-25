@@ -189,7 +189,7 @@ class Hierarchy(object):
         """Computes the number of nodes at each level"""
         if len(counts) < level + 1:
             counts = counts + [0]
-        counts[level] += 1
+        counts[level] = counts[level] + 1
         for child in node.children:
             counts = self._compute_level_counts(child, level+1, counts)
         return counts
@@ -202,9 +202,9 @@ class Hierarchy(object):
         """Returns the number of primitives"""
         count = 0
         if curr_node._content is not None:
-            count += len(curr_node._content)
+            count = count + len(curr_node._content)
         for child in curr_node.children:
-            count += self._get_primitive_count(child)
+            count = count + self._get_primitive_count(child)
         return count
 
     def get_primitives(self, curr_node=None):
@@ -214,7 +214,7 @@ class Hierarchy(object):
         if curr_node._content is not None:
             result.append(curr_node._content)
         for child in curr_node.children:
-            result += self.get_primitives(child)
+            result = result + self.get_primitives(child)
         return result
 
     def get_primitives_as_list(self, curr_node=None):
@@ -233,7 +233,7 @@ class Hierarchy(object):
         else:
             result = []
             for node in curr_node.children:
-                result += self._get_nodes_by_level(node, curr_level + 1, target_level)
+                result = result + self._get_nodes_by_level(node, curr_level + 1, target_level)
             return result
 
     def get_node_by_primitive(self, primitive):
@@ -325,13 +325,13 @@ class Primitives(object):
             if len(primitive.tags) > 0:
                 tag_str = ':'.join(primitive.tags)
             if primitive.learning_type == Category.CLASSIFICATION:
-                classification += 1
+                classification = classification + 1
                 # classification_algo[primitive.ml_algorithm] += 1
-                classification_algo[tag_str] += 1
+                classification_algo[tag_str] = classification_algo[tag_str] + 1
                 tag_primitive['C:' + tag_str].append(primitive.name)
             elif primitive.learning_type == Category.REGRESSION:
-                regression += 1
-                regression_algo[tag_str] += 1
+                regression = regression + 1
+                regression_algo[tag_str] = regression_algo[tag_str] + 1
                 tag_primitive['R:' + tag_str].append(primitive.name)
             else:
                 tag_primitive['O:' + tag_str].append(primitive.name)
@@ -488,7 +488,7 @@ class D3mPrimitives(Primitives):
         super(D3mPrimitives, self).__init__()
         self._load()
         if additional_primitives:
-            self.primitives += additional_primitives
+            self.primitives = self.primitives + additional_primitives
         for index, primitive in enumerate(self.primitives):
             self._index[primitive] = index
         self.size = len(self.primitives)

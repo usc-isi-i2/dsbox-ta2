@@ -110,7 +110,7 @@ def generate_performance_data(min_data_point_num,max_data_point_num,min_attribut
     #only generate float version
     for d in range(min_data_point_num,max_data_point_num,step):
         for a in range(min_attribute_num,max_attribute_num,step):
-            print 'data point num:',d,'attr num:',a
+            print('data point num:',d,'attr num:',a)
             float_clean_data=generate_float_clean_data(data_point_num=d,attribute_num=a)
         with open(source_dir+"/float_{0}_{1}.csv".format(d,a), "wb") as f:
             writer = csv.writer(f)

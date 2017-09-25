@@ -2,6 +2,8 @@ import sys
 import copyreg
 import types
 import functools
+import threading
+import pickle
 
 def reduce_method(method):
     '''Reducer for methods.'''
