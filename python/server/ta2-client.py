@@ -16,10 +16,13 @@ import pandas
 
 import core_pb2 as core
 import core_pb2_grpc as crpc
+import dataflow_ext_pb2 as dfext
+import dataflow_ext_pb2_grpc as dfrpc
 
 def run():
     channel = grpc.insecure_channel('localhost:8888')
     stub = crpc.CoreStub(channel)
+    dfstub = dfext.DataflowExtStub(channel)
 
     # Start Session
     session_response = stub.StartSession(
@@ -57,7 +60,6 @@ def run():
 
     pipeline_ids = []
 
-    '''
     print("Training with all features")
     pc_request = core.PipelineCreateRequest(
         context=session_context,
@@ -71,12 +73,12 @@ def run():
         max_pipelines=max_pipelines
     )
 
+    '''
     # Iterate over results
     for pcr in stub.CreatePipelines(pc_request):
         print(str(pcr))
         if len(pcr.pipeline_info.scores) > 0:
             pipeline_ids.append(pcr.pipeline_id)
-    '''
 
     print("Training with some features")
     pc_request = core.PipelineCreateRequest(
@@ -90,12 +92,18 @@ def run():
         target_features = target_features,
         max_pipelines = max_pipelines
     )
-
+    '''
+    
     # Iterate over results
     for pcr in stub.CreatePipelines(pc_request):
         print(str(pcr))
         if len(pcr.pipeline_info.scores) > 0:
             pipeline_ids.append(pcr.pipeline_id)
+            dflow = dfstub.DescribeDataflow(dfext.PipelineReference(
+                context = session_context,
+                pipeline_id = pcr.pipeline_id
+            ))
+            print(dflow)
         '''
         if len(pcr.pipeline_info.predict_result_uris) > 0:
             df = pandas.read_csv(pcr.pipeline_info.predict_result_uris[0], index_col="d3mIndex")
