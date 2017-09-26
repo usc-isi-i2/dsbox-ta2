@@ -303,10 +303,10 @@ class ExecutionHelper(object):
         df = copy.deepcopy(df) # Featurise will alter the dataframe, so we take a copy
         persistent = primitive.is_persistent
         ncols = [col.format() for col in df.columns]
-        featurecols = self.raw_data_columns(self.columns)
+        featurecols = self.raw_data_columns(self.dm.data.input_columns)
         indices = df.index
         for col in featurecols:
-            if self.media_type == VariableFileType.TEXT:
+            if self.dm.data.media_type == VariableFileType.TEXT:
                 executable = self.instantiate_primitive(primitive)
                 if executable is None:
                     primitive.finished = True
@@ -328,7 +328,7 @@ class ExecutionHelper(object):
                 ncols.remove(col)
                 df = pd.concat([df, newdf], axis=1)
                 df.columns=ncols
-            elif self.media_type == VariableFileType.IMAGE:
+            elif self.dm.data.media_type == VariableFileType.IMAGE:
                 executable = self.instantiate_primitive(primitive)
                 if executable is None:
                     primitive.finished = True
@@ -342,7 +342,7 @@ class ExecutionHelper(object):
                 ncols.remove(col)
                 df = pd.concat([df, newdf], axis=1)
                 df.columns=ncols
-            elif self.media_type == VariableFileType.AUDIO:
+            elif self.dm.data.media_type == VariableFileType.AUDIO:
                 # Featurize audio
                 fcols = []
                 for idx, row in df.iterrows():
@@ -391,7 +391,7 @@ class ExecutionHelper(object):
     def test_featurise(self, primitive, df):
         persistent = primitive.is_persistent
         ncols = [col.format() for col in df.columns]
-        featurecols = self.raw_data_columns(self.columns)
+        featurecols = self.raw_data_columns(self.dm.data.input_columns)
         indices = df.index
         for col in featurecols:
             executable = None
@@ -402,7 +402,7 @@ class ExecutionHelper(object):
             if executable is None:
                 return None
 
-            if self.media_type == VariableFileType.TEXT:
+            if self.dm.data.media_type == VariableFileType.TEXT:
                 # Using an unfitted primitive for each column (needed for Corex)
                 #df_col = pd.DataFrame(df[col])
                 #executable.fit(df_col)
@@ -421,7 +421,7 @@ class ExecutionHelper(object):
                 ncols.remove(col)
                 df = pd.concat([df, newdf], axis=1)
                 df.columns=ncols
-            elif self.media_type == VariableFileType.IMAGE:
+            elif self.dm.data.media_type == VariableFileType.IMAGE:
                 image_tensor = self._as_tensor(df[col].values)
                 nvals = executable.transform(image_tensor)
                 fcols = [(col.format() + "_" + str(index)) for index in range(0, nvals.shape[1])]
@@ -431,7 +431,7 @@ class ExecutionHelper(object):
                 ncols.remove(col)
                 df = pd.concat([df, newdf], axis=1)
                 df.columns=ncols
-            elif self.media_type == VariableFileType.AUDIO:
+            elif self.dm.data.media_type == VariableFileType.AUDIO:
                 # Featurize audio
                 fcols = []
                 for idx, row in df.iterrows():
