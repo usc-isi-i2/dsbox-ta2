@@ -78,37 +78,44 @@ class ExecutionHelper(object):
 
     @stopit.threading_timeoutable()
     def execute_primitive(self, primitive, df, df_lbl, cur_profile=None):
+        primitive.start_time = time.time()
         persistent = primitive.is_persistent
         indices = df.index
-        if primitive.column_primitive:
-            # print(df.columns)
-            # A primitive that is run per column
-            for col in df.columns:
-                colname = col.format()
-                colprofile = None
-                if cur_profile is not None:
-                    colprofile = cur_profile.columns[colname]
+        try:
+            if primitive.column_primitive:
+                # print(df.columns)
+                # A primitive that is run per column
+                for col in df.columns:
+                    colname = col.format()
+                    colprofile = None
+                    if cur_profile is not None:
+                        colprofile = cur_profile.columns[colname]
 
-                if self._profile_matches_precondition(primitive.preconditions, colprofile) and not colprofile[dpt.LIST]:
-                    try:
+                    if self._profile_matches_precondition(primitive.preconditions, colprofile) and not colprofile[dpt.LIST]:
                         executable = self.instantiate_primitive(primitive)
-
                         # FIXME: Hack for Label encoder for python3 (cannot handle missing values)
                         if (primitive.name == "Label Encoder") and (sys.version_info[0] == 3):
                             df[col] = df[col].fillna('')
                         (df[col], executable) = self._execute_primitive(
                             primitive, executable, df[col], None, False, persistent)
                         primitive.executables[colname] = executable
-                    except Exception as e:
-                        sys.stderr.write("ERROR execute_primitive(%s): %s\n" % (primitive, e))
-                        traceback.print_exc()
-                        return None
-        else:
-            primitive.executables = self.instantiate_primitive(primitive)
-            if self._profile_matches_precondition(primitive.preconditions, cur_profile.profile):
-                (df, executable) = self._execute_primitive(
-                    primitive, primitive.executables, df, df_lbl, False, persistent)
-                primitive.executables = executable
+            else:
+                primitive.executables = self.instantiate_primitive(primitive)
+                if self._profile_matches_precondition(primitive.preconditions, cur_profile.profile):
+                    (df, executable) = self._execute_primitive(
+                        primitive, primitive.executables, df, df_lbl, False, persistent)
+                    primitive.executables = executable
+
+        except Exception as e:
+            sys.stderr.write("ERROR execute_primitive(%s): %s\n" % (primitive, e))
+            traceback.print_exc()
+            primitive.finished = True
+            return None
+
+        primitive.end_time = time.time()
+        primitive.finished = True
+        primitive.progress = 1.0
+        primitive.pipeline.notifyChanges()
 
         return pd.DataFrame(df, index=indices)
 
@@ -195,11 +202,14 @@ class ExecutionHelper(object):
 
     @stopit.threading_timeoutable()
     def cross_validation_score(self, primitive, X, y, cv=4):
+        primitive.start_time = time.time()
+
         kf = KFold(n_splits=cv, shuffle=True, random_state=int(time.time()))
         metric_values = {}
 
         tcols = [self.dm.data.target_columns[0]['varName']]
         yPredictions = None
+        num = 0.0
         for k, (train, test) in enumerate(kf.split(X, y)):
             executable = self.instantiate_primitive(primitive)
             trainX = X.take(train, axis=0)
@@ -225,6 +235,11 @@ class ExecutionHelper(object):
             else:
                 yPredictions = pd.concat([yPredictions, ypredDF])
 
+            num = num + 1.0
+            # TODO: Removing this for now
+            primitive.progress = num/cv
+            primitive.pipeline.notifyChanges()
+
         yPredictions = yPredictions.sort_index()
 
         #print ("Trained on {} samples, Tested on {} samples".format(len(train), len(ypred)))
@@ -246,6 +261,11 @@ class ExecutionHelper(object):
                 executable.fit(X, y.values.ravel())
         primitive.executables = executable
 
+        primitive.end_time = time.time()
+        primitive.progress = 1.0
+        primitive.finished = True
+        primitive.pipeline.notifyChanges()
+
         #print ("Returning {}".format(metric_values))
         return (yPredictions, metric_values)
 
@@ -259,6 +279,8 @@ class ExecutionHelper(object):
 
     @stopit.threading_timeoutable()
     def featurise(self, primitive, df):
+        primitive.start_time = time.time()
+
         df = copy.deepcopy(df) # Featurise will alter the dataframe, so we take a copy
         persistent = primitive.is_persistent
         ncols = [col.format() for col in df.columns]
@@ -330,6 +352,11 @@ class ExecutionHelper(object):
                     del df[self.boundarycols[1]]
 
             primitive.executables[col] = executable
+
+        primitive.end_time = time.time()
+        primitive.progress = 1.0
+        primitive.finished = True
+        primitive.pipeline.notifyChanges()
 
         return pd.DataFrame(df, index=indices)
 

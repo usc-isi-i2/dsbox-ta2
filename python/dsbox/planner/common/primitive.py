@@ -4,11 +4,13 @@ class Primitive(object):
     """
 
     def __init__(self, name, cls):
+        # Basic information from D3M library
         self.name = name
         self.cls = cls
         self.task = None
         self.type = None
-        self.executables = {}
+
+        # Extra information added by our custom library
         self.preconditions = {}
         self.effects = {}
         self.is_persistent = True
@@ -16,6 +18,15 @@ class Primitive(object):
         self.unified_interface = False
         self.init_args = []
         self.init_kwargs = {}
+
+        # Execution details
+        self.executables = {}
+        self.start_time = None
+        self.end_time = None
+        self.progress = 0.0
+        self.finished = False
+
+        self.pipeline = None # The pipeline that this primitive is a part of (if any)
 
     def addPrecondition(self, precondition):
         self.preconditions.update(precondition)

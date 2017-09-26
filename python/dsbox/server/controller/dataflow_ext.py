@@ -67,11 +67,51 @@ class DataflowExt(dfrpc.DataflowExtServicer):
         )
 
     def GetDataflowResults(self, request, context):
-        # missing associated documentation comment in .proto file
-        pass
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
+        session = Session.get(request.context.session_id)
+        ok = True
+        if session is None:
+            response = self._create_response("Dataflow results", code="SESSION_UNKNOWN")
+            ok = False
+
+        pipeline = session.get_pipeline(request.pipeline_id)
+        if pipeline is None:
+            response = self._create_response("Dataflow results", code="INTERNAL")
+            ok = False
+        if ok:
+            if pipeline.finished:
+                for result in self._get_pipeline_results(pipeline):
+                    yield result
+            else:
+                while not pipeline.finished:
+                    pipeline.waitForChanges()
+                    for result in self._get_pipeline_results(pipeline):
+                        yield result
+        else:
+            yield dfext.ModuleResult(response_info = response)
+
+    def _get_pipeline_results(self, pipeline):
+        response = self._create_response("Dataflow results")
+        for primitive in pipeline.primitives:
+            status = dfext.ModuleResult.PENDING
+            if primitive.start_time is not None:
+                status = dfext.ModuleResult.Status.Value('RUNNING')
+            if primitive.finished:
+                if primitive.progress == 1.0:
+                    status = dfext.ModuleResult.Status.Value('DONE')
+                else:
+                    status = dfext.ModuleResult.Status.Value('ERROR')
+
+            execution_time = None
+            if primitive.end_time is not None:
+                excution_time = primitive.end_time - primitive.start_time
+            result = dfext.ModuleResult(
+                response_info = response,
+                module_id = primitive.cls,
+                progress = primitive.progress,
+                execution_time = execution_time,
+                status = status
+            )
+            yield result
 
     def add_to_server(self, server):
         dfrpc.add_DataflowExtServicer_to_server(self, server)

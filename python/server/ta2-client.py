@@ -94,6 +94,11 @@ def run():
     # Iterate over results
     for pcr in stub.CreatePipelines(pc_request):
         print(str(pcr))
+        '''
+        for gdr in dfstub.GetDataflowResults(dfext.PipelineReference(context = session_context,
+                pipeline_id = pcr.pipeline_id)):
+            print(gdr)
+        '''
         if len(pcr.pipeline_info.scores) > 0:
             pipeline_ids.append(pcr.pipeline_id)
             dflow = dfstub.DescribeDataflow(dfext.PipelineReference(

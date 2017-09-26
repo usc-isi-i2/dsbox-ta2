@@ -1,5 +1,6 @@
 import uuid
 import copy
+import threading
 
 class PipelineExecutionResult(object):
     """
@@ -24,6 +25,10 @@ class Pipeline(object):
         # Execution Results
         self.planner_result = None
         self.test_result = None
+
+        # Change notification
+        self.changes = threading.Condition()
+        self.finished = False
 
     def clone(self, idcopy=False):
         pipeline = copy.deepcopy(self)
@@ -55,8 +60,25 @@ class Pipeline(object):
     def replaceSubpipelineAt(self, index, subpipeline):
         self.primitives[index:index] = subpipeline.primitives
 
+    def notifyChanges(self):
+        self.changes.acquire()
+        self.changes.notifyAll()
+        self.changes.release()
+
+    def waitForChanges(self):
+        self.changes.acquire()
+        self.changes.wait()
+        self.changes.release()
+
     def __str__(self):
         return str(self.primitives)
 
     def __repr__(self):
         return str(self.primitives)
+
+    def __getstate__(self):
+        return (self.id, self.primitives, self.planner_result, self.test_result, self.finished)
+
+    def __setstate__(self, state):
+        self.id, self.primitives, self.planner_result, self.test_result, self.finished = state
+        self.changes = threading.Condition()

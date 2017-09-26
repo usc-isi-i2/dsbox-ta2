@@ -27,6 +27,7 @@ class GRPC_PlannerEventHandler(PlannerEventHandler):
     def RunningPipeline(self, pipeline):
         response = self._create_response("Pipeline Running")
         progress = self._create_progress("RUNNING")
+        self.session.update_pipeline(pipeline)
         result = core.PipelineCreateResult(
             response_info = response,
             progress_info = progress,

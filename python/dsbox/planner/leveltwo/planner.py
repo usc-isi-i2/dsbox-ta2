@@ -118,11 +118,17 @@ class LevelTwoPlanner(object):
 
         #df = copy.deepcopy(df)
         exec_pipeline = pipeline.clone(idcopy=True)
+
+        # TODO: Check for ramifications
+        pipeline.primitives = exec_pipeline.primitives
         cols = df.columns
 
         cachekey = ""
 
         for primitive in exec_pipeline.primitives:
+            # Mark the pipeline that the primitive is part of
+            # - Used to notify waiting threads of execution changes
+            primitive.pipeline = pipeline
             cachekey += ".%s" % primitive
             if cachekey in self.execution_cache:
                 # print ("* Using cache for %s" % primitive)
@@ -170,8 +176,10 @@ class LevelTwoPlanner(object):
                 sys.stderr.write(
                     "ERROR patch_and_execute_pipeline(%s) : %s\n" % (exec_pipeline, e))
                 traceback.print_exc()
+                exec_pipeline.finished = True
                 return None
 
+        pipeline.finished = True
         return exec_pipeline
 
     def _remove_redundant_processing_primitives(self, pipeline, profile):
