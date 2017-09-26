@@ -133,7 +133,7 @@ class LevelTwoPlanner(object):
             if cachekey in self.execution_cache:
                 # print ("* Using cache for %s" % primitive)
                 df = self.execution_cache.get(cachekey)
-                primitive.executables = self.primitive_cache.get(cachekey)
+                (primitive.executables, primitive.unified_interface) = self.primitive_cache.get(cachekey)
                 continue
 
             try:
@@ -152,7 +152,7 @@ class LevelTwoPlanner(object):
                     df = self.helper.featurise(primitive, df, timeout=TIMEOUT)
                     cols = df.columns
                     self.execution_cache[cachekey] = df
-                    self.primitive_cache[cachekey] = primitive.executables
+                    self.primitive_cache[cachekey] = (primitive.executables, primitive.unified_interface)
 
                 elif primitive.task == "Modeling":
                     # Modeling Primitive
@@ -162,7 +162,7 @@ class LevelTwoPlanner(object):
                         return None
                     exec_pipeline.planner_result = PipelineExecutionResult(predictions, metric_values)
 
-                    self.primitive_cache[cachekey] = primitive.executables
+                    self.primitive_cache[cachekey] = (primitive.executables, primitive.unified_interface)
                     break
 
                 else:
@@ -170,7 +170,7 @@ class LevelTwoPlanner(object):
                     df = self.helper.execute_primitive(
                         primitive, df, df_lbl, cur_profile, timeout=TIMEOUT)
                     self.execution_cache[cachekey] = df
-                    self.primitive_cache[cachekey] = primitive.executables
+                    self.primitive_cache[cachekey] = (primitive.executables, primitive.unified_interface)
 
             except Exception as e:
                 sys.stderr.write(

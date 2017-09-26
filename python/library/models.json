@@ -2871,47 +2871,6 @@
     ]
   },
   {
-    "Name": "GaussianProcessClassifier",
-    "Class": "sklearn.gaussian_process.gpc.GaussianProcessClassifier",
-    "Task": "Modeling",
-    "LearningType": "Classification",
-    "Requirements": [
-      "NUMERICAL",
-      "!MISSING_VALUES"
-    ],
-    "Performance": [{
-        "rows": "100",
-        "columns": "350",
-        "time": 0.16850996017456055
-      },
-      {
-        "rows": "100",
-        "columns": "50",
-        "time": 0.08100247383117676
-      },
-      {
-        "rows": "300",
-        "columns": "350",
-        "time": 1.3085722923278809
-      },
-      {
-        "rows": "300",
-        "columns": "50",
-        "time": 1.308500051498413
-      },
-      {
-        "rows": "600",
-        "columns": "350",
-        "time": 5.9640586376190186
-      },
-      {
-        "rows": "600",
-        "columns": "50",
-        "time": 8.293375253677368
-      }
-    ]
-  },
-  {
     "Name": "RandomForestClassifier",
     "Class": "sklearn.ensemble.forest.RandomForestClassifier",
     "Task": "Modeling",
@@ -3359,47 +3318,6 @@
         "rows": "600",
         "columns": "50",
         "time": 2.459106206893921
-      }
-    ]
-  },
-  {
-    "Name": "LogisticRegressionCV",
-    "Class": "sklearn.linear_model.logistic.LogisticRegressionCV",
-    "Task": "Modeling",
-    "LearningType": "Classification",
-    "Requirements": [
-      "NUMERICAL",
-      "!MISSING_VALUES"
-    ],
-    "Performance": [{
-        "rows": "100",
-        "columns": "350",
-        "time": 1.5400326251983643
-      },
-      {
-        "rows": "100",
-        "columns": "50",
-        "time": 1.5926263332366943
-      },
-      {
-        "rows": "300",
-        "columns": "350",
-        "time": 2.7247984409332275
-      },
-      {
-        "rows": "300",
-        "columns": "50",
-        "time": 2.684051513671875
-      },
-      {
-        "rows": "600",
-        "columns": "350",
-        "time": 3.8919458389282227
-      },
-      {
-        "rows": "600",
-        "columns": "50",
-        "time": 1.2751305103302002
       }
     ]
   }

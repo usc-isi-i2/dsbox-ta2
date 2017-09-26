@@ -93,6 +93,9 @@ class ExecutionHelper(object):
 
                     if self._profile_matches_precondition(primitive.preconditions, colprofile) and not colprofile[dpt.LIST]:
                         executable = self.instantiate_primitive(primitive)
+                        if executable is None:
+                            primitive.finished = True
+                            return None
                         # FIXME: Hack for Label encoder for python3 (cannot handle missing values)
                         if (primitive.name == "Label Encoder") and (sys.version_info[0] == 3):
                             df[col] = df[col].fillna('')
@@ -101,6 +104,9 @@ class ExecutionHelper(object):
                         primitive.executables[colname] = executable
             else:
                 primitive.executables = self.instantiate_primitive(primitive)
+                if primitive.executables is None:
+                    primitive.finished = True
+                    return None
                 if self._profile_matches_precondition(primitive.preconditions, cur_profile.profile):
                     (df, executable) = self._execute_primitive(
                         primitive, primitive.executables, df, df_lbl, False, persistent)
@@ -138,6 +144,9 @@ class ExecutionHelper(object):
                 else:
                     executable = primitive.executables.get(colname, None)
 
+                if executable is None:
+                    return None
+
                 try:
                     # FIXME: Hack for Label encoder for python3 (cannot handle missing values)
                     if (primitive.name == "Label Encoder") and (sys.version_info[0] == 3):
@@ -152,6 +161,8 @@ class ExecutionHelper(object):
         else:
             if not persistent:
                 primitive.executables = self.instantiate_primitive(primitive)
+            if primitive.executables is None:
+                return None
             (df, executable) = self._execute_primitive(
                 primitive, primitive.executables, df, None, True, persistent)
 
@@ -212,6 +223,10 @@ class ExecutionHelper(object):
         num = 0.0
         for k, (train, test) in enumerate(kf.split(X, y)):
             executable = self.instantiate_primitive(primitive)
+            if executable is None:
+                primitive.finished = True
+                return None
+
             trainX = X.take(train, axis=0)
             trainY = y.take(train, axis=0).values.ravel()
             testX = X.take(test, axis=0)
@@ -251,6 +266,10 @@ class ExecutionHelper(object):
 
         # fit the model finally over the whole training data for evaluation later over actual test data
         executable = self.instantiate_primitive(primitive)
+        if executable is None:
+            primitive.finished = True
+            return None
+
         if primitive.unified_interface:
             executable.set_training_data(inputs=X, outputs=y.values.ravel())
             executable.fit()
@@ -289,6 +308,9 @@ class ExecutionHelper(object):
         for col in featurecols:
             if self.media_type == VariableFileType.TEXT:
                 executable = self.instantiate_primitive(primitive)
+                if executable is None:
+                    primitive.finished = True
+                    return None
 
                 # Using an unfitted primitive for each column (needed for Corex)
                 #df_col = pd.DataFrame(df[col])
@@ -308,7 +330,9 @@ class ExecutionHelper(object):
                 df.columns=ncols
             elif self.media_type == VariableFileType.IMAGE:
                 executable = self.instantiate_primitive(primitive)
-
+                if executable is None:
+                    primitive.finished = True
+                    return None
                 image_tensor = self._as_tensor(df[col].values)
                 nvals = executable.transform(image_tensor)
                 fcols = [(col.format() + "_" + str(index)) for index in range(0, nvals.shape[1])]
@@ -327,6 +351,9 @@ class ExecutionHelper(object):
                     (audio_clip, sampling_rate) = row[col]
                     primitive.init_kwargs['sampling_rate'] = sampling_rate
                     executable = self.instantiate_primitive(primitive)
+                    if executable is None:
+                        primitive.finished = True
+                        return None
                     executable.fit('time_series', [audio_clip])
                     nvals = executable.transform('array2+N')
                     features = nvals[1]
@@ -372,6 +399,8 @@ class ExecutionHelper(object):
                 executable = self.instantiate_primitive(primitive)
             else:
                 executable = primitive.executables[col]
+            if executable is None:
+                return None
 
             if self.media_type == VariableFileType.TEXT:
                 # Using an unfitted primitive for each column (needed for Corex)
@@ -423,6 +452,8 @@ class ExecutionHelper(object):
 
                     primitive.init_kwargs['sampling_rate'] = sampling_rate
                     executable = self.instantiate_primitive(primitive)
+                    if executable is None:
+                        return None
                     executable.fit('time_series', [audio_clip])
                     nvals = executable.transform('array2+N')
                     features = nvals[1]
