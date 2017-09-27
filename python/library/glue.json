@@ -27,14 +27,6 @@
     "Effects": ["!MISSING_VALUES"]
   },
   {
-    "Class": "dsbox.datapreprocessing.cleaner.Encoder",
-    "Name": "ISI-Encoder",
-    "Task": "PreProcessing",
-    "LearningType": "Encoding",   
-    "Requirements": ["!NUMERICAL"],
-    "Effects": ["NUMERICAL"]
-  },
-  {
     "Class": "dsbox.datapreprocessing.cleaner.GreedyImputation",
     "Name": "ISI-GreedyImputation",
     "Task": "PreProcessing",

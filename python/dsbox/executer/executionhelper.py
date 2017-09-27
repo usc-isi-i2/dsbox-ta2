@@ -300,7 +300,6 @@ class ExecutionHelper(object):
     def featurise(self, primitive, df):
         primitive.start_time = time.time()
 
-        df = copy.deepcopy(df) # Featurise will alter the dataframe, so we take a copy
         persistent = primitive.is_persistent
         ncols = [col.format() for col in df.columns]
         featurecols = self.raw_data_columns(self.dm.data.input_columns)

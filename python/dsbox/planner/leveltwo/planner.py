@@ -116,7 +116,8 @@ class LevelTwoPlanner(object):
     def patch_and_execute_pipeline(self, pipeline, df, df_lbl):
         print("** Running Pipeline: %s" % pipeline)
 
-        #df = copy.deepcopy(df)
+        # Copy data and pipeline
+        df = copy.copy(df)
         exec_pipeline = pipeline.clone(idcopy=True)
 
         # TODO: Check for ramifications
@@ -129,7 +130,7 @@ class LevelTwoPlanner(object):
             # Mark the pipeline that the primitive is part of
             # - Used to notify waiting threads of execution changes
             primitive.pipeline = pipeline
-            cachekey += ".%s" % primitive
+            cachekey = "%s.%s" % (cachekey, primitive.cls)
             if cachekey in self.execution_cache:
                 # print ("* Using cache for %s" % primitive)
                 df = self.execution_cache.get(cachekey)
@@ -151,7 +152,7 @@ class LevelTwoPlanner(object):
                     # Featurisation Primitive
                     df = self.helper.featurise(primitive, df, timeout=TIMEOUT)
                     cols = df.columns
-                    self.execution_cache[cachekey] = df
+                    self.execution_cache[cachekey] = copy.copy(df)
                     self.primitive_cache[cachekey] = (primitive.executables, primitive.unified_interface)
 
                 elif primitive.task == "Modeling":
@@ -169,7 +170,7 @@ class LevelTwoPlanner(object):
                     # Glue primitive
                     df = self.helper.execute_primitive(
                         primitive, df, df_lbl, cur_profile, timeout=TIMEOUT)
-                    self.execution_cache[cachekey] = df
+                    self.execution_cache[cachekey] = copy.copy(df)
                     self.primitive_cache[cachekey] = (primitive.executables, primitive.unified_interface)
 
             except Exception as e:
