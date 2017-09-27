@@ -262,6 +262,8 @@ class ExecutionHelper(object):
             metric = self.sm.metrics[i]
             fn = self.sm.metric_functions[i]
             metric_val = self._call_function(fn, y, yPredictions)
+            if metric_val is None:
+                return None
             metric_values[metric.name] = metric_val
 
         # fit the model finally over the whole training data for evaluation later over actual test data
@@ -348,14 +350,13 @@ class ExecutionHelper(object):
                     if row[col] is None:
                         continue
                     (audio_clip, sampling_rate) = row[col]
-                    primitive.init_kwargs['sampling_rate'] = sampling_rate
+                    primitive.init_kwargs['sampling_rate'] = int(sampling_rate)
                     executable = self.instantiate_primitive(primitive)
                     if executable is None:
                         primitive.finished = True
                         return None
-                    executable.fit('time_series', [audio_clip])
-                    nvals = executable.transform('array2+N')
-                    features = nvals[1]
+                    #executable.fit('time_series', [audio_clip])
+                    features = executable.produce([audio_clip])
 
                     allfeatures = {}
                     for feature in features:
@@ -373,9 +374,10 @@ class ExecutionHelper(object):
                         df.set_value(idx, fcol, np.average(allfeatures[fcol]))
 
                 del df[col]
-                if len(self.boundarycols) == 2:
-                    del df[self.boundarycols[0]]
-                    del df[self.boundarycols[1]]
+                bcols = self.dm.data.boundary_columns
+                if len(bcols) == 2:
+                    del df[bcols[0]]
+                    del df[bcols[1]]
 
             primitive.executables[col] = executable
 
@@ -437,25 +439,11 @@ class ExecutionHelper(object):
                     if row[col] is None:
                         continue
                     (audio_clip, sampling_rate) = row[col]
-                    start = None
-                    end = None
-                    bcols = self.boundarycols
-                    if len(bcols) == 2:
-                        start = int(sampling_rate * float(row[bcols[0]]))
-                        end = int(sampling_rate * float(row[bcols[1]]))
-                        if start > end:
-                            tmp = start
-                            start = end
-                            end = tmp
-                        audio_clip = audio_clip[start:end]
-
                     primitive.init_kwargs['sampling_rate'] = sampling_rate
                     executable = self.instantiate_primitive(primitive)
                     if executable is None:
                         return None
-                    executable.fit('time_series', [audio_clip])
-                    nvals = executable.transform('array2+N')
-                    features = nvals[1]
+                    features = executable.produce([audio_clip])
 
                     allfeatures = {}
                     for feature in features:
@@ -473,9 +461,10 @@ class ExecutionHelper(object):
                         df.set_value(idx, fcol, np.average(allfeatures[fcol]))
 
                 del df[col]
-                if len(self.boundarycols) == 2:
-                    del df[self.boundarycols[0]]
-                    del df[self.boundarycols[1]]
+                bcols = self.dm.data.boundary_columns
+                if len(bcols) == 2:
+                    del df[bcols[0]]
+                    del df[bcols[1]]
 
         return pd.DataFrame(df, index=indices)
 

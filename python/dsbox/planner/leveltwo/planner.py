@@ -117,7 +117,7 @@ class LevelTwoPlanner(object):
         print("** Running Pipeline: %s" % pipeline)
 
         # Copy data and pipeline
-        df = copy.copy(df)
+        #df = copy.copy(df)
         exec_pipeline = pipeline.clone(idcopy=True)
 
         # TODO: Check for ramifications
@@ -150,9 +150,9 @@ class LevelTwoPlanner(object):
 
                 if primitive.task == "FeatureExtraction":
                     # Featurisation Primitive
-                    df = self.helper.featurise(primitive, df, timeout=TIMEOUT)
+                    df = self.helper.featurise(primitive, copy.copy(df), timeout=TIMEOUT)
                     cols = df.columns
-                    self.execution_cache[cachekey] = copy.copy(df)
+                    self.execution_cache[cachekey] = df
                     self.primitive_cache[cachekey] = (primitive.executables, primitive.unified_interface)
 
                 elif primitive.task == "Modeling":
@@ -169,8 +169,8 @@ class LevelTwoPlanner(object):
                 else:
                     # Glue primitive
                     df = self.helper.execute_primitive(
-                        primitive, df, df_lbl, cur_profile, timeout=TIMEOUT)
-                    self.execution_cache[cachekey] = copy.copy(df)
+                        primitive, copy.copy(df), df_lbl, cur_profile, timeout=TIMEOUT)
+                    self.execution_cache[cachekey] = df
                     self.primitive_cache[cachekey] = (primitive.executables, primitive.unified_interface)
 
             except Exception as e:

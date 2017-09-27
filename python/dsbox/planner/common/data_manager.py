@@ -157,18 +157,20 @@ class DataPackage(object):
                                 # Load file
                                 try:
                                     print (filepath)
-                                    (audio_clip, sampling_rate) = librosa.load(filepath, sr=None)
                                     start = None
                                     end = None
                                     bcols = self.boundary_columns
+                                    kwargs = {'sr':None}
                                     if len(bcols) == 2:
-                                        start = int(sampling_rate * float(row[bcols[0]]))
-                                        end = int(sampling_rate * float(row[bcols[1]]))
+                                        start = float(row[bcols[0]])
+                                        end = float(row[bcols[1]])
                                         if start > end:
                                             tmp = start
                                             start = end
                                             end = tmp
-                                        audio_clip = audio_clip[start:end]
+                                        kwargs['offset'] = start
+                                        kwargs['duration'] = end-start
+                                    (audio_clip, sampling_rate) = librosa.load(filepath, **kwargs)
                                     df.set_value(index, colname, (audio_clip, sampling_rate))
                                 except Exception as e:
                                     df.set_value(index, colname, None)
