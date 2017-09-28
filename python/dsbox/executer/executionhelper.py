@@ -113,9 +113,12 @@ class ExecutionHelper(object):
                     primitive.executables = executable
 
         except Exception as e:
-            sys.stderr.write("ERROR execute_primitive(%s): %s\n" % (primitive, e))
-            traceback.print_exc()
-            primitive.finished = True
+            try:
+                sys.stderr.write("ERROR execute_primitive(%s): %s\n" % (primitive, e))
+                traceback.print_exc()
+                primitive.finished = True
+            except:
+                pass
             return None
 
         primitive.end_time = time.time()
