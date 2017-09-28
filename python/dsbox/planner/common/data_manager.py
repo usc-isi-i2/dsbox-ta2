@@ -136,9 +136,10 @@ class DataPackage(object):
                 varRole = col.get('varRole', None)
                 varType = col.get('varType', None)
                 varFileType = col.get('varFileType', None)
+                fileobjects = {}
                 if varRole == 'file' or varType == 'file':
                     # If the role is "file", then load in the raw data files
-                    if self.media_type in (VariableFileType.TEXT, VariableFileType.IMAGE, VariableFileType.AUDIO):
+                    if self.media_type in (VariableFileType.TEXT, VariableFileType.IMAGE, VariableFileType.AUDIO, VariableFileType.GRAPH):
                         for index, row in df.iterrows():
                             filepath = raw_data_path + os.sep + row[colname]
                             if self.media_type == VariableFileType.TEXT:
@@ -151,6 +152,13 @@ class DataPackage(object):
                                 # TODO: Make the (224, 224) size configurable
                                 from keras.preprocessing import image
                                 df.set_value(index, colname, image.load_img(filepath, target_size=(224, 224)))
+                            elif self.media_type == VariableFileType.GRAPH:
+                                import networkx as nx
+                                nxobject = fileobjects.get(filepath, None)
+                                if nxobject is None:
+                                    nxobject = nx.read_gml(filepath)
+                                fileobjects[filepath] = nxobject
+                                df.set_value(index, colname, nxobject)
                             elif self.media_type == VariableFileType.AUDIO:
                                 # Load audio files
                                 import librosa

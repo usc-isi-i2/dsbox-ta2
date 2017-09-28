@@ -3320,5 +3320,15 @@
         "time": 2.459106206893921
       }
     ]
+  },
+  {
+    "Name": "PSLGraphPrimitive",
+    "Class": "pslgraph.pslgraphprimitive.PSLGraphPrimitive",
+    "Task": "Modeling",
+    "LearningType": "GraphMatching",
+    "Requirements": [
+      "!MISSING_VALUES"
+    ],
+    "Performance": []
   }
 ]

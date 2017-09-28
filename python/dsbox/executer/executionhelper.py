@@ -359,7 +359,7 @@ class ExecutionHelper(object):
                         primitive.finished = True
                         return None
                     #executable.fit('time_series', [audio_clip])
-                    features = executable.produce([audio_clip])
+                    features = executable.produce([audio_clip])[0]
 
                     allfeatures = {}
                     for feature in features:
@@ -446,7 +446,7 @@ class ExecutionHelper(object):
                     executable = self.instantiate_primitive(primitive)
                     if executable is None:
                         return None
-                    features = executable.produce([audio_clip])
+                    features = executable.produce([audio_clip])[0]
 
                     allfeatures = {}
                     for feature in features:

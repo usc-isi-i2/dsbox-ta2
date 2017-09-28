@@ -269,12 +269,16 @@ class LevelOnePlanner(object):
         feature = self.primitives.hierarchies[Category.FEATURE].get_primitives_as_list()
         dimension.append(feature)
 
-        dimension_name.append(self.task_type.value)
+        learner = None
         if self.task_type == TaskType.CLASSIFICATION:
             learner = self.primitives.hierarchies[Category.CLASSIFICATION].get_primitives_as_list()
-        else:
+        elif self.task_type == TaskType.REGRESSION:
             learner = self.primitives.hierarchies[Category.REGRESSION].get_primitives_as_list()
-        dimension.append(learner)
+        elif self.task_type == TaskType.GRAPH_MATCHING:
+            learner = self.primitives.hierarchies[Category.GRAPH].get_primitives_as_list()
+        if learner is not None:
+            dimension_name.append(self.task_type.value)
+            dimension.append(learner)
 
         dimension_name.append('Metrics')
         evaluator = self.primitives.hierarchies[Category.METRICS].get_primitives_as_list()
@@ -371,6 +375,9 @@ class LevelOnePlanner(object):
         elif self.task_type == TaskType.REGRESSION:
             learning_type = TaskType.REGRESSION.value  # 'regression'
             hierarchy = self.primitives.hierarchies[Category.REGRESSION]
+        elif self.task_type == TaskType.GRAPH_MATCHING:
+            learning_type = TaskType.GRAPH_MATCHING.value  # 'graphMatching'
+            hierarchy = self.primitives.hierarchies[Category.GRAPH]
         else:
             raise Exception('Learning type not recoginized: {}'.format(self.task_type))
 
@@ -380,7 +387,8 @@ class LevelOnePlanner(object):
         for component in primitives:
             configuration = self.configuration_space.get_configuration_point(
                 [learning_type], [component])
-            pipelines.append(Pipeline(configuration))
+            pipe = Pipeline(configuration)
+            pipelines.append(pipe)
         return pipelines
 
     def fill_feature_with_hierarchy(self, pipeline, level=2):

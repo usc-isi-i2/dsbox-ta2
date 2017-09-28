@@ -34,7 +34,7 @@ class LevelOnePlannerProxy(object):
 
         # If there is a media type, use featurisation-added pipes instead
         # kyao: added check to skip if media_type is nested tables
-        if self.media_type and not self.media_type==VariableFileType.TABULAR:
+        if self.media_type and not (self.media_type==VariableFileType.TABULAR or self.media_type==VariableFileType.GRAPH):
             new_pipes = []
             for l1_pipeline in l1_pipelines:
                 refined_pipes = self.l1_planner.fill_feature_by_weights(l1_pipeline, 1)

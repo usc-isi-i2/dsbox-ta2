@@ -83,6 +83,8 @@ class D3mPrimitive(Primitive):
         if 'algorithm_type' in definition:
             # !!!! For now get only the first type
             self.ml_algorithm = definition['algorithm_type'][0]
+            if 'graph matching' in definition['algorithm_type']:
+                self.learning_type = 'graphMatching'
         else:
             self.ml_algorithm = 'NA'
 
@@ -266,7 +268,8 @@ class Category(Enum):
     UNSUPERVISED = 5
     EVALUATION = 6
     METRICS = 7
-    OTHER = 8
+    GRAPH = 8
+    OTHER = 9
 
 class Primitives(object):
     """Base Primitives class"""
@@ -277,7 +280,7 @@ class Primitives(object):
         self.hierarchy_types = [Category.PREPROCESSING, Category.FEATURE,
                                 Category.CLASSIFICATION, Category.REGRESSION,
                                 Category.UNSUPERVISED, Category.EVALUATION,
-                                Category.METRICS, Category.OTHER]
+                                Category.METRICS, Category.GRAPH, Category.OTHER]
         self.hierarchies = dict()
         for name in Category:
             self.hierarchies[name] = Hierarchy(name)
@@ -416,6 +419,9 @@ class Primitives(object):
 
                 node = self.hierarchies[Category.EVALUATION].add_path(primitive.tags[:2])
 
+            elif (primitive.tags[0] in ['cross_validation', 'graph_matching']):
+
+                node = self.hierarchies[Category.GRAPH].add_path(primitive.tags[:2])
             else:
                 node = self.hierarchies[Category.OTHER].add_path(primitive.tags[:2])
 

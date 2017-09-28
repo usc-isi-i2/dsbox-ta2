@@ -73107,6 +73107,83 @@
         "audio"
       ],
       "version": "0.18.1"
-    }    
+    },
+    {
+        "id": "plsgraph.plsgraphprimitive.PSLGraphPrimitive",
+        "name": "plsgraph.plsgraphprimitive.PSLGraphPrimitive",
+        "name": "PSLBipartiteLinkPrediction",
+        "common_name": "bipartite_link_prediction",
+        "description": "This function predicts the links between a bipartite graph",
+        "languages": [
+            "python3.6"
+        ],
+        "algorithm_type": [
+          "graph matching"
+        ],
+        "task_type": [
+          "modeling",
+          "graph matching"
+        ],
+        "learning_type": [
+          "supervised"
+        ],
+        "tags": [
+          "graph_matching"
+        ],
+        "library": "pslgraph",
+        "version": "0.1",
+        "source_code": "git@gitlab.datadrivendiscovery.org:dhartnett/psl.git",
+        "is_class": true,
+        "parameters": [
+            {
+                "is_hyperparameter": false,
+                "type": "Sequence[Graph]",
+                "name": "inputs",
+                "description": "A list of Graph objects"
+            }
+        ],
+        "team": "SRI",
+        "interfaces" :  [
+            "graph.GraphTransformerPrimitiveBase",
+            "base.PrimitiveBase"
+        ],
+        "interfaces_version" : "2017.10.0rc0",
+        "schema_version": 1.0,
+        "build": [
+            {
+                "type": "pip",
+                "package": "pslgraph"
+            }
+        ],
+        "compute_resources": {
+            "sample_size": [
+                5180
+            ],
+            "sample_unit": [
+                "MB"
+            ],
+            "num_nodes": [
+                1
+            ],
+            "cores_per_node": [
+                1
+            ],
+            "gpus_per_node": [
+                0
+            ],
+            "mem_per_node": [
+                1.0
+            ],
+            "disk_per_node": [
+                1.0
+            ],
+            "mem_per_gpu": [
+                0.0
+            ],
+            "expected_running_time": [
+                45.0
+            ]
+        }
+    }
   ]
 }
