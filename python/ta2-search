@@ -14,7 +14,7 @@ import signal
 from dsbox.planner.controller import Controller, Feature
 from dsbox.planner.event_handler import PlannerEventHandler
 
-TIMEOUT = 28*60 # Timeout after 28 minutes
+TIMEOUT = 25*60 # Timeout after 25 minutes
 
 DEBUG = 0
 LIB_DIRECTORY = os.path.dirname(os.path.realpath(__file__)) + "/library"
