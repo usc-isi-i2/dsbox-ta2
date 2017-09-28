@@ -55,6 +55,7 @@ ta2-search <search_config_file>
         controller.write_training_results()
         sys.exit(0)
     signal.signal(signal.SIGINT, write_results_and_exit)
+    signal.signal(signal.SIGTERM, write_results_and_exit)
     signal.signal(signal.SIGALRM, write_results_and_exit)
     signal.alarm(TIMEOUT)
 
