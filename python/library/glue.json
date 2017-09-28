@@ -25,13 +25,5 @@
     "NotPersistent": true,
     "Requirements": ["NUMERICAL", "MISSING_VALUES"],
     "Effects": ["!MISSING_VALUES"]
-  },
-  {
-    "Class": "dsbox.datapreprocessing.cleaner.GreedyImputation",
-    "Name": "ISI-GreedyImputation",
-    "Task": "PreProcessing",
-    "LearningType": "Imputation",
-    "Requirements": ["NUMERICAL", "MISSING_VALUES"],
-    "Effects": ["!MISSING_VALUES"]
   }
 ]

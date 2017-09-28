@@ -179,6 +179,16 @@ class Controller(object):
             self.logfile.write("%s\n" % str(l1_related_pipelines))
             l1_pipelines = l1_related_pipelines
 
+        self.write_training_results()
+
+
+    '''
+    Write training results to file
+    '''
+    def write_training_results(self):
+        # Sort pipelines
+        self.exec_pipelines = sorted(self.exec_pipelines, key=lambda x: self._sort_by_metric(x))
+
         # Ended planners
         self._show_status("Found total %d successfully executing pipeline(s)..." % len(self.exec_pipelines))
 
