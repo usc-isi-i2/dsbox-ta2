@@ -1,5 +1,6 @@
 import os
 import uuid
+import json
 import shutil
 import tempfile
 import hashlib
@@ -14,6 +15,7 @@ class Session:
         self.test_results = {}
         self.planner_results = {}
         self.outputdir = tempfile.gettempdir() + os.sep + "dsbox-ta2" + os.sep + self.id
+        self.config = self.create_config_from_env('ENV_D3M_CONFIG_FILEPATH')
         #print(self.outputdir)
 
     def get_pipeline(self, pipelineid):
@@ -39,6 +41,16 @@ class Session:
 
     def cache_test_result(self, pipeline, result):
         self.test_results[pipeline.id] = result
+
+    def create_config_from_env(self, env):
+        path = os.environ.get(env)
+        if path is not None:
+            config = {}
+            with open(path) as conf_data:
+                config = json.load(conf_data)
+                conf_data.close()
+            return config
+        return None
 
     @staticmethod
     def new():

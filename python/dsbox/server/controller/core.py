@@ -59,7 +59,11 @@ class Core(crpc.CoreServicer):
         c = session.controller
         if c is None:
             c = Controller(self.libdir)
-            c.set_config_simple(datadir, session.outputdir)
+            if session.config is not None:
+                c.set_config(session.config)
+                print(session.config)
+            else:
+                c.set_config_simple(datadir, session.outputdir)
 
         # Initialize Data
         if len(train_features) > 0 or len(target_features) > 0:
