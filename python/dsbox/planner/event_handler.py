@@ -1,6 +1,9 @@
 class PlannerEventHandler(object):
     pass
 
+    def ProblemNotImplemented(self):
+        return None
+
     def StartedPlanning(self):
         pass
 

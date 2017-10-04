@@ -119,8 +119,8 @@ class Controller(object):
         l1_pipelines = self.l1_planner.get_pipelines(df)
         if l1_pipelines is None:
             # If no L1 Pipelines, then we don't support this problem
-            print("Not implemented. Returning code 148")
-            sys.exit(148)
+            yield pe.ProblemNotImplemented()
+            return
 
         self.exec_pipelines = []
 
@@ -185,7 +185,7 @@ class Controller(object):
             l1_pipelines = l1_related_pipelines
 
         self.write_training_results()
-
+        return True
 
     '''
     Write training results to file

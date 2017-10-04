@@ -12,6 +12,13 @@ class GRPC_PlannerEventHandler(PlannerEventHandler):
     def StartedPlanning(self):
         pass
 
+    def ProblemNotImplemented(self):
+        response = self._create_response("Not Implemented", "UNIMPLEMENTED")
+        result = core.PipelineCreateResult(
+            response_info = response
+        )
+        return result
+
     def SubmittedPipeline(self, pipeline):
         response = self._create_response("Pipeline Submitted")
         progress = self._create_progress("SUBMITTED")
