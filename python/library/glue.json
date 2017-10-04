@@ -18,66 +18,11 @@
     "Effects": ["NUMERICAL"]
   },
   {
-    "Class": "dsbox.datapreprocessing.cleaner.Encoder",
-    "Name": "DSBox Encoder",
-    "Task": "PreProcessing",
-    "LearningType": "Encoding",
-    "RequiresColumnData": false,
-    "NotPersistent": true,
-    "Requirements": ["!NUMERICAL"],
-    "Effects": ["NUMERICAL"]
-  },
-  {
     "Class": "sklearn.preprocessing.Imputer",
     "Name": "Imputer",
     "Task": "PreProcessing",
     "LearningType": "Imputation",
     "NotPersistent": true,
-    "Requirements": ["NUMERICAL", "MISSING_VALUES"],
-    "Effects": ["!MISSING_VALUES"]
-  },
-  {
-    "Class": "dsbox.datapreprocessing.cleaner.GreedyImputation",
-    "Name": "DSBox Greedy Imputer",
-    "Task": "PreProcessing",
-    "LearningType": "Imputation",
-    "NotPersistent": false,
-    "Requirements": ["NUMERICAL", "MISSING_VALUES"],
-    "Effects": ["!MISSING_VALUES"]
-  },
-  {
-    "Class": "dsbox.datapreprocessing.cleaner.MeanImputation",
-    "Name": "DSBox Mean Imputer",
-    "Task": "PreProcessing",
-    "LearningType": "Imputation",
-    "NotPersistent": false,
-    "Requirements": ["NUMERICAL", "MISSING_VALUES"],
-    "Effects": ["!MISSING_VALUES"]
-  },
-  {
-    "Class": "dsbox.datapreprocessing.cleaner.MICE",
-    "Name": "DSBox MICE Imputer",
-    "Task": "PreProcessing",
-    "LearningType": "Imputation",
-    "NotPersistent": false,
-    "Requirements": ["NUMERICAL", "MISSING_VALUES"],
-    "Effects": ["!MISSING_VALUES"]
-  },
-  {
-    "Class": "dsbox.datapreprocessing.cleaner.IterativeRegressionImputation",
-    "Name": "DSBox Iterative Regression Imputer",
-    "Task": "PreProcessing",
-    "LearningType": "Imputation",
-    "NotPersistent": false,
-    "Requirements": ["NUMERICAL", "MISSING_VALUES"],
-    "Effects": ["!MISSING_VALUES"]
-  },
-  {
-    "Class": "dsbox.datapreprocessing.cleaner.KNNImputation",
-    "Name": "DSBox KNN Imputer",
-    "Task": "PreProcessing",
-    "LearningType": "Imputation",
-    "NotPersistent": false,
     "Requirements": ["NUMERICAL", "MISSING_VALUES"],
     "Effects": ["!MISSING_VALUES"]
   }
