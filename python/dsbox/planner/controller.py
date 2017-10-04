@@ -185,7 +185,6 @@ class Controller(object):
             l1_pipelines = l1_related_pipelines
 
         self.write_training_results()
-        return True
 
     '''
     Write training results to file

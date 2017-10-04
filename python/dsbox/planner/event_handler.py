@@ -2,25 +2,25 @@ class PlannerEventHandler(object):
     pass
 
     def ProblemNotImplemented(self):
-        return None
+        return False
 
     def StartedPlanning(self):
-        pass
+        return True
 
     def SubmittedPipeline(self, pipeline):
-        pass
+        return True
 
     def RunningPipeline(self, pipeline):
-        pass
+        return True
 
     def CompletedPipeline(self, pipeline, result):
-        pass
+        return True
 
     def StartExecutingPipeline(self, pipeline):
-        pass
+        return True
 
     def ExecutedPipeline(self, pipeline, result):
-        pass
+        return True
 
     def EndedPlanning(self):
-        pass
+        return True
