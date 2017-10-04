@@ -24,16 +24,12 @@ class SchemaManager(object):
     def load_problem_schema(self, problem_schema):
         problem = self.load_json(problem_schema)
         self.problem_id = problem['problemId']
-        taskType = problem.get('taskType', None)
-        # FIXME: treating collaborativeFiltering as regression for now
-        if taskType == "collaborativeFiltering":
-            taskType = "regression"
         self.set_task_type(
-            taskType,
+            problem.get('taskType', None),
             problem.get('taskSubType', None)
         )
         self.set_metric(problem.get('metric', 'accuracy'))
-        self.set_output_type(None)
+        self.set_output_type(problem.get('outputType'))
 
     def load_json(self, jsonfile):
         with open(jsonfile) as json_data:

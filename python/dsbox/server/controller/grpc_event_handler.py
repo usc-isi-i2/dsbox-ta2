@@ -41,7 +41,7 @@ class GRPC_PlannerEventHandler(PlannerEventHandler):
         progress = self._create_progress("COMPLETED")
         pipeline_info = None
         if exec_pipeline is None:
-            response = self._create_response("Pipeline Failed", "UNKNOWN")
+            response = self._create_response("Pipeline Failed", "INTERNAL")
         else:
             pipeline_info = self._create_pipeline_info(exec_pipeline)
             # Update session pipeline

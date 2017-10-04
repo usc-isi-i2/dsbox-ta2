@@ -117,6 +117,11 @@ class Controller(object):
         l1_pipelines_handled = {}
         l2_pipelines_handled = {}
         l1_pipelines = self.l1_planner.get_pipelines(df)
+        if l1_pipelines is None:
+            # If no L1 Pipelines, then we don't support this problem
+            print("Not implemented. Returning code 148")
+            sys.exit(148)
+
         self.exec_pipelines = []
 
         while len(l1_pipelines) > 0:

@@ -15,7 +15,7 @@ class Session:
         self.test_results = {}
         self.planner_results = {}
         self.outputdir = tempfile.gettempdir() + os.sep + "dsbox-ta2" + os.sep + self.id
-        self.config = self.create_config_from_env('ENV_D3M_CONFIG_FILEPATH')
+        self.config = self.create_config_from_env('CONFIG_JSON_PATH')
         #print(self.outputdir)
 
     def get_pipeline(self, pipelineid):
