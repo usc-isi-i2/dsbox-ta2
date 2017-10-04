@@ -19,6 +19,7 @@ from sklearn.model_selection import KFold
 
 from dsbox.schema.dataset_schema import VariableFileType
 from dsbox.schema.profile_schema import DataProfileType as dpt
+from dsbox.schema.problem_schema import TaskType
 from dsbox.executer.execution import Execution
 from dsbox.executer import pickle_patch
 
