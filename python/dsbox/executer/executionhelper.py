@@ -628,8 +628,15 @@ class ExecutionHelper(object):
                 primfile = "%s%s%s" % (exec_dir, os.sep, primfilename)
                 statements.append("primfile = executables_root + '%s%s'" % (os.sep, primfilename))
                 statements.append("%s = sklearn.externals.joblib.load(primfile)" % primid)
+
+                # Remove pipeline from pickling
+                pipe = primitive.pipeline
+                primitive.pipeline = None
+
                 joblib.dump(primitive, primfile)
 
+                # Restore pipeline after pickling is done
+                primitive.pipeline = pipe
                 # Restore executables(instances) after pickling(serialization) is done
                 primitive.executables = execs
             except Exception as e:
