@@ -49,6 +49,9 @@ class Session:
             with open(path) as conf_data:
                 config = json.load(conf_data)
                 conf_data.close()
+            opdir = config.get('temp_storage_root', None)
+            if opdir is not None:
+                self.outputdir = opdir
             return config
         return None
 
