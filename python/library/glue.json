@@ -8,11 +8,11 @@
     "Effects": ["NORMALIZED"]
   },
   {
-    "Class": "dsbox.datapreprocessing.cleaner.Encoder",
-    "Name": "DSBox Encoder",
+    "Class": "sklearn.preprocessing.LabelEncoder",
+    "Name": "Label Encoder",
     "Task": "PreProcessing",
     "LearningType": "Encoding",
-    "RequiresColumnData": false,
+    "RequiresColumnData": true,
     "NotPersistent": true,
     "Requirements": ["!NUMERICAL"],
     "Effects": ["NUMERICAL"]

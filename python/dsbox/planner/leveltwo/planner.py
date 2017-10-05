@@ -115,6 +115,7 @@ class LevelTwoPlanner(object):
 
     def patch_and_execute_pipeline(self, pipeline, df, df_lbl):
         print("** Running Pipeline: %s" % pipeline)
+        sys.stdout.flush()
 
         # Copy data and pipeline
         #df = copy.copy(df)
@@ -142,6 +143,7 @@ class LevelTwoPlanner(object):
                     return None
 
                 print("Executing %s" % primitive.name)
+                sys.stdout.flush()
 
                 # Re-profile intermediate data here.
                 # TODO: Recheck if it is ok for the primitive's preconditions

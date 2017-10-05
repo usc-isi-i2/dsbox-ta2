@@ -219,10 +219,12 @@ class Controller(object):
         testdf = pd.DataFrame(copy.copy(self.test_dm.data.input_data))
         target_col = self.test_dm.data.target_columns[0]['varName']
         print("** Evaluating pipeline %s" % str(pipeline))
+        sys.stdout.flush()
         for primitive in pipeline.primitives:
             # Initialize primitive
             try:
                 print("Executing %s" % primitive)
+                sys.stdout.flush()
                 if primitive.task == "Modeling":
                     result = pd.DataFrame(primitive.executables.predict(testdf), index=testdf.index, columns=[target_col])
                     pipeline.test_result = PipelineExecutionResult(result, None)
@@ -270,7 +272,7 @@ class Controller(object):
         return dir
 
     def _show_status(self, status):
-        sys.stdout.write("%s\n" % status)
+        print(status)
         sys.stdout.flush()
 
     def _sort_by_metric(self, pipeline):
