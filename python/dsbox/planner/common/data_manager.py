@@ -165,6 +165,7 @@ class DataPackage(object):
                                 # Load file
                                 try:
                                     print (filepath)
+                                    sys.stdout.flush()
                                     start = None
                                     end = None
                                     bcols = self.boundary_columns
@@ -277,6 +278,7 @@ class DataManager(object):
     """
     def initialize_training_data_from_defaults(self, schema_file, data_directory):
         print("Loading Data..")
+        sys.stdout.flush()
         self.data_parts = {}
         self.data_parts[data_directory] = DataPackage()
         self.data_parts[data_directory].load_data(
@@ -289,6 +291,7 @@ class DataManager(object):
     """
     def initialize_test_data_from_defaults(self, schema_file, data_directory):
         print("Loading Data..")
+        sys.stdout.flush()
         self.data_parts = {}
         self.data_parts[data_directory] = DataPackage()
         self.data_parts[data_directory].load_data(
@@ -308,6 +311,7 @@ class DataManager(object):
         self.data_parts = {}
 
         print("Loading Data..")
+        sys.stdout.flush()
         for feature in train_features:
             input_data_features = input_data_features_map.get(feature.data_directory, [])
             input_data_features.append(feature.feature_id)
