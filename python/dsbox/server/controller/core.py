@@ -60,13 +60,13 @@ class Core(crpc.CoreServicer):
         if c is None:
             c = Controller(self.libdir)
             if session.config is not None:
-                c.set_config(session.config)
+                c.initialize_from_config(session.config)
             else:
-                c.set_config_simple(datadir, session.outputdir)
+                c.initialize_simple(datadir, session.outputdir)
 
         # Initialize Data
         if len(train_features) > 0 or len(target_features) > 0:
-            c.train_dm.initialize_training_data_from_features(train_features, target_features)
+            c.data_manager.initialize_training_data_from_features(train_features, target_features)
 
         # Set Problem schema
         if request.task > 0:
@@ -120,7 +120,7 @@ class Core(crpc.CoreServicer):
         handler = GRPC_PlannerEventHandler(session)
         handler.StartExecutingPipeline(pipeline)
 
-        session.controller.test_dm.initialize_test_data_from_features(test_features)
+        session.controller.data_manager.initialize_test_data_from_features(test_features)
 
         # Change this to be a yield too.. Save should happen within the handler
         for result in session.controller.test(pipeline, handler):

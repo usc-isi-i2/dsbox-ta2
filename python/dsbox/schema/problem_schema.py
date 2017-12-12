@@ -20,8 +20,8 @@ class TaskSubType(Enum):
     BINARY = "binary"  # applicable for classification, vertexNomination
     MULTICLASS = "multiClass"  # applicable for classification, vertexNomination
     MULTILABEL = "multiLabel"  # applicable for classification
-    UNIVARIATE = "uniVariate"  # applicable for regression
-    MULTIVARIATE = "multiVariate"  # applicable for regression
+    UNIVARIATE = "univariate"  # applicable for regression
+    MULTIVARIATE = "multivariate"  # applicable for regression
     OVERLAPPING = "overlapping"  # applicable for community detection
     NONOVERLAPPING = "nonOverlapping" # applicable for community detection
 

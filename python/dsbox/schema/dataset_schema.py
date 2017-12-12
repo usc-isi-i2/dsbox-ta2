@@ -11,6 +11,6 @@ class VariableFileType(Enum):
     VIDEO = "video"
     TEXT = "text"
     GRAPH = "graph"
-    TABULAR = "tabular"
-    TIMESERIES = "timeSeries"
+    TABULAR = "table"
+    TIMESERIES = "timeseries"
     NONE = "none"

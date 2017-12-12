@@ -15,10 +15,10 @@ from dsbox.planner.leveltwo.planner import LevelTwoPlanner
 from dsbox.schema.data_profile import DataProfile
 from dsbox.schema.problem_schema import TaskType, TaskSubType, Metric
 from dsbox.executer.executionhelper import ExecutionHelper
-from dsbox.planner.common.data_manager import DataManager
+from dsbox.planner.common.data_manager import Dataset, DataManager
 from dsbox.planner.common.pipeline import Pipeline, PipelineExecutionResult
-from dsbox.planner.common.data_manager import DataManager
-from dsbox.planner.common.schema_manager import SchemaManager
+from dsbox.planner.common.problem_manager import Problem
+from dsbox.planner.common.resource_manager import ResourceManager
 
 class Feature:
     def __init__(self, data_directory, feature_id):
@@ -26,71 +26,99 @@ class Feature:
         self.feature_id = feature_id
 
 class Controller(object):
+    problem = None
+    dataset = None
+    execution_helper = None
+    resource_manager = None
+
+    config = None
+    num_cpus = 0
+    ram = 0
+    timeout = 60
+
+    exec_pipelines = []
+    l1_planner = None
+    l2_planner = None
+
     """
     This is the overall "planning" coordinator. It is passed in the data directory
     and the primitives library directory, and it generates plans by calling out to L1, L2
     and L3 planners.
     """
     def __init__(self, libdir):
+        # FIXME: This should change to the primitive discovery interface
         self.libdir = os.path.abspath(libdir)
-        self.train_dm = DataManager()
-        self.test_dm = DataManager()
-        self.sm = SchemaManager()
-        self.helper = ExecutionHelper(self.train_dm, self.sm)
-
-        self.exec_pipelines = []
-        self.l1_planner = None
-        self.l2_planner = None
 
     '''
     Set config directories and data schema file
     '''
-    def set_config(self, config):
+    def initialize_from_config(self, config):
         self.config = config
-        self.data_schema = config.get('dataset_schema', None)
-        self.problem_schema = config.get('problem_schema', None)
-        self.train_dir = self._dir(config, 'training_data_root')
-        self.log_dir = self._dir(config, 'pipeline_logs_root')
-        self.exec_dir = self._dir(config, 'executables_root')
-        self.tmp_dir = self._dir(config, 'temp_storage_root')
+
+        self.log_dir = self._dir(config, 'pipeline_logs_root', True)
+        self.exec_dir = self._dir(config, 'executables_root', True)
+        self.tmp_dir = self._dir(config, 'temp_storage_root', True)
+
+        self.num_cpus = int(config.get('cpus', 0))
+        self.ram = config.get('ram', 0)
+        self.timeout = (config.get('timeout', 60))*60
 
         # Create some debugging files
         self.logfile = open("%s%slog.txt" % (self.tmp_dir, os.sep), 'w')
         self.errorfile = open("%s%sstderr.txt" % (self.tmp_dir, os.sep), 'w')
         self.pipelinesfile = open("%s%spipelines.txt" % (self.tmp_dir, os.sep), 'w')
 
+        self.problem = Problem()
+        self.data_manager = DataManager()
+        self.execution_helper = ExecutionHelper(self.problem, self.data_manager)
+        self.resource_manager = ResourceManager(self.execution_helper, self.num_cpus)
+
         # Redirect stderr to error file
         sys.stderr = self.errorfile
 
     '''
-    Set config directories and schema from just datadir and outputdir
+    Set config directories and schema from just problemdir, datadir and outputdir
     '''
-    def set_config_simple(self, datadir, outputdir):
-        self.set_config({
-            'dataset_schema': datadir + os.sep + "dataSchema.json",
-            'problem_schema': datadir + os.sep + ".." + os.sep + "problemSchema.json",
-            'training_data_root': datadir,
+    def initialize_simple(self, problemdir, datadir, outputdir):
+        self.initialize_from_config({
+            "problem_root": problemdir,
+            "problem_schema": problemdir + os.sep + 'problemDoc.json',
+            "training_data_root": datadir,
+            "dataset_schema": datadir + os.sep + 'datasetDoc.json',
             'pipeline_logs_root': outputdir + os.sep + "logs",
             'executables_root': outputdir + os.sep + "executables",
-            'temp_storage_root': outputdir + os.sep + "temp"
+            'temp_storage_root': outputdir + os.sep + "temp",
+            "timeout": 60,
+            "cpus"  : "4",
+            "ram"   : "4Gi"
         })
-
 
     """
     Set the task type, metric and output type via the schema
     """
-    def load_problem_schema(self):
-        self.sm.load_problem_schema(self.problem_schema)
+    def load_problem(self):
+        problemroot = self._dir(self.config, 'problem_root')
+        problemdoc = self.config.get('problem_schema', None)
+        assert(problemroot is not None)
+        self.problem.load_problem(problemroot, problemdoc)
 
-    def initialize_training_data_from_defaults(self):
-        self.train_dm.initialize_training_data_from_defaults(self.data_schema, self.train_dir)
+    """
+    Initialize data from the config
+    """
+    def initialize_training_data_from_config(self):
+        dataroot = self._dir(self.config, 'training_data_root')
+        datadoc = self.config.get('dataset_schema', None)
+        assert(dataroot is not None)
+        dataset = Dataset()
+        dataset.load_dataset(dataroot, datadoc)
+        self.data_manager.initialize_data(self.problem, [dataset], view='TRAIN')
 
     """
     Initialize the L1 and L2 planners
     """
     def initialize_planners(self):
-        self.l1_planner = LevelOnePlannerProxy(self.libdir, self.helper)
-        self.l2_planner = LevelTwoPlanner(self.libdir, self.helper)
+        self.l1_planner = LevelOnePlannerProxy(self.libdir, self.execution_helper)
+        self.l2_planner = LevelTwoPlanner(self.libdir, self.execution_helper)
 
     """
     Train and select pipelines
@@ -100,20 +128,22 @@ class Controller(object):
         self.l2_planner.primitive_cache = {}
         self.l2_planner.execution_cache = {}
 
-        self.logfile.write("Task type: %s\n" % self.helper.sm.task_type)
-        self.logfile.write("Metrics: %s\n" % self.helper.sm.metrics)
+        self.logfile.write("Task type: %s\n" % self.problem.task_type)
+        self.logfile.write("Metrics: %s\n" % self.problem.metrics)
 
         pe = planner_event_handler
 
         self._show_status("Planning...")
 
         # Get data details
-        df = pd.DataFrame(copy.copy(self.train_dm.data.input_data))
-        df_lbl = pd.DataFrame(copy.copy(self.train_dm.data.target_data))
+        # TODO: implement Data Manager for this functionality
+        df = copy.copy(self.data_manager.input_data)
+        df_lbl = copy.copy(self.data_manager.target_data)
 
         df_profile = DataProfile(df)
         self.logfile.write("Data profile: %s\n" % df_profile)
 
+        l2_pipelines_map = {}
         l1_pipelines_handled = {}
         l2_pipelines_handled = {}
         l1_pipelines = self.l1_planner.get_pipelines(df)
@@ -144,6 +174,7 @@ class Controller(object):
                         if not l2_pipelines_handled.get(str(l2_pipeline), False):
                             l2_l1_map[l2_pipeline.id] = l1_pipeline
                             l2_pipelines.append(l2_pipeline)
+                            l2_pipelines_map[str(l2_pipeline)] = l2_pipeline
                             yield pe.SubmittedPipeline(l2_pipeline)
 
             self.logfile.write("\nL2 Pipelines:\n-------------\n")
@@ -153,12 +184,13 @@ class Controller(object):
 
             for l2_pipeline in l2_pipelines:
                 yield pe.RunningPipeline(l2_pipeline)
+                # exec_pipeline = self.l2_planner.patch_and_execute_pipeline(l2_pipeline, df, df_lbl)
 
-                # TODO: Execute in parallel (fork, or separate thread)
-                exec_pipeline = self.l2_planner.patch_and_execute_pipeline(l2_pipeline, df, df_lbl)
+            exec_pipelines = self.resource_manager.execute_pipelines(l2_pipelines, df, df_lbl)
+            for exec_pipeline in exec_pipelines:
+                l2_pipeline = l2_pipelines_map[str(exec_pipeline)]
                 l2_pipelines_handled[str(l2_pipeline)] = True
                 yield pe.CompletedPipeline(l2_pipeline, exec_pipeline)
-
                 if exec_pipeline:
                     self.exec_pipelines.append(exec_pipeline)
 
@@ -197,7 +229,7 @@ class Controller(object):
         self._show_status("Found total %d successfully executing pipeline(s)..." % len(self.exec_pipelines))
 
         # Create executables
-        self.pipelinesfile.write("# Pipelines ranked by metrics (%s)\n" % self.sm.metrics)
+        self.pipelinesfile.write("# Pipelines ranked by metrics (%s)\n" % self.problem.metrics)
         for index in range(0, len(self.exec_pipelines)):
             pipeline = self.exec_pipelines[index]
             rank = index + 1
@@ -208,16 +240,16 @@ class Controller(object):
                 metric_values.append("%s = %2.4f" % (metric, metric_value))
 
             self.pipelinesfile.write("%s ( %s ) : %s\n" % (pipeline.id, pipeline, metric_values))
-            self.helper.create_pipeline_executable(pipeline, self.config)
+            self.execution_helper.create_pipeline_executable(pipeline, self.config)
             self.create_pipeline_logfile(pipeline, rank)
 
     '''
     Predict results on test data given a pipeline
     '''
     def test(self, pipeline, test_event_handler):
-        helper = ExecutionHelper(self.test_dm, self.sm)
-        testdf = pd.DataFrame(copy.copy(self.test_dm.data.input_data))
-        target_col = self.test_dm.data.target_columns[0]['varName']
+        helper = ExecutionHelper(self.data_manager, self.sm)
+        testdf = pd.DataFrame(copy.copy(self.data_manager.input_data))
+        target_col = self.data_manager.target_columns[0]['colName']
         print("** Evaluating pipeline %s" % str(pipeline))
         sys.stdout.flush()
         for primitive in pipeline.primitives:
@@ -250,7 +282,7 @@ class Controller(object):
     def create_pipeline_logfile(self, pipeline, rank):
         logfilename = "%s%s%s.json" % (self.log_dir, os.sep, pipeline.id)
         logdata = {
-            "problem_id": self.sm.problem_id,
+            "problem_id": self.problem.prID,
             "pipeline_rank": rank,
             "name": pipeline.id,
             "primitives": []
@@ -262,12 +294,12 @@ class Controller(object):
                 sort_keys=True, indent=4, separators=(',', ': '))
             pipelog.close()
 
-    def _dir(self, config, key):
+    def _dir(self, config, key, makeflag=False):
         dir = config.get(key)
         if dir is None:
             return None
         dir = os.path.abspath(dir)
-        if not os.path.exists(dir):
+        if makeflag and not os.path.exists(dir):
             os.makedirs(dir)
         return dir
 
@@ -277,7 +309,7 @@ class Controller(object):
 
     def _sort_by_metric(self, pipeline):
         # NOTE: Sorting/Ranking by first metric only
-        metric_name = self.sm.metrics[0].name
+        metric_name = self.problem.metrics[0].name
         mlower = metric_name.lower()
         if "error" in mlower or "loss" in mlower or "time" in mlower:
             return pipeline.planner_result.metric_values[metric_name]

@@ -2,390 +2,474 @@ import os
 import sys
 import json
 import copy
+import inspect
+import warnings
+import importlib
+import numpy as np
 import pandas as pd
 
-from dsbox.schema.data_profile import DataProfile
-from dsbox.schema.dataset_schema import VariableFileType
-from dsbox.schema.profile_schema import DataProfileType as dpt
+import multiprocessing
+from multiprocessing import Pool
 
-DEFAULT_DATA_SCHEMA = "dataSchema.json"
-DEFAULT_TRAINING_DATA = "trainData.csv.gz"
-DEFAULT_TRAINING_TARGETS = "trainTargets.csv.gz"
-DEFAULT_TEST_DATA = "testData.csv.gz"
-DEFAULT_RAW_DATA_DIR = "raw_data"
+#from dsbox.schema.data_profile import DataProfile
+#from dsbox.schema.dataset_schema import VariableFileType
+#from dsbox.schema.profile_schema import DataProfileType as dpt
 
-class DataPackage(object):
-    '''
-    A Data Package (schema + csv files + raw data)
-    '''
-    def __init__(self):
-        self.schema = None # The schema file
-        self.data_directory = None # The data directory
-
-        self.input_columns = []
-        self.target_columns = []
-        self.input_data = pd.DataFrame()
-        self.target_data = pd.DataFrame()
-
-        self.index_column = None
-        self.boundary_columns = []
-        self.media_type = None
-        self.nested_table = dict()
-
-    """
-    Load the data package given a schema, a data directory, column filters
-    """
-    def load_data(self, schema, data_directory, input_filters=None, target_filters=None, test_data=False):
-        self.schema = schema # The schema file
-
-        # Get column information
-        schema_data = self.load_json(self.schema)
-        self.input_columns = schema_data['trainData']['trainData']
-        if input_filters is not None:
-            self.input_columns = self.filter_columns(self.input_columns, input_filters)
-        self.target_columns = schema_data['trainData']['trainTargets']
-        if target_filters is not None:
-            self.target_columns = self.filter_columns(self.target_columns, target_filters)
-
-        # Get special columns
-        self.index_column = self.get_index_column(self.input_columns)
-        self.boundary_columns = self.get_boundary_columns(self.input_columns)
-
-        # Detect media type
-        self.media_type = self.get_media_type(schema_data, self.input_columns)
-
-        # Load data
-        self.data_directory = data_directory
-        if not test_data:
-            self.input_data = self.read_data(data_directory + os.sep + DEFAULT_TRAINING_DATA,
-                                                     self.input_columns, self.index_column)
-            self.target_data = self.read_data(data_directory + os.sep + DEFAULT_TRAINING_TARGETS,
-                                                     self.target_columns, self.index_column, labeldata=True)
-        else:
-            self.input_data = self.read_data(data_directory + os.sep + DEFAULT_TEST_DATA,
-                                                     self.input_columns, self.index_column)
-
-    def filter_columns(self, columns, filters):
-        new_columns = []
-        for col in columns:
-            if (col['varName'] in filters) or ("*" in filters):
-                new_columns.append(col)
-        return new_columns
-
-    def load_json(self, jsonfile):
-        with open(jsonfile) as json_data:
-            d = json.load(json_data)
-            json_data.close()
-            return d
-
-    def read_data(self, csvfile, cols, indexcol, labeldata=False):
-        # We look for the .csv.gz file by default. If it doesn't exist, try to load the .csv file
-        if not os.path.exists(csvfile) and csvfile.endswith('.gz'):
-            csvfile = csvfile[:-3]
-
-        # Read the csv file
-        df = pd.read_csv(csvfile)
-        raw_data_path = os.path.dirname(csvfile) + os.sep + DEFAULT_RAW_DATA_DIR
-
-        # Filter columns if specified
-        if len(cols) > 0:
-            colnames = []
-            for col in cols:
-                colnames.append(col['varName'])
-
-            # Remove columns not specified
-            for colname, col in df.iteritems():
-                if colname not in colnames:
-                    df.drop(colname, axis=1, inplace=True)
-
-            # Check for nested tabular data files, and load them in
-            tabular_columns = []
-            index_columns = []
-            for col in cols:
-                colname = col['varName']
-                varRole = col.get('varRole', None)
-                varType = col.get('varType', None)
-                varFileType = col.get('varFileType', None)
-                if varRole == 'index':
-                    index_columns.append(colname)
-                if varType == 'file' and varFileType == 'tabular':
-                    tabular_columns.append(colname)
-                    filename = df.loc[:, colname].unique()
-                    if len(filename) > 1:
-                        raise AssertionError('Expecting one unique filename per column: {}'.format(colname))
-                    filename = filename[0]
-                    if not filename in self.nested_table:
-                        csvfile = raw_data_path + os.sep + filename
-                        if not os.path.exists(csvfile):
-                            csvfile += '.gz'
-                        nested_df = self.read_data(csvfile, [], None)
-                        self.nested_table[filename] = nested_df
-
-
-            # Match index columns to tabular columns
-            if len(tabular_columns) == len(index_columns) - 1:
-                # New r_32 dataset has two tabular columns and three index columns. Need to remove d3mIndex
-                # New r_26 dataset has exactly one tabular column and one index column (d3mIndex)
-                index_columns = index_columns[1:]
-            if not len(tabular_columns) == len(index_columns):
-                raise AssertionError('Number tabular and index columns do not match: {} != {}'
-                                     .format(len(tabular_columns), (index_columns)))
-
-            # Check all columns for special roles
-            for col in cols:
-                colname = col['varName']
-                varRole = col.get('varRole', None)
-                varType = col.get('varType', None)
-                varFileType = col.get('varFileType', None)
-                fileobjects = {}
-                if varRole == 'file' or varType == 'file':
-                    # If the role is "file", then load in the raw data files
-                    if self.media_type in (VariableFileType.TEXT, VariableFileType.IMAGE, VariableFileType.AUDIO, VariableFileType.GRAPH):
-                        for index, row in df.iterrows():
-                            filepath = raw_data_path + os.sep + row[colname]
-                            if self.media_type == VariableFileType.TEXT:
-                                # Plain data load for text files
-                                with open(filepath, 'rb') as myfile:
-                                    txt = myfile.read()
-                                    df.set_value(index, colname, txt)
-                            elif self.media_type == VariableFileType.IMAGE:
-                                # Load image files using keras with a standard target size
-                                # TODO: Make the (224, 224) size configurable
-                                from keras.preprocessing import image
-                                df.set_value(index, colname, image.load_img(filepath, target_size=(224, 224)))
-                            elif self.media_type == VariableFileType.GRAPH:
-                                import networkx as nx
-                                nxobject = fileobjects.get(filepath, None)
-                                if nxobject is None:
-                                    nxobject = nx.read_gml(filepath)
-                                fileobjects[filepath] = nxobject
-                                df.set_value(index, colname, nxobject)
-                            elif self.media_type == VariableFileType.AUDIO:
-                                # Load audio files
-                                import librosa
-                                # Load file
-                                try:
-                                    print (filepath)
-                                    sys.stdout.flush()
-                                    start = None
-                                    end = None
-                                    bcols = self.boundary_columns
-                                    kwargs = {'sr':None}
-                                    if len(bcols) == 2:
-                                        start = float(row[bcols[0]])
-                                        end = float(row[bcols[1]])
-                                        if start > end:
-                                            tmp = start
-                                            start = end
-                                            end = tmp
-                                        kwargs['offset'] = start
-                                        kwargs['duration'] = end-start
-                                    (audio_clip, sampling_rate) = librosa.load(filepath, **kwargs)
-                                    df.set_value(index, colname, (audio_clip, sampling_rate))
-                                except Exception as e:
-                                    df.set_value(index, colname, None)
-
-            origdf = df
-            for file_colname, index_colname in zip(tabular_columns, index_columns):
-                # FIXME: Assumption here that all entries for the filename are the same per column
-                filename = origdf.iloc[0][file_colname]
-
-                # Merge the nested table with parent table on the index column
-                nested_table = self.nested_table[filename]
-                df = pd.merge(df, nested_table, on=index_colname)
-
-                # Remove file and index columns since the content has been replaced
-                del df[file_colname]
-                if index_colname != indexcol:
-                    del df[index_colname]
-                ncols = []
-                for col in cols:
-                    if col['varName'] not in [file_colname, index_colname]:
-                        ncols.append(col)
-                cols = ncols
-                # Add nested table columns
-                for nested_colname in nested_table.columns:
-                    if not nested_colname == index_colname:
-                        cols.append({'varName': nested_colname})
-
-            if cols:
-                if labeldata:
-                    self.target_columns = cols
-                else:
-                    self.input_columns = cols
-
-        if indexcol is not None:
-            # Set the table's index column
-            df = df.set_index(indexcol, drop=True)
-
-            # Remove the index column from the list
-            for col in cols:
-                if col['varName'] == indexcol:
-                    cols.remove(col)
-
-            if not labeldata:
-                # Check if we need to set the media type for any columns
-                profile = DataProfile(df)
-                if profile.profile[dpt.TEXT]:
-                    if self.media_type == VariableFileType.TABULAR or self.media_type is None:
-                        self.media_type = VariableFileType.TEXT
-                        for colname in profile.columns.keys():
-                            colprofile = profile.columns[colname]
-                            if colprofile[dpt.TEXT]:
-                                for col in self.input_columns:
-                                    if col['varName'] == colname:
-                                        col['varType'] = 'file'
-                                        col['varFileType'] = 'text'
-                                        col['varFileFormat'] = 'text/plain'
-        return df
-
-
-    def get_index_column(self, columns):
-        for col in columns:
-            if col['varRole'] == 'index':
-                return col['varName']
-        return None
-
-    def get_boundary_columns(self, columns):
-        cols = []
-        for col in columns:
-            if col.get('varRole', None) == 'boundary':
-                cols.append(col['varName'])
-        return cols
-
-    def get_media_type(self, schema, cols):
-        if schema.get('rawData', False):
-            for col in cols:
-                varType = col.get('varType', None)
-                if varType == 'file':
-                    return VariableFileType(col.get('varFileType'))
-        return None
-
-
-
+DATASET_SCHEMA_VERSION = '3.0'
+DEFAULT_DATA_DOC = "datasetDoc.json"
 
 class DataManager(object):
+    input_data = None
+    input_columns = None
+    index_column = None
+    target_data = None
+    target_columns = None
+    media_type = None
+
     """
     The Manage Data management Class.
-    Combines data from several data packages, and provides a API to edit/manage data
+    Combines data from several datasets, and provides a API to edit/manage data
     """
-    def __init__(self):
-        self.original_data = None
-        self.data = None # Combined DataPackage
-        self.data_parts = {} # Hash of data id to DataPackage parts
 
     """
-    This function creates train_data and train_labels from trainData.csv and trainTargets.csv
+    This function creates 2 dataframes:
+    - Training/Testing data
+    - Target labels
     """
-    def initialize_training_data_from_defaults(self, schema_file, data_directory):
+    def initialize_data(self, problem, datasets, view=None):
         print("Loading Data..")
         sys.stdout.flush()
-        self.data_parts = {}
-        self.data_parts[data_directory] = DataPackage()
-        self.data_parts[data_directory].load_data(
-            schema_file, data_directory
+
+        splits_df = self._get_datasplits(problem, view)
+
+        dsmap = {}
+        for dataset in datasets:
+            dsmap[dataset.dsID] = dataset
+
+        dfs = {}
+        for dsid, targets in problem.dataset_targets.items():
+            if dsid in dsmap:
+                dataset = dsmap[dsid]
+                dfs[dsid] = {}
+                restargets = {}
+                for target in targets:
+                    tresid = target["resID"]
+                    if tresid not in restargets:
+                        restargets[tresid] = []
+                    restargets[tresid].append(target)
+
+                for resid, targets in restargets.items():
+                    if resid in dataset.resources:
+                        resource = dataset.resources[resid]
+                        # Get appropriate rows of the resource
+                        # according to the splits specified
+                        df = copy.deepcopy(resource.df.iloc[splits_df.index])
+                        target_cols = self._get_target_columns(df, targets)
+                        targetdf = copy.copy(df[df.columns[target_cols]])
+                        tcols = list(map(lambda x: str(x), df.columns[target_cols]))
+                        df.drop(df.columns[target_cols], axis=1, inplace=True)
+                        dfs[dsid][resid] = {"target_cols": tcols, "targets": targetdf, "data": df}
+
+        # FIXME: Combine multiple dataframes ?
+        for dsid, resdfs in dfs.items():
+            media_type = dsmap[dsid].resType
+            for resid, resdf in resdfs.items():
+                self.input_data = resdf["data"]
+                self.target_data = resdf["targets"]
+                self.target_columns = []
+                self.input_columns = []
+                for col in dsmap[dsid].resources[resid].columns:
+                    if col['colName'] not in resdf["target_cols"]:
+                        self.input_columns.append(col)
+                    else:
+                        self.target_columns.append(col)
+                    if "index" in col['role']:
+                        self.index_column = col['colName']
+                self.media_type = media_type
+                dsmap[dsid].resources[resid].df = self.input_data
+            dsmap[dsid].resolve_references()
+
+    def _get_datasplits(self, problem, view=None):
+        """
+        Returns the data splits in a dataframe
+        """
+        df = pd.read_csv(problem.splitsFile, index_col='d3mIndex')
+        if view is None:
+            return df
+        elif view.upper() == 'TRAIN':
+            df = df[df['type'] == 'TRAIN']
+            return df
+        elif view.upper() == 'TEST':
+            df = df[df['type'] == 'TEST']
+            return df
+
+    def _get_target_columns(self, df, targets):
+        target_cols = []
+        colIndices = {}
+        for i in range(0, len(df.columns)):
+            colIndices[str(df.columns[i])] = i
+        for target in targets:
+            target_colname = target['colName']
+            assert(target_colname in colIndices)
+            target_cols.append(colIndices[target_colname])
+        return target_cols
+
+class Dataset(object):
+    """
+    The Dataset class
+    It contains a list of data resources
+    """
+    dsHome = None
+    dsDoc = None
+    dsID = None
+    about = None
+    resources = {}
+    resType = None
+
+    def load_dataset(self, datasetPath, datasetDoc=None):
+        self.dsHome = datasetPath
+
+        # read the schema in dsHome
+        if datasetDoc is None:
+            datasetDoc = os.path.join(self.dsHome, DEFAULT_DATA_DOC)
+
+        assert os.path.exists(datasetDoc)
+        with open(datasetDoc, 'r') as f:
+            self.dsDoc = json.load(f)
+
+        # make sure the versions line up
+        self.about = self.dsDoc["about"]
+        if self.about['datasetSchemaVersion'] != DATASET_SCHEMA_VERSION:
+            warnings.warn("Dataset Schema version mismatch")
+
+        self.dsID = self.about["datasetID"]
+        for res in self.dsDoc["dataResources"]:
+            resource = DataResource.initialize(res, self.dsHome)
+            if resource.resType != "table":
+                self.resType = resource.resType
+            self.resources[resource.resID] = resource
+
+        self.load_resources()
+
+    def load_resources(self):
+        # Load all resources
+        for resid, res in self.resources.items():
+            res.load()
+        #self.resolve_references()
+
+    def resolve_references(self):
+        # Get all references
+        references = {}
+        for resid, resource in self.resources.items():
+            if type(resource) is TableResource:
+                for col in resource.columns:
+                    referobj = col.get("refersTo", None)
+                    if referobj is not None:
+                        toresid = referobj["resID"]
+                        tores = self.resources.get(toresid, None)
+                        if tores is not None:
+                            toref = referobj["resObject"]
+                            reference = Reference(resource, col, tores, toref)
+                            if resid not in references:
+                                references[resid] = {}
+                            references[resid][col["colName"]] = reference
+        for resid, refmap in references.items():
+            for colname, reference in refmap.items():
+                self.load_reference(reference, references)
+
+    def load_reference(self, reference, references):
+        reference.scanned = True
+        tores = reference.to_resource
+        if type(tores) is TableResource:
+            # Check for further reference from this resource, if exists, load that first
+            tocol = reference.to_reference["columnName"]
+            if tores.resID in references:
+                # Load all references from this table
+                for col, further_ref in references[tores.resID]:
+                    if not further_ref.scanned:
+                        self.load_reference(further_ref, references)
+        tores.join_with(reference.from_resource, reference)
+
+
+class DataResource(object):
+    """
+    The resource contains the actual data. It could of various types
+    """
+    def __init__(self, resID, resPath, resType, resFormat):
+        self.resID = resID
+        self.resPath = resPath
+        self.resType = resType
+        self.resFormat = resFormat
+
+    '''
+    Initial resource loading (if any)
+    '''
+    def load(self):
+        pass
+
+    '''
+    Modify the input resource with data from itself based on the reference.
+    The input resource has to be a tabular resource
+    '''
+    def join_with(self, resource, reference):
+        assert(type(resource) is TableResource)
+
+    @staticmethod
+    def initialize(obj, dsHome):
+        resID = obj["resID"]
+        resPath = os.path.join(dsHome, obj["resPath"])
+        resType = obj["resType"]
+        resFormat = obj["resFormat"]
+        if resType == "table":
+            columns = obj["columns"]
+            return TableResource(resID, resPath, resType, resFormat, columns)
+        elif resType == "text":
+            return TextResource(resID, resPath, resType, resFormat)
+        elif resType == "image":
+            return ImageResource(resID, resPath, resType, resFormat)
+        elif resType == "audio":
+            return AudioResource(resID, resPath, resType, resFormat)
+        elif resType == "graph":
+            return GraphResource(resID, resPath, resType, resFormat)
+
+class TableResource(DataResource):
+    """
+    This contains tabular data (csv)
+    """
+    df = None
+    columns = []
+    index_column = None
+
+    def __init__(self, resID, resPath, resType, resFormat, columns):
+        super(TableResource, self).__init__(resID, resPath, resType, resFormat)
+        index_hash = {}
+        name_hash = {}
+        for col in columns:
+            name_hash[col["colName"]] = col
+            index_hash[col["colIndex"]] = col
+            #self.columns_list.append(col)
+            if "index" in col["role"]:
+                self.index_column = col["colName"]
+        self.columns = [index_hash[i] for i in sorted(index_hash.keys())]
+        self.named_columns = name_hash
+
+
+    def load(self):
+        self.df = pd.read_csv(self.resPath, index_col=self.index_column)
+
+    def join_with(self, resource, reference):
+        assert(type(resource) is TableResource)
+        #print ("Joining {} with {}".format(resource.resPath, self.resPath))
+        leftcol = reference.from_column["colName"]
+        rightcol = reference.to_reference["columnName"]
+        leftindex = False
+        rightindex = False
+        if leftcol == resource.index_column:
+            leftcol = None
+            leftindex = True
+        if rightcol == self.index_column:
+            rightcol = None
+            rightindex = True
+        resource.df = resource.df.merge(
+            self.df, how="left",
+            left_on=leftcol,
+            right_on=rightcol,
+            left_index = leftindex,
+            right_index = rightindex
         )
-        self._combine_data_parts()
+        if leftcol is not None:
+            del resource.df[leftcol]
+        if rightcol is not None:
+            del resource.df[rightcol]
 
+    def get_boundary_columns(self):
+        boundary_columns = []
+        for col in self.columns:
+            if "boundaryIndicator" in col["role"]:
+                boundary_columns.append(col["colName"])
+        return boundary_columns
+
+    def get_column_values(self, row, columns):
+        values = []
+        for col in columns:
+            values.append(row[col])
+        return values
+
+
+class RawResource(DataResource):
     """
-    This function creates train_data and train_labels from trainData.csv and trainTargets.csv
+    This contains a collection of raw files like images, audio, text, etc
     """
-    def initialize_test_data_from_defaults(self, schema_file, data_directory):
-        print("Loading Data..")
-        sys.stdout.flush()
-        self.data_parts = {}
-        self.data_parts[data_directory] = DataPackage()
-        self.data_parts[data_directory].load_data(
-            schema_file,
-            data_directory,
-            test_data=True
-        )
-        self._combine_data_parts()
+    loader = None
+    loading_pool = None
 
+    def __init__(self, resID, resPath, resType, resFormat, numcpus=0):
+        if numcpus == 0:
+            numcpus = multiprocessing.cpu_count()
+        self.loading_pool = Pool(numcpus)
+        super(RawResource, self).__init__(resID, resPath, resType, resFormat)
+
+    def load(self):
+        # Preload all images ?
+        pass
+
+    '''
+    Load a particular item from the resource collection
+    '''
+    def load_resource(self, filepath, boundary_values):
+        pass
+
+    '''
+    Unserialize resource after pickling (due to multiprocessing)
+    '''
+    def unserialize_resource(self, value):
+        return value
+
+    def join_with(self, resource, reference):
+        assert(type(resource) is TableResource)
+        colname = reference.from_column["colName"]
+        boundary_columns = resource.get_boundary_columns()
+        loadrefs = []
+        for index, row in resource.df.iterrows():
+            filename = row[colname]
+            filepath = os.path.join(self.resPath, filename)
+            boundary_values = resource.get_column_values(row, boundary_columns)
+            ref = self.loading_pool.apply_async(self.load_resource, args=(filepath, boundary_values))
+            loadrefs.append({"ref":ref, "index":index, "filename":filename})
+
+        resource.df[colname] = resource.df[colname].astype(object)
+        for loadref in loadrefs:
+            value = loadref["ref"].get()
+            print("Loading .. {}".format(loadref["filename"]))
+            sys.stdout.flush()
+            resource.df.at[loadref["index"], colname] = self.unserialize_resource(value)
+
+    def __getstate__(self):
+        self_dict = self.__dict__.copy()
+        del self_dict['loading_pool']
+        return self_dict
+
+    def __setstate__(self, state):
+        self.__dict__.update(state)
+
+class TextResource(RawResource):
     """
-    This function creates input data, and target data from the set of train and target features
+    A collection of text files
     """
-    def initialize_training_data_from_features(self, train_features, target_features):
-        data_directories = []
-        input_data_features_map = {}
-        target_data_features_map = {}
-        self.data_parts = {}
+    def __init__(self, resID, resPath, resType, resFormat):
+        super(TextResource, self).__init__(resID, resPath, resType, resFormat)
 
-        print("Loading Data..")
-        sys.stdout.flush()
-        for feature in train_features:
-            input_data_features = input_data_features_map.get(feature.data_directory, [])
-            input_data_features.append(feature.feature_id)
-            input_data_features_map[feature.data_directory] = input_data_features
-            if feature.data_directory not in data_directories:
-                data_directories.append(feature.data_directory)
+    def load(self):
+        # Preload all images ?
+        pass
 
-        for feature in target_features:
-            target_data_features = target_data_features_map.get(feature.data_directory, [])
-            target_data_features.append(feature.feature_id)
-            target_data_features_map[feature.data_directory] = target_data_features
-            if feature.data_directory not in data_directories:
-                data_directories.append(feature.data_directory)
+    def load_resource(self, filepath, boundary_values):
+        with open(filepath, 'rb') as filepath:
+            txt = filepath.read()
+            return txt
 
-        for data_directory in data_directories:
-            input_features = input_data_features_map.get(data_directory, None)
-            target_features = target_data_features_map.get(data_directory, None)
-            schema_file = data_directory + os.sep + DEFAULT_DATA_SCHEMA
-            self.data_parts[data_directory] = DataPackage()
-            self.data_parts[data_directory].load_data(
-                schema_file,
-                data_directory,
-                input_filters=input_features,
-                target_filters=target_features
-            )
-        self._combine_data_parts()
-
+class ImageResource(RawResource):
     """
-    This function creates input data from the set of test features
+    ImageResource: A collection of image files
     """
-    def initialize_test_data_from_features(self, test_features):
-        data_directories = []
-        input_data_features_map = {}
-        self.data_parts = {}
+    def __init__(self, resID, resPath, resType, resFormat):
+        self.keras_image = importlib.import_module('keras.preprocessing.image')
+        self.pil_image = importlib.import_module('PIL.Image')
+        super(ImageResource, self).__init__(resID, resPath, resType, resFormat)
 
-        print("Loading Data..")
-        for feature in test_features:
-            input_data_features = input_data_features_map.get(feature.data_directory, [])
-            input_data_features.append(feature.feature_id)
-            input_data_features_map[feature.data_directory] = input_data_features
-            if feature.data_directory not in data_directories:
-                data_directories.append(feature.data_directory)
+    def load(self):
+        # Preload all images ?
+        pass
 
-        for data_directory in data_directories:
-            input_features = input_data_features_map.get(data_directory, None)
-            schema_file = data_directory + os.sep + DEFAULT_DATA_SCHEMA
-            self.data_parts[data_directory] = DataPackage()
-            self.data_parts[data_directory].load_data(
-                schema_file,
-                data_directory,
-                input_filters=input_features,
-                test_data=True
-            )
-        self._combine_data_parts()
+    def load_resource(self, filepath, boundary_values):
+        im = self.keras_image.load_img(filepath, target_size=(224, 224))
+        return dict(data=im.tobytes(), size=im.size, mode=im.mode)
 
+    def unserialize_resource(self, value):
+        return self.pil_image.frombytes(**value)
 
+class AudioResource(RawResource):
     """
-    This function combines the individual parts into one
+    AudioResource: A collection of audio files
     """
-    def _combine_data_parts(self):
-        self.data = DataPackage()
-        self.data.schema = []
-        for partid in self.data_parts.keys():
-            dp = self.data_parts[partid]
-            self.data.schema.append(dp.schema)
-            self.data.input_columns = self.data.input_columns + dp.input_columns
-            self.data.input_data = pd.concat([self.data.input_data, dp.input_data], axis=1)
-            self.data.target_columns = self.data.target_columns + dp.target_columns
-            self.data.target_data = pd.concat([self.data.target_data, dp.target_data], axis=1)
-            self.data.boundary_columns = self.data.boundary_columns + dp.boundary_columns
-            if dp.index_column is not None:
-                self.data.index_column = dp.index_column
-            if dp.media_type is not None:
-                self.data.media_type = dp.media_type
-        # Take a copy of the original data
-        self.original_data = copy.deepcopy(self.data)
+    def __init__(self, resID, resPath, resType, resFormat):
+        self.librosa = importlib.import_module('librosa')
+        super(AudioResource, self).__init__(resID, resPath, resType, resFormat)
+
+    def load(self):
+        # Preload all audio ?
+        pass
+
+    def load_resource(self, filepath, boundary_values):
+        kwargs = {'sr':None}
+        if len(boundary_values) == 2:
+            start = float(boundary_values[0])
+            end = float(boundary_values[1])
+            if start > end:
+                tmp = start
+                start = end
+                end = tmp
+            kwargs['offset'] = start
+            kwargs['duration'] = end-start
+        try:
+            return self.librosa.load(filepath, **kwargs)
+        except:
+            return None
+
+
+class GraphResource(DataResource):
+    graph = None
+
+    def __init__(self, resID, resPath, resType, resFormat):
+        self.networkx = importlib.import_module('networkx')
+        super(GraphResource, self).__init__(resID, resPath, resType, resFormat)
+
+    '''
+    Initial Load.. Does nothing for now. Could preload
+    '''
+    def load(self):
+        self.graph = self.networkx.read_gml(self.resPath)
+
+    def join_with(self, resource, reference):
+        assert(type(resource) is TableResource)
+        colname = reference.from_column["colName"]
+        toref = reference.to_reference
+        '''
+        resource.df[colname] = resource.df[colname].astype(object)
+        for index, row in resource.df.iterrows():
+            item = row[colname]
+            values = None
+            if toref == "node":
+                # Get node specific stuff
+                values = self.networkx.get_node_attributes(self.graph, item)
+            elif toref == "edge":
+                # Get edge specific stuff
+                values = self.networkx.get_edge_attributes(self.graph, item)
+            resource.df.at[index, colname] = values
+        '''
+
+class Reference(object):
+    """
+    Used to define a reference from one resource to another
+    """
+    from_resource = None
+    from_column = None
+    to_resource = None
+    to_reference = None
+    scanned = False
+
+    def __init__(self, fromres, fromcol, tores, toref):
+        self.from_resource = fromres
+        self.from_column = fromcol
+        self.to_resource = tores
+        self.to_reference = toref
+
+    def __repr__(self):
+        torefstr = self.to_reference
+        if type(self.to_resource) is TableResource:
+            torefstr = self.to_reference["columnName"]
+        return "{}.{}->{}.{}".format(
+            self.from_resource.resID,
+            self.from_column["colName"],
+            self.to_resource.resID,
+            torefstr)

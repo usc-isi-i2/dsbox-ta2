@@ -1,4 +1,5 @@
 import os
+import sys
 import json
 
 from dsbox.schema.problem_schema import TaskType, TaskSubType, Metric
@@ -6,36 +7,65 @@ from dsbox.schema.problem_schema import TaskType, TaskSubType, Metric
 # sklearn metric functions
 import sklearn.metrics
 
-DEFAULT_PROBLEM_SCHEMA = "problemSchema.json"
+PROBLEM_SCHEMA_VERSION = '3.0'
+DEFAULT_PROBLEM_DOC = "problemDoc.json"
 
-class SchemaManager(object):
-
-    def __init__(self):
-        self.problem_id = None
-        self.task_type = None
-        self.task_subtype = None
-        self.metrics = []
-        self.metric_functions = []
-        self.output_type = None
-
+class Problem(object):
     """
-    Set the task type, metric and output type via the schema
+    The Problem class
+    It contains the problem description and pointers to datasets
     """
-    def load_problem_schema(self, problem_schema):
-        problem = self.load_json(problem_schema)
-        self.problem_id = problem['problemId']
+
+    prHome = None
+    prDoc = None
+    prID = None
+    about = None
+
+    dataset_targets = {}
+    task_type = None
+    task_subtype = None
+    metrics = []
+    metric_functions = []
+
+    splits_file = None
+    predictions_file = None
+    scores_file = None
+
+    def load_problem(self, problemPath, problemDoc=None):
+        self.prHome = problemPath
+
+        # read the schema in prHome
+        # read the schema in dsHome
+        if problemDoc is None:
+            problemDoc = os.path.join(self.prHome, DEFAULT_PROBLEM_DOC)
+
+        assert os.path.exists(problemDoc)
+        with open(problemDoc, 'r') as f:
+            self.prDoc = json.load(f)
+
+        # make sure the versions line up
+        self.about = self.prDoc["about"]
+        if self.about['problemSchemaVersion'] != PROBLEM_SCHEMA_VERSION:
+            warnings.warn("Problem Schema version mismatch")
+
+        # Load bookkeeping data
+        self.prID = self.about["problemID"]
+        inputs = self.prDoc["inputs"]
+        self.splitsFile = os.path.join(self.prHome, inputs["dataSplits"]["splitsFile"])
         self.set_task_type(
-            problem.get('taskType', None),
-            problem.get('taskSubType', None)
+            self.about.get('taskType', None),
+            self.about.get('taskSubType', None)
         )
-        self.set_metric(problem.get('metric', 'accuracy'))
-        self.set_output_type(problem.get('outputType'))
+        metrics = list(map(lambda x: Metric(x["metric"]),
+            inputs["performanceMetrics"]))
+        self.set_metrics(metrics)
+        self.set_expected_outputs(self.prDoc.get("expectedOutputs", {}))
 
-    def load_json(self, jsonfile):
-        with open(jsonfile) as json_data:
-            d = json.load(json_data)
-            json_data.close()
-            return d
+        # Load the dataset targets
+        for dsitem in self.prDoc["inputs"]["data"]:
+            dsid = dsitem.get("datasetID")
+            dstargets = dsitem.get("targets")
+            self.dataset_targets[dsid] = dstargets
 
     """
     Set the task type and task subtype
@@ -44,23 +74,18 @@ class SchemaManager(object):
         self.task_type = TaskType(task_type)
         self.task_subtype = None
         if task_subtype is not None:
-            task_subtype = task_subtype.replace(self.task_type.value.title(), "")
             self.task_subtype = TaskSubType(task_subtype)
 
     """
-    Set the output type
+    Set the output file
     """
-    def set_output_type(self, output_type):
-        self.output_type = output_type
+    def set_expected_outputs(self, op):
+        self.predictions_file = op.get("predictionsFile", "predictions.csv")
+        self.scores_file = op.get("scoresFile", "scores.csv")
 
     """
-    Set the metric
+    Set the metrics
     """
-    def set_metric(self, metric):
-        metric = metric[0].lower() + metric[1:]
-        self.metrics = [Metric(metric)]
-        self.set_metric_functions()
-
     def set_metrics(self, metrics):
         self.metrics = metrics
         self.set_metric_functions()
@@ -99,7 +124,9 @@ class SchemaManager(object):
             return sklearn.metrics.normalized_mutual_info_score
         elif metric==Metric.JACCARD_SIMILARITY_SCORE:
             return sklearn.metrics.jaccard_similarity_score
-        return sklearn.metrics.accuracy_score
+        else:
+            sys.stderr.write("ERROR Unknown metric : {}\n".format(metric))
+            return None
 
     ''' Custom Metric Functions '''
     def f1_micro(self, y_true, y_pred):

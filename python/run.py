@@ -41,7 +41,7 @@ USAGE
     #try:
     # Setup argument parser
     parser = argparse.ArgumentParser(description=program_license, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("-p", "--problem", dest="problem", help="Problem directory")
+    parser.add_argument("-p", "--problem", dest="problem", help="Problem root directory")
     parser.add_argument("-l", "--library", dest="library", help="Primitives library directory. [default: %(default)s]", default="library")
     parser.add_argument("-o", "--output", dest="output", help="Output directory. [default: %(default)s]", default="output")
     parser.add_argument("-v", "--verbose", dest="verbose", action="count", help="set verbosity level [default: %(default)s]")
@@ -50,13 +50,16 @@ USAGE
     # Process arguments
     args = parser.parse_args()
 
-    problem_directory = args.problem
-    if not problem_directory:
+    problem_root_directory = args.problem
+    if not problem_root_directory:
         sys.stderr.write(program_name + ": No problem directory specified\n")
         sys.stderr.write("  for help use --help\n")
         exit(1)
 
-    data_directory = problem_directory + os.sep + "data"
+    problem_name = os.path.basename(problem_root_directory)
+
+    problem_directory = problem_root_directory + os.sep + problem_name + "_problem"
+    data_directory = problem_root_directory + os.sep + problem_name + "_dataset"
 
     library_directory = args.library
     verbose = args.verbose
@@ -68,9 +71,9 @@ USAGE
         print("Verbose mode on")
 
     controller = Controller(library_directory)
-    controller.set_config_simple(data_directory, output_directory)
-    controller.load_problem_schema()
-    controller.initialize_training_data_from_defaults()
+    controller.initialize_simple(problem_directory, data_directory, output_directory)
+    controller.load_problem()
+    controller.initialize_training_data_from_config()
     controller.initialize_planners()
     for result in controller.train(PlannerEventHandler()):
         pass

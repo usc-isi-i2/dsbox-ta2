@@ -44,10 +44,13 @@ ta2-search <search_config_file>
         config = json.load(conf_data)
         conf_data.close()
 
+    if "timeout" in config:
+        TIMEOUT = int(config.get("timeout"))*60
+
     # Start the controller
     controller = Controller(LIB_DIRECTORY)
-    controller.set_config(config)
-    controller.load_problem_schema()
+    controller.initialize_from_config(config)
+    controller.load_problem()
 
     # Setup a signal handler to exit gracefully
     # Either on an interrupt or after a certain time
@@ -60,7 +63,7 @@ ta2-search <search_config_file>
     signal.alarm(TIMEOUT)
 
     # Load in data
-    controller.initialize_training_data_from_defaults()
+    controller.initialize_training_data_from_config()
 
     # Start training
     controller.initialize_planners()

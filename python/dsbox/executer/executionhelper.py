@@ -6,6 +6,7 @@ import time
 import uuid
 import shutil
 import os.path
+import tempfile
 import numpy as np
 import pandas as pd
 
@@ -40,10 +41,13 @@ from sklearn.metrics import make_scorer
 REMOTE = False
 
 class ExecutionHelper(object):
-    def __init__(self, data_manager, schema_manager):
+    problem = None
+    dataset = None
+
+    def __init__(self, problem, data_manager):
         self.e = Execution()
-        self.dm = data_manager
-        self.sm = schema_manager
+        self.problem = problem
+        self.data_manager = data_manager
 
     def instantiate_primitive(self, primitive):
         executable = None
@@ -52,10 +56,10 @@ class ExecutionHelper(object):
         kwargs = {}
         if primitive.getInitKeywordArgs():
             kwargs = self._process_kwargs(
-                primitive.getInitKeywordArgs(), self.sm.task_type, self.sm.metric_functions)
+                primitive.getInitKeywordArgs(), self.problem.task_type, self.problem.metric_functions)
         if primitive.getInitArgs():
             args = self._process_args(
-                primitive.getInitArgs(), self.sm.task_type, self.sm.metric_functions)
+                primitive.getInitArgs(), self.problem.task_type, self.problem.metric_functions)
 
         # Instantiate primitive
         if REMOTE:
@@ -217,12 +221,19 @@ class ExecutionHelper(object):
 
     @stopit.threading_timeoutable()
     def cross_validation_score(self, primitive, X, y, cv=4):
+        print("Executing %s" % primitive.name)
+        sys.stdout.flush()
+
+        # Redirect stderr to an error file
+        errorfile = tempfile.TemporaryFile(prefix=primitive.name)
+        sys.stderr = errorfile
+
         primitive.start_time = time.time()
 
         kf = KFold(n_splits=cv, shuffle=True, random_state=int(time.time()))
         metric_values = {}
 
-        tcols = [self.dm.data.target_columns[0]['varName']]
+        tcols = [self.data_manager.target_columns[0]['colName']]
         yPredictions = None
         num = 0.0
         for k, (train, test) in enumerate(kf.split(X, y)):
@@ -236,40 +247,55 @@ class ExecutionHelper(object):
             testX = X.take(test, axis=0)
             testY = y.take(test, axis=0).values.ravel()
 
-            if primitive.unified_interface:
-                executable.set_training_data(inputs=trainX, outputs=trainY)
-                executable.fit()
-                ypred = executable.produce(inputs=testX)
-            else:
-                if REMOTE:
-                    prim = self.e.execute('fit', args=[trainX, trainY], kwargs=None, obj=executable, objreturn=True)
-                    ypred = self.e.execute('predict', args=[testX], kwargs=None, obj=executable)
+            try:
+                if primitive.unified_interface:
+                    executable.set_training_data(inputs=trainX, outputs=trainY)
+                    executable.fit()
+                    ypred = executable.produce(inputs=testX)
                 else:
-                    executable.fit(trainX, trainY)
-                    ypred = executable.predict(testX)
+                    if REMOTE:
+                        prim = self.e.execute('fit', args=[trainX, trainY], kwargs=None, obj=executable, objreturn=True)
+                        ypred = self.e.execute('predict', args=[testX], kwargs=None, obj=executable)
+                    else:
+                        executable.fit(trainX, trainY)
+                        ypred = executable.predict(testX)
 
-            ypredDF = pd.DataFrame(ypred, index=testX.index, columns=tcols)
-            if yPredictions is None:
-                yPredictions = ypredDF
-            else:
-                yPredictions = pd.concat([yPredictions, ypredDF])
+                ypredDF = pd.DataFrame(ypred, index=testX.index, columns=tcols)
+                if yPredictions is None:
+                    yPredictions = ypredDF
+                else:
+                    yPredictions = pd.concat([yPredictions, ypredDF])
 
-            num = num + 1.0
-            # TODO: Removing this for now
-            primitive.progress = num/cv
-            primitive.pipeline.notifyChanges()
+                num = num + 1.0
+                # TODO: Removing this for now
+                primitive.progress = num/cv
+                primitive.pipeline.notifyChanges()
+            except Exception as e:
+                traceback.print_exc(e)
+
+        if num == 0:
+            return (None, None)
 
         yPredictions = yPredictions.sort_index()
 
         #print ("Trained on {} samples, Tested on {} samples".format(len(train), len(ypred)))
-        for i in range(0, len(self.sm.metrics)):
-            metric = self.sm.metrics[i]
-            fn = self.sm.metric_functions[i]
+        for i in range(0, len(self.problem.metrics)):
+            metric = self.problem.metrics[i]
+            fn = self.problem.metric_functions[i]
             metric_val = self._call_function(fn, y, yPredictions)
             if metric_val is None:
                 return None
             metric_values[metric.name] = metric_val
 
+        primitive.end_time = time.time()
+        primitive.progress = 1.0
+        primitive.finished = True
+        primitive.pipeline.notifyChanges()
+
+        #print ("Returning {}".format(metric_values))
+        return (yPredictions, metric_values)
+
+    def create_primitive_model(self, primitive, X, y):
         # fit the model finally over the whole training data for evaluation later over actual test data
         executable = self.instantiate_primitive(primitive)
         if executable is None:
@@ -286,14 +312,6 @@ class ExecutionHelper(object):
                 executable.fit(X, y.values.ravel())
         primitive.executables = executable
 
-        primitive.end_time = time.time()
-        primitive.progress = 1.0
-        primitive.finished = True
-        primitive.pipeline.notifyChanges()
-
-        #print ("Returning {}".format(metric_values))
-        return (yPredictions, metric_values)
-
     def _as_tensor(self, image_list):
         from keras.preprocessing import image
         shape = (len(image_list), ) + image.img_to_array(image_list[0]).shape
@@ -308,10 +326,10 @@ class ExecutionHelper(object):
 
         persistent = primitive.is_persistent
         ncols = [col.format() for col in df.columns]
-        featurecols = self.raw_data_columns(self.dm.data.input_columns)
+        featurecols = self.raw_data_columns(self.data_manager.input_columns)
         indices = df.index
         for col in featurecols:
-            if self.dm.data.media_type == VariableFileType.TEXT:
+            if self.data_manager.media_type == VariableFileType.TEXT:
                 executable = self.instantiate_primitive(primitive)
                 if executable is None:
                     primitive.finished = True
@@ -333,7 +351,7 @@ class ExecutionHelper(object):
                 ncols.remove(col)
                 df = pd.concat([df, newdf], axis=1)
                 df.columns=ncols
-            elif self.dm.data.media_type == VariableFileType.IMAGE:
+            elif self.data_manager.media_type == VariableFileType.IMAGE:
                 executable = self.instantiate_primitive(primitive)
                 if executable is None:
                     primitive.finished = True
@@ -347,7 +365,7 @@ class ExecutionHelper(object):
                 ncols.remove(col)
                 df = pd.concat([df, newdf], axis=1)
                 df.columns=ncols
-            elif self.dm.data.media_type == VariableFileType.AUDIO:
+            elif self.data_manager.media_type == VariableFileType.AUDIO:
                 # Featurize audio
                 fcols = []
                 for idx, row in df.iterrows():
@@ -378,10 +396,12 @@ class ExecutionHelper(object):
                         df.set_value(idx, fcol, np.average(allfeatures[fcol]))
 
                 del df[col]
-                bcols = self.dm.data.boundary_columns
+                '''
+                bcols = self.data_manager.boundary_columns
                 if len(bcols) == 2:
                     del df[bcols[0]]
                     del df[bcols[1]]
+                '''
 
             primitive.executables[col] = executable
 
@@ -396,7 +416,7 @@ class ExecutionHelper(object):
     def test_featurise(self, primitive, df):
         persistent = primitive.is_persistent
         ncols = [col.format() for col in df.columns]
-        featurecols = self.raw_data_columns(self.dm.data.input_columns)
+        featurecols = self.raw_data_columns(self.data_manager.input_columns)
         indices = df.index
         for col in featurecols:
             executable = None
@@ -407,7 +427,7 @@ class ExecutionHelper(object):
             if executable is None:
                 return None
 
-            if self.dm.data.media_type == VariableFileType.TEXT:
+            if self.data_manager.media_type == VariableFileType.TEXT:
                 # Using an unfitted primitive for each column (needed for Corex)
                 #df_col = pd.DataFrame(df[col])
                 #executable.fit(df_col)
@@ -426,7 +446,7 @@ class ExecutionHelper(object):
                 ncols.remove(col)
                 df = pd.concat([df, newdf], axis=1)
                 df.columns=ncols
-            elif self.dm.data.media_type == VariableFileType.IMAGE:
+            elif self.data_manager.media_type == VariableFileType.IMAGE:
                 image_tensor = self._as_tensor(df[col].values)
                 nvals = executable.transform(image_tensor)
                 fcols = [(col.format() + "_" + str(index)) for index in range(0, nvals.shape[1])]
@@ -436,7 +456,7 @@ class ExecutionHelper(object):
                 ncols.remove(col)
                 df = pd.concat([df, newdf], axis=1)
                 df.columns=ncols
-            elif self.dm.data.media_type == VariableFileType.AUDIO:
+            elif self.data_manager.media_type == VariableFileType.AUDIO:
                 # Featurize audio
                 fcols = []
                 for idx, row in df.iterrows():
@@ -465,10 +485,12 @@ class ExecutionHelper(object):
                         df.set_value(idx, fcol, np.average(allfeatures[fcol]))
 
                 del df[col]
-                bcols = self.dm.data.boundary_columns
+                '''
+                bcols = self.data_manager.boundary_columns
                 if len(bcols) == 2:
                     del df[bcols[0]]
                     del df[bcols[1]]
+                '''
 
         return pd.DataFrame(df, index=indices)
 
@@ -478,7 +500,7 @@ class ExecutionHelper(object):
             varRole = col.get('varRole', None)
             varType = col.get('varType', None)
             if varRole == 'file' or varType == 'file':
-                cols.append(col['varName'])
+                cols.append(col['colName'])
         return cols
 
     def _process_args(self, args, task_type, metrics):
@@ -529,15 +551,14 @@ class ExecutionHelper(object):
 
         # Get directory information
         train_dir = config['training_data_root']
+        problem_root = config['problem_root']
         exec_dir = config['executables_root']
         tmp_dir = config['temp_storage_root']
+        results_dir = os.path.abspath(exec_dir + os.sep + ".." + os.sep + "results")
 
-        # Copy over the data schema
-        # FIXME: Deal with multiple schemas (when dealing with multiple data uris from TA3)
-        orig_data_schema = config['dataset_schema']
-        data_schema_file = str(uuid.uuid4()) + ".json"
-        shutil.copyfile(orig_data_schema, tmp_dir + os.sep + data_schema_file)
-
+        # FIXME: Deal with multiple dataset schemas
+        dataset_schema = config['dataset_schema']
+        problem_schema = config['problem_schema']
 
         modelsdir = exec_dir + os.sep + "models"
         if not os.path.exists(modelsdir):
@@ -558,8 +579,8 @@ class ExecutionHelper(object):
                 ""
                 "import sklearn.externals",
                 "from dsbox.executer.executionhelper import ExecutionHelper",
-                "from dsbox.planner.common.data_manager import DataManager",
-                "from dsbox.planner.common.schema_manager import SchemaManager",
+                "from dsbox.planner.common.data_manager import Dataset, DataManager",
+                "from dsbox.planner.common.problem_manager import Problem",
                 "from dsbox.schema.problem_schema import TaskType, Metric",
                 "",
                 "# Pipeline : %s" % str(pipeline),
@@ -569,42 +590,46 @@ class ExecutionHelper(object):
         statements.append("numpy.set_printoptions(threshold=numpy.nan)")
 
         statements.append("\n# Defaults unless overridden by config json")
-        resultsdir = os.path.abspath(exec_dir + os.sep + ".." + os.sep + "results")
+        statements.append("dataset_schema = '%s'" % dataset_schema)
+        statements.append("problem_schema = '%s'" % problem_schema)
+        statements.append("problem_root = '%s'" % problem_root)
         statements.append("test_data_root = '%s'" % train_dir)
-        statements.append("results_path = '%s%s%s.csv'" % (resultsdir, os.sep, pipeid))
+        statements.append("results_root = '%s'" % results_dir)
         statements.append("executables_root = curdir")
         statements.append("temp_storage_root = '%s'" % tmp_dir)
+        statements.append("numcpus = %s" % config.get('cpus'))
+        statements.append("timeout = %s*60" % config.get('timeout'))
+        statements.append("ram = '%s'" % config.get('ram'))
 
         statements.append("\nconfig = {}")
         statements.append("if len(sys.argv) > 1:")
         statements.append("    with open(sys.argv[1]) as conf_data:")
         statements.append("        config = json.load(conf_data)")
         statements.append("        conf_data.close()")
+        statements.append("if config.get('dataset_schema', None) is not None:")
+        statements.append("    dataset_schema = config['dataset_schema']")
+        statements.append("if config.get('problem_schema', None) is not None:")
+        statements.append("    problem_schema = config['problem_schema']")
         statements.append("if config.get('test_data_root', None) is not None:")
         statements.append("    test_data_root = config['test_data_root']")
-        statements.append("if config.get('results_path', None) is not None:")
-        statements.append("    results_path = config['results_path']")
+        statements.append("if config.get('results_root', None) is not None:")
+        statements.append("    results_root = config['results_root']")
         statements.append("if config.get('executables_root', None) is not None:")
         statements.append("    executables_root = config['executables_root']")
         statements.append("if config.get('temp_storage_root', None) is not None:")
         statements.append("    temp_storage_root = config['temp_storage_root']")
+        statements.append("predictions_file = os.path.join(results_root, '%s')" % self.problem.predictions_file)
+        statements.append("scores_file = os.path.join(results_root, '%s')" % self.problem.scores_file)
 
-        statements.append("\nsm = SchemaManager()")
-        statements.append("sm.task_type = %s" % self.sm.task_type)
-        metricstrs = "["
-        for i in range(0, len(self.sm.metrics)):
-            if i > 0:
-                metricstrs += ","
-            metricstrs += str(self.sm.metrics[i])
-        metricstrs += "]"
-        statements.append("sm.metrics = %s" % metricstrs)
-        statements.append("sm.set_metric_functions()")
+        statements.append("\nproblem = Problem()")
+        statements.append("problem.load_problem(problem_root, problem_schema)")
+        statements.append("\ndataset = Dataset()")
+        statements.append("dataset.load_dataset(test_data_root, dataset_schema)")
+        statements.append("\ndata_manager = DataManager()")
+        statements.append("data_manager.initialize_data(problem, [dataset], view='TEST')")
+        statements.append("\ntestdata = data_manager.input_data")
 
-        statements.append("\ndm = DataManager()")
-        statements.append("dm.initialize_test_data_from_defaults(temp_storage_root + '/%s', test_data_root)" % data_schema_file)
-        statements.append("testdata = dm.data.input_data")
-
-        statements.append("\nhp = ExecutionHelper(dm, sm)")
+        statements.append("\nhp = ExecutionHelper(problem, data_manager)")
         index = 1
         for primitive in pipeline.primitives:
             primid = "primitive_%s" % str(index)
@@ -651,18 +676,17 @@ class ExecutionHelper(object):
                     statements.append("kwargs = %s" % primitive.init_kwargs)
                     statements.append("%s.executables = %s(*args, **kwargs)" % (primid, primitive.cls))
 
-                statements.append("\nprint('\\nStoring results in %s' % results_path)")
-                statements.append("resultsdir = os.path.dirname(results_path)")
-                statements.append("if not os.path.exists(resultsdir):")
-                statements.append("    os.makedirs(resultsdir)")
-                target_column = self.dm.data.target_columns[0]['varName']
+                statements.append("\nprint('\\nStoring results in %s' % predictions_file)")
+                statements.append("if not os.path.exists(results_root):")
+                statements.append("    os.makedirs(results_root)")
+                target_column = self.data_manager.target_columns[0]['colName']
                 if primitive.unified_interface:
                     statements.append("result = pandas.DataFrame(%s.executables.produce(inputs=testdata), index=testdata.index, columns=['%s'])" %
                         (primid, target_column))
                 else:
                     statements.append("result = pandas.DataFrame(%s.executables.predict(testdata), index=testdata.index, columns=['%s'])" %
                         (primid, target_column))
-                statements.append("result.to_csv(results_path, index_label='%s')" % self.dm.data.index_column)
+                statements.append("result.to_csv(predictions_file, index_label='%s')" % self.data_manager.index_column)
             else:
                 if primitive.task == "PreProcessing":
                     statements.append("testdata = hp.test_execute_primitive(%s, testdata)" % primid)
