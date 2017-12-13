@@ -59,29 +59,23 @@ class Core(crpc.CoreServicer):
         c = session.controller
         if c is None:
             c = Controller(self.libdir)
-            if session.config is not None:
-                c.initialize_from_config(session.config)
-            else:
-                c.initialize_simple(datadir, session.outputdir)
-
-        # Initialize Data
-        if len(train_features) > 0 or len(target_features) > 0:
-            c.data_manager.initialize_training_data_from_features(train_features, target_features)
+            c.initialize_from_features(session.outputdir,
+                train_features, target_features, view='TRAIN')
 
         # Set Problem schema
         if request.task > 0:
-            c.sm.task_type = TaskType[core.TaskType.Name(request.task)]
+            c.problem.task_type = TaskType[core.TaskType.Name(request.task)]
         if request.task_subtype > 0:
-            c.sm.task_subtype = TaskSubType[core.TaskSubtype.Name(request.task_subtype)]
-        if request.output > 0:
-            c.sm.output_type = core.OutputType.Name(request.output)
+            c.problem.task_subtype = TaskSubType[core.TaskSubtype.Name(request.task_subtype)]
+        #if request.output > 0:
+        #    c.problem.output_type = core.OutputType.Name(request.output)
 
         # Load metrics
         metrics = []
         if len(request.metrics) > 0:
             for rm in request.metrics:
                 metrics.append( Metric[core.Metric.Name(rm)] )
-            c.sm.set_metrics(metrics)
+            c.problem.set_metrics(metrics)
 
         # Set the max pipelines cutoff
         cutoff = None
@@ -120,7 +114,9 @@ class Core(crpc.CoreServicer):
         handler = GRPC_PlannerEventHandler(session)
         handler.StartExecutingPipeline(pipeline)
 
-        session.controller.data_manager.initialize_test_data_from_features(test_features)
+        orig_targets = session.controller.data_manager.target_columns
+        session.controller.initialize_from_features(session.outputdir, test_features, [], view='TEST')
+        session.controller.data_manager.target_columns = orig_targets
 
         # Change this to be a yield too.. Save should happen within the handler
         for result in session.controller.test(pipeline, handler):
@@ -183,14 +179,14 @@ class Core(crpc.CoreServicer):
             for update in request.updates:
                 if update.task_type:
                     # Get Problem details
-                    c.sm.task_type = TaskType[core.TaskType.Name(update.task_type)]
+                    c.problem.task_type = TaskType[core.TaskType.Name(update.task_type)]
                 if update.task_subtype:
-                    c.sm.task_subtype = TaskSubType[core.TaskSubtype.Name(update.task_subtype)]
-                if update.output_type:
-                    c.sm.output_type = core.OutputType.Name(update.output_type)
+                    c.problem.task_subtype = TaskSubType[core.TaskSubtype.Name(update.task_subtype)]
+                #if update.output_type:
+                #    c.problem.output_type = core.OutputType.Name(update.output_type)
                 if update.metric:
                     metric = Metric[core.Metric.Name(update.metric)]
-                    c.sm.set_metrics([metric])
+                    c.problem.set_metrics([metric])
             session.controller = c
             return self._create_response("Updated Problem Schema")
 

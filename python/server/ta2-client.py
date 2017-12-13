@@ -36,17 +36,17 @@ def run():
     # Send pipeline creation request
     all_features = [
         core.Feature(
-            data_uri="file:///tmp/data/o_185/data", feature_id="*")
+            data_uri="file:///tmp/data/185_baseball/185_baseball_dataset", feature_id="*")
     ]
     some_features = [
-        core.Feature(data_uri="file:///tmp/data/o_185/data", feature_id="d3mIndex"),
-        core.Feature(data_uri="file:///tmp/data/o_185/data", feature_id="Games_played"),
-        core.Feature(data_uri="file:///tmp/data/o_185/data", feature_id="Runs"),
-        core.Feature(data_uri="file:///tmp/data/o_185/data", feature_id="Hits"),
-        core.Feature(data_uri="file:///tmp/data/o_185/data", feature_id="Home_runs")
+        core.Feature(data_uri="file:///tmp/data/185_baseball/185_baseball_dataset", feature_id="d3mIndex"),
+        core.Feature(data_uri="file:///tmp/data/185_baseball/185_baseball_dataset", feature_id="Games_played"),
+        core.Feature(data_uri="file:///tmp/data/185_baseball/185_baseball_dataset", feature_id="Runs"),
+        core.Feature(data_uri="file:///tmp/data/185_baseball/185_baseball_dataset", feature_id="Hits"),
+        core.Feature(data_uri="file:///tmp/data/185_baseball/185_baseball_dataset", feature_id="Home_runs")
     ]
     target_features = [
-        core.Feature(data_uri="file:///tmp/data/o_185/data", feature_id="*")
+        core.Feature(data_uri="file:///tmp/data/185_baseball/185_baseball_dataset", feature_id="Hall_of_Fame")
     ]
     task = core.TaskType.Value('CLASSIFICATION')
     task_subtype = core.TaskSubtype.Value('MULTICLASS')
@@ -60,7 +60,7 @@ def run():
     print("Training with some features")
     pc_request = core.PipelineCreateRequest(
         context=session_context,
-        train_features=all_features,
+        train_features=some_features,
         task=task,
         task_subtype=task_subtype,
         task_description=task_description,
@@ -120,7 +120,7 @@ def run():
         ep_request = core.PipelineExecuteRequest(
             context=session_context,
             pipeline_id=pipeline_id,
-            predict_features=all_features
+            predict_features=some_features
         )
         for ecr in stub.ExecutePipeline(ep_request):
             print(str(ecr))

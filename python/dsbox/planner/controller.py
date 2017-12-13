@@ -74,7 +74,7 @@ class Controller(object):
         self.resource_manager = ResourceManager(self.execution_helper, self.num_cpus)
 
         # Redirect stderr to error file
-        sys.stderr = self.errorfile
+        #sys.stderr = self.errorfile
 
     '''
     Set config directories and schema from just problemdir, datadir and outputdir
@@ -112,6 +112,53 @@ class Controller(object):
         dataset = Dataset()
         dataset.load_dataset(dataroot, datadoc)
         self.data_manager.initialize_data(self.problem, [dataset], view='TRAIN')
+
+    """
+    Initialize all (config, problem, data) from features
+    - Used by TA3
+    """
+    def initialize_from_features(self, outputdir, train_features, target_features, view=None):
+        self.initialize_simple(outputdir, outputdir, outputdir)
+
+        data_directories = []
+        dataset_filters = {}
+        dataset_targets = {}
+        for feature in train_features:
+            input_data_features = dataset_filters.get(feature.data_directory, [])
+            input_data_features.append(feature.feature_id)
+            dataset_filters[feature.data_directory] = input_data_features
+            if feature.data_directory not in data_directories:
+                data_directories.append(feature.data_directory)
+        for feature in target_features:
+            target_data_features = dataset_targets.get(feature.data_directory, [])
+            target_data_features.append(feature.feature_id)
+            dataset_targets[feature.data_directory] = target_data_features
+            if feature.data_directory not in data_directories:
+                data_directories.append(feature.data_directory)
+
+        # Load datasets first
+        datasets = []
+        filters = {}
+        targets = {}
+        for data_directory in data_directories:
+            dataset = Dataset()
+            dataset.load_dataset(data_directory)
+            datasets.append(dataset)
+            resid = dataset.default_resource.resID;
+            filters[dataset.dsID] = list(map(
+                lambda x: {"resID": resid, "colName": x},
+                dataset_filters.get(data_directory, [])
+            ))
+            targets[dataset.dsID] = list(map(
+                lambda x: {"resID": resid, "colName": x},
+                dataset_targets.get(data_directory, [])
+            ))
+        self.problem.dataset_filters = filters
+        self.problem.dataset_targets = targets
+        #self.problem.splits_file = "/tmp/dataSplits.csv"
+
+        self.data_manager.initialize_data(self.problem, datasets, view)
+
 
     """
     Initialize the L1 and L2 planners
@@ -247,7 +294,7 @@ class Controller(object):
     Predict results on test data given a pipeline
     '''
     def test(self, pipeline, test_event_handler):
-        helper = ExecutionHelper(self.data_manager, self.sm)
+        helper = ExecutionHelper(self.problem, self.data_manager)
         testdf = pd.DataFrame(copy.copy(self.data_manager.input_data))
         target_col = self.data_manager.target_columns[0]['colName']
         print("** Evaluating pipeline %s" % str(pipeline))

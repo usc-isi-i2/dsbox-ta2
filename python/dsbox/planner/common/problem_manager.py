@@ -21,6 +21,7 @@ class Problem(object):
     prID = None
     about = None
 
+    dataset_filters = {}
     dataset_targets = {}
     task_type = None
     task_subtype = None
@@ -51,7 +52,7 @@ class Problem(object):
         # Load bookkeeping data
         self.prID = self.about["problemID"]
         inputs = self.prDoc["inputs"]
-        self.splitsFile = os.path.join(self.prHome, inputs["dataSplits"]["splitsFile"])
+        self.splits_file = os.path.join(self.prHome, inputs["dataSplits"]["splitsFile"])
         self.set_task_type(
             self.about.get('taskType', None),
             self.about.get('taskSubType', None)
@@ -61,11 +62,13 @@ class Problem(object):
         self.set_metrics(metrics)
         self.set_expected_outputs(self.prDoc.get("expectedOutputs", {}))
 
-        # Load the dataset targets
+        # Load the dataset targets and filters
         for dsitem in self.prDoc["inputs"]["data"]:
             dsid = dsitem.get("datasetID")
             dstargets = dsitem.get("targets")
             self.dataset_targets[dsid] = dstargets
+            dsfilters = dsitem.get("filters", {})
+            self.dataset_filters[dsid] = dsfilters
 
     """
     Set the task type and task subtype

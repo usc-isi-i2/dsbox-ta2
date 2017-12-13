@@ -46,54 +46,86 @@ class DataManager(object):
         for dataset in datasets:
             dsmap[dataset.dsID] = dataset
 
-        dfs = {}
+        dataframes = {}
+        # Split dataset into data and targets
         for dsid, targets in problem.dataset_targets.items():
             if dsid in dsmap:
                 dataset = dsmap[dsid]
-                dfs[dsid] = {}
+                dataframes[dsid] = {}
                 restargets = {}
                 for target in targets:
                     tresid = target["resID"]
                     if tresid not in restargets:
                         restargets[tresid] = []
                     restargets[tresid].append(target)
-
                 for resid, targets in restargets.items():
                     if resid in dataset.resources:
                         resource = dataset.resources[resid]
-                        # Get appropriate rows of the resource
-                        # according to the splits specified
-                        df = copy.deepcopy(resource.df.iloc[splits_df.index])
-                        target_cols = self._get_target_columns(df, targets)
-                        targetdf = copy.copy(df[df.columns[target_cols]])
-                        tcols = list(map(lambda x: str(x), df.columns[target_cols]))
-                        df.drop(df.columns[target_cols], axis=1, inplace=True)
-                        dfs[dsid][resid] = {"target_cols": tcols, "targets": targetdf, "data": df}
+                        # Select appropriate rows of the resource
+                        resource.df = resource.df.iloc[splits_df.index]
+                        # Select targets
+                        target_cols = list(map(lambda x: x['colName'], targets))
+                        targetdf = copy.copy(resource.df[target_cols])
+                        # Drop target columns from df
+                        resource.df.drop(target_cols, axis=1, inplace=True, errors='ignore')
+                        dataframes[dsid][resid] = {"target_cols": target_cols, "targets": targetdf}
 
-        # FIXME: Combine multiple dataframes ?
-        for dsid, resdfs in dfs.items():
+        # Filter dataset by filters (if any)
+        for dsid, filters in problem.dataset_filters.items():
+            if dsid in dsmap:
+                dataset = dsmap[dsid]
+                if dsid not in dataframes:
+                    dataframes[dsid] = {}
+                resfilters = {}
+                for filt in filters:
+                    filtresid = filt["resID"]
+                    if filtresid not in resfilters:
+                        resfilters[filtresid] = []
+                    resfilters[filtresid].append(filt)
+                for resid, filters in resfilters.items():
+                    if resid in dataset.resources:
+                        resource = dataset.resources[resid]
+                        filter_cols = list(map(lambda x: x['colName'], filters))
+                        if resource.index_column in filter_cols:
+                            filter_cols.remove(resource.index_column)
+                        resource.df = copy.copy(resource.df[filter_cols])
+                        if resid not in dataframes[dsid]:
+                            dataframes[dsid][resid] = {}
+                        dataframes[dsid][resid]["filter_cols"] = filter_cols
+
+        self.input_data = pd.DataFrame()
+        self.target_data = pd.DataFrame()
+        self.input_columns = []
+        self.target_columns = []
+
+        # Combine multiple dataframes
+        for dsid, resdfs in dataframes.items():
             media_type = dsmap[dsid].resType
             for resid, resdf in resdfs.items():
-                self.input_data = resdf["data"]
-                self.target_data = resdf["targets"]
-                self.target_columns = []
-                self.input_columns = []
                 for col in dsmap[dsid].resources[resid].columns:
-                    if col['colName'] not in resdf["target_cols"]:
-                        self.input_columns.append(col)
-                    else:
+                    if ("target_cols" in resdf and
+                            col['colName'] in resdf["target_cols"]):
                         self.target_columns.append(col)
-                    if "index" in col['role']:
-                        self.index_column = col['colName']
+                    elif ("filter_cols" not in resdf or
+                            col['colName'] in resdf['filter_cols']):
+                        if "index" in col['role']:
+                            self.index_column = col['colName']
+                        else:
+                            self.input_columns.append(col)
+
+                self.input_data = pd.concat([self.input_data, resource.df])
+                if "targets" in resdf:
+                    self.target_data = pd.concat([self.target_data, resdf["targets"]])
+                self.input_data.columns = list(map(lambda x: x['colName'], self.input_columns))
+                self.target_data.columns = list(map(lambda x: x['colName'], self.target_columns))
                 self.media_type = media_type
-                dsmap[dsid].resources[resid].df = self.input_data
             dsmap[dsid].resolve_references()
 
     def _get_datasplits(self, problem, view=None):
         """
         Returns the data splits in a dataframe
         """
-        df = pd.read_csv(problem.splitsFile, index_col='d3mIndex')
+        df = pd.read_csv(problem.splits_file, index_col='d3mIndex')
         if view is None:
             return df
         elif view.upper() == 'TRAIN':
@@ -124,6 +156,7 @@ class Dataset(object):
     dsID = None
     about = None
     resources = {}
+    default_resource = None
     resType = None
 
     def load_dataset(self, datasetPath, datasetDoc=None):
@@ -155,8 +188,13 @@ class Dataset(object):
         # Load all resources
         for resid, res in self.resources.items():
             res.load()
+            if type(res) is TableResource:
+                if res.resPath.endswith("learningData.csv"):
+                    self.default_resource = res
         #self.resolve_references()
 
+    # This is called by the data manager after splicing into training/test
+    # for efficiency
     def resolve_references(self):
         # Get all references
         references = {}
@@ -237,6 +275,7 @@ class TableResource(DataResource):
     This contains tabular data (csv)
     """
     df = None
+    orig_df = None
     columns = []
     index_column = None
 
@@ -256,6 +295,7 @@ class TableResource(DataResource):
 
     def load(self):
         self.df = pd.read_csv(self.resPath, index_col=self.index_column)
+        self.orig_df = copy.copy(self.df)
 
     def join_with(self, resource, reference):
         assert(type(resource) is TableResource)
