@@ -74,7 +74,7 @@ class Controller(object):
         self.resource_manager = ResourceManager(self.execution_helper, self.num_cpus)
 
         # Redirect stderr to error file
-        #sys.stderr = self.errorfile
+        sys.stderr = self.errorfile
 
     '''
     Set config directories and schema from just problemdir, datadir and outputdir

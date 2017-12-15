@@ -62,7 +62,8 @@ class DataManager(object):
                     if resid in dataset.resources:
                         resource = dataset.resources[resid]
                         # Select appropriate rows of the resource
-                        resource.df = resource.df.iloc[splits_df.index]
+                        if splits_df is not None:
+                            resource.df = resource.df.iloc[splits_df.index]
                         # Select targets
                         target_cols = list(map(lambda x: x['colName'], targets))
                         targetdf = copy.copy(resource.df[target_cols])
@@ -85,6 +86,8 @@ class DataManager(object):
                 for resid, filters in resfilters.items():
                     if resid in dataset.resources:
                         resource = dataset.resources[resid]
+                        if splits_df is not None:
+                            resource.df = resource.df.iloc[splits_df.index]
                         filter_cols = list(map(lambda x: x['colName'], filters))
                         if resource.index_column in filter_cols:
                             filter_cols.remove(resource.index_column)
@@ -125,6 +128,8 @@ class DataManager(object):
         """
         Returns the data splits in a dataframe
         """
+        if not os.path.isfile(problem.splits_file):
+            return None
         df = pd.read_csv(problem.splits_file, index_col='d3mIndex')
         if view is None:
             return df
