@@ -11,12 +11,14 @@ from dsbox.planner.common.pipeline import Pipeline, PipelineExecutionResult
 TIMEOUT = 600  # Time out primitives running for more than 10 minutes
 
 class ResourceManager(object):
+    EXECUTION_POOL = None
 
     def __init__(self, helper, numcpus=0):
         self.helper = helper
-        if numcpus == 0:
-            numcpus = multiprocessing.cpu_count()
-        self.execution_pool = Pool(numcpus)
+        if ResourceManager.EXECUTION_POOL is None:
+            if numcpus == 0:
+                numcpus = multiprocessing.cpu_count()
+            ResourceManager.EXECUTION_POOL = Pool(numcpus)
         #self.primitive_queue = Queue()
         #self.lock = Lock()
 
@@ -94,7 +96,7 @@ class ResourceManager(object):
 
                     # Evaluate: Get a cross validation score for the metric
                     # Return reference to parallel process
-                    exref = self.execution_pool.apply_async(self.helper.cross_validation_score, args=(primitive, df, df_lbl, 10))
+                    exref = ResourceManager.EXECUTION_POOL.apply_async(self.helper.cross_validation_score, args=(primitive, df, df_lbl, 10))
                     return (exref, exec_pipeline, primitive, cachekey, df, df_lbl)
                     """
                     (predictions, metric_values) = self.helper.cross_validation_score(primitive, df, df_lbl, 10, timeout=TIMEOUT)

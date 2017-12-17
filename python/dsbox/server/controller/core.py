@@ -84,7 +84,9 @@ class Core(crpc.CoreServicer):
 
         # Start planning / training
         session.controller = c
-        session.controller.initialize_planners()
+        if session.controller.l1_planner is None:
+            session.controller.initialize_planners()
+
         for result in session.controller.train(GRPC_PlannerEventHandler(session), cutoff=cutoff):
             if result is not None:
                 yield result
@@ -114,14 +116,19 @@ class Core(crpc.CoreServicer):
         handler = GRPC_PlannerEventHandler(session)
         handler.StartExecutingPipeline(pipeline)
 
-        orig_targets = session.controller.data_manager.target_columns
+        target_columns = session.controller.data_manager.target_columns
+        target_data = session.controller.data_manager.target_data
+
         session.controller.initialize_from_features(session.outputdir, test_features, [], view='TEST')
-        session.controller.data_manager.target_columns = orig_targets
+
+        session.controller.data_manager.target_columns = target_columns
+        session.controller.data_manager.target_data = target_data
 
         # Change this to be a yield too.. Save should happen within the handler
         for result in session.controller.test(pipeline, handler):
             if result is not None:
                 yield result
+
 
     def ListPipelines(self, request, context):
         pipeline_ids = []

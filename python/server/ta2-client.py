@@ -156,7 +156,9 @@ def run():
             core.UpdateProblemSchemaRequest.ReplaceProblemSchemaField(metric=metric)
         ]
     )
-    stub.UpdateProblemSchema(ups_request)
+
+    print(stub.UpdateProblemSchema(ups_request))
+    print ("********** Re-running pipeline creation")
     for pcr in stub.CreatePipelines(core.PipelineCreateRequest(context=session_context)):
         print(str(pcr))
 

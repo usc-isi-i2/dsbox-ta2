@@ -183,22 +183,22 @@ class Controller(object):
         self._show_status("Planning...")
 
         # Get data details
-        # TODO: implement Data Manager for this functionality
         df = copy.copy(self.data_manager.input_data)
         df_lbl = copy.copy(self.data_manager.target_data)
-
         df_profile = DataProfile(df)
         self.logfile.write("Data profile: %s\n" % df_profile)
-
         l2_pipelines_map = {}
         l1_pipelines_handled = {}
         l2_pipelines_handled = {}
+        print(df)
+        print(df_lbl)
         l1_pipelines = self.l1_planner.get_pipelines(df)
+        print(l1_pipelines);
         if l1_pipelines is None:
             # If no L1 Pipelines, then we don't support this problem
             yield pe.ProblemNotImplemented()
             return
-
+        print('here4');
         self.exec_pipelines = []
 
         while len(l1_pipelines) > 0:

@@ -128,7 +128,7 @@ class DataManager(object):
         """
         Returns the data splits in a dataframe
         """
-        if not os.path.isfile(problem.splits_file):
+        if problem.splits_file is None:
             return None
         df = pd.read_csv(problem.splits_file, index_col='d3mIndex')
         if view is None:
@@ -346,12 +346,13 @@ class RawResource(DataResource):
     This contains a collection of raw files like images, audio, text, etc
     """
     loader = None
-    loading_pool = None
+    LOADING_POOL = None
 
     def __init__(self, resID, resPath, resType, resFormat, numcpus=0):
-        if numcpus == 0:
-            numcpus = multiprocessing.cpu_count()
-        self.loading_pool = Pool(numcpus)
+        if RawResource.LOADING_POOL is None:
+            if numcpus == 0:
+                numcpus = multiprocessing.cpu_count()
+            RawResource.LOADING_POOL = Pool(numcpus)
         super(RawResource, self).__init__(resID, resPath, resType, resFormat)
 
     def load(self):
@@ -379,7 +380,7 @@ class RawResource(DataResource):
             filename = row[colname]
             filepath = os.path.join(self.resPath, filename)
             boundary_values = resource.get_column_values(row, boundary_columns)
-            ref = self.loading_pool.apply_async(self.load_resource, args=(filepath, boundary_values))
+            ref = RawResource.LOADING_POOL.apply_async(self.load_resource, args=(filepath, boundary_values))
             loadrefs.append({"ref":ref, "index":index, "filename":filename})
 
         resource.df[colname] = resource.df[colname].astype(object)
