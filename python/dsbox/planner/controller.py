@@ -190,10 +190,7 @@ class Controller(object):
         l2_pipelines_map = {}
         l1_pipelines_handled = {}
         l2_pipelines_handled = {}
-        print(df)
-        print(df_lbl)
         l1_pipelines = self.l1_planner.get_pipelines(df)
-        print(l1_pipelines);
         if l1_pipelines is None:
             # If no L1 Pipelines, then we don't support this problem
             yield pe.ProblemNotImplemented()
