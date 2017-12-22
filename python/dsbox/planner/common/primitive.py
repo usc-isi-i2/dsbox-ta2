@@ -57,3 +57,11 @@ class Primitive(object):
 
     def __repr__(self):
         return self.name
+
+    def __getstate__(self):
+        self_dict = self.__dict__.copy()
+        self_dict['executables'] = {}
+        return self_dict
+
+    def __setstate__(self, state):
+        self.__dict__.update(state)

@@ -329,6 +329,7 @@ class ExecutionHelper(object):
         featurecols = self.raw_data_columns(self.data_manager.input_columns)
         indices = df.index
         for col in featurecols:
+            executable = None
             if self.data_manager.media_type == VariableFileType.TEXT:
                 executable = self.instantiate_primitive(primitive)
                 if executable is None:
@@ -497,9 +498,7 @@ class ExecutionHelper(object):
     def raw_data_columns(self, columns):
         cols = []
         for col in columns:
-            varRole = col.get('varRole', None)
-            varType = col.get('varType', None)
-            if varRole == 'file' or varType == 'file':
+            if "refersTo" in col:
                 cols.append(col['colName'])
         return cols
 

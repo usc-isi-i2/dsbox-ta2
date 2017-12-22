@@ -289,7 +289,7 @@ class Controller(object):
                 elif primitive.task == "PreProcessing":
                     testdf = helper.test_execute_primitive(primitive, testdf)
                 elif primitive.task == "FeatureExtraction":
-                    testdf = helper.test_featurise(testdf, primitive)
+                    testdf = helper.test_featurise(primitive, testdf)
                 if testdf is None:
                     break
             except Exception as e:

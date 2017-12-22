@@ -96,17 +96,10 @@ class ResourceManager(object):
 
                     # Evaluate: Get a cross validation score for the metric
                     # Return reference to parallel process
-                    exref = ResourceManager.EXECUTION_POOL.apply_async(self.helper.cross_validation_score, args=(primitive, df, df_lbl, 10))
+                    exref = ResourceManager.EXECUTION_POOL.apply_async(
+                        self.helper.cross_validation_score,
+                        args=(primitive, df, df_lbl, 10))
                     return (exref, exec_pipeline, primitive, cachekey, df, df_lbl)
-                    """
-                    (predictions, metric_values) = self.helper.cross_validation_score(primitive, df, df_lbl, 10, timeout=TIMEOUT)
-                    if not metric_values or len(metric_values) == 0:
-                        return None
-                    exec_pipeline.planner_result = PipelineExecutionResult(predictions, metric_values)
-
-                    self.primitive_cache[cachekey] = (primitive.executables, primitive.unified_interface)
-                    break
-                    """
 
                 else:
                     print("Executing %s" % primitive.name)

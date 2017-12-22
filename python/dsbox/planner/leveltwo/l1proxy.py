@@ -19,7 +19,7 @@ class LevelOnePlannerProxy(object):
         self.policy = AffinityPolicy(self.primitives)
         self.media_type = None
         if helper.data_manager.media_type is not None:
-            self.media_type = VariableFileType(helper.data_manager.media_type)
+            self.media_type = helper.data_manager.media_type
 
         self.l1_planner = LevelOnePlanner(primitives=self.primitives, policy=self.policy,
                 task_type=helper.problem.task_type, task_subtype=helper.problem.task_subtype, media_type=self.media_type)

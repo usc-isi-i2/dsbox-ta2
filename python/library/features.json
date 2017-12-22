@@ -48,7 +48,7 @@
     "Name": "ResNet50ImageFeature",
     "Task": "FeatureExtraction",
     "RequiresColumnData": true,
-    "NotPersistent": true,
+    "NotPersistent": false,
     "Requirements": [],
     "Effects": []
   },

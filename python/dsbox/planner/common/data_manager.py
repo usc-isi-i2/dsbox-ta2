@@ -11,8 +11,8 @@ import pandas as pd
 import multiprocessing
 from multiprocessing import Pool
 
+from dsbox.schema.dataset_schema import VariableFileType
 #from dsbox.schema.data_profile import DataProfile
-#from dsbox.schema.dataset_schema import VariableFileType
 #from dsbox.schema.profile_schema import DataProfileType as dpt
 
 DATASET_SCHEMA_VERSION = '3.0'
@@ -61,16 +61,17 @@ class DataManager(object):
                 for resid, targets in restargets.items():
                     if resid in dataset.resources:
                         resource = dataset.resources[resid]
-                        # Select appropriate rows of the resource
-                        if splits_df is not None:
-                            resource.df = resource.df.iloc[splits_df.index]
-                            resource.split = True
-                        # Select targets
-                        target_cols = list(map(lambda x: x['colName'], targets))
-                        targetdf = copy.copy(resource.df[target_cols])
-                        # Drop target columns from df
-                        resource.df.drop(target_cols, axis=1, inplace=True, errors='ignore')
-                        dataframes[dsid][resid] = {"target_cols": target_cols, "targets": targetdf}
+                        if type(resource) is TableResource:
+                            # Select appropriate rows of the resource
+                            if splits_df is not None:
+                                resource.df = resource.df.iloc[splits_df.index]
+                                resource.split = True
+                            # Select targets
+                            target_cols = list(map(lambda x: x['colName'], targets))
+                            targetdf = copy.copy(resource.df[target_cols])
+                            # Drop target columns from df
+                            resource.df.drop(target_cols, axis=1, inplace=True, errors='ignore')
+                            dataframes[dsid][resid] = {"target_cols": target_cols, "targets": targetdf}
 
         # Filter dataset by filters (if any)
         for dsid, filters in problem.dataset_filters.items():
@@ -88,16 +89,17 @@ class DataManager(object):
                     for resid, filters in resfilters.items():
                         if resid in dataset.resources:
                             resource = dataset.resources[resid]
-                            if splits_df is not None and not resource.split:
-                                resource.df = resource.df.iloc[splits_df.index]
-                                resource.split = True
-                            filter_cols = list(map(lambda x: x['colName'], filters))
-                            if resource.index_column in filter_cols:
-                                filter_cols.remove(resource.index_column)
-                            resource.df = copy.copy(resource.df[filter_cols])
-                            if resid not in dataframes[dsid]:
-                                dataframes[dsid][resid] = {}
-                            dataframes[dsid][resid]["filter_cols"] = filter_cols
+                            if type(resource) is TableResource:
+                                if splits_df is not None and not resource.split:
+                                    resource.df = resource.df.iloc[splits_df.index]
+                                    resource.split = True
+                                filter_cols = list(map(lambda x: x['colName'], filters))
+                                if resource.index_column in filter_cols:
+                                    filter_cols.remove(resource.index_column)
+                                resource.df = copy.copy(resource.df[filter_cols])
+                                if resid not in dataframes[dsid]:
+                                    dataframes[dsid][resid] = {}
+                                dataframes[dsid][resid]["filter_cols"] = filter_cols
                 else:
                     for resid, resource in dataset.resources.items():
                         if type(resource) is TableResource:
@@ -113,9 +115,13 @@ class DataManager(object):
         self.input_columns = []
         self.target_columns = []
 
+        # Resolve references
+        for dsid, resdfs in dataframes.items():
+            dsmap[dsid].resolve_references()
+
         # Combine multiple dataframes
         for dsid, resdfs in dataframes.items():
-            media_type = dsmap[dsid].resType
+            media_type = VariableFileType(dsmap[dsid].resType)
             for resid, resdf in resdfs.items():
                 resource = dsmap[dsid].resources[resid]
                 for col in resource.columns:
@@ -134,8 +140,6 @@ class DataManager(object):
                 self.input_data.columns = list(map(lambda x: x['colName'], self.input_columns))
                 self.target_data.columns = list(map(lambda x: x['colName'], self.target_columns))
                 self.media_type = media_type
-
-            dsmap[dsid].resolve_references()
 
 
     def _get_datasplits(self, problem, view=None):
@@ -360,7 +364,6 @@ class RawResource(DataResource):
     """
     This contains a collection of raw files like images, audio, text, etc
     """
-    loader = None
     LOADING_POOL = None
 
     def __init__(self, resID, resPath, resType, resFormat, numcpus=0):

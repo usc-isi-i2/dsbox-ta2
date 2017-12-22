@@ -18,6 +18,8 @@ import argparse
 from concurrent import futures
 
 from dsbox.planner.common.resource_manager import ResourceManager
+from dsbox.planner.common.data_manager import RawResource
+
 from dsbox.server.controller.core import Core
 from dsbox.server.controller.data_ext import DataExt
 from dsbox.server.controller.dataflow_ext import DataflowExt
@@ -38,6 +40,7 @@ def serve():
     args = parser.parse_args()
 
     ResourceManager.EXECUTION_POOL = Pool(multiprocessing.cpu_count())
+    RawResource.LOADING_POOL = Pool(multiprocessing.cpu_count())
 
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
     library = args.library
