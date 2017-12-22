@@ -34,25 +34,26 @@ def run():
     print("Session started (%s)" % str(session_context.session_id))
 
     # Send pipeline creation request
+    dataset_uri = "file:///tmp/data/185_baseball/185_baseball_dataset/datasetDoc.json"
     all_features = [
         core.Feature(
-            data_uri="file:///tmp/data/185_baseball/185_baseball_dataset", feature_id="*")
+            resource_id="0", feature_name="*")
     ]
     some_features = [
-        core.Feature(data_uri="file:///tmp/data/185_baseball/185_baseball_dataset", feature_id="d3mIndex"),
-        core.Feature(data_uri="file:///tmp/data/185_baseball/185_baseball_dataset", feature_id="Games_played"),
-        core.Feature(data_uri="file:///tmp/data/185_baseball/185_baseball_dataset", feature_id="Runs"),
-        core.Feature(data_uri="file:///tmp/data/185_baseball/185_baseball_dataset", feature_id="Hits"),
-        core.Feature(data_uri="file:///tmp/data/185_baseball/185_baseball_dataset", feature_id="Home_runs")
+        core.Feature(resource_id="0", feature_name="d3mIndex"),
+        core.Feature(resource_id="0", feature_name="Games_played"),
+        core.Feature(resource_id="0", feature_name="Runs"),
+        core.Feature(resource_id="0", feature_name="Hits"),
+        core.Feature(resource_id="0", feature_name="Home_runs")
     ]
     target_features = [
-        core.Feature(data_uri="file:///tmp/data/185_baseball/185_baseball_dataset", feature_id="Hall_of_Fame")
+        core.Feature(resource_id="0", feature_name="Hall_of_Fame")
     ]
     task = core.TaskType.Value('CLASSIFICATION')
     task_subtype = core.TaskSubtype.Value('MULTICLASS')
     task_description = "Classify Hall of Fame"
-    output = core.OutputType.Value('FILE')
-    metrics = [core.Metric.Value('F1_MICRO'), core.Metric.Value('F1_MACRO')]
+    output = core.OutputType.Value('OUTPUT_TYPE_UNDEFINED')
+    metrics = [core.PerformanceMetric.Value('F1_MICRO'), core.PerformanceMetric.Value('F1_MACRO')]
     max_pipelines = 10
 
     pipeline_ids = []
@@ -60,7 +61,8 @@ def run():
     print("Training with some features")
     pc_request = core.PipelineCreateRequest(
         context=session_context,
-        train_features=some_features,
+        dataset_uri = dataset_uri,
+        predict_features=some_features,
         task=task,
         task_subtype=task_subtype,
         task_description=task_description,
@@ -91,8 +93,11 @@ def run():
     )
     '''
 
+    result = stub.CreatePipelines(pc_request)
+    print(result)
+
     # Iterate over results
-    for pcr in stub.CreatePipelines(pc_request):
+    for pcr in result:
         print(str(pcr))
         '''
         for gdr in dfstub.GetDataflowResults(dfext.PipelineReference(context = session_context,
@@ -107,8 +112,8 @@ def run():
             ))
             print(dflow)
             '''
-            if len(pcr.pipeline_info.predict_result_uris) > 0:
-                df = pandas.read_csv(pcr.pipeline_info.predict_result_uris[0], index_col="d3mIndex")
+            if pcr.pipeline_info.predict_result_uri is not None:
+                df = pandas.read_csv(pcr.pipeline_info.predict_result_uri, index_col="d3mIndex")
                 print(df)
             '''
 
@@ -120,12 +125,12 @@ def run():
         ep_request = core.PipelineExecuteRequest(
             context=session_context,
             pipeline_id=pipeline_id,
-            predict_features=some_features
+            dataset_uri=dataset_uri
         )
         for ecr in stub.ExecutePipeline(ep_request):
             print(str(ecr))
-            if len(ecr.result_uris) > 0:
-                df = pandas.read_csv(ecr.result_uris[0], index_col="d3mIndex")
+            if ecr.result_uri is not None:
+                df = pandas.read_csv(ecr.result_uri, index_col="d3mIndex")
                 print(df)
 
     list_request = core.PipelineListRequest(context=session_context)
@@ -149,15 +154,15 @@ def run():
         print(str(gepr))
 
     print ("*********** Updating Metric to Accuracy.. Create pipelines again")
-    metric = core.Metric.Value('ACCURACY')
-    ups_request = core.UpdateProblemSchemaRequest(
+    metric = core.PerformanceMetric.Value('ACCURACY')
+    ups_request = core.SetProblemDocRequest(
         context=session_context,
         updates=[
-            core.UpdateProblemSchemaRequest.ReplaceProblemSchemaField(metric=metric)
+            core.SetProblemDocRequest.ReplaceProblemDocField(metric=metric)
         ]
     )
 
-    print(stub.UpdateProblemSchema(ups_request))
+    print(stub.SetProblemDoc(ups_request))
     print ("********** Re-running pipeline creation")
     for pcr in stub.CreatePipelines(core.PipelineCreateRequest(context=session_context)):
         print(str(pcr))

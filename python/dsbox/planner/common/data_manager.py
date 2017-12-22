@@ -78,23 +78,31 @@ class DataManager(object):
                 if dsid not in dataframes:
                     dataframes[dsid] = {}
                 resfilters = {}
-                for filt in filters:
-                    filtresid = filt["resID"]
-                    if filtresid not in resfilters:
-                        resfilters[filtresid] = []
-                    resfilters[filtresid].append(filt)
-                for resid, filters in resfilters.items():
-                    if resid in dataset.resources:
-                        resource = dataset.resources[resid]
+                if len(filters) > 0:
+                    for filt in filters:
+                        filtresid = filt["resID"]
+                        if filtresid not in resfilters:
+                            resfilters[filtresid] = []
+                        resfilters[filtresid].append(filt)
+                    for resid, filters in resfilters.items():
+                        if resid in dataset.resources:
+                            resource = dataset.resources[resid]
+                            if splits_df is not None:
+                                resource.df = resource.df.iloc[splits_df.index]
+                            filter_cols = list(map(lambda x: x['colName'], filters))
+                            if resource.index_column in filter_cols:
+                                filter_cols.remove(resource.index_column)
+                            resource.df = copy.copy(resource.df[filter_cols])
+                            if resid not in dataframes[dsid]:
+                                dataframes[dsid][resid] = {}
+                            dataframes[dsid][resid]["filter_cols"] = filter_cols
+                else:
+                    for resid, resource in dataset.resources.items():
                         if splits_df is not None:
                             resource.df = resource.df.iloc[splits_df.index]
-                        filter_cols = list(map(lambda x: x['colName'], filters))
-                        if resource.index_column in filter_cols:
-                            filter_cols.remove(resource.index_column)
-                        resource.df = copy.copy(resource.df[filter_cols])
+                        resource.df = copy.copy(resource.df)
                         if resid not in dataframes[dsid]:
                             dataframes[dsid][resid] = {}
-                        dataframes[dsid][resid]["filter_cols"] = filter_cols
 
         self.input_data = pd.DataFrame()
         self.target_data = pd.DataFrame()
@@ -105,7 +113,8 @@ class DataManager(object):
         for dsid, resdfs in dataframes.items():
             media_type = dsmap[dsid].resType
             for resid, resdf in resdfs.items():
-                for col in dsmap[dsid].resources[resid].columns:
+                resource = dsmap[dsid].resources[resid]
+                for col in resource.columns:
                     if ("target_cols" in resdf and
                             col['colName'] in resdf["target_cols"]):
                         self.target_columns.append(col)
@@ -115,14 +124,15 @@ class DataManager(object):
                             self.index_column = col['colName']
                         else:
                             self.input_columns.append(col)
-
                 self.input_data = pd.concat([self.input_data, resource.df])
                 if "targets" in resdf:
                     self.target_data = pd.concat([self.target_data, resdf["targets"]])
                 self.input_data.columns = list(map(lambda x: x['colName'], self.input_columns))
                 self.target_data.columns = list(map(lambda x: x['colName'], self.target_columns))
                 self.media_type = media_type
+
             dsmap[dsid].resolve_references()
+
 
     def _get_datasplits(self, problem, view=None):
         """

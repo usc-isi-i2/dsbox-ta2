@@ -21,9 +21,9 @@ from dsbox.planner.common.problem_manager import Problem
 from dsbox.planner.common.resource_manager import ResourceManager
 
 class Feature:
-    def __init__(self, data_directory, feature_id):
-        self.data_directory = data_directory
-        self.feature_id = feature_id
+    def __init__(self, resource_id, feature_name):
+        self.resource_id = resource_id
+        self.feature_name = feature_name
 
 class Controller(object):
     problem = None
@@ -117,47 +117,29 @@ class Controller(object):
     Initialize all (config, problem, data) from features
     - Used by TA3
     """
-    def initialize_from_features(self, outputdir, train_features, target_features, view=None):
-        self.initialize_simple(outputdir, outputdir, outputdir)
-
-        data_directories = []
-        dataset_filters = {}
-        dataset_targets = {}
-        for feature in train_features:
-            input_data_features = dataset_filters.get(feature.data_directory, [])
-            input_data_features.append(feature.feature_id)
-            dataset_filters[feature.data_directory] = input_data_features
-            if feature.data_directory not in data_directories:
-                data_directories.append(feature.data_directory)
-        for feature in target_features:
-            target_data_features = dataset_targets.get(feature.data_directory, [])
-            target_data_features.append(feature.feature_id)
-            dataset_targets[feature.data_directory] = target_data_features
-            if feature.data_directory not in data_directories:
-                data_directories.append(feature.data_directory)
+    def initialize_from_features(self, datafile, train_features, target_features, outputdir, view=None):
+        data_directory = os.path.dirname(datafile)
+        self.initialize_simple(outputdir, data_directory, outputdir)
 
         # Load datasets first
-        datasets = []
         filters = {}
         targets = {}
-        for data_directory in data_directories:
-            dataset = Dataset()
-            dataset.load_dataset(data_directory)
-            datasets.append(dataset)
-            resid = dataset.default_resource.resID;
-            filters[dataset.dsID] = list(map(
-                lambda x: {"resID": resid, "colName": x},
-                dataset_filters.get(data_directory, [])
-            ))
-            targets[dataset.dsID] = list(map(
-                lambda x: {"resID": resid, "colName": x},
-                dataset_targets.get(data_directory, [])
-            ))
-        self.problem.dataset_filters = filters
-        self.problem.dataset_targets = targets
-        #self.problem.splits_file = "/tmp/dataSplits.csv"
+        dataset = Dataset()
+        dataset.load_dataset(data_directory, datafile)
 
-        self.data_manager.initialize_data(self.problem, datasets, view)
+        if train_features is not None:
+            filters[dataset.dsID] = list(map(
+                lambda x: {"resID": x.resource_id, "colName": x.feature_name}, train_features
+            ))
+            self.problem.dataset_filters = filters
+
+        if target_features is not None:
+            targets[dataset.dsID] = list(map(
+                lambda x: {"resID": x.resource_id, "colName": x.feature_name}, target_features
+            ))
+            self.problem.dataset_targets = targets
+
+        self.data_manager.initialize_data(self.problem, [dataset], view)
 
 
     """
@@ -195,7 +177,6 @@ class Controller(object):
             # If no L1 Pipelines, then we don't support this problem
             yield pe.ProblemNotImplemented()
             return
-        print('here4');
         self.exec_pipelines = []
 
         while len(l1_pipelines) > 0:

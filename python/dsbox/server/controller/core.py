@@ -44,23 +44,30 @@ class Core(crpc.CoreServicer):
         # Get training and target features
         train_features = []
         target_features = []
-        if len(request.train_features) > 0:
-            for tfeature in request.train_features:
-                datadir = self._create_path_from_uri(tfeature.data_uri)
-                featureid = tfeature.feature_id
-                train_features.append(Feature(datadir, featureid))
+        if len(request.predict_features) > 0:
+            for tfeature in request.predict_features:
+                resource_id = tfeature.resource_id
+                feature_name = tfeature.feature_name
+                train_features.append(Feature(resource_id, feature_name))
         if len(request.target_features) > 0:
             for tfeature in request.target_features:
-                datadir = self._create_path_from_uri(tfeature.data_uri)
-                featureid = tfeature.feature_id
-                target_features.append(Feature(datadir, featureid))
+                resource_id = tfeature.resource_id
+                feature_name = tfeature.feature_name
+                target_features.append(Feature(resource_id, feature_name))
+
+        datafile = None
+        if request.dataset_uri is not None:
+            datafile = self._create_path_from_uri(request.dataset_uri)
+
+        session.train_features = train_features
+        session.target_features = target_features
 
         # Create the planning controller if not already present
         c = session.controller
         if c is None:
             c = Controller(self.libdir)
-            c.initialize_from_features(session.outputdir,
-                train_features, target_features, view='TRAIN')
+            c.initialize_from_features(datafile,
+                train_features, target_features, session.outputdir, view='TRAIN')
 
         # Set Problem schema
         if request.task > 0:
@@ -74,7 +81,7 @@ class Core(crpc.CoreServicer):
         metrics = []
         if len(request.metrics) > 0:
             for rm in request.metrics:
-                metrics.append( Metric[core.Metric.Name(rm)] )
+                metrics.append( Metric[core.PerformanceMetric.Name(rm)] )
             c.problem.set_metrics(metrics)
 
         # Set the max pipelines cutoff
@@ -105,24 +112,17 @@ class Core(crpc.CoreServicer):
             yield None
             return
 
-        # Get test features
-        test_features = []
-        for tfeature in request.predict_features:
-            datadir = self._create_path_from_uri(tfeature.data_uri)
-            featureid = tfeature.feature_id
-            test_features.append(Feature(datadir, featureid))
+        datafile = None
+        if request.dataset_uri is not None:
+            datafile = self._create_path_from_uri(request.dataset_uri)
 
         # Get test data directories
         handler = GRPC_PlannerEventHandler(session)
         handler.StartExecutingPipeline(pipeline)
 
-        target_columns = session.controller.data_manager.target_columns
-        target_data = session.controller.data_manager.target_data
-
-        session.controller.initialize_from_features(session.outputdir, test_features, [], view='TEST')
-
-        session.controller.data_manager.target_columns = target_columns
-        session.controller.data_manager.target_data = target_data
+        session.controller.initialize_from_features(datafile,
+            session.train_features, session.target_features,
+            session.outputdir, view='TEST')
 
         # Change this to be a yield too.. Save should happen within the handler
         for result in session.controller.test(pipeline, handler):
@@ -179,7 +179,7 @@ class Core(crpc.CoreServicer):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    def UpdateProblemSchema(self, request, context):
+    def SetProblemDoc(self, request, context):
         session = Session.get(request.context.session_id)
         if session is not None:
             c = session.controller
@@ -192,10 +192,10 @@ class Core(crpc.CoreServicer):
                 #if update.output_type:
                 #    c.problem.output_type = core.OutputType.Name(update.output_type)
                 if update.metric:
-                    metric = Metric[core.Metric.Name(update.metric)]
+                    metric = Metric[core.PerformanceMetric.Name(update.metric)]
                     c.problem.set_metrics([metric])
             session.controller = c
-            return self._create_response("Updated Problem Schema")
+            return self._create_response("Updated Problem Doc")
 
     def add_to_server(self, server):
         crpc.add_CoreServicer_to_server(self, server)
