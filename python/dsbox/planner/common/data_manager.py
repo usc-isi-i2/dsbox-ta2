@@ -400,6 +400,7 @@ class RawResource(DataResource):
             sys.stdout.flush()
             resource.df.at[loadref["index"], colname] = self.unserialize_resource(value)
 
+    '''
     def __getstate__(self):
         self_dict = self.__dict__.copy()
         del self_dict['loading_pool']
@@ -407,6 +408,7 @@ class RawResource(DataResource):
 
     def __setstate__(self, state):
         self.__dict__.update(state)
+    '''
 
 class TextResource(RawResource):
     """
