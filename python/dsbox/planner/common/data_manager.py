@@ -64,6 +64,7 @@ class DataManager(object):
                         # Select appropriate rows of the resource
                         if splits_df is not None:
                             resource.df = resource.df.iloc[splits_df.index]
+                            resource.split = True
                         # Select targets
                         target_cols = list(map(lambda x: x['colName'], targets))
                         targetdf = copy.copy(resource.df[target_cols])
@@ -87,8 +88,9 @@ class DataManager(object):
                     for resid, filters in resfilters.items():
                         if resid in dataset.resources:
                             resource = dataset.resources[resid]
-                            if splits_df is not None:
+                            if splits_df is not None and not resource.split:
                                 resource.df = resource.df.iloc[splits_df.index]
+                                resource.split = True
                             filter_cols = list(map(lambda x: x['colName'], filters))
                             if resource.index_column in filter_cols:
                                 filter_cols.remove(resource.index_column)
@@ -98,11 +100,13 @@ class DataManager(object):
                             dataframes[dsid][resid]["filter_cols"] = filter_cols
                 else:
                     for resid, resource in dataset.resources.items():
-                        if splits_df is not None:
-                            resource.df = resource.df.iloc[splits_df.index]
-                        resource.df = copy.copy(resource.df)
-                        if resid not in dataframes[dsid]:
-                            dataframes[dsid][resid] = {}
+                        if type(resource) is TableResource:
+                            if splits_df is not None and not resource.split:
+                                resource.df = resource.df.iloc[splits_df.index]
+                                resource.split = True
+                            resource.df = copy.copy(resource.df)
+                            if resid not in dataframes[dsid]:
+                                dataframes[dsid][resid] = {}
 
         self.input_data = pd.DataFrame()
         self.target_data = pd.DataFrame()
@@ -253,6 +257,7 @@ class DataResource(object):
         self.resPath = resPath
         self.resType = resType
         self.resFormat = resFormat
+        self.split = False
 
     '''
     Initial resource loading (if any)

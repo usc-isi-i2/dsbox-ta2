@@ -35,10 +35,6 @@ def run():
 
     # Send pipeline creation request
     dataset_uri = "file:///tmp/data/185_baseball/185_baseball_dataset/datasetDoc.json"
-    all_features = [
-        core.Feature(
-            resource_id="0", feature_name="*")
-    ]
     some_features = [
         core.Feature(resource_id="0", feature_name="d3mIndex"),
         core.Feature(resource_id="0", feature_name="Games_played"),
@@ -94,7 +90,6 @@ def run():
     '''
 
     result = stub.CreatePipelines(pc_request)
-    print(result)
 
     # Iterate over results
     for pcr in result:

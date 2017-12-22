@@ -142,6 +142,10 @@ class Core(crpc.CoreServicer):
             pipeline_ids = pipeline_ids
         )
 
+    def CancelPipelines(self, request, context):
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
 
     def DeletePipelines(self, request, context):
         pipeline_ids = []

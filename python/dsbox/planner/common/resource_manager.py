@@ -140,6 +140,7 @@ class ResourceManager(object):
     def execute_primitive(self, primitive, callback_fn):
         pass
 
+    '''
     def __getstate__(self):
         self_dict = self.__dict__.copy()
         del self_dict['execution_pool']
@@ -147,3 +148,4 @@ class ResourceManager(object):
 
     def __setstate__(self, state):
         self.__dict__.update(state)
+    '''
