@@ -34,7 +34,7 @@ def run():
     print("Session started (%s)" % str(session_context.session_id))
 
     # Send pipeline creation request
-    dataset_uri = "file:///tmp/data/22_handgeometry/22_handgeometry_dataset/datasetDoc.json"
+    dataset_uri = "file:///tmp/data/185_baseball/185_baseball_dataset/datasetDoc.json"
     some_features = [
         core.Feature(resource_id="0", feature_name="d3mIndex"),
         core.Feature(resource_id="0", feature_name="Games_played"),
@@ -43,13 +43,13 @@ def run():
         core.Feature(resource_id="0", feature_name="Home_runs")
     ]
     target_features = [
-        core.Feature(resource_id="1", feature_name="WRISTBREADTH")
+        core.Feature(resource_id="0", feature_name="Hall_of_Fame")
     ]
-    task = core.TaskType.Value('REGRESSION')
-    task_subtype = core.TaskSubtype.Value('UNIVARIATE')
+    task = core.TaskType.Value('CLASSIFICATION')
+    task_subtype = core.TaskSubtype.Value('MULTICLASS')
     task_description = "Classify Hall of Fame"
     output = core.OutputType.Value('OUTPUT_TYPE_UNDEFINED')
-    metrics = [core.PerformanceMetric.Value('MEAN_SQUARED_ERROR')]
+    metrics = [core.PerformanceMetric.Value('F1_MICRO'), core.PerformanceMetric.Value('F1_MACRO')]
     max_pipelines = 10
 
     pipeline_ids = []
@@ -58,7 +58,7 @@ def run():
     pc_request = core.PipelineCreateRequest(
         context=session_context,
         dataset_uri = dataset_uri,
-        #predict_features=some_features,
+        predict_features=some_features,
         task=task,
         task_subtype=task_subtype,
         task_description=task_description,

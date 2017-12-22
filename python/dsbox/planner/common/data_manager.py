@@ -121,7 +121,8 @@ class DataManager(object):
 
         # Combine multiple dataframes
         for dsid, resdfs in dataframes.items():
-            media_type = VariableFileType(dsmap[dsid].resType)
+            if dsmap[dsid].resType is not None and self.media_type is None:
+                self.media_type = VariableFileType(dsmap[dsid].resType)
             for resid, resdf in resdfs.items():
                 resource = dsmap[dsid].resources[resid]
                 for col in resource.columns:
@@ -139,7 +140,6 @@ class DataManager(object):
                     self.target_data = pd.concat([self.target_data, resdf["targets"]])
                 self.input_data.columns = list(map(lambda x: x['colName'], self.input_columns))
                 self.target_data.columns = list(map(lambda x: x['colName'], self.target_columns))
-                self.media_type = media_type
 
 
     def _get_datasplits(self, problem, view=None):
