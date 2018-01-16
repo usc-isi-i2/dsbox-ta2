@@ -32,7 +32,7 @@ numpy.set_printoptions(threshold=numpy.nan)
 _ONE_DAY_IN_SECONDS = 60 * 60 * 24
 
 DEFAULT_LIB_DIRECTORY = PARENTDIR + os.sep + "library"
-PORT = 50051
+PORT = 45042
 
 def serve():
     parser = argparse.ArgumentParser()

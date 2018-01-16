@@ -22,7 +22,7 @@ import dataflow_ext_pb2 as dfext
 import dataflow_ext_pb2_grpc as dfrpc
 
 def run():
-    channel = grpc.insecure_channel('localhost:50051')
+    channel = grpc.insecure_channel('localhost:45042')
     stub = crpc.CoreStub(channel)
     dstub = drpc.DataExtStub(channel)
     dfstub = dfrpc.DataflowExtStub(channel)

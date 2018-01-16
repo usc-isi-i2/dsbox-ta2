@@ -498,7 +498,8 @@ class ExecutionHelper(object):
     def raw_data_columns(self, columns):
         cols = []
         for col in columns:
-            if "refersTo" in col:
+            if ("refersTo" in col or
+                    col['colType'] == "string"):
                 cols.append(col['colName'])
         return cols
 

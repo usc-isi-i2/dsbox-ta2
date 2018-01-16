@@ -64,7 +64,7 @@ class DataManager(object):
                         if type(resource) is TableResource:
                             # Select appropriate rows of the resource
                             if splits_df is not None:
-                                resource.df = resource.df.iloc[splits_df.index]
+                                resource.df = resource.df.loc[splits_df.index]
                                 resource.split = True
                             # Select targets
                             target_cols = list(map(lambda x: x['colName'], targets))
@@ -91,7 +91,7 @@ class DataManager(object):
                             resource = dataset.resources[resid]
                             if type(resource) is TableResource:
                                 if splits_df is not None and not resource.split:
-                                    resource.df = resource.df.iloc[splits_df.index]
+                                    resource.df = resource.df.loc[splits_df.index]
                                     resource.split = True
                                 filter_cols = list(map(lambda x: x['colName'], filters))
                                 if resource.index_column in filter_cols:
@@ -100,15 +100,17 @@ class DataManager(object):
                                 if resid not in dataframes[dsid]:
                                     dataframes[dsid][resid] = {}
                                 dataframes[dsid][resid]["filter_cols"] = filter_cols
+                '''
                 else:
                     for resid, resource in dataset.resources.items():
                         if type(resource) is TableResource:
                             if splits_df is not None and not resource.split:
-                                resource.df = resource.df.iloc[splits_df.index]
+                                resource.df = resource.df.loc[splits_df.index]
                                 resource.split = True
                             resource.df = copy.copy(resource.df)
                             if resid not in dataframes[dsid]:
                                 dataframes[dsid][resid] = {}
+                '''
 
         self.input_data = pd.DataFrame()
         self.target_data = pd.DataFrame()
@@ -135,6 +137,14 @@ class DataManager(object):
                             self.index_column = col['colName']
                         else:
                             self.input_columns.append(col)
+
+                    # Bit of a hack: Check if the target resource has any string columns
+                    # Mark media as text if so
+                    if ("target_cols" in resdf and
+                            col['colType'] == "string" and
+                            self.media_type is  None):
+                        self.media_type = VariableFileType("text")
+
                 self.input_data = pd.concat([self.input_data, resource.df])
                 if "targets" in resdf:
                     self.target_data = pd.concat([self.target_data, resdf["targets"]])
@@ -305,6 +315,9 @@ class TableResource(DataResource):
 
     def __init__(self, resID, resPath, resType, resFormat, columns):
         super(TableResource, self).__init__(resID, resPath, resType, resFormat)
+        self.initialize_columns(columns)
+
+    def initialize_columns(self, columns):
         index_hash = {}
         name_hash = {}
         for col in columns:
@@ -316,7 +329,6 @@ class TableResource(DataResource):
         self.columns = [index_hash[i] for i in sorted(index_hash.keys())]
         self.named_columns = name_hash
 
-
     def load(self):
         self.df = pd.read_csv(self.resPath, index_col=self.index_column)
         self.orig_df = copy.copy(self.df)
@@ -326,6 +338,11 @@ class TableResource(DataResource):
         #print ("Joining {} with {}".format(resource.resPath, self.resPath))
         leftcol = reference.from_column["colName"]
         rightcol = reference.to_reference["columnName"]
+
+        # Update columns
+        self.update_columns(resource, leftcol, self, rightcol)
+
+        # Update dataframe itself
         leftindex = False
         rightindex = False
         if leftcol == resource.index_column:
@@ -358,6 +375,22 @@ class TableResource(DataResource):
         for col in columns:
             values.append(row[col])
         return values
+
+    def update_columns(self, resource, rescol, refres, refcol):
+        columns = []
+        index = 0
+        for col in resource.columns:
+            if col['colName'] == rescol:
+                for newcol in refres.columns:
+                    if newcol['colName'] != refcol:
+                        newcol['colIndex'] = index
+                        columns.append(newcol)
+                        index += 1
+            else:
+                col['colIndex'] = index
+                columns.append(col)
+                index += 1
+        resource.initialize_columns(columns)
 
 
 class RawResource(DataResource):

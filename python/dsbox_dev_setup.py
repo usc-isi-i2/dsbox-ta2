@@ -17,8 +17,7 @@ def path_setup():
     top_dir = os.path.abspath(curr_dir + '/../..')
     for directory in [
             'dsbox-ta2/python', 'dsbox-cleaning', 'dsbox-profiling',
-            'dsbox-corex', 'ta3ta2-api', 'spider', 'primitive-interfaces/python2',
-            'd3m_data_supply/api']:
+            'dsbox-corex', 'spider']:
         path = os.path.join(top_dir, directory)
         #print('Appending sys.path with ' + path)
         sys.path.append(path)
