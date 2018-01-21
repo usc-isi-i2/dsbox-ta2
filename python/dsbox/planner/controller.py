@@ -36,6 +36,7 @@ class Controller(object):
     num_cpus = 0
     ram = 0
     timeout = 60
+    ensemble_add = 4
 
     exec_pipelines = []
     l1_planner = None
@@ -64,6 +65,8 @@ class Controller(object):
         self.ram = config.get('ram', 0)
         self.timeout = (config.get('timeout', 60))*60
 
+        self.ensemble_add = config.get('ensemble_add', 0)
+
         # Create some debugging files
         self.logfile = open("%s%slog.txt" % (self.tmp_dir, os.sep), 'w')
         self.errorfile = open("%s%sstderr.txt" % (self.tmp_dir, os.sep), 'w')
@@ -80,7 +83,7 @@ class Controller(object):
     '''
     Set config directories and schema from just problemdir, datadir and outputdir
     '''
-    def initialize_simple(self, problemdir, datadir, outputdir):
+    def initialize_simple(self, problemdir, datadir, outputdir, ensemble_add = 5):
         self.initialize_from_config({
             "problem_root": problemdir,
             "problem_schema": problemdir + os.sep + 'problemDoc.json',
@@ -91,7 +94,8 @@ class Controller(object):
             'temp_storage_root': outputdir + os.sep + "temp",
             "timeout": 60,
             "cpus"  : "4",
-            "ram"   : "4Gi"
+            "ram"   : "4Gi",
+            "ensemble_add": ensemble_add
         })
 
     """
@@ -247,7 +251,7 @@ class Controller(object):
             self.logfile.write("%s\n" % str(l1_related_pipelines))
             l1_pipelines = l1_related_pipelines
 
-            self.ensemble.greedy_add(self.exec_pipelines, df, df_lbl, pipelines_to_add = 4)
+            self.ensemble.greedy_add(self.exec_pipelines, df, df_lbl, pipelines_to_add = self.ensemble_add)
             self.logfile.write("\nEnsemble Pipelines:\n-------------\n")
             for a in self.ensemble.pipelines:
                 self.logfile.write("%s\n" % a)
