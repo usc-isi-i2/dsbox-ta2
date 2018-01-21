@@ -19,6 +19,7 @@ from dsbox.planner.common.data_manager import Dataset, DataManager
 from dsbox.planner.common.pipeline import Pipeline, PipelineExecutionResult
 from dsbox.planner.common.problem_manager import Problem
 from dsbox.planner.common.resource_manager import ResourceManager
+from dsbox.planner.ensemble import Ensemble
 
 class Feature:
     def __init__(self, resource_id, feature_name):
@@ -152,10 +153,13 @@ class Controller(object):
     """
     Train and select pipelines
     """
-    def train(self, planner_event_handler, cutoff=10):
+    def train(self, planner_event_handler, cutoff=10, ensemble = True):
         self.exec_pipelines = []
         self.l2_planner.primitive_cache = {}
         self.l2_planner.execution_cache = {}
+
+        if ensemble:
+            self.ensemble = Ensemble(self.problem)
 
         self.logfile.write("Task type: %s\n" % self.problem.task_type)
         self.logfile.write("Metrics: %s\n" % self.problem.metrics)
@@ -211,6 +215,7 @@ class Controller(object):
                 yield pe.RunningPipeline(l2_pipeline)
                 # exec_pipeline = self.l2_planner.patch_and_execute_pipeline(l2_pipeline, df, df_lbl)
 
+            
             exec_pipelines = self.resource_manager.execute_pipelines(l2_pipelines, df, df_lbl)
             for exec_pipeline in exec_pipelines:
                 l2_pipeline = l2_pipelines_map[str(exec_pipeline)]
@@ -218,6 +223,7 @@ class Controller(object):
                 yield pe.CompletedPipeline(l2_pipeline, exec_pipeline)
                 if exec_pipeline:
                     self.exec_pipelines.append(exec_pipeline)
+
 
             self.exec_pipelines = sorted(self.exec_pipelines, key=lambda x: self._sort_by_metric(x))
             self.logfile.write("\nL2 Executed Pipelines:\n-------------\n")
@@ -241,6 +247,11 @@ class Controller(object):
             self.logfile.write("%s\n" % str(l1_related_pipelines))
             l1_pipelines = l1_related_pipelines
 
+            self.ensemble.greedy_add(self.exec_pipelines, df, df_lbl, pipelines_to_add = 4)
+            self.logfile.write("\nEnsemble Pipelines:\n-------------\n")
+            for a in self.ensemble.pipelines:
+                self.logfile.write("%s\n" % a)
+
         self.write_training_results()
 
     '''
@@ -255,6 +266,18 @@ class Controller(object):
 
         # Create executables
         self.pipelinesfile.write("# Pipelines ranked by metrics (%s)\n" % self.problem.metrics)
+        
+        # Write ensemble results
+        metric_values = []
+        
+        for metric in self.ensemble.metric_values.keys():
+            metric_value = self.ensemble.metric_values[metric]
+            metric_values.append("%s = %2.4f" % (metric, metric_value))
+
+            self.pipelinesfile.write("%s ( %s ) : %s\n" % ('ensemble', self.ensemble.pipelines, metric_values))
+            #self.execution_helper.create_pipeline_executable(pipeline, self.config)
+            #self.create_pipeline_logfile(pipeline, rank)
+
         for index in range(0, len(self.exec_pipelines)):
             pipeline = self.exec_pipelines[index]
             rank = index + 1
