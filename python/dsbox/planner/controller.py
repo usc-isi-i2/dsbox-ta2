@@ -83,7 +83,7 @@ class Controller(object):
     '''
     Set config directories and schema from just problemdir, datadir and outputdir
     '''
-    def initialize_simple(self, problemdir, datadir, outputdir, ensemble_add = 5):
+    def initialize_simple(self, problemdir, datadir, outputdir, ensemble_add = 4):
         self.initialize_from_config({
             "problem_root": problemdir,
             "problem_schema": problemdir + os.sep + 'problemDoc.json',

@@ -33,10 +33,11 @@ class Ensemble(object):
 
     def _analyze_metrics(self):
         # *** ONLY CONSIDERS 1 METRIC ***
-        self.minimize_metric = True if self.problem.metrics[0] in MIN_METRICS else False
-        #for i in range(0, len(problem.metrics)):
-        #    print(problem.metrics[i])
-        #    self.minimize_metric[i] = True if problem.metrics[i] in MIN_METRICS else False
+        #self.minimize_metric = True if self.problem.metrics[0] in MIN_METRICS else False
+        self.minimize_metric = []
+        for i in range(0, len(self.problem.metrics)):
+            print(self.problem.metrics[i])
+            self.minimize_metric.append(True if self.problem.metrics[i] in MIN_METRICS else False)
         self.discrete_metric = True if self.problem.task_subtype in DISCRETE_METRIC else False
 
 
@@ -75,12 +76,14 @@ class Ensemble(object):
                         if metric_val is None:
                             return None
                         metric_values[metric.name] = metric_val
-                    #score_diff = [v - best_metrics[k] for k, v in metric_values.items()]
-                    #score_diff = [score_diff[l] * (1 if self.minimize_metric[l] else -1) for l in range(len(score_diff))]
+                    score_improve = [v - best_metrics[k] for k, v in metric_values.items()]
+                    score_improve = [score_improve[l] * (-1 if self.minimize_metric[l] else 1) for l in range(len(score_improve))]
+                    score_improve = np.mean(np.array([a for a in score_improve]))
                     score = np.mean(np.array([a for a in metric_values.values()]))
                     
-                    #print('Evaluating ', pipeline.primitives, score)
-                    if (score > best_score and not self.minimize_metric) or (score < best_score and self.minimize_metric):
+                    #print('Evaluating ', pipeline.primitives, score, score_improve)
+                    if (score_improve >= 0):
+                    #if (score > best_score and not self.minimize_metric) or (score < best_score and self.minimize_metric):
                         best_score = score
                         best_pipeline = pipeline
                         best_predictions = pd.DataFrame(y_temp, index = X.index, columns = y.columns)
