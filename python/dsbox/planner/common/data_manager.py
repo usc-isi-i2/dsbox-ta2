@@ -293,8 +293,11 @@ class DataResource(object):
         resType = obj["resType"]
         resFormat = obj["resFormat"]
         if resType == "table":
-            columns = obj["columns"]
-            return TableResource(resID, resPath, resType, resFormat, columns)
+            if "isCollection" in obj and obj["isCollection"]:
+                raise NotImplementedError("Resource type 'table isCollection=True' not recognized")
+            else:
+                columns = obj["columns"]
+                return TableResource(resID, resPath, resType, resFormat, columns)
         elif resType == "text":
             return TextResource(resID, resPath, resType, resFormat)
         elif resType == "image":
@@ -303,6 +306,8 @@ class DataResource(object):
             return AudioResource(resID, resPath, resType, resFormat)
         elif resType == "graph":
             return GraphResource(resID, resPath, resType, resFormat)
+        else:
+            raise NotImplementedError("Resource type '{}' not recognized".format(resType))
 
 class TableResource(DataResource):
     """
@@ -429,6 +434,8 @@ class RawResource(DataResource):
         loadrefs = []
         for index, row in resource.df.iterrows():
             filename = row[colname]
+            if type(filename) == float:
+                print(self.resPath, filename, type(filename))
             filepath = os.path.join(self.resPath, filename)
             boundary_values = resource.get_column_values(row, boundary_columns)
             ref = RawResource.LOADING_POOL.apply_async(self.load_resource, args=(filepath, boundary_values))
