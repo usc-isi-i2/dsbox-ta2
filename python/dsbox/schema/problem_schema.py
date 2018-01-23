@@ -13,7 +13,7 @@ class TaskType(Enum):
     VERTEX_NOMINATION = "vertexNomination"
     COMMUNITY_DETECTION = "communityDetection"
     GRAPH_MATCHING = "graphMatching"
-    TIMESERIES_FORECASTING = "timeseriesForecasting"
+    TIMESERIES_FORECASTING = "timeSeriesForecasting"
     COLLABORATIVE_FILTERING = "collaborativeFiltering"
 
 class TaskSubType(Enum):
