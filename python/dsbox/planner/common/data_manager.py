@@ -294,7 +294,7 @@ class DataResource(object):
         resFormat = obj["resFormat"]
         if resType == "table":
             if "isCollection" in obj and obj["isCollection"]:
-                raise NotImplementedError("Resource type 'table isCollection=True' not recognized")
+                raise NotImplementedError("Resource type 'table isCollection=true' not recognized")
             else:
                 columns = obj["columns"]
                 return TableResource(resID, resPath, resType, resFormat, columns)
@@ -306,6 +306,11 @@ class DataResource(object):
             return AudioResource(resID, resPath, resType, resFormat)
         elif resType == "graph":
             return GraphResource(resID, resPath, resType, resFormat)
+        elif resType == "timeseries": 
+            if "isCollection" in obj and not obj["isCollection"]:
+                raise NotImplementedError("Resource type 'timeseries isCollection=false' not recognized")
+            else:
+                return TimeSeriesResource(resID, resPath, resType, resFormat)
         else:
             raise NotImplementedError("Resource type '{}' not recognized".format(resType))
 
@@ -522,6 +527,23 @@ class AudioResource(RawResource):
         except:
             return None
 
+class TimeSeriesResource(RawResource):
+    """
+    TimeSeriesResource: A collection of time series files.
+    """
+    def __init__(self, resID, resPath, resType, resFormat):
+        super(TimeSeriesResource, self).__init__(resID, resPath, resType, resFormat)
+        
+        # FIXME: assume name of index is 'time'
+        self.index_column = 'time'
+
+    def load(self):
+        # Preload all time series ?
+        pass
+
+    def load_resource(self, filepath, _):
+        self.df = pd.read_csv(filepath, index_col=self.index_column)
+        self.orig_df = copy.copy(self.df)        
 
 class GraphResource(DataResource):
     graph = None
