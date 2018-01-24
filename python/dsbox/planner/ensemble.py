@@ -11,7 +11,7 @@ import traceback
 import inspect
 import importlib
 import pandas as pd
-
+import time
 
 from dsbox.planner.leveltwo.l1proxy import LevelOnePlannerProxy
 from dsbox.planner.leveltwo.planner import LevelTwoPlanner
@@ -27,6 +27,7 @@ class Ensemble(object):
         self.max_pipelines = max_pipelines
         self.predictions = None #predictions # Predictions dataframe
         self.metric_values =  None #metric_values # Dictionary of metric to value
+        self.score = 0
         self.pipelines = []
         self.problem = problem
         self._analyze_metrics()
@@ -42,23 +43,29 @@ class Ensemble(object):
 
 
     def greedy_add(self, pipelines, X, y, pipelines_to_add = None):
+        tic = time.time()
         if self.predictions is None:
             self.predictions = pd.DataFrame(index = X.index, columns = y.columns).fillna(0)     
             self.pipelines = []
     
         to_add = self.max_pipelines if pipelines_to_add is None else pipelines_to_add
-        for j in range(to_add):
+        #for j in range(to_add):
+        found_improvement = True
+        while found_improvement:
             best_score =  float('inf') if self.minimize_metric else 0
+            if self.metric_values is not None:
+                best_metrics = self.metric_values
 
+            found_improvement = False
             # first time through
             if not self.pipelines:
                 best_predictions = pipelines[0].planner_result.predictions
                 best_pipeline = pipelines[0]
                 best_metrics = pipelines[0].planner_result.metric_values
                 best_score = np.mean(np.array([a for a in best_metrics.values()]))
+                found_improvement = True
             else:
                 for pipeline in pipelines:
-
                     metric_values = {}
                     y_temp = (self.predictions.values * len(self.pipelines) + pipeline.planner_result.predictions.values) / (1.0*len(self.pipelines)+1)
                     #temp_predictions = (self.predictions[self.predictions.select_dtypes(include=['number']).columns] * len(self.pipelines) 
@@ -88,16 +95,44 @@ class Ensemble(object):
                         best_pipeline = pipeline
                         best_predictions = pd.DataFrame(y_temp, index = X.index, columns = y.columns)
                         best_metrics = metric_values
+                        found_improvement = True
                     #pipelines.remove(pipeline)
             # evaluate / cross validate method?
-            
-            self.pipelines.append(best_pipeline)
-            self.predictions = best_predictions
-            self.metric_values = best_metrics
-            print('Adding ', best_pipeline.primitives, ' to ensemble of size ', str(len(self.pipelines)), '.  Ensemble Score: ', best_score)
+            if found_improvement:
+                self.pipelines.append(best_pipeline)
+                self.predictions = best_predictions
+                self.metric_values = best_metrics
+                self.score = best_score
+                #print('Adding ', best_pipeline.primitives, ' to ensemble of size ', str(len(self.pipelines)), '.  Ensemble Score: ', best_score)
+            else:
+                # END?
+                #print (pipelines[0].planner_result.metric_values, pipelines[-1].planner_result.metric_values)
+                print('Found ensemble of size ', str(len(self.pipelines)), ' with score ',  str(self.score))
+                # TRYING TO ADD BEST PIPELINE: sorting is backwards if minimization metric
 
-        #print('ENSEMBLE score: ', best_score)
-        #print('ENSEMBLE pipelines: ', self.pipelines)
+                # y_temp = (self.predictions.values * len(self.pipelines) + pipeline.planner_result.predictions.values) / (1.0*len(self.pipelines)+1)
+                # if self.discrete_metric:
+                #         y_rounded = np.rint(y_temp)
+                # else:
+                #         y_rounded = y_temp
+                # metric_values = {}
+                # for i in range(0, len(self.problem.metrics)):
+                #     metric = self.problem.metrics[i]
+                #     fn = self.problem.metric_functions[i]
+                #     metric_val = self._call_function(fn, y, y_rounded)
+                #     if metric_val is None:
+                #         return None
+                #     metric_values[metric.name] = metric_val
+                
+                
+                # self.pipelines.append(pipelines[0] if )
+                # self.predictions = pd.DataFrame(y_temp, index = X.index, columns = y.columns)
+                # best_metrics = metric_values
+                # self.metric_values = metric_values
+
+                # print('Adding BEST metric.  Did NOT find improvement.  Score : ', np.mean(np.array([a for a in metric_values.values()])))
+
+        print('Ensemble Runtime ', time.time()-tic)
 
     def _call_function(self, scoring_function, *args):
         mod = inspect.getmodule(scoring_function)
