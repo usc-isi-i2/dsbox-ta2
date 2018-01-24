@@ -142,7 +142,7 @@ class ExecutionHelper(object):
             # A primitive that is run per column
             for col in df.columns:
                 colname = col.format()
-                # If during test phase, this column washn't hash
+                # If during test phase, this column wasn't hash
                 if colname not in primitive.executables.keys():
                     continue
 
@@ -560,7 +560,7 @@ class ExecutionHelper(object):
         dataset_schema = config['dataset_schema']
         problem_schema = config['problem_schema']
 
-        modelsdir = exec_dir + os.sep + "models"
+        modelsdir = tmp_dir + os.sep + "models"
         if not os.path.exists(modelsdir):
             os.makedirs(modelsdir)
 
@@ -610,6 +610,8 @@ class ExecutionHelper(object):
         statements.append("    dataset_schema = config['dataset_schema']")
         statements.append("if config.get('problem_schema', None) is not None:")
         statements.append("    problem_schema = config['problem_schema']")
+        statements.append("if config.get('problem_root', None) is not None:")
+        statements.append("    problem_root = config['problem_root']")
         statements.append("if config.get('test_data_root', None) is not None:")
         statements.append("    test_data_root = config['test_data_root']")
         statements.append("if config.get('results_root', None) is not None:")
@@ -650,8 +652,8 @@ class ExecutionHelper(object):
                         primitive.executables = None
 
                 primfilename = "models%s%s.%s.pkl" % (os.sep, pipeid, primid)
-                primfile = "%s%s%s" % (exec_dir, os.sep, primfilename)
-                statements.append("primfile = executables_root + '%s%s'" % (os.sep, primfilename))
+                primfile = "%s%s%s" % (tmp_dir, os.sep, primfilename)
+                statements.append("primfile = temp_storage_root + '%s%s'" % (os.sep, primfilename))
                 statements.append("%s = sklearn.externals.joblib.load(primfile)" % primid)
 
                 # Remove pipeline from pickling
