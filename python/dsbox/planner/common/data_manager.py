@@ -544,6 +544,7 @@ class TimeSeriesResource(RawResource):
     def load_resource(self, filepath, _):
         self.df = pd.read_csv(filepath, index_col=self.index_column)
         self.orig_df = copy.copy(self.df)        
+        return self.df
 
 class GraphResource(DataResource):
     graph = None
