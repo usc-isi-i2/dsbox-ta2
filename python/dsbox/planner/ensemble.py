@@ -64,6 +64,7 @@ class Ensemble(object):
                 best_metrics = pipelines[0].planner_result.metric_values
                 best_score = np.mean(np.array([a for a in best_metrics.values()]))
                 found_improvement = True
+                print('Best single pipeline score ',  str(best_score))
             else:
                 for pipeline in pipelines:
                     metric_values = {}

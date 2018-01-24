@@ -9,6 +9,7 @@ import numpy
 import shutil
 import traceback
 import pandas as pd
+import numpy as np
 
 from dsbox.planner.leveltwo.l1proxy import LevelOnePlannerProxy
 from dsbox.planner.leveltwo.planner import LevelTwoPlanner
@@ -71,6 +72,8 @@ class Controller(object):
         self.logfile = open("%s%slog.txt" % (self.tmp_dir, os.sep), 'w')
         self.errorfile = open("%s%sstderr.txt" % (self.tmp_dir, os.sep), 'w')
         self.pipelinesfile = open("%s%spipelines.txt" % (self.tmp_dir, os.sep), 'w')
+
+        self.ensemblefile = open("%s%sensemble.txt" % (os.getcwd(), os.sep), 'w')
 
         self.problem = Problem()
         self.data_manager = DataManager()
@@ -257,7 +260,9 @@ class Controller(object):
                 self.logfile.write("%s\n" % a)
 
         self.write_training_results()
-
+        val = self.ensemble.score - np.mean([a for a in self.exec_pipelines[0].planner_result.metric_values.values()])
+        val = val*(-1 if self.ensemble.minimize_metric[0] else 1)
+        self.ensemblefile.write("% s : % s \n" % (self.problem.prID, str(val)))
     '''
     Write training results to file
     '''
