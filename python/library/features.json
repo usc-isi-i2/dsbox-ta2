@@ -61,5 +61,14 @@
     "NotPersistent": true,
     "Requirements": [],
     "Effects": ["MISSING_VALUES"]
+  },
+  {
+    "Class": "dsbox.custom_primitives.feature.timeseries_feature.RandomProjectionTimeSeriesFeaturization",
+    "Name": "RandomProjectionTimeSeriesFeaturization",
+    "Task": "FeatureExtraction",
+    "RequiresColumnData": true,
+    "NotPersistent": true,
+    "Requirements": [],
+    "Effects": []
   }
 ]

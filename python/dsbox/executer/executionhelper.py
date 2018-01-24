@@ -51,33 +51,35 @@ class ExecutionHelper(object):
 
     def instantiate_primitive(self, primitive):
         executable = None
-        # Parse arguments
-        args = []
-        kwargs = {}
-        if primitive.getInitKeywordArgs():
-            kwargs = self._process_kwargs(
-                primitive.getInitKeywordArgs(), self.problem.task_type, self.problem.metric_functions)
-        if primitive.getInitArgs():
-            args = self._process_args(
-                primitive.getInitArgs(), self.problem.task_type, self.problem.metric_functions)
-
-        # Instantiate primitive
         if REMOTE:
-            executable = self.e.execute(primitive.cls, args=args, kwargs=kwargs)
+            # FIXME: What to do for remote????
+            # executable = self.e.execute(primitive.cls, args=args, kwargs=kwargs)
+            pass
         else:
             mod, cls = primitive.cls.rsplit('.', 1)
             try:
                 module = importlib.import_module(mod)
                 PrimitiveClass = getattr(module, cls)
-                executable = PrimitiveClass(*args, **kwargs)
+                if issubclass(PrimitiveClass, PrimitiveBase):
+                    primitive.unified_interface = True
+                    hyperparams_class = PrimitiveClass.metadata.query()['primitive_code']['class_type_arguments']['Hyperparams']
+                    executable = PrimitiveClass(hyperparams=hyperparams_class.defaults())
+                    primitive.unified_interface = True
+                else:
+                    args = []
+                    kwargs = {}
+                    if primitive.getInitKeywordArgs():
+                        kwargs = self._process_kwargs(
+                            primitive.getInitKeywordArgs(), self.problem.task_type, self.problem.metric_functions)
+                    if primitive.getInitArgs():
+                        args = self._process_args(
+                            primitive.getInitArgs(), self.problem.task_type, self.problem.metric_functions)
+                    executable = PrimitiveClass(*args, **kwargs)
+                    primitive.unified_interface = False
             except Exception as e:
                 sys.stderr.write("ERROR _instantiate_primitive(%s) : %s\n" % (primitive, e))
                 traceback.print_exc()
                 return None
-
-        # Check if the executable is a unified interface executable
-        primitive.unified_interface = isinstance(executable, PrimitiveBase)
-
         return executable
 
 
@@ -352,6 +354,21 @@ class ExecutionHelper(object):
                 ncols.remove(col)
                 df = pd.concat([df, newdf], axis=1)
                 df.columns=ncols
+            elif self.data_manager.media_type == VariableFileType.TIMESERIES:
+                executable = self.instantiate_primitive(primitive)
+                if executable is None:
+                    primitive.finished = True
+                    return None
+                executable.set_training_data(inputs=df[col].values, outputs=[])
+                executable.fit()
+                call_result = executable.produce(inputs=df[col].values)
+                fcols = [(col.format() + "_" + str(index)) for index in range(0, call_result.value.shape[1])]
+                newdf = pd.DataFrame(call_result.value, columns=fcols, index=df.index)
+                del df[col]
+                ncols = ncols + fcols
+                ncols.remove(col)
+                df = pd.concat([df, newdf], axis=1)
+                df.columns = ncols
             elif self.data_manager.media_type == VariableFileType.IMAGE:
                 executable = self.instantiate_primitive(primitive)
                 if executable is None:

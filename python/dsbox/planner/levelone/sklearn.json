@@ -73184,6 +73184,29 @@
                 45.0
             ]
         }
-    }
+    },
+      {
+	  "common_name": "TimeSeriesFeaturization",
+	  "description": "Converts collection of time series  data into a vector of features",
+	  "id": "dsbox.RandomProjectionTimeSeriesFeaturization",
+	  "is_class": true,
+	  "language": "python",
+	  "library": "dsbox",
+	  "name": "RandomProjectionTimeSeriesFeaturization",
+	  "tags": [
+              "feature_extraction",
+              "timeseries"
+	  ],
+	  "task": [
+              "feature extraction"
+	  ],
+	  "parameters": [],
+	  "returns": {
+              "description": "Vectorization of collection of timeseries",
+              "name": "features",
+              "type": "DataFrame"
+	  },
+	  "version": "0.1.0"
+      }
   ]
 }

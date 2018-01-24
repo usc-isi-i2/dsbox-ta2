@@ -322,14 +322,16 @@ class LevelOnePlanner(object):
             return primitive.weight
         if not (self.media_type == VariableFileType.IMAGE
             or self.media_type == VariableFileType.TEXT
-            or self.media_type == VariableFileType.AUDIO):
+            or self.media_type == VariableFileType.AUDIO
+            or self.media_type == VariableFileType.TIMESERIES):
             return primitive.weight
 
         factor = 100
         node = hierarchy.get_node_by_primitive(primitive)
         if ((self.media_type == VariableFileType.IMAGE and node.name == 'image')
             or (self.media_type == VariableFileType.TEXT and node.name == 'text')
-            or (self.media_type == VariableFileType.AUDIO and node.name == 'audio')):
+            or (self.media_type == VariableFileType.AUDIO and node.name == 'audio')
+            or (self.media_type == VariableFileType.TIMESERIES and node.name == 'timeseries')):
             return factor * primitive.weight
         else:
             return primitive.weight
