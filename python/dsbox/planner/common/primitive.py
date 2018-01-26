@@ -1,23 +1,31 @@
+from d3m_metadata.metadata import PrimitiveMetadata
+
 class Primitive(object):
     """
     Defines a primitive and its details
     """
 
-    def __init__(self, name, cls):
+    def __init__(self, pid, name, cls):
         # Basic information from D3M library
+        self.id = pid
         self.name = name
         self.cls = cls
         self.task = None
         self.type = None
+        self.d3m_metadata : PrimitiveMetadata = None
 
         # Extra information added by our custom library
         self.preconditions = {}
+        self.error_conditions = {}
         self.effects = {}
         self.is_persistent = True
         self.column_primitive = False
         self.unified_interface = False
         self.init_args = []
         self.init_kwargs = {}
+        
+        # planning related
+        self.weight = 1
 
         # Execution details
         self.executables = {}
@@ -31,11 +39,17 @@ class Primitive(object):
     def addPrecondition(self, precondition):
         self.preconditions.update(precondition)
 
+    def addErrorCondition(self, condition):
+        self.error_conditions.update(condition)
+
     def addEffect(self, effect):
         self.effects.update(effect)
 
     def getPreconditions(self):
         return self.preconditions
+    
+    def getErrorCondition(self):
+        return self.error_conditions    
 
     def getEffects(self):
         return self.effects
