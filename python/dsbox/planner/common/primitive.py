@@ -7,9 +7,9 @@ class Primitive(object):
 
     def __init__(self, pid, name, cls):
         # Basic information from D3M library
-        self.id = pid
-        self.name = name
-        self.cls = cls
+        self.id = pid  # Unique persistent id 
+        self.name = name  
+        self.cls : str = cls  # Python package path
         self.task = None
         self.type = None
         self.d3m_metadata : PrimitiveMetadata = None

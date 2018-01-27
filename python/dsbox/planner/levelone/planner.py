@@ -276,7 +276,7 @@ class LevelOnePlanner(object):
             learner = self.primitives.hierarchies[Category.REGRESSION].get_primitives_as_list()
         elif self.task_type == TaskType.GRAPH_MATCHING:
             learner = self.primitives.hierarchies[Category.GRAPH].get_primitives_as_list()
-        elif self.task_type == TaskType.TIMESERIES_FORECASTING:
+        elif self.task_type == TaskType.TIME_SERIES_FORECASTING:
             # FIXME: assume time series forecasting is regression
             learner = self.primitives.hierarchies[Category.REGRESSION].get_primitives_as_list()
             # FIXME: Change task_type to regression
@@ -388,7 +388,7 @@ class LevelOnePlanner(object):
         elif self.task_type == TaskType.GRAPH_MATCHING:
             learning_type = TaskType.GRAPH_MATCHING.value  # 'graphMatching'
             hierarchy = self.primitives.hierarchies[Category.GRAPH]
-        elif self.task_type == TaskType.TIMESERIES_FORECASTING:
+        elif self.task_type == TaskType.TIME_SERIES_FORECASTING:
             # FIXME: For now assume all time series forecasting are regression problems
             learning_type = TaskType.REGRESSION.value
             hierarchy = self.primitives.hierarchies[Category.REGRESSION]
