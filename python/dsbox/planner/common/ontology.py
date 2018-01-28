@@ -1,12 +1,14 @@
 import json
 import pprint
 
-from typing import Dict
+from typing import Dict, List
 from warnings import warn
 
 from d3m_metadata.metadata import PrimitiveFamily
 
 from .library import D3MPrimitiveLibrary
+import typing
+from dsbox.planner.common.primitive import Primitive
 
 class Hierarchy(object):
     """Generic tree of nodes"""
@@ -73,7 +75,8 @@ class Hierarchy(object):
             count = count + self._get_primitive_count(child)
         return count
 
-    def get_primitives(self, curr_node=None):
+    def get_primitives(self, curr_node=None) -> List[List[Primitive]]:
+        '''Returns list of list primitives of the subtree rooted at curr_node'''
         if curr_node is None:
             curr_node = self.root
         result = []
@@ -83,7 +86,8 @@ class Hierarchy(object):
             result = result + self.get_primitives(child)
         return result
 
-    def get_primitives_as_list(self, curr_node=None):
+    def get_primitives_as_list(self, curr_node=None) -> List[Primitive]:
+        '''Returns list of primitives of the current node and of its immediate children'''
         return [p for plist in self.get_primitives(curr_node) for p in plist]
 
     def get_nodes_by_level(self, level):
@@ -132,40 +136,42 @@ class HierarchyNode(object):
     def __init__(self, hierarchy, name, parent, content=[]):
         self.hierarchy = hierarchy
         self.name = name
-        self.parent = parent
-        self.children = []
+        self._parent = parent
+        self._children = []
         self._content = content
+    def getChildren(self):
+        return self._children
     def get_content(self):
         return self._content
     def _add_child(self, name, content=[]):
         """Add a child to the hierarchy node"""
         child = HierarchyNode(self.hierarchy, name, self, content)
-        self.children.append(child)
+        self._children.append(child)
         return child
     def has_child(self, name):
         """Return true if node has child with given name"""
-        for node in self.children:
+        for node in self._children:
             if node.name == name:
                 return True
         return False
     def get_child(self, name):
         """Return child by name"""
-        for node in self.children:
+        for node in self._children:
             if node.name == name:
                 return node
         raise Exception('Child not found: {}'.format(name))
     def get_siblings(self):
-        if self.parent is None:
+        if self._parent is None:
             result = []
         else:
-            result = [x for x in self.parent.children if not x==self]
+            result = [x for x in self._parent._children if not x==self]
         return result
 #    def add_primitive(self, primitive):
 #        self.hierarchy.add_primitive(self, primitive)
     def _add_primitive(self, primitive):
         self._content.append(primitive)
     def __str__(self):
-        return 'Node({},num_child={})'.format(self.name, len(self.children))
+        return 'Node({},num_child={})'.format(self.name, len(self._children))
     
 class D3MOntology(object):
     def __init__(self, library : D3MPrimitiveLibrary):
@@ -185,7 +191,14 @@ class D3MOntology(object):
         for primitive in self.library.primitives:
             if not self.hierarchy.has_primitive(primitive):
                 warn('D3MOnotology: primitive {} is NOT curated'.format(primitive.cls))
-            
+    
+    def get_family(self, family : typing.Union(PrimitiveFamily, str)) -> HierarchyNode:
+        '''Returns node corresponding to the primitive family'''
+        if not isinstance(family, str):
+            family = family.name
+        return self.hierarchy.root.get_child(family)
+    
+              
     def _add(self, node : HierarchyNode, spec : dict):
         for key, value in spec.items():
             child = self.hierarchy.add_child(node, key)

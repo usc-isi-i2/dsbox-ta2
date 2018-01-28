@@ -1,4 +1,4 @@
-from d3m_metadata.metadata import PrimitiveMetadata
+from d3m_metadata.metadata import PrimitiveMetadata, PrimitiveFamily, PrimitiveAlgorithmType
 
 class Primitive(object):
     """
@@ -71,6 +71,12 @@ class Primitive(object):
 
     def __repr__(self):
         return self.name
+    
+    def getFamily(self) -> PrimitiveFamily:
+        self.d3m_metadata.query()['primitive_family']
+        
+    def getAlgorithmTypes(self) -> PrimitiveAlgorithmType:
+        self.d3m_metadata.query()['algorithm_types']
 
     '''
     def __getstate__(self):

@@ -1,22 +1,129 @@
 """This module implements the level one planner of the DSBox system.
 """
-#### !!!!
-import sys
-import operator
-sys.path.append('/home/ktyao/dev/dsbox/dsbox-ta2/python')
 
+from dsbox.planner.common import D3MOntology, D3MPrimitiveLibrary
+from dsbox.planner.common.pipeline import Pipeline 
+from dsbox.planner.common.primitive import Primitive
 from dsbox.schema.problem_schema import TaskType, TaskSubType, Metric
 from dsbox.schema.dataset_schema import VariableFileType
 from dsbox.planner.levelone.primitives import Primitives, Category, DSBoxPrimitives, D3mPrimitives
+from dsbox.planner.levelone.planner_old import random_choices
+from dsbox.planner.common.temp import primitive
 
-import json
-import pkgutil
-import random
-import pprint
+from d3m_metadata.metadata import PrimitiveFamily
+
 import bisect
-import itertools
-
+import json
 import numpy as np
+import operator
+import os
+import pkgutil
+import pprint
+import random
+import typing
+
+class LevelOnePLanner(object):
+    '''Level One Planner'''
+    def __init__(self, * , 
+                 primitive_library : D3MPrimitiveLibrary, 
+                 ontology : D3MOntology,
+                 library_dir : str, 
+                 task_type : TaskType, 
+                 media_type : VariableFileType = None):
+        self.primitive_library = primitive_library
+        self.ontology = ontology
+        self.library_dir = library_dir
+        self.task_type = task_type
+        self.media_type = media_type
+        self.primitive_family_mappings = PrimitiveFamilyMappings()
+        self.primitive_family_mappings.load_json(library_dir)
+
+    def generate_pipelines_with_hierarchy(self, level=2) -> typing.List[Pipeline]:
+        # ignore level for now, since only have one level hierarchy
+        results =[]
+        families = self.primitive_family_mappings.get_families_by_task_type(self.task_type)
+        family_nodes = [self.ontology.get_family(f) for f in families]
+        primitives_list = [self.ontology.get_primitives_as_list(n) for n in family_nodes]
+        for primitives in primitives_list:
+            weights = [p.weight for p in primitives]
+            primitive = random_choices(primitives, weights)
+            results.append(Pipeline(primitves=[primitive]))
+        return results
+    
+    def fill_feature_by_weights(self, pipeline : Pipeline, num_pipelines=5) -> Pipeline:
+        """Insert feature primitive weighted by on media_type"""
+        feature_primitives = self.primitive_library.get_primitives_by_families(
+            self.primitive_family_mappings.get_families_by_media(self.media))
+        primitive_weights = self._get_feature_weights(feature_primitives)
+        selected_primitives = random_choices_without_replacement(
+            feature_primitives, primitive_weights, num_pipelines)
+        new_pipelines = [pipeline.clone().insertPrimitiveAt(0, p) for p in selected_primitives]
+        return new_pipelines
+    
+    def find_similar_learner(self, pipeline : Pipeline, include_siblings=True, 
+                            num_pipelines=5, position=-1) -> typing.List[Pipeline]:
+        '''Use ontology to find similar learners'''
+        # Assume learner is last primitive in pipeline
+        if position < 0:
+            position = pipeline.length(-1)
+        learner = pipeline.getPrimitiveAt(position)
+        
+        # primitves under the same subtree are similar
+        nodes = [self.ontology.get_node_by_primitive(learner)]
+        
+        # primitves under sibiling subtrees are similar
+        if include_siblings:
+            nodes = nodes + nodes[0].get_siblings()
+            
+        # Get primitives but remove the learner itself
+        primitives_list = [self.ontology.get_primitives_as_list(n) for n in nodes]
+        primitives_list[0].remove(learner)
+        
+        # Weight primitves under the same subtree more
+        factor = 10
+        weights = [factor*p.weight for p in primitives_list[0]]
+        for primitives in primitives_list[1:]:
+            weights = weights + [p.weight for p in primitives]
+        selected = random_choices_without_replacement(
+            [p for primitives in primitives_list for p in primitive],
+            weights, num_pipelines)
+        new_piplines = []
+        for p in selected:
+            new_piplines.append(pipeline.clone().replacePrimitiveAt(position))
+        return new_piplines
+        
+    
+    def _get_feature_weights(self, primitives : typing.List[Primitive]):
+        factor = 50
+        weights = []
+        media_families = self.primitive_family_mappings.media_to_family[self.media_type]
+        for primitive in primitives:
+            family = primitive.getFamily()
+            if family in media_families:
+                weights.append(factor * primitive.weight)
+        return weights 
+        
+class PrimitiveFamilyMappings(object):
+    '''Mappings to find primitive families related to specific task, and to specific media'''
+    def __init__(self):
+        self.task_to_family : typing.Dict[str, str]= dict()
+        self.media_to_family : typing.Dict[str, str] = dict()
+        
+    def load_json(self, library_dir, filename='primitive_family_mappings.json'):
+        path = os.path.join(library_dir, filename)
+        with open(path) as fp:
+            definition = json.load(fp)
+            self.task_to_family = definition['task_to_primitive_family'].items()
+            self.media_to_family = definition['media_to_primitive_family'].items()
+            
+    def get_families_by_task_type(self, task_type : str) -> typing.List[str]:
+        '''Given taskType name'''
+        return self.task_to_family[task_type]
+    
+    def get_families_by_media(self, media : str) -> typing.List[str]:
+        '''Given VariableFileType names return list of primitive family names'''
+        return self.media_to_family[media] + self.media_to_family['generic']
+            
 
 def random_choices(population, weights):
     """Randomly select a element based on weights. Similar to random.choices in Python 3.6+"""
@@ -203,7 +310,7 @@ class AffinityPolicy(object):
             result[pos] = affinity_sum
         return result
 
-class Pipeline(object):
+class PipelineOld(object):
     """Defines a sequence of executions"""
     def __init__(self, configuration_point):
         self.configuration_point = configuration_point
@@ -218,12 +325,12 @@ class Pipeline(object):
     def new_pipeline_replace(self, dim_name, new_component):
         """Generate new pipeline by replacing primitive at dimension name with new primitive"""
         point = self.configuration_point.new_point_replace(dim_name, new_component)
-        return Pipeline(point)
+        return PipelineOld(point)
 
     @classmethod
     def get_random_pipeline(cls, configuration_space):
         """Returns a random pipeline"""
-        return Pipeline(configuration_space.get_random_configuration())
+        return PipelineOld(configuration_space.get_random_configuration())
 
     def __str__(self):
         out_list = []
@@ -233,9 +340,9 @@ class Pipeline(object):
                 out_list.append('{}=None'.format(name))
             else:
                 out_list.append('{}={}'.format(name, component.name))
-        return 'Pipeline(' + ', '.join(out_list) + ')'
+        return 'PipelineOld(' + ', '.join(out_list) + ')'
 
-class LevelOnePlanner(object):
+class LevelOnePlannerOld(object):
     """Level One Planner"""
     def __init__(self, task_type=TaskType.CLASSIFICATION,
                  task_subtype=TaskSubType.BINARY,
@@ -341,7 +448,7 @@ class LevelOnePlanner(object):
 
         pipelines = []
         for _ in range(num_pipelines):
-            pipeline = Pipeline.get_random_pipeline(self.configuration_space)
+            pipeline = PipelineOld.get_random_pipeline(self.configuration_space)
             pipelines.append(pipeline)
 
         return pipelines
@@ -352,7 +459,7 @@ class LevelOnePlanner(object):
         pipelines = []
         for _ in range(num_pipelines):
             configuration = self.configuration_space.get_configuration_by_policy(policy)
-            pipeline = Pipeline(configuration)
+            pipeline = PipelineOld(configuration)
             pipelines.append(pipeline)
 
         return pipelines
@@ -401,7 +508,7 @@ class LevelOnePlanner(object):
         for component in primitives:
             configuration = self.configuration_space.get_configuration_point(
                 [learning_type], [component])
-            pipe = Pipeline(configuration)
+            pipe = PipelineOld(configuration)
             pipelines.append(pipe)
         return pipelines
 
@@ -486,7 +593,7 @@ def pipelines_by_affinity():
     policy.set_symetric_affinity(primitives.get_by_name('Normalization'),
                                  primitives.get_by_name('SVM'), 10)
 
-    planner = LevelOnePlanner(primitives=primitives, policy=policy)
+    planner = LevelOnePlannerOld(primitives=primitives, policy=policy)
 
     pipelines = planner.generate_pipelines_with_policy(policy, 20)
     for pipeline in pipelines:
@@ -496,7 +603,7 @@ def pipelines_by_hierarchy(level=2):
     """Generate pipelines using tag hierarhcy"""
     primitives = get_d3m_primitives()
     policy = AffinityPolicy(primitives)
-    planner = LevelOnePlanner(primitives=primitives, policy=policy)
+    planner = LevelOnePlannerOld(primitives=primitives, policy=policy)
 
     pipelines = planner.generate_pipelines_with_hierarchy(level=level)
     for pipeline in pipelines:
@@ -506,7 +613,7 @@ def pipelines_by_hierarchy(level=2):
 def testd3():
     """Test method"""
     primitives = get_d3m_primitives()
-    planner = LevelOnePlanner(primitives=primitives)
+    planner = LevelOnePlannerOld(primitives=primitives)
 
     pipelines = planner.generate_pipelines(20)
     for pipeline in pipelines:

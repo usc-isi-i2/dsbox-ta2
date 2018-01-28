@@ -4,12 +4,13 @@ import os
 from datetime import date
 from typing import List, Dict
 
-from d3m_metadata.metadata import PrimitiveMetadata
+from d3m_metadata.metadata import PrimitiveMetadata, PrimitiveFamily
 from d3m import index
 
 from dsbox.planner.common.primitive import Primitive
 from dsbox.schema.profile_schema import DataProfileType as dpt
 from dsbox.planner.common import primitive
+from collections import defaultdict
 
 class D3MPrimitiveLibrary(object):
     '''Creates a primitive library based on primitives_repo or d3m.index'''
@@ -17,6 +18,7 @@ class D3MPrimitiveLibrary(object):
         self.api_version = ''
         self.primitives : List[Primitive] = []
         self.primitive_by_package : Dict[str, Primitive] = {}
+        self.primitives_by_family : Dict[PrimitiveFamily, List[Primitive]] = defaultdict(list)
     
     def has_api_version(self, primitives_repo_dir, api_version):
         return api_version in os.listdir(primitives_repo_dir)
@@ -60,6 +62,9 @@ class D3MPrimitiveLibrary(object):
             self.primitives.append(primitive)
         self._setup()
         
+    def get_primitives_by_family(self, family : PrimitiveFamily) -> List[Primitive]:
+        return self.primitives_by_family[family]
+        
     def has_primitive_by_package(self, path):
         return path in self.primitive_by_package
     
@@ -96,7 +101,10 @@ class D3MPrimitiveLibrary(object):
         return primitive
         
     def _setup(self):
-        self.primitive_by_package = {p.cls:p for p in self.primitives}
+        for p in self.primitives:
+            self.primitive_by_package[p.cls] = p
+            self.primitives_by_family[p.getFamily()].append(p)
+             
 
 class PrimitiveLibrary(object):
     """
