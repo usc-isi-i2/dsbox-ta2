@@ -56,13 +56,39 @@ class LevelOnePlanner(object):
 
     def fill_feature_by_weights(self, pipeline : Pipeline, num_pipelines=5) -> Pipeline:
         """Insert feature primitive weighted by on media_type"""
-        feature_primitives = self.primitive_library.get_primitives_by_families(
-            self.primitive_family_mappings.get_families_by_media(self.media.value))
-        primitive_weights = self._get_feature_weights(feature_primitives)
+        feature_primitive_paths = self.primitive_family_mappings.get_primitives_by_media(
+            self.media_type) 
+
+        feature_primitives = []
+        for path in feature_primitive_paths:
+            if self.primitive_library.has_primitive_by_package(path):
+                feature_primitives.append(self.primitive_library.get_primitive_by_package(path))
+            else:
+                print('Library does not have primitive {}'.format(path))
+                print('Possible error in file primitive_family_mappings.json')
+        primitive_weights = [p.weight for p in feature_primitives]
         selected_primitives = random_choices_without_replacement(
             feature_primitives, primitive_weights, num_pipelines)
-        new_pipelines = [pipeline.clone().insertPrimitiveAt(0, p) for p in selected_primitives]
+        new_pipelines = []
+        for p in selected_primitives:
+            newp = pipeline.clone()
+            newp.insertPrimitiveAt(0, p) 
+            new_pipelines.append(newp)
         return new_pipelines
+
+    ## Empty families for all media types. Does not work
+    # def fill_feature_by_weights(self, pipeline : Pipeline, num_pipelines=5) -> Pipeline:
+    #     """Insert feature primitive weighted by on media_type"""
+    #     feature_primitives = [
+    #         primitive 
+    #         for family in self.primitive_family_mappings.get_families_by_media(self.media.value) 
+    #         for primitive in self.primitive_library.get_primitives_by_family(family)]
+
+    #     primitive_weights = self._get_feature_weights(feature_primitives)
+    #     selected_primitives = random_choices_without_replacement(
+    #         feature_primitives, primitive_weights, num_pipelines)
+    #     new_pipelines = [pipeline.clone().insertPrimitiveAt(0, p) for p in selected_primitives]
+    #     return new_pipelines
     
     def find_similar_learner(self, pipeline : Pipeline, include_siblings=True, 
                             num_pipelines=5, position=-1) -> typing.List[Pipeline]:
@@ -114,6 +140,7 @@ class PrimitiveFamilyMappings(object):
     def __init__(self):
         self.task_to_family : typing.Dict[str, str]= dict()
         self.media_to_family : typing.Dict[str, str] = dict()
+        self.media_to_primitives : typing.Dict[str, str] = dict()
         
     def load_json(self, library_dir, filename='primitive_family_mappings.json'):
         path = os.path.join(library_dir, filename)
@@ -121,6 +148,7 @@ class PrimitiveFamilyMappings(object):
             definition = json.load(fp)
             self.task_to_family = definition['task_to_primitive_family']
             self.media_to_family = definition['media_to_primitive_family']
+            self.media_to_primitives = definition['media_to_primitives']
             
     def get_families_by_task_type(self, task_type : str) -> typing.List[str]:
         '''Given taskType name'''
@@ -136,6 +164,13 @@ class PrimitiveFamilyMappings(object):
             return self.media_to_family[media] + self.media_to_family['generic']
         else:
             return self.media_to_family[media.value] + self.media_to_family['generic']
+
+    def get_primitives_by_media(self, media : str) -> typing.List[str]:
+        '''Given VariableFileType names return list of primitives'''
+        if isinstance(media, str):
+            return self.media_to_primitives[media]
+        else:
+            return self.media_to_primitives[media.value]
 
 def random_choices(population, weights):
     """Randomly select a element based on weights. Similar to random.choices in Python 3.6+"""

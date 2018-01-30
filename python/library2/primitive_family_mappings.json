@@ -33,6 +33,22 @@
 	    "DATA_TRANSFORMATION",
 	    "FEATURE_CONSTRUCTION",
 	    "FEATURE_EXTRACTION",
-	    "FEATURE_SELECTION"]
+	    "FEATURE_SELECTION"],
+	"none" : []
+    },
+    "media_to_primitives" : {
+	"image" : [
+	    "d3m.primitives.dsbox.ResNet50ImageFeature",
+	    "d3m.primitives.dsbox.Vgg16ImageFeature"],
+	"video" : [],
+	"audio" : [
+	    "d3m.primitives.spider.featurization.AudioSlicer"],
+	"speech" : [],
+	"text" : [],
+	"graph" : [],
+	"table" : [],
+	"timeseries" : [
+	    "d3m.primitives.dsbox.RandomProjectionTimeSeriesFeaturization"],
+	"none" : []
     }
 }
