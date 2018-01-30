@@ -105,7 +105,10 @@ class ExecutionHelper(object):
                             return None
                         # FIXME: Hack for Label encoder for python3 (cannot handle missing values)
                         if (primitive.name == "Label Encoder") and (sys.version_info[0] == 3):
-                            df[col] = df[col].fillna('')
+                            if df[col].dtype == object:
+                                df[col] = df[col].fillna('')
+                            else:
+                                df[col] = df[col].fillna(0)
                         (df[col], executable) = self._execute_primitive(
                             primitive, executable, df[col], None, False, persistent)
                         primitive.executables[colname] = executable

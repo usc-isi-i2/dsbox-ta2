@@ -20,7 +20,7 @@ class Hierarchy(object):
         self._level_count = []
         self.node_by_primitive : Dict[Primitive, HierarchyNode]= dict()
 
-    def add_child(self, node, name, content=[]):
+    def add_child(self, node, name, content=None):
         """Create and add child node"""
         assert node.hierarchy == self
         child = node._add_child(name, content)
@@ -133,17 +133,20 @@ class Hierarchy(object):
 
 class HierarchyNode(object):
     """Node in the Hierarchy"""
-    def __init__(self, hierarchy, name, parent, content=[]):
+    def __init__(self, hierarchy, name, parent, content=None):
         self.hierarchy = hierarchy
         self.name = name
         self._parent = parent
         self._children = []
-        self._content = content
+        if content:
+            self._content = content
+        else:
+            self._content = list()
     def getChildren(self):
         return self._children
     def get_content(self):
         return self._content
-    def _add_child(self, name, content=[]):
+    def _add_child(self, name, content=None):
         """Add a child to the hierarchy node"""
         child = HierarchyNode(self.hierarchy, name, self, content)
         self._children.append(child)

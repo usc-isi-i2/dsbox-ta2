@@ -47,7 +47,10 @@ class DataProfiler(object):
                 each_res["special_type"]["dtype"] = str(col.dtype)
                 ndistinct = col.nunique()
                 each_res["distinct"]["num_distinct_values"] = ndistinct
-                each_res["distinct"]["ratio_distinct_values"] = ndistinct/ float(col.size)
+                if col.size == 0:
+                    each_res["distinct"]["ratio_distinct_values"] = 1.0
+                else:
+                    each_res["distinct"]["ratio_distinct_values"] = ndistinct/ float(col.size)
 
             if col.dtype.kind == 'b':
                 each_res["special_type"]["data_type"] = 'bool'

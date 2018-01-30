@@ -5,11 +5,12 @@ Created on Jan 25, 2018
 '''
 
 PRIMITIVES_REPO = ''
+#PRIMITIVES_REPO = '/home/ktyao/dev/dsbox/primitives_repo'
 if not PRIMITIVES_REPO:
     print('set PRIMITIVES_REPO to clone of rep at https://gitlab.datadrivendiscovery.org/jpl/primitives_repo')
     exit()
 
-# PRIMITIVES_REPO = '/home/ktyao/dev/dsbox/primitives_repo'
+
 
 import json
 import os
@@ -34,6 +35,16 @@ d3m_primtive_library.load_from_directory(PRIMITIVES_REPO)
 # Define hierarchy over all D3M primitives
 onto = D3MOntology(d3m_primtive_library)
 onto.load_curated_hierarchy(hierarchy_file)
+clf_node = onto.get_family('CLASSIFICATION')
+ps = onto.hierarchy.get_primitives(clf_node)
+
+families = [ "CLASSIFICATION", "LEARNER", "TIMESERIES_CLASSIFICATION"]
+family_nodes = [onto.get_family(f) for f in families]
+child_nodes = []
+for n in family_nodes:
+    child_nodes += n.getChildren()
+primitives_list = [onto.hierarchy.get_primitives_as_list(n) for n in child_nodes]
+
 
 # Augment primitive metadata with Daniel's primitive profiler output 
 with open(profile_file) as fp:
