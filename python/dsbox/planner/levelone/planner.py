@@ -2,7 +2,7 @@
 """
 
 from dsbox.planner.common import D3MOntology, D3MPrimitiveLibrary
-from dsbox.planner.common.pipeline import Pipeline 
+from dsbox.planner.common.pipeline import Pipeline
 from dsbox.planner.common.primitive import Primitive
 from dsbox.schema.problem_schema import TaskType, TaskSubType, Metric
 from dsbox.schema.dataset_schema import VariableFileType
@@ -24,10 +24,10 @@ import pdb
 
 class LevelOnePlanner(object):
     '''Level One Planner'''
-    def __init__(self, * , 
-                 primitive_library : D3MPrimitiveLibrary, 
+    def __init__(self, * ,
+                 primitive_library : D3MPrimitiveLibrary,
                  ontology : D3MOntology,
-                 library_dir : str, 
+                 library_dir : str,
                  task_type : TaskType,
                  task_subtype : TaskSubType,
                  media_type : VariableFileType = VariableFileType.NONE):
@@ -47,18 +47,22 @@ class LevelOnePlanner(object):
         child_nodes = []
         for node in family_nodes:
             child_nodes += node.getChildren()
-
         for node in child_nodes:
             primitives = self.ontology.hierarchy.get_primitives_as_list(node)
+            if not primitives:
+                continue
             weights = [p.weight for p in primitives]
+            for p in primitives:
+                p.task = 'Modeling'
             primitive = random_choices(primitives, weights)
-            results.append(Pipeline(primitives=[primitive]))
+            pipe = Pipeline(primitives=[primitive])
+            results.append(pipe)
         return results
 
     def fill_feature_by_weights(self, pipeline : Pipeline, num_pipelines=5) -> Pipeline:
         """Insert feature primitive weighted by on media_type"""
         feature_primitive_paths = self.primitive_family_mappings.get_primitives_by_media(
-            self.media_type) 
+            self.media_type)
 
         feature_primitives = []
         for path in feature_primitive_paths:
@@ -73,9 +77,9 @@ class LevelOnePlanner(object):
         new_pipelines = []
         for p in selected_primitives:
             newp = pipeline.clone()
-            newp.insertPrimitiveAt(0, p) 
+            newp.insertPrimitiveAt(0, p)
             new_pipelines.append(newp)
-        if new_pipelines: 
+        if new_pipelines:
             return new_pipelines
         else:
             return [pipeline.clone()]
@@ -84,8 +88,8 @@ class LevelOnePlanner(object):
     # def fill_feature_by_weights(self, pipeline : Pipeline, num_pipelines=5) -> Pipeline:
     #     """Insert feature primitive weighted by on media_type"""
     #     feature_primitives = [
-    #         primitive 
-    #         for family in self.primitive_family_mappings.get_families_by_media(self.media.value) 
+    #         primitive
+    #         for family in self.primitive_family_mappings.get_families_by_media(self.media.value)
     #         for primitive in self.primitive_library.get_primitives_by_family(family)]
 
     #     primitive_weights = self._get_feature_weights(feature_primitives)
@@ -93,26 +97,27 @@ class LevelOnePlanner(object):
     #         feature_primitives, primitive_weights, num_pipelines)
     #     new_pipelines = [pipeline.clone().insertPrimitiveAt(0, p) for p in selected_primitives]
     #     return new_pipelines
-    
-    def find_similar_learner(self, pipeline : Pipeline, include_siblings=True, 
+
+    def find_similar_learner(self, pipeline : Pipeline, include_siblings=True,
                             num_pipelines=5, position=-1) -> typing.List[Pipeline]:
         '''Use ontology to find similar learners'''
         # Assume learner is last primitive in pipeline
         if position < 0:
             position = pipeline.length() - 1
         learner = pipeline.getPrimitiveAt(position)
-        
+
         # primitives under the same subtree are similar
         nodes = [self.ontology.hierarchy.get_node_by_primitive(learner)]
-        
+
         # primitives under sibiling subtrees are similar
         if include_siblings:
             nodes = nodes + nodes[0].get_siblings()
-            
+
         # Get primitives but remove the learner itself
         primitives_list = [self.ontology.hierarchy.get_primitives_as_list(n) for n in nodes]
-        primitives_list[0].remove(learner)
-        
+        if learner in primitives_list[0]:
+            primitives_list[0].remove(learner)
+
         # Weight primitives under the same subtree more
         factor = 10
         weights = [factor*p.weight for p in primitives_list[0]]
@@ -127,8 +132,8 @@ class LevelOnePlanner(object):
             new_pipeline.replacePrimitiveAt(position, p)
             new_pipelines.append(new_pipeline)
         return new_pipelines
-        
-    
+
+
     def _get_feature_weights(self, primitives : typing.List[Primitive]):
         factor = 50
         weights = []
@@ -137,15 +142,15 @@ class LevelOnePlanner(object):
             family = primitive.getFamily()
             if family in media_families:
                 weights.append(factor * primitive.weight)
-        return weights 
-        
+        return weights
+
 class PrimitiveFamilyMappings(object):
     '''Mappings to find primitive families related to specific task, and to specific media'''
     def __init__(self):
         self.task_to_family : typing.Dict[str, str]= dict()
         self.media_to_family : typing.Dict[str, str] = dict()
         self.media_to_primitives : typing.Dict[str, str] = dict()
-        
+
     def load_json(self, library_dir, filename='primitive_family_mappings.json'):
         path = os.path.join(library_dir, filename)
         with open(path) as fp:
@@ -153,7 +158,7 @@ class PrimitiveFamilyMappings(object):
             self.task_to_family = definition['task_to_primitive_family']
             self.media_to_family = definition['media_to_primitive_family']
             self.media_to_primitives = definition['media_to_primitives']
-            
+
     def get_families_by_task_type(self, task_type : str) -> typing.List[str]:
         '''Given taskType name'''
         if isinstance(task_type, str):
@@ -161,7 +166,7 @@ class PrimitiveFamilyMappings(object):
         else:
             # TaskType
             return self.task_to_family[task_type.value]
-    
+
     def get_families_by_media(self, media : str) -> typing.List[str]:
         '''Given VariableFileType names return list of primitive family names'''
         if isinstance(media, str):
@@ -441,7 +446,7 @@ class LevelOnePlannerOld(object):
             self.task_type = TaskType.REGRESSION
         else:
             print('L1 Planner: task type "{}" not implemented'.format(self.task_type))
-            
+
         if learner is not None:
             dimension_name.append(self.task_type.value)
             dimension.append(learner)

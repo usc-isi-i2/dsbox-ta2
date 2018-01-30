@@ -7,8 +7,8 @@ class Primitive(object):
 
     def __init__(self, pid, name, cls):
         # Basic information from D3M library
-        self.id = pid  # Unique persistent id 
-        self.name = name  
+        self.id = pid  # Unique persistent id
+        self.name = name
         self.cls : str = cls  # Python package path
         self.task = None
         self.type = None
@@ -23,7 +23,7 @@ class Primitive(object):
         self.unified_interface = False
         self.init_args = []
         self.init_kwargs = {}
-        
+
         # planning related
         self.weight = 1
 
@@ -47,9 +47,9 @@ class Primitive(object):
 
     def getPreconditions(self):
         return self.preconditions
-    
+
     def getErrorCondition(self):
-        return self.error_conditions    
+        return self.error_conditions
 
     def getEffects(self):
         return self.effects
@@ -71,19 +71,17 @@ class Primitive(object):
 
     def __repr__(self):
         return self.name
-    
+
     def getFamily(self) -> PrimitiveFamily:
         self.d3m_metadata.query()['primitive_family']
-        
+
     def getAlgorithmTypes(self) -> PrimitiveAlgorithmType:
         self.d3m_metadata.query()['algorithm_types']
 
-    '''
     def __getstate__(self):
         self_dict = self.__dict__.copy()
-        self_dict['executables'] = {}
+        self_dict['d3m_metadata'] = None
         return self_dict
 
     def __setstate__(self, state):
         self.__dict__.update(state)
-    '''

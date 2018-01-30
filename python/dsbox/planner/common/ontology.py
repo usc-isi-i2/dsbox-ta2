@@ -6,7 +6,7 @@ import typing
 from typing import Dict, List, Union
 from warnings import warn
 
-import d3m 
+import d3m
 
 from d3m_metadata.metadata import PrimitiveFamily
 
@@ -29,7 +29,7 @@ class Hierarchy(object):
         child = node._add_child(name, content)
         if content:
             for primitive in content:
-                self.node_by_primitive[primitive] = node
+                self.node_by_primitive[primitive.cls] = node
         self._changed = True
         return child
 
@@ -45,7 +45,7 @@ class Hierarchy(object):
         return curr_node
 
     def add_primitive(self, node, primitive):
-        self.node_by_primitive[primitive] = node
+        self.node_by_primitive[primitive.cls] = node
         node._add_primitive(primitive)
 
     def get_level_counts(self):
@@ -110,10 +110,10 @@ class Hierarchy(object):
             return result
 
     def has_primitive(self, primitive):
-        return primitive in self.node_by_primitive
-    
+        return primitive.cls in self.node_by_primitive
+
     def get_node_by_primitive(self, primitive):
-        return self.node_by_primitive[primitive]
+        return self.node_by_primitive[primitive.cls]
 
     def pprint(self):
         """Print hierarchy"""
@@ -180,7 +180,7 @@ class HierarchyNode(object):
         return 'Node({},num_child={})'.format(self.name, len(self._children))
     def __repr__(self):
         return 'Node({},num_child={})'.format(self.name, len(self._children))
-    
+
 class D3MOntology(object):
     def __init__(self, library : D3MPrimitiveLibrary):
         self.library = library
@@ -190,9 +190,9 @@ class D3MOntology(object):
 
     def load_curated_hierarchy(self, library_dir):
         filename = 'two_level_clustering-v{}.json'.format(d3m.__version__)
-        
+
         self._load_curated_hierarchy(os.path.join(library_dir, filename))
-        
+
     def _load_curated_hierarchy(self, hierarchy_file):
         with open(hierarchy_file) as pf:
             tree = json.load(pf)
@@ -204,15 +204,15 @@ class D3MOntology(object):
         for primitive in self.library.primitives:
             if not self.hierarchy.has_primitive(primitive):
                 warn('D3MOnotology: primitive {} is NOT curated'.format(primitive.cls))
-    
+
     def get_family(self, family) -> HierarchyNode:
         '''Returns node corresponding to the primitive family'''
         #  family : typing.Union(PrimitiveFamily, str)
         if not isinstance(family, str):
             family = family.name
         return self.hierarchy.root.get_child(family)
-    
-              
+
+
     def _add(self, node : HierarchyNode, spec : dict):
         for key, value in spec.items():
             child = self.hierarchy.add_child(node, key)
@@ -228,6 +228,4 @@ class D3MOntology(object):
                     if self.library.has_primitive_by_package(package):
                         self.hierarchy.add_primitive(child, self.library.get_primitive_by_package(package))
                     else:
-                        warn('D3MOnotology: primitive {} not found in library.'.format(package))    
-
-    
+                        warn('D3MOnotology: primitive {} not found in library.'.format(package))

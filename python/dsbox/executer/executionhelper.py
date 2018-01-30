@@ -38,6 +38,9 @@ from dsbox.schema.data_profile import DataProfile
 from sklearn.linear_model import LinearRegression, LogisticRegression
 from sklearn.metrics import make_scorer
 
+# Import D3M Primitives
+import d3m.primitives
+
 REMOTE = False
 
 class ExecutionHelper(object):
@@ -58,13 +61,13 @@ class ExecutionHelper(object):
         else:
             mod, cls = primitive.cls.rsplit('.', 1)
             try:
+                import importlib
                 module = importlib.import_module(mod)
                 PrimitiveClass = getattr(module, cls)
                 if issubclass(PrimitiveClass, PrimitiveBase):
                     primitive.unified_interface = True
                     hyperparams_class = PrimitiveClass.metadata.query()['primitive_code']['class_type_arguments']['Hyperparams']
                     executable = PrimitiveClass(hyperparams=hyperparams_class.defaults())
-                    primitive.unified_interface = True
                 else:
                     args = []
                     kwargs = {}
@@ -77,8 +80,9 @@ class ExecutionHelper(object):
                     executable = PrimitiveClass(*args, **kwargs)
                     primitive.unified_interface = False
             except Exception as e:
-                sys.stderr.write("ERROR _instantiate_primitive(%s) : %s\n" % (primitive, e))
-                traceback.print_exc()
+                sys.stderr.write("ERROR: instantiate_primitive {}: {}\n".format(primitive.name, e).encode())
+                #sys.stderr.write("ERROR _instantiate_primitive(%s)\n" % (primitive.name))
+                #traceback.print_exc()
                 return None
         return executable
 
@@ -124,8 +128,9 @@ class ExecutionHelper(object):
 
         except Exception as e:
             try:
-                sys.stderr.write("ERROR execute_primitive(%s): %s\n" % (primitive, e))
-                traceback.print_exc()
+                sys.stderr.write("ERROR: execute_primitive {}: {}\n".format(primitive.name, e).encode())
+                #sys.stderr.write("ERROR execute_primitive(%s): %s\n" % (primitive, e))
+                #traceback.print_exc()
                 primitive.finished = True
             except:
                 pass
@@ -168,8 +173,9 @@ class ExecutionHelper(object):
                     (df[col], executable) = self._execute_primitive(
                         primitive, executable, df[col], None, True, persistent)
                 except Exception as e:
-                    sys.stderr.write("ERROR execute_primitive(%s): %s\n" % (primitive, e))
-                    traceback.print_exc()
+                    sys.stderr.write("ERROR: execute_primitive {}: {}\n".format(primitive.name, e).encode())
+                    #sys.stderr.write("ERROR execute_primitive(%s): %s\n" % (primitive, e))
+                    #traceback.print_exc()
                     return None
         else:
             if not persistent:
@@ -195,7 +201,7 @@ class ExecutionHelper(object):
         retval = None
         if primitive.unified_interface:
             if (testing and persistent):
-                retval = executable.produce(inputs=df)
+                retval = executable.produce(inputs=df).value
             else:
                 if isinstance(executable, SupervisedLearnerPrimitiveBase):
                     executable.set_training_data(inputs=df, outputs=df_lbl)
@@ -204,7 +210,7 @@ class ExecutionHelper(object):
                 elif isinstance(executable, GeneratorPrimitiveBase):
                     executable.set_training_data(outputs=df_lbl)
                 executable.fit()
-                retval = executable.produce(inputs=df)
+                retval = executable.produce(inputs=df).value
         else:
             if (testing and persistent):
                 if REMOTE:
@@ -256,7 +262,7 @@ class ExecutionHelper(object):
                 if primitive.unified_interface:
                     executable.set_training_data(inputs=trainX, outputs=trainY)
                     executable.fit()
-                    ypred = executable.produce(inputs=testX)
+                    ypred = executable.produce(inputs=testX).value
                 else:
                     if REMOTE:
                         prim = self.e.execute('fit', args=[trainX, trainY], kwargs=None, obj=executable, objreturn=True)
@@ -276,7 +282,8 @@ class ExecutionHelper(object):
                 primitive.progress = num/cv
                 primitive.pipeline.notifyChanges()
             except Exception as e:
-                traceback.print_exc(e)
+                sys.stderr.write("ERROR: cross_validation {}: {}\n".format(primitive.name, e).encode())
+                #traceback.print_exc(e)
 
         if num == 0:
             return (None, None)
@@ -399,7 +406,7 @@ class ExecutionHelper(object):
                         primitive.finished = True
                         return None
                     #executable.fit('time_series', [audio_clip])
-                    features = executable.produce([audio_clip])[0]
+                    features = executable.produce([audio_clip]).value[0]
 
                     allfeatures = {}
                     for feature in features:
@@ -488,7 +495,7 @@ class ExecutionHelper(object):
                     executable = self.instantiate_primitive(primitive)
                     if executable is None:
                         return None
-                    features = executable.produce([audio_clip])[0]
+                    features = executable.produce([audio_clip]).value[0]
 
                     allfeatures = {}
                     for feature in features:
@@ -687,7 +694,7 @@ class ExecutionHelper(object):
                 # Restore executables(instances) after pickling(serialization) is done
                 primitive.executables = execs
             except Exception as e:
-                sys.stderr.write("ERROR pickling %s : %s\n" % (primitive.name, e))
+                sys.stderr.write("ERROR pickling {}: {}\n".format(primitive.name, e).encode())
 
             if primitive.task == "Modeling":
                 # Initialize primitive
@@ -703,7 +710,7 @@ class ExecutionHelper(object):
                 statements.append("    os.makedirs(results_root)")
                 target_column = self.data_manager.target_columns[0]['colName']
                 if primitive.unified_interface:
-                    statements.append("result = pandas.DataFrame(%s.executables.produce(inputs=testdata), index=testdata.index, columns=['%s'])" %
+                    statements.append("result = pandas.DataFrame(%s.executables.produce(inputs=testdata).value, index=testdata.index, columns=['%s'])" %
                         (primid, target_column))
                 else:
                     statements.append("result = pandas.DataFrame(%s.executables.predict(testdata), index=testdata.index, columns=['%s'])" %
@@ -720,7 +727,7 @@ class ExecutionHelper(object):
         # Write executable
         exfilename = "%s%s%s" % (exec_dir, os.sep, pipeid)
         with open(exfilename, 'a') as exfile:
-            exfile.write("#!/usr/bin/env python\n\n")
+            exfile.write("#!/usr/bin/env python3\n\n")
             for imp in set(imports):
                 exfile.write("import %s\n" % imp)
             for st in statements:
@@ -733,6 +740,7 @@ class ExecutionHelper(object):
             module = importlib.import_module(mod.__name__)
             return scoring_function(*args)
         except Exception as e:
-            sys.stderr.write("ERROR _call_function %s: %s\n" % (scoring_function, e))
-            traceback.print_exc()
+            sys.stderr.write("ERROR: _call_function {}: {}\n".format(scoring_function, e).encode())
+            #sys.stderr.write("ERROR _call_function %s: %s\n" % (scoring_function, e))
+            #traceback.print_exc()
             return None
