@@ -276,6 +276,14 @@ class LevelOnePlanner(object):
             learner = self.primitives.hierarchies[Category.REGRESSION].get_primitives_as_list()
         elif self.task_type == TaskType.GRAPH_MATCHING:
             learner = self.primitives.hierarchies[Category.GRAPH].get_primitives_as_list()
+        elif self.task_type == TaskType.TIMESERIES_FORECASTING:
+            # FIXME: assume time series forecasting is regression
+            learner = self.primitives.hierarchies[Category.REGRESSION].get_primitives_as_list()
+            # FIXME: Change task_type to regression
+            self.task_type = TaskType.REGRESSION
+        else:
+            print('L1 Planner: task type "{}" not implemented'.format(self.task_type))
+            
         if learner is not None:
             dimension_name.append(self.task_type.value)
             dimension.append(learner)
@@ -314,14 +322,16 @@ class LevelOnePlanner(object):
             return primitive.weight
         if not (self.media_type == VariableFileType.IMAGE
             or self.media_type == VariableFileType.TEXT
-            or self.media_type == VariableFileType.AUDIO):
+            or self.media_type == VariableFileType.AUDIO
+            or self.media_type == VariableFileType.TIMESERIES):
             return primitive.weight
 
         factor = 100
         node = hierarchy.get_node_by_primitive(primitive)
         if ((self.media_type == VariableFileType.IMAGE and node.name == 'image')
             or (self.media_type == VariableFileType.TEXT and node.name == 'text')
-            or (self.media_type == VariableFileType.AUDIO and node.name == 'audio')):
+            or (self.media_type == VariableFileType.AUDIO and node.name == 'audio')
+            or (self.media_type == VariableFileType.TIMESERIES and node.name == 'timeseries')):
             return factor * primitive.weight
         else:
             return primitive.weight
@@ -378,6 +388,10 @@ class LevelOnePlanner(object):
         elif self.task_type == TaskType.GRAPH_MATCHING:
             learning_type = TaskType.GRAPH_MATCHING.value  # 'graphMatching'
             hierarchy = self.primitives.hierarchies[Category.GRAPH]
+        elif self.task_type == TaskType.TIMESERIES_FORECASTING:
+            # FIXME: For now assume all time series forecasting are regression problems
+            learning_type = TaskType.REGRESSION.value
+            hierarchy = self.primitives.hierarchies[Category.REGRESSION]
         else:
             raise Exception('Learning type not recoginized: {}'.format(self.task_type))
 

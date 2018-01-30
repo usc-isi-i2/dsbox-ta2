@@ -51,33 +51,35 @@ class ExecutionHelper(object):
 
     def instantiate_primitive(self, primitive):
         executable = None
-        # Parse arguments
-        args = []
-        kwargs = {}
-        if primitive.getInitKeywordArgs():
-            kwargs = self._process_kwargs(
-                primitive.getInitKeywordArgs(), self.problem.task_type, self.problem.metric_functions)
-        if primitive.getInitArgs():
-            args = self._process_args(
-                primitive.getInitArgs(), self.problem.task_type, self.problem.metric_functions)
-
-        # Instantiate primitive
         if REMOTE:
-            executable = self.e.execute(primitive.cls, args=args, kwargs=kwargs)
+            # FIXME: What to do for remote????
+            # executable = self.e.execute(primitive.cls, args=args, kwargs=kwargs)
+            pass
         else:
             mod, cls = primitive.cls.rsplit('.', 1)
             try:
                 module = importlib.import_module(mod)
                 PrimitiveClass = getattr(module, cls)
-                executable = PrimitiveClass(*args, **kwargs)
+                if issubclass(PrimitiveClass, PrimitiveBase):
+                    primitive.unified_interface = True
+                    hyperparams_class = PrimitiveClass.metadata.query()['primitive_code']['class_type_arguments']['Hyperparams']
+                    executable = PrimitiveClass(hyperparams=hyperparams_class.defaults())
+                    primitive.unified_interface = True
+                else:
+                    args = []
+                    kwargs = {}
+                    if primitive.getInitKeywordArgs():
+                        kwargs = self._process_kwargs(
+                            primitive.getInitKeywordArgs(), self.problem.task_type, self.problem.metric_functions)
+                    if primitive.getInitArgs():
+                        args = self._process_args(
+                            primitive.getInitArgs(), self.problem.task_type, self.problem.metric_functions)
+                    executable = PrimitiveClass(*args, **kwargs)
+                    primitive.unified_interface = False
             except Exception as e:
                 sys.stderr.write("ERROR _instantiate_primitive(%s) : %s\n" % (primitive, e))
                 traceback.print_exc()
                 return None
-
-        # Check if the executable is a unified interface executable
-        primitive.unified_interface = isinstance(executable, PrimitiveBase)
-
         return executable
 
 
@@ -103,7 +105,10 @@ class ExecutionHelper(object):
                             return None
                         # FIXME: Hack for Label encoder for python3 (cannot handle missing values)
                         if (primitive.name == "Label Encoder") and (sys.version_info[0] == 3):
-                            df[col] = df[col].fillna('')
+                            if df[col].dtype == object:
+                                df[col] = df[col].fillna('')
+                            else:
+                                df[col] = df[col].fillna(0)
                         (df[col], executable) = self._execute_primitive(
                             primitive, executable, df[col], None, False, persistent)
                         primitive.executables[colname] = executable
@@ -142,7 +147,7 @@ class ExecutionHelper(object):
             # A primitive that is run per column
             for col in df.columns:
                 colname = col.format()
-                # If during test phase, this column washn't hash
+                # If during test phase, this column wasn't hash
                 if colname not in primitive.executables.keys():
                     continue
 
@@ -352,6 +357,21 @@ class ExecutionHelper(object):
                 ncols.remove(col)
                 df = pd.concat([df, newdf], axis=1)
                 df.columns=ncols
+            elif self.data_manager.media_type == VariableFileType.TIMESERIES:
+                executable = self.instantiate_primitive(primitive)
+                if executable is None:
+                    primitive.finished = True
+                    return None
+                executable.set_training_data(inputs=df[col].values, outputs=[])
+                executable.fit()
+                call_result = executable.produce(inputs=df[col].values)
+                fcols = [(col.format() + "_" + str(index)) for index in range(0, call_result.value.shape[1])]
+                newdf = pd.DataFrame(call_result.value, columns=fcols, index=df.index)
+                del df[col]
+                ncols = ncols + fcols
+                ncols.remove(col)
+                df = pd.concat([df, newdf], axis=1)
+                df.columns = ncols
             elif self.data_manager.media_type == VariableFileType.IMAGE:
                 executable = self.instantiate_primitive(primitive)
                 if executable is None:
@@ -560,7 +580,7 @@ class ExecutionHelper(object):
         dataset_schema = config['dataset_schema']
         problem_schema = config['problem_schema']
 
-        modelsdir = exec_dir + os.sep + "models"
+        modelsdir = tmp_dir + os.sep + "models"
         if not os.path.exists(modelsdir):
             os.makedirs(modelsdir)
 
@@ -610,6 +630,8 @@ class ExecutionHelper(object):
         statements.append("    dataset_schema = config['dataset_schema']")
         statements.append("if config.get('problem_schema', None) is not None:")
         statements.append("    problem_schema = config['problem_schema']")
+        statements.append("if config.get('problem_root', None) is not None:")
+        statements.append("    problem_root = config['problem_root']")
         statements.append("if config.get('test_data_root', None) is not None:")
         statements.append("    test_data_root = config['test_data_root']")
         statements.append("if config.get('results_root', None) is not None:")
@@ -650,8 +672,8 @@ class ExecutionHelper(object):
                         primitive.executables = None
 
                 primfilename = "models%s%s.%s.pkl" % (os.sep, pipeid, primid)
-                primfile = "%s%s%s" % (exec_dir, os.sep, primfilename)
-                statements.append("primfile = executables_root + '%s%s'" % (os.sep, primfilename))
+                primfile = "%s%s%s" % (tmp_dir, os.sep, primfilename)
+                statements.append("primfile = temp_storage_root + '%s%s'" % (os.sep, primfilename))
                 statements.append("%s = sklearn.externals.joblib.load(primfile)" % primid)
 
                 # Remove pipeline from pickling
