@@ -43,13 +43,17 @@ class LevelOnePlanner(object):
         results =[]
         families = self.primitive_family_mappings.get_families_by_task_type(self.task_type.value)
         family_nodes = [self.ontology.get_family(f) for f in families]
-        primitives_list = [self.ontology.hierarchy.get_primitives_as_list(n) for n in family_nodes]
-        for primitives in primitives_list:
+        child_nodes = []
+        for node in family_nodes:
+            child_nodes += node.getChildren()
+
+        for node in child_nodes:
+            primitives = self.ontology.hierarchy.get_primitives_as_list(node)
             weights = [p.weight for p in primitives]
             primitive = random_choices(primitives, weights)
             results.append(Pipeline(primitives=[primitive]))
         return results
-    
+
     def fill_feature_by_weights(self, pipeline : Pipeline, num_pipelines=5) -> Pipeline:
         """Insert feature primitive weighted by on media_type"""
         feature_primitives = self.primitive_library.get_primitives_by_families(
@@ -65,7 +69,7 @@ class LevelOnePlanner(object):
         '''Use ontology to find similar learners'''
         # Assume learner is last primitive in pipeline
         if position < 0:
-            position = pipeline.length(-1)
+            position = pipeline.length() - 1
         learner = pipeline.getPrimitiveAt(position)
         
         # primitives under the same subtree are similar
@@ -87,10 +91,12 @@ class LevelOnePlanner(object):
         selected = random_choices_without_replacement(
             [p for primitives in primitives_list for p in primitives],
             weights, num_pipelines)
-        new_piplines = []
+        new_pipelines = []
         for p in selected:
-            new_piplines.append(pipeline.clone().replacePrimitiveAt(position))
-        return new_piplines
+            new_pipeline = pipeline.clone()
+            new_pipeline.replacePrimitiveAt(position, p)
+            new_pipelines.append(new_pipeline)
+        return new_pipelines
         
     
     def _get_feature_weights(self, primitives : typing.List[Primitive]):
