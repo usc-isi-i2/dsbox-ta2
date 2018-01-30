@@ -385,7 +385,8 @@ class ExecutionHelper(object):
                     primitive.finished = True
                     return None
                 image_tensor = self._as_tensor(df[col].values)
-                nvals = executable.transform(image_tensor)
+                call_result = executable.produce(inputs=image_tensor)
+                nvals = call_result.value
                 fcols = [(col.format() + "_" + str(index)) for index in range(0, nvals.shape[1])]
                 newdf = pd.DataFrame(nvals, columns=fcols, index=df.index)
                 del df[col]
