@@ -1,13 +1,16 @@
 import json
+import os
 import pprint
+import typing
 
 from typing import Dict, List, Union
 from warnings import warn
 
+import d3m 
+
 from d3m_metadata.metadata import PrimitiveFamily
 
 from .library import D3MPrimitiveLibrary
-import typing
 from dsbox.planner.common.primitive import Primitive
 
 class Hierarchy(object):
@@ -185,7 +188,11 @@ class D3MOntology(object):
         for family in PrimitiveFamily:
             self.hierarchy.add_child(self.hierarchy.root, family.name)
 
-    def load_curated_hierarchy(self, hierarchy_file):
+    def load_curated_hierarchy(self, library_dir):
+        filename = 'two_level_clustering-v{}'.format(d3m.__version__)
+        self._load_curated_hierarchy(os.path.join(library_dir, filename))
+        
+    def _load_curated_hierarchy(self, hierarchy_file):
         with open(hierarchy_file) as pf:
             tree = json.load(pf)
         for key, value in tree['PrimitivesOntology'].items():

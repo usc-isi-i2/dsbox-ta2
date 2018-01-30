@@ -28,7 +28,8 @@ class LevelOnePlanner(object):
                  primitive_library : D3MPrimitiveLibrary, 
                  ontology : D3MOntology,
                  library_dir : str, 
-                 task_type : TaskType, 
+                 task_type : TaskType,
+                 task_subtype : TaskSubType,
                  media_type : VariableFileType = None):
         self.primitive_library = primitive_library
         self.ontology = ontology
