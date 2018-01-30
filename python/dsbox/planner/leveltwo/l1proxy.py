@@ -41,7 +41,7 @@ class LevelOnePlannerProxy(object):
         self.ontology = D3MOntology(self.primitives)
         self.ontology.load_curated_hierarchy(libdir)
         
-        self.media_type = None
+        self.media_type = VariableFileType.NONE
         if helper.data_manager.media_type is not None:
             self.media_type = helper.data_manager.media_type
         
@@ -51,22 +51,22 @@ class LevelOnePlannerProxy(object):
                                           task_type=helper.problem.task_type, 
                                           task_subtype=helper.problem.task_subtype, 
                                           media_type=self.media_type)
-        def get_pipelines(self, data):
-            try:
-                l1_pipelines = self.l1_planner.generate_pipelines_with_hierarchy(level=2)
-                new_pipes = []            
-                for l1_pipeline in l1_pipelines:
-                    refined_pipes = self.l1_planner.fill_feature_by_weights(l1_pipeline, 1)
-                    new_pipes = new_pipes + refined_pipes
-                    
-                l1_pipelines = new_pipes
-                return l1_pipelines
-            except Exception as _:
-                return None        
-            
-        def get_related_pipelines(self, pipeline):
-            pipelines = self.l1_planner.find_similar_learner(pipeline, include_siblings=True)
-            return pipelines
+    def get_pipelines(self, data):
+        try:
+            l1_pipelines = self.l1_planner.generate_pipelines_with_hierarchy(level=2)
+            new_pipes = []            
+            for l1_pipeline in l1_pipelines:
+                refined_pipes = self.l1_planner.fill_feature_by_weights(l1_pipeline, 1)
+                new_pipes = new_pipes + refined_pipes
+
+            l1_pipelines = new_pipes
+            return l1_pipelines
+        except Exception as _:
+            return None        
+
+    def get_related_pipelines(self, pipeline):
+        pipelines = self.l1_planner.find_similar_learner(pipeline, include_siblings=True)
+        return pipelines
 
 class LevelOnePlannerProxyOld(object):
     """

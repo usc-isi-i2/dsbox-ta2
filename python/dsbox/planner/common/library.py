@@ -114,7 +114,7 @@ class PrimitiveLibrary(object):
         self.primitives = []
         self.json = self.loadjson(location)
         for p in self.json:
-            prim = Primitive(p['Name'], p['Class'])
+            prim = Primitive(p['Id'], p['Name'], p['Class'])
             for precstr in p.get('Requirements', []):
                 prec = self.parseProfile(precstr)
                 if prec:

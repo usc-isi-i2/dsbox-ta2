@@ -74,7 +74,7 @@
             ], 
             "SIGNAL_DITHERING": [
                 "v2018.1.5/BBN/d3m.primitives.bbn.time_series.SignalDither/0.0.3/primitive.json"
-            ], 
+            ] 
         }, 
         "TIMESERIES_SEGMENTATION": {
             "UNIFORM_TIMESERIES_SEGMENTATION": [
@@ -88,7 +88,7 @@
             ], 
             "PRINCIPAL_COMPONENT_ANALYSIS": [
                 "v2018.1.5/common-primitives/d3m.primitives.common_primitives.PCA/0.1.0/primitive.json"
-            ], 
+            ] 
         }, 
         "DATA_GENERATION": {
         }, 

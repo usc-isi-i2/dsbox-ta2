@@ -189,7 +189,8 @@ class D3MOntology(object):
             self.hierarchy.add_child(self.hierarchy.root, family.name)
 
     def load_curated_hierarchy(self, library_dir):
-        filename = 'two_level_clustering-v{}'.format(d3m.__version__)
+        filename = 'two_level_clustering-v{}.json'.format(d3m.__version__)
+        
         self._load_curated_hierarchy(os.path.join(library_dir, filename))
         
     def _load_curated_hierarchy(self, hierarchy_file):

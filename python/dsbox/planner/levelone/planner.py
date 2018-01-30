@@ -30,7 +30,7 @@ class LevelOnePlanner(object):
                  library_dir : str, 
                  task_type : TaskType,
                  task_subtype : TaskSubType,
-                 media_type : VariableFileType = None):
+                 media_type : VariableFileType = VariableFileType.NONE):
         self.primitive_library = primitive_library
         self.ontology = ontology
         self.library_dir = library_dir
@@ -75,7 +75,10 @@ class LevelOnePlanner(object):
             newp = pipeline.clone()
             newp.insertPrimitiveAt(0, p) 
             new_pipelines.append(newp)
-        return new_pipelines
+        if new_pipelines: 
+            return new_pipelines
+        else:
+            return [pipeline.clone()]
 
     ## Empty families for all media types. Does not work
     # def fill_feature_by_weights(self, pipeline : Pipeline, num_pipelines=5) -> Pipeline:
