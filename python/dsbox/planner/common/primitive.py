@@ -1,100 +1,87 @@
-import uuid
-import copy
-import threading
+from d3m_metadata.metadata import PrimitiveMetadata, PrimitiveFamily, PrimitiveAlgorithmType
 
-class PipelineExecutionResult(object):
+class Primitive(object):
     """
-    Defines a pipeline execution result
+    Defines a primitive and its details
     """
-    def __init__(self, predictions, metric_values):
-        self.predictions = predictions # Predictions dataframe
-        self.metric_values = metric_values # Dictionary of metric to value
 
-class Pipeline(object):
-    """
-    Defines a pipeline
-    """
-    def __init__(self, id=None, primitives=None, ensemble = False):
-        if id is None:
-            id = str(uuid.uuid4())
-        if primitives is None:
-            primitives = []
-        self.id = id
-        self.primitives = primitives
+    def __init__(self, pid, name, cls):
+        # Basic information from D3M library
+        self.id = pid  # Unique persistent id
+        self.name = name
+        self.cls : str = cls  # Python package path
+        self.task = None
+        self.type = None
+        self.d3m_metadata : PrimitiveMetadata = None
 
-        # Execution Results
-        self.planner_result = None
-        self.test_result = None
+        # Extra information added by our custom library
+        self.preconditions = {}
+        self.error_conditions = {}
+        self.effects = {}
+        self.is_persistent = True
+        self.column_primitive = False
+        self.unified_interface = False
+        self.init_args = []
+        self.init_kwargs = {}
 
-        # Ensemble?
-        self.ensemble = ensemble
-        self.ensemble_pipelines = None
-        self.ensemble_weights = None
+        # planning related
+        self.weight = 1
 
-        # Change notification
-        self.changes = threading.Condition()
+        # Execution details
+        self.executables = {}
+        self.start_time = None
+        self.end_time = None
+        self.progress = 0.0
         self.finished = False
 
-    def clone(self, idcopy=False):
-        pipeline = copy.deepcopy(self)
-        if not idcopy:
-            pipeline.id = str(uuid.uuid4())
-        return pipeline
+        self.pipeline = None # The pipeline that this primitive is a part of (if any)
 
-    def setPipelineId(self, id):
-        self.id = id
+    def addPrecondition(self, precondition):
+        self.preconditions.update(precondition)
 
-    def setPrimitives(self, primitives):
-        self.primitives = primitives
+    def addErrorCondition(self, condition):
+        self.error_conditions.update(condition)
 
-    def addPrimitive(self, primitive):
-        self.primitives.append(primitive)
+    def addEffect(self, effect):
+        self.effects.update(effect)
 
-    def length(self):
-        return len(self.primitives)
+    def getPreconditions(self):
+        return self.preconditions
 
-    def getPrimitiveAt(self, index):
-        return self.primitives[index]
+    def getErrorCondition(self):
+        return self.error_conditions
 
-    def insertPrimitiveAt(self, index, primitive):
-        self.primitives.insert(index, primitive)
+    def getEffects(self):
+        return self.effects
 
-    def replacePrimitiveAt(self, index, primitive):
-        self.primitives[index] = primitive
+    def getName(self):
+        return self.name
 
-    def replaceSubpipelineAt(self, index, subpipeline):
-        self.primitives[index:index] = subpipeline.primitives
+    def getType(self):
+        return self.type
 
-    def notifyChanges(self):
-        self.changes.acquire()
-        self.changes.notifyAll()
-        self.changes.release()
+    def getInitArgs(self):
+        return self.init_args
 
-    def waitForChanges(self):
-        self.changes.acquire()
-        self.changes.wait()
-        self.changes.release()
+    def getInitKeywordArgs(self):
+        return self.init_kwargs
 
     def __str__(self):
-        if self.ensemble:
-            return str(self.ensemble_pipelines)
-        else:
-            return str(self.primitives)
+        return self.name
 
     def __repr__(self):
-        if self.ensemble:
-            return str(self.ensemble_pipelines)
-        else:
-            return str(self.primitives)
+        return self.name
+
+    def getFamily(self) -> PrimitiveFamily:
+        self.d3m_metadata.query()['primitive_family']
+
+    def getAlgorithmTypes(self) -> PrimitiveAlgorithmType:
+        self.d3m_metadata.query()['algorithm_types']
 
     def __getstate__(self):
-        if self.ensemble:
-            return (self.id, self.ensemble_pipelines, self.planner_result, self.test_result, self.finished)
-        else:    
-            return (self.id, self.primitives, self.planner_result, self.test_result, self.finished)
+        self_dict = self.__dict__.copy()
+        self_dict['d3m_metadata'] = None
+        return self_dict
 
     def __setstate__(self, state):
-        # Doesn't support ENSEMBLE
-        self.id, self.primitives, self.planner_result, self.test_result, self.finished = state
-        self.changes = threading.Condition()
-
+        self.__dict__.update(state)
