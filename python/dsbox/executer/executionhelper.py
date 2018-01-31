@@ -477,7 +477,8 @@ class ExecutionHelper(object):
                 df.columns=ncols
             elif self.data_manager.media_type == VariableFileType.IMAGE:
                 image_tensor = self._as_tensor(df[col].values)
-                nvals = executable.transform(image_tensor)
+                call_result = executable.produce(image_tensor)
+                nvals = call_result.value
                 fcols = [(col.format() + "_" + str(index)) for index in range(0, nvals.shape[1])]
                 newdf = pd.DataFrame(nvals, columns=fcols, index=df.index)
                 del df[col]
