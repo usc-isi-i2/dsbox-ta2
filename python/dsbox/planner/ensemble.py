@@ -118,7 +118,7 @@ class Ensemble(object):
                         metric_values[metric.name] = metric_val
                     
                     score_improve = [v - best_metrics[k] for k, v in metric_values.items()]
-                    score_improve = [score_improve[l] * (-1 if self.minimize_metric[l] else 1) for l in range(len(score_improve))]
+                    score_improve = [score_improve[l] * (1 if self.minimize_metric[l] else -1) for l in range(len(score_improve))]
                     score_improve = np.mean(np.array([a for a in score_improve]))
                     score = np.mean(np.array([a for a in metric_values.values()]))
                     

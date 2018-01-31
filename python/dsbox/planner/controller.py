@@ -266,7 +266,7 @@ class Controller(object):
         self.write_training_results()
         ind = np.mean([a for a in self.exec_pipelines[0].planner_result.metric_values.values()])
         val = self.ensemble.score - ind
-        val = val*(-1 if self.ensemble.minimize_metric[0] else 1)
+        val = val*(1 if self.ensemble.minimize_metric[0] else -1)
         self.ensemblefile.write("% s : % s , percent %s,  runtime %s, %s \n" % (self.problem.prID, str(val), str(val/ind), str(runtime), self.problem.metrics))
         #self.ensemblefile.write("% s : % s \n" % (self.problem.prID, str(val)))
 
