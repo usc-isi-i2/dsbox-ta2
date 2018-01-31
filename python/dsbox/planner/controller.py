@@ -253,11 +253,7 @@ class Controller(object):
             self.logfile.write("\nRelated L1 Pipelines to top %d L2 Pipelines:\n-------------\n" % cutoff)
             self.logfile.write("%s\n" % str(l1_related_pipelines))
             l1_pipelines = l1_related_pipelines
-            try:
-                self.ensemble.greedy_add(self.exec_pipelines, df, df_lbl, max_pipelines = self.max_ensemble)
-            except:
-                raise ValueError('ensemble break')
-            #self.ensemble.greedy_add(self.exec_pipelines, df, df_lbl, max_pipelines = self.max_ensemble)
+            self.ensemble.greedy_add(self.exec_pipelines, df, df_lbl, max_pipelines = self.max_ensemble)
             self.logfile.write("\nEnsemble Pipelines:\n-------------\n")
             for a in self.ensemble.pipelines:
                 self.logfile.write("%s\n" % a)
