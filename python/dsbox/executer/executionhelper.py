@@ -80,7 +80,7 @@ class ExecutionHelper(object):
                     executable = PrimitiveClass(*args, **kwargs)
                     primitive.unified_interface = False
             except Exception as e:
-                sys.stderr.write("ERROR: instantiate_primitive {}: {}\n".format(primitive.name, e).encode())
+                sys.stderr.write("ERROR: instantiate_primitive {}: {}\n".format(primitive.name, e))
                 #sys.stderr.write("ERROR _instantiate_primitive(%s)\n" % (primitive.name))
                 #traceback.print_exc()
                 return None
@@ -128,7 +128,7 @@ class ExecutionHelper(object):
 
         except Exception as e:
             try:
-                sys.stderr.write("ERROR: execute_primitive {}: {}\n".format(primitive.name, e).encode())
+                sys.stderr.write("ERROR: execute_primitive {}: {}\n".format(primitive.name, e))
                 #sys.stderr.write("ERROR execute_primitive(%s): %s\n" % (primitive, e))
                 #traceback.print_exc()
                 primitive.finished = True
@@ -173,7 +173,7 @@ class ExecutionHelper(object):
                     (df[col], executable) = self._execute_primitive(
                         primitive, executable, df[col], None, True, persistent)
                 except Exception as e:
-                    sys.stderr.write("ERROR: execute_primitive {}: {}\n".format(primitive.name, e).encode())
+                    sys.stderr.write("ERROR: execute_primitive {}: {}\n".format(primitive.name, e))
                     #sys.stderr.write("ERROR execute_primitive(%s): %s\n" % (primitive, e))
                     #traceback.print_exc()
                     return None
@@ -282,7 +282,7 @@ class ExecutionHelper(object):
                 primitive.progress = num/cv
                 primitive.pipeline.notifyChanges()
             except Exception as e:
-                sys.stderr.write("ERROR: cross_validation {}: {}\n".format(primitive.name, e).encode())
+                sys.stderr.write("ERROR: cross_validation {}: {}\n".format(primitive.name, e))
                 #traceback.print_exc(e)
 
         if num == 0:
@@ -694,7 +694,7 @@ class ExecutionHelper(object):
                 # Restore executables(instances) after pickling(serialization) is done
                 primitive.executables = execs
             except Exception as e:
-                sys.stderr.write("ERROR pickling {}: {}\n".format(primitive.name, e).encode())
+                sys.stderr.write("ERROR pickling {}: {}\n".format(primitive.name, e))
 
             if primitive.task == "Modeling":
                 # Initialize primitive
@@ -740,7 +740,7 @@ class ExecutionHelper(object):
             module = importlib.import_module(mod.__name__)
             return scoring_function(*args)
         except Exception as e:
-            sys.stderr.write("ERROR: _call_function {}: {}\n".format(scoring_function, e).encode())
+            sys.stderr.write("ERROR: _call_function {}: {}\n".format(scoring_function, e))
             #sys.stderr.write("ERROR _call_function %s: %s\n" % (scoring_function, e))
             #traceback.print_exc()
             return None

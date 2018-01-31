@@ -1,54 +1,60 @@
 {
-    "task_to_primitive_family" :
-    {
-	"classification" : [
-	    "CLASSIFICATION",
-	    "LEARNER",
-	    "TIMESERIES_CLASSIFICATION"],
-	"regression" : [
-	    "REGRESSION",
-	    "LEARNER",
-	    "TIMESERIES_FORECASTING"],
-	"clustering" : ["CLUSTERING"],
-	"linkPrediction" : ["LINK_PREDICTION"],
-	"vertexNomination" : ["VERTEX_NOMINATION"],
-	"communityDetection" : ["COMMUNITY_DETECTION"],
-	"graphClustering" : ["GRAPH_CLUSTERING"],
-	"graphMatching" : ["GRAPH_MATCHING"],
-	"timeSeriesForecasting" : ["TIMESERIES_FORECASTING"],
-	"collaborativeFiltering" : ["COLLABORATIVE_FILTERING"]
-    },
-    "media_to_primitive_family" : {
-	"image" : ["DIGITAL_IMAGE_PROCESSING"],
-	"video" : [
-	    "VIDEO_PROCESSING",
-	    "DIGITAL_SIGNAL_PROCESSING"],
-	"audio" : ["DIGITAL_SIGNAL_PROCESSING"],
-	"speech" : [],
-	"text" : [],
-	"graph" : [],
-	"table" : [],
-	"timeseries" : ["TIMESERIES_SEGMENTATION"],
-	"generic" : [
-	    "DATA_TRANSFORMATION",
-	    "FEATURE_CONSTRUCTION",
-	    "FEATURE_EXTRACTION",
-	    "FEATURE_SELECTION"],
-	"none" : []
-    },
-    "media_to_primitives" : {
-	"image" : [
-	    "d3m.primitives.dsbox.ResNet50ImageFeature",
-	    "d3m.primitives.dsbox.Vgg16ImageFeature"],
-	"video" : [],
-	"audio" : [
-	    "d3m.primitives.spider.featurization.AudioSlicer"],
-	"speech" : [],
-	"text" : [],
-	"graph" : [],
-	"table" : [],
-	"timeseries" : [
-	    "d3m.primitives.dsbox.RandomProjectionTimeSeriesFeaturization"],
-	"none" : []
-    }
+  "task_to_primitive_family": {
+    "classification": [
+      "CLASSIFICATION",
+      "LEARNER",
+      "TIMESERIES_CLASSIFICATION"
+    ],
+    "regression": [
+      "REGRESSION",
+      "LEARNER",
+      "TIMESERIES_FORECASTING"
+    ],
+    "clustering": ["CLUSTERING"],
+    "linkPrediction": ["LINK_PREDICTION"],
+    "vertexNomination": ["VERTEX_NOMINATION"],
+    "communityDetection": ["COMMUNITY_DETECTION"],
+    "graphClustering": ["GRAPH_CLUSTERING"],
+    "graphMatching": ["GRAPH_MATCHING"],
+    "timeSeriesForecasting": ["TIMESERIES_FORECASTING"],
+    "collaborativeFiltering": ["COLLABORATIVE_FILTERING"]
+  },
+  "media_to_primitive_family": {
+    "image": ["DIGITAL_IMAGE_PROCESSING"],
+    "video": [
+      "VIDEO_PROCESSING",
+      "DIGITAL_SIGNAL_PROCESSING"
+    ],
+    "audio": ["DIGITAL_SIGNAL_PROCESSING"],
+    "speech": [],
+    "text": [],
+    "graph": [],
+    "table": [],
+    "timeseries": ["TIMESERIES_SEGMENTATION"],
+    "generic": [
+      "DATA_TRANSFORMATION",
+      "FEATURE_CONSTRUCTION",
+      "FEATURE_EXTRACTION",
+      "FEATURE_SELECTION"
+    ],
+    "none": []
+  },
+  "media_to_primitives": {
+    "image": [
+      "d3m.primitives.dsbox.ResNet50ImageFeature",
+      "d3m.primitives.dsbox.Vgg16ImageFeature"
+    ],
+    "video": [],
+    "audio": [
+      "d3m.primitives.spider.featurization.AudioSlicer"
+    ],
+    "speech": [],
+    "text": [],
+    "graph": [],
+    "table": [],
+    "timeseries": [
+      "d3m.primitives.dsbox.RandomProjectionTimeSeriesFeaturization"
+    ],
+    "none": []
+  }
 }

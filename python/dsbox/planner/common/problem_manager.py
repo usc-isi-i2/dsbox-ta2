@@ -29,8 +29,8 @@ class Problem(object):
     metric_functions = []
 
     splits_file = None
-    predictions_file = None
-    scores_file = None
+    predictions_file = "predictions.csv"
+    scores_file = "scores.csv"
 
     def load_problem(self, problemPath, problemDoc=None):
         self.prHome = problemPath

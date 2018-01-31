@@ -80,7 +80,15 @@ class Controller(object):
     Set config directories and schema from just problemdir, datadir and outputdir
     '''
     def initialize_simple(self, problemdir, datadir, outputdir):
-        self.initialize_from_config({
+        self.initialize_from_config(
+            self.create_simple_config(problemdir, datadir, outputdir)
+        )
+
+    '''
+    Create config from problemdir, datadir, outputdir
+    '''
+    def create_simple_config(self, problemdir, datadir, outputdir):
+        return {
             "problem_root": problemdir,
             "problem_schema": problemdir + os.sep + 'problemDoc.json',
             "training_data_root": datadir,
@@ -91,7 +99,7 @@ class Controller(object):
             "timeout": 60,
             "cpus"  : "4",
             "ram"   : "4Gi"
-        })
+        }
 
     """
     Set the task type, metric and output type via the schema
@@ -114,12 +122,21 @@ class Controller(object):
         self.data_manager.initialize_data(self.problem, [dataset], view='TRAIN')
 
     """
-    Initialize all (config, problem, data) from features
+    Initialize from features
     - Used by TA3
     """
-    def initialize_from_features(self, datafile, train_features, target_features, outputdir, view=None):
+    def initialize_from_features_simple(self, datafile, train_features, target_features, outputdir, view=None):
         data_directory = os.path.dirname(datafile)
-        self.initialize_simple(outputdir, data_directory, outputdir)
+        config = self.create_simple_config(outputdir, data_directory, outputdir)
+        self.initialize_from_features(datafile, train_features, target_features, config, view)
+
+    """
+    Initialize all from features and config
+    - Used by TA3
+    """
+    def initialize_from_features(self, datafile, train_features, target_features, config, view=None):
+        self.initialize_from_config(config)
+        data_directory = os.path.dirname(datafile)
 
         # Load datasets first
         filters = {}
@@ -283,7 +300,10 @@ class Controller(object):
                 print("Executing %s" % primitive)
                 sys.stdout.flush()
                 if primitive.task == "Modeling":
-                    result = pd.DataFrame(primitive.executables.predict(testdf), index=testdf.index, columns=[target_col])
+                    if primitive.unified_interface:
+                        result = pd.DataFrame(primitive.executables.produce(inputs=testdf).value, index=testdf.index, columns=[target_col])
+                    else:
+                        result = pd.DataFrame(primitive.executables.predict(testdf), index=testdf.index, columns=[target_col])
                     pipeline.test_result = PipelineExecutionResult(result, None)
                     break
                 elif primitive.task == "PreProcessing":
