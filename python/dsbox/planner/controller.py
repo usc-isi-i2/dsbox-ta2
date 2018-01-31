@@ -10,6 +10,7 @@ import shutil
 import traceback
 import pandas as pd
 import numpy as np
+import time
 
 from dsbox.planner.leveltwo.l1proxy import LevelOnePlannerProxy
 from dsbox.planner.leveltwo.planner import LevelTwoPlanner
@@ -37,7 +38,7 @@ class Controller(object):
     num_cpus = 0
     ram = 0
     timeout = 60
-    max_ensemble = 4
+    max_ensemble = 5
 
     exec_pipelines = []
     l1_planner = None
@@ -73,7 +74,7 @@ class Controller(object):
         self.errorfile = open("%s%sstderr.txt" % (self.tmp_dir, os.sep), 'w')
         self.pipelinesfile = open("%s%spipelines.txt" % (self.tmp_dir, os.sep), 'w')
 
-        self.ensemblefile = open("%s%sensemble.txt" % (os.getcwd(), os.sep), 'a')
+        self.ensemblefile = open("%s%sensemble.txt" % (os.getcwd(), os.sep), 'w')
 
         self.problem = Problem()
         self.data_manager = DataManager()
@@ -86,7 +87,7 @@ class Controller(object):
     '''
     Set config directories and schema from just problemdir, datadir and outputdir
     '''
-    def initialize_simple(self, problemdir, datadir, outputdir, max_ensemble = 4):
+    def initialize_simple(self, problemdir, datadir, outputdir, max_ensemble = 5):
         self.initialize_from_config({
             "problem_root": problemdir,
             "problem_schema": problemdir + os.sep + 'problemDoc.json',
@@ -253,11 +254,11 @@ class Controller(object):
             self.logfile.write("\nRelated L1 Pipelines to top %d L2 Pipelines:\n-------------\n" % cutoff)
             self.logfile.write("%s\n" % str(l1_related_pipelines))
             l1_pipelines = l1_related_pipelines
-            try:
-                self.ensemble.greedy_add(self.exec_pipelines, df, df_lbl, max_pipelines = self.max_ensemble)
-            except:
-                raise ValueError('ensemble break')
-            #self.ensemble.greedy_add(self.exec_pipelines, df, df_lbl, max_pipelines = self.max_ensemble)
+            
+            tic = time.time()
+            self.ensemble.greedy_add(self.exec_pipelines, df, df_lbl, max_pipelines = self.max_ensemble)
+            runtime = time.time() - tic
+a
             self.logfile.write("\nEnsemble Pipelines:\n-------------\n")
             for a in self.ensemble.pipelines:
                 self.logfile.write("%s\n" % a)
@@ -265,7 +266,6 @@ class Controller(object):
         self.write_training_results()
         ind = np.mean([a for a in self.exec_pipelines[0].planner_result.metric_values.values()])
         val = self.ensemble.score - ind
-        #val = self.ensemble.score - np.mean([a for a in self.exec_pipelines[0].planner_result.metric_values.values()])
         val = val*(-1 if self.ensemble.minimize_metric[0] else 1)
         self.ensemblefile.write("% s : % s , percent %s,  runtime %s, %s \n" % (self.problem.prID, str(val), str(val/ind), str(runtime), self.problem.metrics))
         #self.ensemblefile.write("% s : % s \n" % (self.problem.prID, str(val)))
