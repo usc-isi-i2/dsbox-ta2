@@ -25,10 +25,13 @@ DISCRETE_METRIC = [TaskSubType.BINARY, TaskSubType.MULTICLASS, TaskSubType.MULTI
 class Ensemble(object):
     def __init__(self, problem, max_pipelines = 10):
         self.max_pipelines = max_pipelines
-        self.predictions = None #predictions # Predictions dataframe
-        self.metric_values =  None #metric_values # Dictionary of metric to value
+        self.predictions = None  # Predictions dataframe
+        self.metric_values =  None # Dictionary of metric to value
+        self.train_result = None
+        self.test_result = None
         self.score = 0
         self.pipelines = []
+        #self.test_pipeline_ids = []
         self.problem = problem
         self._analyze_metrics()
 
@@ -42,6 +45,39 @@ class Ensemble(object):
         self.discrete_metric = True if self.problem.task_subtype in DISCRETE_METRIC else False
 
 
+    def full_test_ensemble(self):
+        # sequential add
+        for i in range(len(self.pipelines)):
+            if self.pipelines[i].test_result is not None:
+                self.test_result.predictions = self._add_new_prediction(self.test_result.predictions, self.pipelines[i].test_result)
+            else:
+                print('No test result for pipeline: ', self.pipelines[i])
+        if self.discrete_metric and self.test_result is not None:
+            self.test_result.predictions.values = np.rint(self.test_result.predictions.values)
+
+        
+
+    def intermediate_test_ensemble(self):
+        for i in range(len(self.unique_pipelines)):
+            # inefficient? goes through all pipelines each time
+            if self.unique_pipelines[i].test_result is not None:
+                new_weight = self.pipeline_weights[self.unique_pipelines[i].id]
+                if i == 0: #self.test_result is None: #i ==0:
+                    self.test_result = PipelineExecutionResult(self.unique_pipelines[i].test_result.predictions, 
+                                                                self.unique_pipelines[i].test_result.metric_values)
+                    ensemble_weight = new_weight
+                else:
+                    #if self.pipelines[i].id not in self.test_pipelines_ids:
+                    self.test_result.predictions = self._add_new_prediction(self.test_result.predictions, self.unique_pipelines[i].test_result, 
+                                ensemble_weight, ensemble_weight + new_weight)
+                    ensemble_weight = ensemble_weight + new_weight
+            else:
+                print('No test result for pipeline: ', self.unique_pipelines[i])
+         
+        if self.discrete_metric and self.test_result is not None:
+            self.test_result.predictions.values = np.rint(self.test_result.predictions.values)
+        
+
     def greedy_add(self, pipelines, X, y, max_pipelines = None):
         tic = time.time()
         if self.predictions is None:
@@ -49,9 +85,8 @@ class Ensemble(object):
             self.pipelines = []
     
         max_pipelines = self.max_pipelines if max_pipelines is None else max_pipelines
-        #for j in range(to_add):
         found_improvement = True
-        # change to unique pipelines?
+        
         while found_improvement and len(np.unique([pl.id for pl in self.pipelines])) < max_pipelines:
             best_score =  float('inf') if self.minimize_metric else 0
             if self.metric_values is not None:
@@ -69,16 +104,11 @@ class Ensemble(object):
             else:
                 for pipeline in pipelines:
                     metric_values = {}
-                    #if type(self.predictions.values) :  
-                    y_temp = (self.predictions.values * len(self.pipelines) + pipeline.planner_result.predictions.values) / (1.0*len(self.pipelines)+1)
-                    #temp_predictions = (self.predictions[self.predictions.select_dtypes(include=['number']).columns] * len(self.pipelines) 
-                    #                   + pipeline.predictions) / (len(self.pipelines)+1)
+                      
+                    y_temp = self._add_new_prediction(self.predictions, pipeline.planner_result)
+                    
+                    y_rounded = np.rint(y_temp) if self.discrete_metric else y_temp
 
-                    # check metric value binary or not
-                    if self.discrete_metric:
-                        y_rounded = np.rint(y_temp)
-                    else:
-                        y_rounded = y_temp
                     for i in range(0, len(self.problem.metrics)):
                         metric = self.problem.metrics[i]
                         fn = self.problem.metric_functions[i]
@@ -86,32 +116,66 @@ class Ensemble(object):
                         if metric_val is None:
                             return None
                         metric_values[metric.name] = metric_val
+                    
                     score_improve = [v - best_metrics[k] for k, v in metric_values.items()]
                     score_improve = [score_improve[l] * (-1 if self.minimize_metric[l] else 1) for l in range(len(score_improve))]
                     score_improve = np.mean(np.array([a for a in score_improve]))
                     score = np.mean(np.array([a for a in metric_values.values()]))
                     
                     #print('Evaluating ', pipeline.primitives, score, score_improve)
-                    if (score_improve > 0): # CHANGE TO > ?
-                    #if (score > best_score and not self.minimize_metric) or (score < best_score and self.minimize_metric):
+                    if (score_improve > 0):
                         best_score = score
                         best_pipeline = pipeline
                         best_predictions = pd.DataFrame(y_temp, index = X.index, columns = y.columns)
                         best_metrics = metric_values
                         found_improvement = True
-                    #pipelines.remove(pipeline)
-            # evaluate / cross validate method?
+                    
             if found_improvement:
                 self.pipelines.append(best_pipeline)
                 self.predictions = best_predictions
                 self.metric_values = best_metrics
-                self.score = best_score
-                #print('Adding ', best_pipeline.primitives, ' to ensemble of size ', str(len(self.pipelines)), '.  Ensemble Score: ', best_score)
-            else:
-                # END?
-                #print (pipelines[0].planner_result.metric_values, pipelines[-1].planner_result.metric_values)
-                print('Found ensemble of size ', str(len(self.pipelines)), ' with score ',  str(self.score))
-                # TRYING TO ADD BEST PIPELINE: sorting is backwards if minimization metric
+                self.score = best_score                
+        
+        print('Found ensemble of size ', str(len(self.pipelines)), ' with score ',  str(self.score))        
+        #print('Ensemble Runtime ', time.time()-tic, ' with ', len(self.pipelines), ' pipelines and metric =', self.score)
+
+        ensemble_pipeline_ids = [pl.id for pl in self.pipelines]
+        unique, indices, counts = np.unique(ensemble_pipeline_ids, return_index = True, return_counts = True) 
+        self.unique_pipelines = [self.pipelines[index] for index in sorted(indices)]
+        self.pipeline_weights = dict(zip(unique, counts))
+        self.train_result = PipelineExecutionResult(self.predictions, self.metric_values)
+
+        #self.full_test_ensemble()
+        #self.intermediate_test_ensemble()
+
+    def _add_new_prediction(self, old_prediction, new_result, old_weight = None, new_weight = None):
+        # TODO : NON-NUMERIC LABELS
+        if new_weight is None or old_weight is None:
+            _divisor = (1.0*len(self.pipelines)+1)
+            _multiplier = len(self.pipelines)
+        else:
+            _divisor = old_weight + new_weight
+            _multiplier = old_weight
+
+        y_temp = (old_prediction.values * _multiplier + new_result.predictions.values) / _divisor
+        #temp_predictions = (self.predictions[self.predictions.select_dtypes(include=['number']).columns] * len(self.pipelines) 
+        #                   + pipeline.predictions) / (len(self.pipelines)+1)
+
+
+        return y_temp
+
+    def _call_function(self, scoring_function, *args):
+        mod = inspect.getmodule(scoring_function)
+        try:
+            module = importlib.import_module(mod.__name__)
+            return scoring_function(*args)
+        except Exception as e:
+            sys.stderr.write("ERROR _call_function %s: %s\n" % (scoring_function, e))
+            traceback.print_exc()
+            return None
+
+    #def _add_best_pipeline(self):
+        # TRYING TO ADD BEST PIPELINE: sorting is backwards if minimization metric
 
                 # y_temp = (self.predictions.values * len(self.pipelines) + pipeline.planner_result.predictions.values) / (1.0*len(self.pipelines)+1)
                 # if self.discrete_metric:
@@ -134,22 +198,3 @@ class Ensemble(object):
                 # self.metric_values = metric_values
 
                 # print('Adding BEST metric.  Did NOT find improvement.  Score : ', np.mean(np.array([a for a in metric_values.values()])))
-
-        ensemble_pipeline_ids = [pl.id for pl in self.pipelines]
-        unique, indices, counts = np.unique(ensemble_pipeline_ids, return_index = True, return_counts = True) 
-        self.unique_pipelines = [self.pipelines[index] for index in sorted(indices)]
-        self.pipeline_weights = [counts[index] for index in list(np.argsort(indices))]
-        if len(self.pipelines) < 10:
-            print('Pipelines: ', self.pipelines) 
-        print('Ensemble Unique: ', self.unique_pipelines, ' \n Counts: ', self.pipeline_weights)
-        print('Ensemble Runtime ', time.time()-tic, ' with ', len(self.pipelines), ' pipelines')
-
-    def _call_function(self, scoring_function, *args):
-        mod = inspect.getmodule(scoring_function)
-        try:
-            module = importlib.import_module(mod.__name__)
-            return scoring_function(*args)
-        except Exception as e:
-            sys.stderr.write("ERROR _call_function %s: %s\n" % (scoring_function, e))
-            traceback.print_exc()
-            return None

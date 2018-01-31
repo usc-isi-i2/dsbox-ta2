@@ -10,6 +10,7 @@ import shutil
 import traceback
 import pandas as pd
 import numpy as np
+import time
 
 from dsbox.planner.leveltwo.l1proxy import LevelOnePlannerProxy
 from dsbox.planner.leveltwo.planner import LevelTwoPlanner
@@ -73,7 +74,7 @@ class Controller(object):
         self.errorfile = open("%s%sstderr.txt" % (self.tmp_dir, os.sep), 'w')
         self.pipelinesfile = open("%s%spipelines.txt" % (self.tmp_dir, os.sep), 'w')
 
-        self.ensemblefile = open("%s%sensemble.txt" % (os.getcwd(), os.sep), 'a')
+        self.ensemblefile = open("%s%sensemble.txt" % (os.getcwd(), os.sep), 'w')
 
         self.problem = Problem()
         self.data_manager = DataManager()
@@ -253,11 +254,10 @@ class Controller(object):
             self.logfile.write("\nRelated L1 Pipelines to top %d L2 Pipelines:\n-------------\n" % cutoff)
             self.logfile.write("%s\n" % str(l1_related_pipelines))
             l1_pipelines = l1_related_pipelines
-            try:
-                self.ensemble.greedy_add(self.exec_pipelines, df, df_lbl, max_pipelines = self.max_ensemble)
-            except:
-                raise ValueError('ensemble break')
-            #self.ensemble.greedy_add(self.exec_pipelines, df, df_lbl, max_pipelines = self.max_ensemble)
+            
+            tic = time.time()
+            self.ensemble.greedy_add(self.exec_pipelines, df, df_lbl, max_pipelines = self.max_ensemble)
+            runtime = time.time() - tic
             self.logfile.write("\nEnsemble Pipelines:\n-------------\n")
             for a in self.ensemble.pipelines:
                 self.logfile.write("%s\n" % a)
