@@ -52,8 +52,11 @@ class LevelOnePlanner(object):
             if not primitives:
                 continue
             weights = [p.weight for p in primitives]
+
+            # Set task type for execute_pipeline
             for p in primitives:
                 p.task = 'Modeling'
+
             primitive = random_choices(primitives, weights)
             pipe = Pipeline(primitives=[primitive])
             results.append(pipe)
@@ -76,6 +79,9 @@ class LevelOnePlanner(object):
             feature_primitives, primitive_weights, num_pipelines)
         new_pipelines = []
         for p in selected_primitives:
+            # Set task type for execute_pipeline
+            p.task = 'FeatureExtraction'
+
             newp = pipeline.clone()
             newp.insertPrimitiveAt(0, p)
             new_pipelines.append(newp)
@@ -128,6 +134,9 @@ class LevelOnePlanner(object):
             weights, num_pipelines)
         new_pipelines = []
         for p in selected:
+            # Set task type for execute_pipeline
+            p.task = 'Modeling'
+
             new_pipeline = pipeline.clone()
             new_pipeline.replacePrimitiveAt(position, p)
             new_pipelines.append(new_pipeline)
