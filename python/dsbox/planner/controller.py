@@ -37,7 +37,7 @@ class Controller(object):
     num_cpus = 0
     ram = 0
     timeout = 60
-    ensemble_add = 4
+    max_ensemble = 4
 
     exec_pipelines = []
     l1_planner = None
@@ -66,14 +66,14 @@ class Controller(object):
         self.ram = config.get('ram', 0)
         self.timeout = (config.get('timeout', 60))*60
 
-        self.ensemble_add = config.get('ensemble_add', 0)
+        self.max_ensemble = config.get('max_ensemble', 0)
 
         # Create some debugging files
         self.logfile = open("%s%slog.txt" % (self.tmp_dir, os.sep), 'w')
         self.errorfile = open("%s%sstderr.txt" % (self.tmp_dir, os.sep), 'w')
         self.pipelinesfile = open("%s%spipelines.txt" % (self.tmp_dir, os.sep), 'w')
 
-        self.ensemblefile = open("%s%sensemble.txt" % (os.getcwd(), os.sep), 'w')
+        self.ensemblefile = open("%s%sensemble.txt" % (os.getcwd(), os.sep), 'a')
 
         self.problem = Problem()
         self.data_manager = DataManager()
@@ -86,7 +86,7 @@ class Controller(object):
     '''
     Set config directories and schema from just problemdir, datadir and outputdir
     '''
-    def initialize_simple(self, problemdir, datadir, outputdir, ensemble_add = 4):
+    def initialize_simple(self, problemdir, datadir, outputdir, max_ensemble = 4):
         self.initialize_from_config({
             "problem_root": problemdir,
             "problem_schema": problemdir + os.sep + 'problemDoc.json',
@@ -98,7 +98,7 @@ class Controller(object):
             "timeout": 60,
             "cpus"  : "4",
             "ram"   : "4Gi",
-            "ensemble_add": ensemble_add
+            "max_ensemble": max_ensemble
         })
 
     """
@@ -253,16 +253,23 @@ class Controller(object):
             self.logfile.write("\nRelated L1 Pipelines to top %d L2 Pipelines:\n-------------\n" % cutoff)
             self.logfile.write("%s\n" % str(l1_related_pipelines))
             l1_pipelines = l1_related_pipelines
-
-            self.ensemble.greedy_add(self.exec_pipelines, df, df_lbl, pipelines_to_add = self.ensemble_add)
+            try:
+                self.ensemble.greedy_add(self.exec_pipelines, df, df_lbl, max_pipelines = self.max_ensemble)
+            except:
+                raise ValueError('ensemble break')
+            #self.ensemble.greedy_add(self.exec_pipelines, df, df_lbl, max_pipelines = self.max_ensemble)
             self.logfile.write("\nEnsemble Pipelines:\n-------------\n")
             for a in self.ensemble.pipelines:
                 self.logfile.write("%s\n" % a)
 
         self.write_training_results()
-        val = self.ensemble.score - np.mean([a for a in self.exec_pipelines[0].planner_result.metric_values.values()])
+        ind = np.mean([a for a in self.exec_pipelines[0].planner_result.metric_values.values()])
+        val = self.ensemble.score - ind
+        #val = self.ensemble.score - np.mean([a for a in self.exec_pipelines[0].planner_result.metric_values.values()])
         val = val*(-1 if self.ensemble.minimize_metric[0] else 1)
-        self.ensemblefile.write("% s : % s \n" % (self.problem.prID, str(val)))
+        self.ensemblefile.write("% s : % s , percent %s,  runtime %s, %s \n" % (self.problem.prID, str(val), str(val/ind), str(runtime), self.problem.metrics))
+        #self.ensemblefile.write("% s : % s \n" % (self.problem.prID, str(val)))
+
     '''
     Write training results to file
     '''

@@ -23,7 +23,7 @@ MIN_METRICS = [Metric.MEAN_SQUARED_ERROR, Metric.ROOT_MEAN_SQUARED_ERROR, Metric
 DISCRETE_METRIC = [TaskSubType.BINARY, TaskSubType.MULTICLASS, TaskSubType.MULTILABEL, TaskSubType.OVERLAPPING, TaskSubType.NONOVERLAPPING]
 
 class Ensemble(object):
-    def __init__(self, problem, max_pipelines = 100):
+    def __init__(self, problem, max_pipelines = 10):
         self.max_pipelines = max_pipelines
         self.predictions = None #predictions # Predictions dataframe
         self.metric_values =  None #metric_values # Dictionary of metric to value
@@ -42,16 +42,17 @@ class Ensemble(object):
         self.discrete_metric = True if self.problem.task_subtype in DISCRETE_METRIC else False
 
 
-    def greedy_add(self, pipelines, X, y, pipelines_to_add = None):
+    def greedy_add(self, pipelines, X, y, max_pipelines = None):
         tic = time.time()
         if self.predictions is None:
             self.predictions = pd.DataFrame(index = X.index, columns = y.columns).fillna(0)     
             self.pipelines = []
     
-        to_add = self.max_pipelines if pipelines_to_add is None else pipelines_to_add
+        max_pipelines = self.max_pipelines if max_pipelines is None else max_pipelines
         #for j in range(to_add):
         found_improvement = True
-        while found_improvement:
+        # change to unique pipelines?
+        while found_improvement and len(np.unique([pl.id for pl in self.pipelines])) < max_pipelines:
             best_score =  float('inf') if self.minimize_metric else 0
             if self.metric_values is not None:
                 best_metrics = self.metric_values
@@ -68,6 +69,7 @@ class Ensemble(object):
             else:
                 for pipeline in pipelines:
                     metric_values = {}
+                    #if type(self.predictions.values) :  
                     y_temp = (self.predictions.values * len(self.pipelines) + pipeline.planner_result.predictions.values) / (1.0*len(self.pipelines)+1)
                     #temp_predictions = (self.predictions[self.predictions.select_dtypes(include=['number']).columns] * len(self.pipelines) 
                     #                   + pipeline.predictions) / (len(self.pipelines)+1)
@@ -90,7 +92,7 @@ class Ensemble(object):
                     score = np.mean(np.array([a for a in metric_values.values()]))
                     
                     #print('Evaluating ', pipeline.primitives, score, score_improve)
-                    if (score_improve >= 0):
+                    if (score_improve > 0): # CHANGE TO > ?
                     #if (score > best_score and not self.minimize_metric) or (score < best_score and self.minimize_metric):
                         best_score = score
                         best_pipeline = pipeline
@@ -133,7 +135,14 @@ class Ensemble(object):
 
                 # print('Adding BEST metric.  Did NOT find improvement.  Score : ', np.mean(np.array([a for a in metric_values.values()])))
 
-        print('Ensemble Runtime ', time.time()-tic)
+        ensemble_pipeline_ids = [pl.id for pl in self.pipelines]
+        unique, indices, counts = np.unique(ensemble_pipeline_ids, return_index = True, return_counts = True) 
+        self.unique_pipelines = [self.pipelines[index] for index in sorted(indices)]
+        self.pipeline_weights = [counts[index] for index in list(np.argsort(indices))]
+        if len(self.pipelines) < 10:
+            print('Pipelines: ', self.pipelines) 
+        print('Ensemble Unique: ', self.unique_pipelines, ' \n Counts: ', self.pipeline_weights)
+        print('Ensemble Runtime ', time.time()-tic, ' with ', len(self.pipelines), ' pipelines')
 
     def _call_function(self, scoring_function, *args):
         mod = inspect.getmodule(scoring_function)
