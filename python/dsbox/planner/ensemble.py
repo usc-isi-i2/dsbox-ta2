@@ -55,13 +55,12 @@ class Ensemble(object):
         if self.discrete_metric and self.test_result is not None:
             self.test_result.predictions.values = np.rint(self.test_result.predictions.values)
 
-        
 
     def intermediate_test_ensemble(self):
         for i in range(len(self.unique_pipelines)):
             # inefficient? goes through all pipelines each time
             if self.unique_pipelines[i].test_result is not None:
-                new_weight = self.pipeline_weights[self.unique_pipelines[i].id]
+                new_weight = self.pipeline_weights[i]
                 if i == 0: #self.test_result is None: #i ==0:
                     self.test_result = PipelineExecutionResult(self.unique_pipelines[i].test_result.predictions, 
                                                                 self.unique_pipelines[i].test_result.metric_values)
@@ -118,7 +117,7 @@ class Ensemble(object):
                         metric_values[metric.name] = metric_val
                     
                     score_improve = [v - best_metrics[k] for k, v in metric_values.items()]
-                    score_improve = [score_improve[l] * (-1 if self.minimize_metric[l] else 1) for l in range(len(score_improve))]
+                    score_improve = [score_improve[l] * (1 if self.minimize_metric[l] else -1) for l in range(len(score_improve))]
                     score_improve = np.mean(np.array([a for a in score_improve]))
                     score = np.mean(np.array([a for a in metric_values.values()]))
                     
@@ -137,13 +136,30 @@ class Ensemble(object):
                 self.score = best_score                
         
         print('Found ensemble of size ', str(len(self.pipelines)), ' with score ',  str(self.score))        
-        #print('Ensemble Runtime ', time.time()-tic, ' with ', len(self.pipelines), ' pipelines and metric =', self.score)
-
+        
         ensemble_pipeline_ids = [pl.id for pl in self.pipelines]
         unique, indices, counts = np.unique(ensemble_pipeline_ids, return_index = True, return_counts = True) 
         self.unique_pipelines = [self.pipelines[index] for index in sorted(indices)]
         self.pipeline_weights = dict(zip(unique, counts))
+        self.pipeline_weights = [self.pipeline_weights[p.id] for p in self.unique_pipelines]
         self.train_result = PipelineExecutionResult(self.predictions, self.metric_values)
+
+        print(self.pipelines)
+        print(self.unique_pipelines, self.pipeline_weights)
+        print('PIPELINE ATTRIBUTES: ', dir(self.pipelines[0]))
+        return self._ens_pipeline()
+
+    def _ens_pipeline(self):
+        ens_pl = Pipeline(ensemble = True)
+        ens_pl.planner_result = self.train_result
+        ens_pl.start_time = sum([pl.start_time for pl in self.pipelines])
+        ens_pl.end_time = sum([pl.end_time for pl in self.pipelines])
+        ens_pl.finished = True
+        ens_pl.ensemble_pipelines = self.unique_pipelines
+        ens_pl.ensemble_weights = self.pipeline_weights
+        print ('Ensemble Pipeline Execution Time: ', ens_pl.end_time - ens_pl.start_time)
+        # if execution time too high
+        return ens_pl
 
         #self.full_test_ensemble()
         #self.intermediate_test_ensemble()
