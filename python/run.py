@@ -76,7 +76,8 @@ USAGE
     controller.initialize_training_data_from_config()
     controller.initialize_planners()
     for result in controller.train(PlannerEventHandler()):
-        pass
+        print('RESULT: ', result)   
+        #pass
 
 
 if __name__ == "__main__":
