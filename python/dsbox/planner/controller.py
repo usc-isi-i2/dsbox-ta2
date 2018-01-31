@@ -74,7 +74,7 @@ class Controller(object):
         self.errorfile = open("%s%sstderr.txt" % (self.tmp_dir, os.sep), 'w')
         self.pipelinesfile = open("%s%spipelines.txt" % (self.tmp_dir, os.sep), 'w')
 
-        self.ensemblefile = open("%s%sensemble.txt" % (os.getcwd(), os.sep), 'w')
+        self.ensemblefile = open("%s%sensemble.txt" % (os.getcwd(), os.sep), 'a')
 
         self.problem = Problem()
         self.data_manager = DataManager()
@@ -258,7 +258,7 @@ class Controller(object):
             tic = time.time()
             self.ensemble.greedy_add(self.exec_pipelines, df, df_lbl, max_pipelines = self.max_ensemble)
             runtime = time.time() - tic
-a
+            
             self.logfile.write("\nEnsemble Pipelines:\n-------------\n")
             for a in self.ensemble.pipelines:
                 self.logfile.write("%s\n" % a)
