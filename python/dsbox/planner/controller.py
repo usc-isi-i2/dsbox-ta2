@@ -37,7 +37,7 @@ class Controller(object):
     num_cpus = 0
     ram = 0
     timeout = 60
-    max_ensemble = 4
+    max_ensemble = 5
 
     exec_pipelines = []
     l1_planner = None
@@ -86,7 +86,7 @@ class Controller(object):
     '''
     Set config directories and schema from just problemdir, datadir and outputdir
     '''
-    def initialize_simple(self, problemdir, datadir, outputdir, max_ensemble = 4):
+    def initialize_simple(self, problemdir, datadir, outputdir, max_ensemble = 5):
         self.initialize_from_config({
             "problem_root": problemdir,
             "problem_schema": problemdir + os.sep + 'problemDoc.json',
@@ -265,7 +265,6 @@ class Controller(object):
         self.write_training_results()
         ind = np.mean([a for a in self.exec_pipelines[0].planner_result.metric_values.values()])
         val = self.ensemble.score - ind
-        #val = self.ensemble.score - np.mean([a for a in self.exec_pipelines[0].planner_result.metric_values.values()])
         val = val*(-1 if self.ensemble.minimize_metric[0] else 1)
         self.ensemblefile.write("% s : % s , percent %s,  runtime %s, %s \n" % (self.problem.prID, str(val), str(val/ind), str(runtime), self.problem.metrics))
         #self.ensemblefile.write("% s : % s \n" % (self.problem.prID, str(val)))
