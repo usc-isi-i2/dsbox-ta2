@@ -96,7 +96,7 @@ class Controller(object):
             'pipeline_logs_root': outputdir + os.sep + "logs",
             'executables_root': outputdir + os.sep + "executables",
             'temp_storage_root': outputdir + os.sep + "temp",
-            "timeout": 60,
+            "timeout": 5*60,
             "cpus"  : "4",
             "ram"   : "4Gi",
             "max_ensemble": max_ensemble
@@ -255,13 +255,13 @@ class Controller(object):
             self.logfile.write("%s\n" % str(l1_related_pipelines))
             l1_pipelines = l1_related_pipelines
             
-            tic = time.time()
-            self.ensemble.greedy_add(self.exec_pipelines, df, df_lbl, max_pipelines = self.max_ensemble)
-            runtime = time.time() - tic
+        tic = time.time()
+        self.ensemble.greedy_add(self.exec_pipelines, df, df_lbl, max_pipelines = self.max_ensemble)
+        runtime = time.time() - tic
             
-            self.logfile.write("\nEnsemble Pipelines:\n-------------\n")
-            for a in self.ensemble.pipelines:
-                self.logfile.write("%s\n" % a)
+        self.logfile.write("\nEnsemble Pipelines:\n-------------\n")
+        for a in self.ensemble.pipelines:
+            self.logfile.write("%s\n" % a)
 
         self.write_training_results()
         ind = np.mean([a for a in self.exec_pipelines[0].planner_result.metric_values.values()])
