@@ -74,7 +74,7 @@ class Controller(object):
         self.errorfile = open("%s%sstderr.txt" % (self.tmp_dir, os.sep), 'w')
         self.pipelinesfile = open("%s%spipelines.txt" % (self.tmp_dir, os.sep), 'w')
 
-        self.ensemblefile = open("%s%sensemble.txt" % (os.getcwd(), os.sep), 'a')
+        self.ensemblefile = open("%s%sensemble.txt" % (self.tmp_dir, os.sep), 'w')
 
         self.problem = Problem()
         self.data_manager = DataManager()
