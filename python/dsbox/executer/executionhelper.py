@@ -9,7 +9,7 @@ import os.path
 import tempfile
 import numpy as np
 import pandas as pd
-
+import contextlib
 
 from primitive_interfaces.base import PrimitiveBase
 from primitive_interfaces.generator import GeneratorPrimitiveBase
@@ -236,54 +236,56 @@ class ExecutionHelper(object):
         sys.stdout.flush()
 
         # Redirect stderr to an error file
-        errorfile = tempfile.TemporaryFile(prefix=primitive.name)
-        sys.stderr = errorfile
+        #  Directly assigning stderr to tempfile.TemporaryFile cause printing str to fail
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with open(os.path.join(tmpdir, primitive.name), 'w') as errorfile:
+                with contextlib.redirect_stderr(errorfile):
 
-        primitive.start_time = time.time()
+                    primitive.start_time = time.time()
 
-        kf = KFold(n_splits=cv, shuffle=True, random_state=int(time.time()))
-        metric_values = {}
+                    kf = KFold(n_splits=cv, shuffle=True, random_state=int(time.time()))
+                    metric_values = {}
 
-        tcols = [self.data_manager.target_columns[0]['colName']]
-        yPredictions = None
-        num = 0.0
-        for k, (train, test) in enumerate(kf.split(X, y)):
-            executable = self.instantiate_primitive(primitive)
-            if executable is None:
-                primitive.finished = True
-                return None
+                    tcols = [self.data_manager.target_columns[0]['colName']]
+                    yPredictions = None
+                    num = 0.0
+                    for k, (train, test) in enumerate(kf.split(X, y)):
+                        executable = self.instantiate_primitive(primitive)
+                        if executable is None:
+                            primitive.finished = True
+                            return None
 
-            trainX = X.take(train, axis=0)
-            trainY = y.take(train, axis=0).values.ravel()
-            testX = X.take(test, axis=0)
-            testY = y.take(test, axis=0).values.ravel()
+                        trainX = X.take(train, axis=0)
+                        trainY = y.take(train, axis=0).values.ravel()
+                        testX = X.take(test, axis=0)
+                        testY = y.take(test, axis=0).values.ravel()
 
-            try:
-                if primitive.unified_interface:
-                    executable.set_training_data(inputs=trainX, outputs=trainY)
-                    executable.fit()
-                    ypred = executable.produce(inputs=testX).value
-                else:
-                    if REMOTE:
-                        prim = self.e.execute('fit', args=[trainX, trainY], kwargs=None, obj=executable, objreturn=True)
-                        ypred = self.e.execute('predict', args=[testX], kwargs=None, obj=executable)
-                    else:
-                        executable.fit(trainX, trainY)
-                        ypred = executable.predict(testX)
+                        try:
+                            if primitive.unified_interface:
+                                executable.set_training_data(inputs=trainX, outputs=trainY)
+                                executable.fit()
+                                ypred = executable.produce(inputs=testX).value
+                            else:
+                                if REMOTE:
+                                    prim = self.e.execute('fit', args=[trainX, trainY], kwargs=None, obj=executable, objreturn=True)
+                                    ypred = self.e.execute('predict', args=[testX], kwargs=None, obj=executable)
+                                else:
+                                    executable.fit(trainX, trainY)
+                                    ypred = executable.predict(testX)
 
-                ypredDF = pd.DataFrame(ypred, index=testX.index, columns=tcols)
-                if yPredictions is None:
-                    yPredictions = ypredDF
-                else:
-                    yPredictions = pd.concat([yPredictions, ypredDF])
+                            ypredDF = pd.DataFrame(ypred, index=testX.index, columns=tcols)
+                            if yPredictions is None:
+                                yPredictions = ypredDF
+                            else:
+                                yPredictions = pd.concat([yPredictions, ypredDF])
 
-                num = num + 1.0
-                # TODO: Removing this for now
-                primitive.progress = num/cv
-                primitive.pipeline.notifyChanges()
-            except Exception as e:
-                sys.stderr.write("ERROR: cross_validation {}: {}\n".format(primitive.name, e))
-                #traceback.print_exc(e)
+                            num = num + 1.0
+                            # TODO: Removing this for now
+                            primitive.progress = num/cv
+                            primitive.pipeline.notifyChanges()
+                        except Exception as e:
+                            sys.stderr.write("ERROR: cross_validation {}: {}\n".format(primitive.name, e))
+                            #traceback.print_exc(e)
 
         if num == 0:
             return (None, None)
