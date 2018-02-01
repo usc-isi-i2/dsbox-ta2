@@ -1,6 +1,110 @@
 import json
+import os
+
+from datetime import date
+from typing import List, Dict
+
+from d3m_metadata.metadata import PrimitiveMetadata, PrimitiveFamily
+from d3m import index
+
 from dsbox.planner.common.primitive import Primitive
 from dsbox.schema.profile_schema import DataProfileType as dpt
+from dsbox.planner.common import primitive
+from collections import defaultdict
+
+class D3MPrimitiveLibrary(object):
+    '''Creates a primitive library based on primitives_repo or d3m.index'''
+    def __init__(self):
+        self.api_version = ''
+        self.primitives : List[Primitive] = []
+        self.primitive_by_package : Dict[str, Primitive] = {}
+        self.primitives_by_family : Dict[PrimitiveFamily, List[Primitive]] = defaultdict(list)
+    
+    def has_api_version(self, primitives_repo_dir, api_version):
+        return api_version in os.listdir(primitives_repo_dir)
+    
+    def load_from_directory(self, primitives_repo_dir, api_version=''):
+        '''Load primitive description from filesystem.
+         E.g. from repo https://gitlab.datadrivendiscovery.org/jpl/primitives_repo'''
+        # Use fully for debugging
+        
+        listing = os.listdir(primitives_repo_dir)
+        if api_version: 
+            if not api_version in listing:
+                raise ValueError('API version {} not found')
+        else:
+            date_str = [x[1:] for x in listing if x.startswith('v')]
+            if not date_str:
+                raise ValueError('No API version found under {}'.format(primitives_repo_dir))
+            dates = [date(*(map(int, x.split('.')))) for x in date_str]
+            vdate = sorted(dates)[-1]
+            api_version = 'v{}.{}.{}'.format(vdate.year, vdate.month, vdate.day)
+        self.api_version = api_version
+        
+        print(self._get_latest_version(['1.2.3', '1.2.2']))
+        api_dir = os.path.join(primitives_repo_dir, self.api_version)
+        for team in os.listdir(api_dir):
+            team_dir = os.path.join(api_dir, team)
+            for module in os.listdir(team_dir):
+                module_dir = os.path.join(team_dir, module)
+                version = self._get_latest_version(os.listdir(module_dir)) 
+                primitive_file = os.path.join(module_dir, version, 'primitive.json')
+                with open(primitive_file) as fp:
+                    d3m_metadata = PrimitiveMetadata(json.load(fp))
+                    primitive = self._create_primitive_desc(d3m_metadata)
+                    self.primitives.append(primitive)
+        self._setup()
+
+    def load_from_d3m_index(self):
+        '''Load primitive description from installed python packages'''
+        for primitive_path, primitive_type in index.search().items():
+            primitive = self._create_primitive_desc(primitive_type.metadata)
+            self.primitives.append(primitive)
+        self._setup()
+        
+    def get_primitives_by_family(self, family : PrimitiveFamily) -> List[Primitive]:
+        return self.primitives_by_family[family]
+        
+    def has_primitive_by_package(self, path):
+        return path in self.primitive_by_package
+    
+    def get_primitive_by_package(self, path):
+        return self.primitive_by_package[path]
+    
+    def augment_with_primitive_profiler(self, profiler_json_file):
+        '''Augment primitive with its requirements using Daniel's primitive profiler output'''
+        with open(profiler_json_file) as fp:
+            primitive_profiles = json.load(fp)
+            
+        for package, profile in primitive_profiles.items():
+            if not self.has_primitive_by_package(package):
+                print('Cannot find class: {}'.format(package))
+                continue
+            primitive = self.get_primitive_by_package(package)
+            if 'Requirements' in profile:
+                # Note: Cannot use {PrimitivePrecodition[x] : True for x in ...}, because extra "POSTIVE_VALUES" 
+                primitive.addPrecondition({x : True 
+                                           for x in profile['Requirements']})
+            if 'Error' in profile:
+                primitive.addErrorCondition({x:True for x in profile['Error']})
+                    
+    def _get_latest_version(self, versions : List[str]):
+        version_tuples = [v.split('.') if not v.startswith('v') else v[1:].split('.') for v in versions]
+        version_tuples = list(map(lambda x : list(map(int, x)), version_tuples))
+        latest_tuple = sorted(version_tuples)[-1]
+        index = version_tuples.index(latest_tuple)
+        return versions[index]
+        
+    def _create_primitive_desc(self, d3m : PrimitiveMetadata):
+        primitive = Primitive(d3m.query()['id'], d3m.query()['name'], d3m.query()['python_path'])
+        primitive.d3m_metadata = d3m
+        return primitive
+        
+    def _setup(self):
+        for p in self.primitives:
+            self.primitive_by_package[p.cls] = p
+            self.primitives_by_family[p.getFamily()].append(p)
+             
 
 class PrimitiveLibrary(object):
     """
@@ -10,7 +114,7 @@ class PrimitiveLibrary(object):
         self.primitives = []
         self.json = self.loadjson(location)
         for p in self.json:
-            prim = Primitive(p['Name'], p['Class'])
+            prim = Primitive(p['Id'], p['Name'], p['Class'])
             for precstr in p.get('Requirements', []):
                 prec = self.parseProfile(precstr)
                 if prec:

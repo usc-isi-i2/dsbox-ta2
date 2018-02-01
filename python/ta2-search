@@ -45,7 +45,8 @@ ta2-search <search_config_file>
         conf_data.close()
 
     if "timeout" in config:
-        TIMEOUT = int(config.get("timeout"))*60
+        # Timeout less 60 seconds, to give system chance to clean up
+        TIMEOUT = int(config.get("timeout"))*60 - 60
 
     # Start the controller
     controller = Controller(LIB_DIRECTORY)

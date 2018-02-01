@@ -90,3 +90,7 @@ ENV/
 
 # Emacs backup file
 *~
+
+# Eclipse
+.project
+.pydevproject

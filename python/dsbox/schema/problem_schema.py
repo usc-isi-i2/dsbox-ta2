@@ -1,22 +1,26 @@
-"""D3M Problem Schema Version 2.12
+"""D3M Problem Schema Version
 """
 
 from enum import Enum
 
-# D3M Problem Schema Version 2.12
+# D3M Problem Schema
+# https://gitlab.datadrivendiscovery.org/MIT-LL/d3m_data_supply/blob/shared/schemas/problemSchema.json
+# Updated 1/27/2018
 
 class TaskType(Enum):
     CLASSIFICATION = "classification"
     REGRESSION = "regression"
-    SIMILARITY_MATCHING = "similarityMatching"
+    CLUSTERING = "clustering"
     LINK_PREDICTION = "linkPrediction"
     VERTEX_NOMINATION = "vertexNomination"
     COMMUNITY_DETECTION = "communityDetection"
+    GRAPH_CLUSTERING = "graphClustering"
     GRAPH_MATCHING = "graphMatching"
-    TIMESERIES_FORECASTING = "timeseriesForecasting"
+    TIME_SERIES_FORECASTING = "timeSeriesForecasting"
     COLLABORATIVE_FILTERING = "collaborativeFiltering"
-
+ 
 class TaskSubType(Enum):
+    NONE = "none"
     BINARY = "binary"  # applicable for classification, vertexNomination
     MULTICLASS = "multiClass"  # applicable for classification, vertexNomination
     MULTILABEL = "multiLabel"  # applicable for classification
@@ -35,9 +39,10 @@ class Metric(Enum):
     ROC_AUC_MACRO = "rocAucMacro"  #sklearn.metrics.roc_auc_score(average='macro')
     MEAN_SQUARED_ERROR = "meanSquaredError"  #sklearn.metrics.mean_squared_error
     ROOT_MEAN_SQUARED_ERROR = "rootMeanSquaredError"  #sqrt(sklearn.metrics.mean_squared_error)
-    ROOT_MEAN_SQUARED_ERROR_AVG = "rootMeanSquaredError_avg"  #sum(mean_squared_error_list)/len(mean_squared_error_list)
+    ROOT_MEAN_SQUARED_ERROR_AVG = "rootMeanSquaredErrorAvg"  #sum(mean_squared_error_list)/len(mean_squared_error_list)
     MEAN_ABSOLUTE_ERROR = "meanAbsoluteError"  #sklearn.metrics.median_absolute_error
     R_SQUARED = "rSquared"  #sklearn.metrics.r2_score
     NORMALIZED_MUTUAL_INFORMATION = "normalizedMutualInformation"  # see nmi.py
     JACCARD_SIMILARITY_SCORE = "jaccardSimilarityScore" # see jaccard.py script
+    PRECISION_AT_TOP_K = "precisionAtTopK"
     EXECUTION_TIME = "executionTime"

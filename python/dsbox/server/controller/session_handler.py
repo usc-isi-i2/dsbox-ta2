@@ -17,6 +17,7 @@ class Session:
         self.train_features = None
         self.target_features = None
         self.outputdir = tempfile.gettempdir() + os.sep + "dsbox-ta2" + os.sep + self.id
+        self.execdir = self.outputdir
         self.config = self.create_config_from_env('CONFIG_JSON_PATH')
         #print(self.outputdir)
 
@@ -54,6 +55,9 @@ class Session:
             opdir = config.get('temp_storage_root', None)
             if opdir is not None:
                 self.outputdir = opdir
+            execdir = config.get('executables_root', None)
+            if execdir is not None:
+                self.execdir = execdir
             return config
         return None
 

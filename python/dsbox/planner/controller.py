@@ -103,7 +103,8 @@ class Controller(object):
             "cpus"  : "4",
             "ram"   : "4Gi"
             #"max_ensemble" : 5
-        }
+            }
+    
 
     """
     Set the task type, metric and output type via the schema
@@ -127,6 +128,7 @@ class Controller(object):
 
     """
     Initialize from features
+
     - Used by TA3
     """
     def initialize_from_features_simple(self, datafile, train_features, target_features, outputdir, view=None):
@@ -135,9 +137,11 @@ class Controller(object):
         self.initialize_from_features(datafile, train_features, target_features, config, view)
 
     """
+   
     Initialize all from features and config
     - Used by TA3
     """
+
     def initialize_from_features(self, datafile, train_features, target_features, config, view=None):
         self.initialize_from_config(config)
         data_directory = os.path.dirname(datafile)

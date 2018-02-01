@@ -100,12 +100,21 @@ def run():
             print(gdr)
         '''
         if len(pcr.pipeline_info.scores) > 0:
-            pipeline_ids.append(pcr.pipeline_id)
+            pipeline_id = pcr.pipeline_id
+            pipeline_ids.append(pipeline_id)
             dflow = dfstub.DescribeDataflow(dfext.PipelineReference(
                 context = session_context,
-                pipeline_id = pcr.pipeline_id
+                pipeline_id = pipeline_id
             ))
             print(dflow)
+
+            exres = stub.ExportPipeline(core.PipelineExportRequest(
+                context = session_context,
+                pipeline_id = pipeline_id,
+                pipeline_exec_uri = "file:///tmp/{}".format(pipeline_id)
+            ))
+            print(exres)
+
             '''
             if pcr.pipeline_info.predict_result_uri is not None:
                 df = pandas.read_csv(pcr.pipeline_info.predict_result_uri, index_col="d3mIndex")

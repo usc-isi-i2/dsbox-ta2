@@ -1,5 +1,6 @@
 [
   {
+    "Id": "sklearn.preprocessing.Normalizer",
     "Class": "sklearn.preprocessing.Normalizer",
     "Name": "Normalizer",
     "Task": "PreProcessing",
@@ -8,6 +9,7 @@
     "Effects": ["NORMALIZED"]
   },
   {
+    "Id": "sklearn.preprocessing.LabelEncoder",
     "Class": "sklearn.preprocessing.LabelEncoder",
     "Name": "Label Encoder",
     "Task": "PreProcessing",
@@ -18,6 +20,7 @@
     "Effects": ["NUMERICAL"]
   },
   {
+    "Id": "sklearn.preprocessing.Imputer",
     "Class": "sklearn.preprocessing.Imputer",
     "Name": "Imputer",
     "Task": "PreProcessing",
