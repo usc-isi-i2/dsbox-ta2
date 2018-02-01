@@ -41,8 +41,7 @@
   },
   "media_to_primitives": {
     "image": [
-      "d3m.primitives.dsbox.ResNet50ImageFeature",
-      "d3m.primitives.dsbox.Vgg16ImageFeature"
+      "d3m.primitives.dsbox.ResNet50ImageFeature"
     ],
     "video": [],
     "audio": [

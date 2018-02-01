@@ -43,6 +43,10 @@ class LevelOnePlanner(object):
         # ignore level for now, since only have one level hierarchy
         results =[]
         families = self.primitive_family_mappings.get_families_by_task_type(self.task_type.value)
+        if self.task_type == TaskType.GRAPH_MATCHING:
+            # if GRAPH_MATCHING then add LINK_PREDICTION
+            families = families + self.primitive_family_mappings.get_families_by_task_type(TaskType.LINK_PREDICTION)
+
         family_nodes = [self.ontology.get_family(f) for f in families]
         child_nodes = []
         for node in family_nodes:
