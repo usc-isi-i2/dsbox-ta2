@@ -756,9 +756,10 @@ class ExecutionHelper(object):
             statements.append("results_np = numpy.array([df.values for df in results])")
             # hacky way of passing weights array into python program
             weights_string = ', '.join([str(w) for w in ens_pipeline.ensemble.pipeline_weights])
-            statements.append("weights_np = numpy.array([%s]).astype(numpy.float32)" % weights_string)
+            statements.append("weights_np = numpy.array([%s]).astype(numpy.int32)" % weights_string)
             # weighted average of predictions
-            statements.append("average_pred = numpy.sum(numpy.multiply(results_np, weights_np))/numpy.sum(weights_np)")
+            statements.append("weighted_total = numpy.array([df*const for df, const in zip(results_np, weights_np)])")
+            statements.append("average_pred = numpy.sum(weighted_total, axis = 0)/numpy.sum(weights_np)")
             # round if discrete metric (e.g. classification)
             if ens_pipeline.ensemble.discrete_metric:
                 statements.append("average_pred = numpy.rint(average_pred)")
