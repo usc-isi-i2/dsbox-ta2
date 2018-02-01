@@ -9,8 +9,6 @@ import numpy
 import shutil
 import traceback
 import pandas as pd
-import numpy as np
-import time
 
 from dsbox.planner.leveltwo.l1proxy import LevelOnePlannerProxy
 from dsbox.planner.leveltwo.planner import LevelTwoPlanner
@@ -38,7 +36,7 @@ class Controller(object):
     num_cpus = 0
     ram = 0
     timeout = 60
-    max_ensemble = 5
+    #max_ensemble = 5
 
     exec_pipelines = []
     l1_planner = None
@@ -66,15 +64,12 @@ class Controller(object):
         self.num_cpus = int(config.get('cpus', 0))
         self.ram = config.get('ram', 0)
         self.timeout = (config.get('timeout', 60))*60
-
-        self.max_ensemble = config.get('max_ensemble', 0)
+        #self.max_ensemble = int(config.get('max_ensemble', 0))
 
         # Create some debugging files
         self.logfile = open("%s%slog.txt" % (self.tmp_dir, os.sep), 'w')
         self.errorfile = open("%s%sstderr.txt" % (self.tmp_dir, os.sep), 'w')
         self.pipelinesfile = open("%s%spipelines.txt" % (self.tmp_dir, os.sep), 'w')
-
-        self.ensemblefile = open("%s%sensemble.txt" % (self.tmp_dir, os.sep), 'w')
 
         self.problem = Problem()
         self.data_manager = DataManager()
@@ -87,8 +82,16 @@ class Controller(object):
     '''
     Set config directories and schema from just problemdir, datadir and outputdir
     '''
-    def initialize_simple(self, problemdir, datadir, outputdir, max_ensemble = 5):
-        self.initialize_from_config({
+    def initialize_simple(self, problemdir, datadir, outputdir):
+        self.initialize_from_config(
+            self.create_simple_config(problemdir, datadir, outputdir)
+        )
+
+    '''
+    Create config from problemdir, datadir, outputdir
+    '''
+    def create_simple_config(self, problemdir, datadir, outputdir):
+        return {
             "problem_root": problemdir,
             "problem_schema": problemdir + os.sep + 'problemDoc.json',
             "training_data_root": datadir,
@@ -98,9 +101,9 @@ class Controller(object):
             'temp_storage_root': outputdir + os.sep + "temp",
             "timeout": 60,
             "cpus"  : "4",
-            "ram"   : "4Gi",
-            "max_ensemble": max_ensemble
-        })
+            "ram"   : "4Gi"
+            #"max_ensemble" : 5
+        }
 
     """
     Set the task type, metric and output type via the schema
@@ -123,12 +126,21 @@ class Controller(object):
         self.data_manager.initialize_data(self.problem, [dataset], view='TRAIN')
 
     """
-    Initialize all (config, problem, data) from features
+    Initialize from features
     - Used by TA3
     """
-    def initialize_from_features(self, datafile, train_features, target_features, outputdir, view=None):
+    def initialize_from_features_simple(self, datafile, train_features, target_features, outputdir, view=None):
         data_directory = os.path.dirname(datafile)
-        self.initialize_simple(outputdir, data_directory, outputdir)
+        config = self.create_simple_config(outputdir, data_directory, outputdir)
+        self.initialize_from_features(datafile, train_features, target_features, config, view)
+
+    """
+    Initialize all from features and config
+    - Used by TA3
+    """
+    def initialize_from_features(self, datafile, train_features, target_features, config, view=None):
+        self.initialize_from_config(config)
+        data_directory = os.path.dirname(datafile)
 
         # Load datasets first
         filters = {}
@@ -166,11 +178,11 @@ class Controller(object):
         self.l2_planner.primitive_cache = {}
         self.l2_planner.execution_cache = {}
 
-        if ensemble:
-            self.ensemble = Ensemble(self.problem)
-
         self.logfile.write("Task type: %s\n" % self.problem.task_type)
         self.logfile.write("Metrics: %s\n" % self.problem.metrics)
+
+        if ensemble:
+            self.ensemble = Ensemble(self.problem) #,self.max_ensemble)
 
         pe = planner_event_handler
 
@@ -223,7 +235,6 @@ class Controller(object):
                 yield pe.RunningPipeline(l2_pipeline)
                 # exec_pipeline = self.l2_planner.patch_and_execute_pipeline(l2_pipeline, df, df_lbl)
 
-            
             exec_pipelines = self.resource_manager.execute_pipelines(l2_pipelines, df, df_lbl)
             for exec_pipeline in exec_pipelines:
                 l2_pipeline = l2_pipelines_map[str(exec_pipeline)]
@@ -231,7 +242,6 @@ class Controller(object):
                 yield pe.CompletedPipeline(l2_pipeline, exec_pipeline)
                 if exec_pipeline:
                     self.exec_pipelines.append(exec_pipeline)
-
 
             self.exec_pipelines = sorted(self.exec_pipelines, key=lambda x: self._sort_by_metric(x))
             self.logfile.write("\nL2 Executed Pipelines:\n-------------\n")
@@ -250,31 +260,23 @@ class Controller(object):
                     for related_pipeline in related_pipelines:
                         if not l1_pipelines_handled.get(str(related_pipeline), False):
                             l1_related_pipelines.append(related_pipeline)
-
+            
             self.logfile.write("\nRelated L1 Pipelines to top %d L2 Pipelines:\n-------------\n" % cutoff)
             self.logfile.write("%s\n" % str(l1_related_pipelines))
             l1_pipelines = l1_related_pipelines
-            
-            tic = time.time()
-            self.ensemble.greedy_add(self.exec_pipelines, df, df_lbl, max_pipelines = self.max_ensemble)
-            runtime = time.time() - tic
-            
-            self.logfile.write("\nEnsemble Pipelines:\n-------------\n")
-            for a in self.ensemble.pipelines:
-                self.logfile.write("%s\n" % a)
+
+        ensemble_pipeline = self.ensemble.greedy_add(self.exec_pipelines, df, df_lbl)
+        
+        self.exec_pipelines.append(ensemble_pipeline)
+        self.exec_pipelines = sorted(self.exec_pipelines, key=lambda x: self._sort_by_metric(x))
 
         self.write_training_results()
-        ind = np.mean([a for a in self.exec_pipelines[0].planner_result.metric_values.values()])
-        val = self.ensemble.score - ind
-        val = val*(1 if self.ensemble.minimize_metric[0] else -1)
-        self.ensemblefile.write("% s : % s , percent %s,  runtime %s, %s \n" % (self.problem.prID, str(val), str(val/ind), str(runtime), self.problem.metrics))
-        #self.ensemblefile.write("% s : % s \n" % (self.problem.prID, str(val)))
 
     '''
     Write training results to file
     '''
     def write_training_results(self):
-        # Sort pipelines
+        # Sorkt pipelines
         self.exec_pipelines = sorted(self.exec_pipelines, key=lambda x: self._sort_by_metric(x))
 
         # Ended planners
@@ -282,18 +284,6 @@ class Controller(object):
 
         # Create executables
         self.pipelinesfile.write("# Pipelines ranked by metrics (%s)\n" % self.problem.metrics)
-        
-        # Write ensemble results
-        metric_values = []
-        
-        for metric in self.ensemble.metric_values.keys():
-            metric_value = self.ensemble.metric_values[metric]
-            metric_values.append("%s = %2.4f" % (metric, metric_value))
-
-            self.pipelinesfile.write("%s ( %s ) : %s\n" % ('ensemble', self.ensemble.pipelines, metric_values))
-            #self.execution_helper.create_pipeline_executable(pipeline, self.config)
-            #self.create_pipeline_logfile(pipeline, rank)
-
         for index in range(0, len(self.exec_pipelines)):
             pipeline = self.exec_pipelines[index]
             rank = index + 1
@@ -322,7 +312,10 @@ class Controller(object):
                 print("Executing %s" % primitive)
                 sys.stdout.flush()
                 if primitive.task == "Modeling":
-                    result = pd.DataFrame(primitive.executables.predict(testdf), index=testdf.index, columns=[target_col])
+                    if primitive.unified_interface:
+                        result = pd.DataFrame(primitive.executables.produce(inputs=testdf).value, index=testdf.index, columns=[target_col])
+                    else:
+                        result = pd.DataFrame(primitive.executables.predict(testdf), index=testdf.index, columns=[target_col])
                     pipeline.test_result = PipelineExecutionResult(result, None)
                     break
                 elif primitive.task == "PreProcessing":

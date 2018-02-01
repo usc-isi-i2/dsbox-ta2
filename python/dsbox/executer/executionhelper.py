@@ -631,69 +631,106 @@ class ExecutionHelper(object):
 
         statements.append("\nhp = ExecutionHelper(problem, data_manager)")
         index = 1
-        for primitive in pipeline.primitives:
-            primid = "primitive_%s" % str(index)
 
-            try:
-                statements.append("\nprint('\\nExecuting %s...')" % primitive)
-                # Remove executables(instances) from not persistent primitives
-                # as many of them have pickling(serialization) issues
-                execs = primitive.executables
-                if not primitive.is_persistent:
-                    if primitive.column_primitive:
-                        execs = {}
-                        for colname in primitive.executables.keys():
-                            execs[colname] = primitive.executables[colname]
-                            primitive.executables[colname] = None
+        ensembling = pipeline.ensemble is not None
+        n_pipelines = len(pipeline.ensemble.pipelines) if ensembling else 1
+        ens_pipeline = pipeline
+
+        if ensembling:
+            statements.append("results = []")
+
+        for pipe_i in range(n_pipelines):
+            if ensembling:
+                pipeline = ens_pipeline.ensemble.pipelines[pipe_i]
+
+            for primitive in pipeline.primitives:
+                primid = "primitive_%s" % str(index)
+
+                try:
+                    statements.append("\nprint('\\nExecuting %s...')" % primitive)
+                    # Remove executables(instances) from not persistent primitives
+                    # as many of them have pickling(serialization) issues
+                    execs = primitive.executables
+                    if not primitive.is_persistent:
+                        if primitive.column_primitive:
+                            execs = {}
+                            for colname in primitive.executables.keys():
+                                execs[colname] = primitive.executables[colname]
+                                primitive.executables[colname] = None
+                        else:
+                            execs = primitive.executables
+                            primitive.executables = None
+
+                    primfilename = "models%s%s.%s.pkl" % (os.sep, pipeid, primid)
+                    primfile = "%s%s%s" % (exec_dir, os.sep, primfilename)
+                    statements.append("primfile = executables_root + '%s%s'" % (os.sep, primfilename))
+                    statements.append("%s = sklearn.externals.joblib.load(primfile)" % primid)
+
+                    # Remove pipeline from pickling
+                    pipe = primitive.pipeline
+                    primitive.pipeline = None
+
+                    joblib.dump(primitive, primfile)
+                    # Restore pipeline after pickling is done
+                    primitive.pipeline = pipe
+                    # Restore executables(instances) after pickling(serialization) is done
+                    primitive.executables = execs
+                except Exception as e:
+                    sys.stderr.write("ERROR pickling %s : %s\n" % (primitive.name, e))
+
+                if primitive.task == "Modeling":
+                    # Initialize primitive
+                    if not primitive.is_persistent:
+                        mod, cls = primitive.cls.rsplit('.', 1)
+                        imports.append(mod)
+                        statements.append("args = %s" % primitive.init_args)
+                        statements.append("kwargs = %s" % primitive.init_kwargs)
+                        statements.append("%s.executables = %s(*args, **kwargs)" % (primid, primitive.cls))
+
+                    #statements.append("\nprint('\\nStoring results in %s' % predictions_file)")
+                    statements.append("if not os.path.exists(results_root):")
+                    statements.append("    os.makedirs(results_root)")
+                    target_column = self.data_manager.target_columns[0]['colName']
+                    
+                    if ensembling:
+                        if primitive.unified_interface:
+                            statements.append("results.append(pandas.DataFrame(%s.executables.produce(inputs=testdata), index=testdata.index, columns=['%s']))" %
+                                (primid, target_column))
+                        else:
+                            statements.append("results.append(pandas.DataFrame(%s.executables.predict(testdata), index=testdata.index, columns=['%s']))" %
+                                (primid, target_column))
                     else:
-                        execs = primitive.executables
-                        primitive.executables = None
-
-                primfilename = "models%s%s.%s.pkl" % (os.sep, pipeid, primid)
-                primfile = "%s%s%s" % (exec_dir, os.sep, primfilename)
-                statements.append("primfile = executables_root + '%s%s'" % (os.sep, primfilename))
-                statements.append("%s = sklearn.externals.joblib.load(primfile)" % primid)
-
-                # Remove pipeline from pickling
-                pipe = primitive.pipeline
-                primitive.pipeline = None
-
-                joblib.dump(primitive, primfile)
-
-                # Restore pipeline after pickling is done
-                primitive.pipeline = pipe
-                # Restore executables(instances) after pickling(serialization) is done
-                primitive.executables = execs
-            except Exception as e:
-                sys.stderr.write("ERROR pickling %s : %s\n" % (primitive.name, e))
-
-            if primitive.task == "Modeling":
-                # Initialize primitive
-                if not primitive.is_persistent:
-                    mod, cls = primitive.cls.rsplit('.', 1)
-                    imports.append(mod)
-                    statements.append("args = %s" % primitive.init_args)
-                    statements.append("kwargs = %s" % primitive.init_kwargs)
-                    statements.append("%s.executables = %s(*args, **kwargs)" % (primid, primitive.cls))
-
-                statements.append("\nprint('\\nStoring results in %s' % predictions_file)")
-                statements.append("if not os.path.exists(results_root):")
-                statements.append("    os.makedirs(results_root)")
-                target_column = self.data_manager.target_columns[0]['colName']
-                if primitive.unified_interface:
-                    statements.append("result = pandas.DataFrame(%s.executables.produce(inputs=testdata), index=testdata.index, columns=['%s'])" %
-                        (primid, target_column))
+                        statements.append("\nprint('\\nStoring results in %s' % predictions_file)")
+                        if primitive.unified_interface:
+                            statements.append("result = pandas.DataFrame(%s.executables.produce(inputs=testdata), index=testdata.index, columns=['%s'])" %
+                                (primid, target_column))
+                        else:
+                            statements.append("result = pandas.DataFrame(%s.executables.predict(testdata), index=testdata.index, columns=['%s'])" %
+                                (primid, target_column))
+                        statements.append("result.to_csv(predictions_file, index_label='%s')" % self.data_manager.index_column)
                 else:
-                    statements.append("result = pandas.DataFrame(%s.executables.predict(testdata), index=testdata.index, columns=['%s'])" %
-                        (primid, target_column))
-                statements.append("result.to_csv(predictions_file, index_label='%s')" % self.data_manager.index_column)
-            else:
-                if primitive.task == "PreProcessing":
-                    statements.append("testdata = hp.test_execute_primitive(%s, testdata)" % primid)
-                elif primitive.task == "FeatureExtraction":
-                    statements.append("testdata = hp.test_featurise(%s, testdata)" % primid)
+                    if primitive.task == "PreProcessing":
+                        statements.append("testdata = hp.test_execute_primitive(%s, testdata)" % primid)
+                    elif primitive.task == "FeatureExtraction":
+                        statements.append("testdata = hp.test_featurise(%s, testdata)" % primid)
 
-            index += 1
+                index += 1
+        
+        # TO DO : update results_np after each pipeline run with weights up to weight i 
+        #        (in order to have intermediate results in case test time runs out)
+        if ensembling:
+            statements.append("results_np = numpy.array([df.values for df in results])")
+            # hacky way of passing weights array into python program
+            weights_string = ', '.join([str(w) for w in ens_pipeline.ensemble.pipeline_weights])
+            statements.append("weights_np = numpy.array([%s]).astype(numpy.float32)" % weights_string)
+            # weighted average of predictions
+            statements.append("average_pred = numpy.multiply(results_np, weights_np)/numpy.sum(weights_np)")
+            # round if discrete metric (e.g. classification)
+            if ens_pipeline.ensemble.discrete_metric:
+                statements.append("average_pred = numpy.rint(average_pred)")
+            # write
+            statements.append("result = pandas.DataFrame(average_pred, index=testdata.index, columns=['%s'])" % self.data_manager.target_columns[0]['colName'])
+            statements.append("result.to_csv(predictions_file, index_label='%s')" % self.data_manager.index_column)
 
         # Write executable
         exfilename = "%s%s%s" % (exec_dir, os.sep, pipeid)
