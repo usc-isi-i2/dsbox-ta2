@@ -756,7 +756,7 @@ class ExecutionHelper(object):
             weights_string = ', '.join([str(w) for w in ens_pipeline.ensemble.pipeline_weights])
             statements.append("weights_np = numpy.array([%s]).astype(numpy.float32)" % weights_string)
             # weighted average of predictions
-            statements.append("average_pred = numpy.multiply(results_np, weights_np)/numpy.sum(weights_np)")
+            statements.append("average_pred = numpy.sum(numpy.multiply(results_np, weights_np))/numpy.sum(weights_np)")
             # round if discrete metric (e.g. classification)
             if ens_pipeline.ensemble.discrete_metric:
                 statements.append("average_pred = numpy.rint(average_pred)")
