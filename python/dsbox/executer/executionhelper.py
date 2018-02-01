@@ -719,8 +719,8 @@ class ExecutionHelper(object):
                         statements.append("%s.executables = %s(*args, **kwargs)" % (primid, primitive.cls))
 
                     #statements.append("\nprint('\\nStoring results in %s' % predictions_file)")
-                    statements.append("if not os.path.exists(results_root):")
-                    statements.append("    os.makedirs(results_root)")
+                    #statements.append("if not os.path.exists(results_root):")
+                    #statements.append("    os.makedirs(results_root)")
                     target_column = self.data_manager.target_columns[0]['colName']
                     
                     if ensembling:
@@ -732,6 +732,8 @@ class ExecutionHelper(object):
                                 (primid, target_column))
                     else:
                         statements.append("\nprint('\\nStoring results in %s' % predictions_file)")
+                        statements.append("if not os.path.exists(results_root):")
+                        statements.append("    os.makedirs(results_root)")
                         if primitive.unified_interface:
                             statements.append("result = pandas.DataFrame(%s.executables.produce(inputs=testdata), index=testdata.index, columns=['%s'])" %
                                 (primid, target_column))
@@ -762,6 +764,8 @@ class ExecutionHelper(object):
                 statements.append("average_pred = numpy.rint(average_pred)")
             # write
             statements.append("\nprint('\\nStoring results in %s' % predictions_file)")
+            statements.append("if not os.path.exists(results_root):")
+            statements.append("    os.makedirs(results_root)")
             statements.append("result = pandas.DataFrame(average_pred, index=testdata.index, columns=['%s'])" % self.data_manager.target_columns[0]['colName'])
             statements.append("result.to_csv(predictions_file, index_label='%s')" % self.data_manager.index_column)
 
