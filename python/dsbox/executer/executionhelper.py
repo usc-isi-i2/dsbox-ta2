@@ -761,6 +761,7 @@ class ExecutionHelper(object):
             if ens_pipeline.ensemble.discrete_metric:
                 statements.append("average_pred = numpy.rint(average_pred)")
             # write
+            statements.append("\nprint('\\nStoring results in %s' % predictions_file)")
             statements.append("result = pandas.DataFrame(average_pred, index=testdata.index, columns=['%s'])" % self.data_manager.target_columns[0]['colName'])
             statements.append("result.to_csv(predictions_file, index_label='%s')" % self.data_manager.index_column)
 
