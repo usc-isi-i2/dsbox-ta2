@@ -45,7 +45,7 @@
     ],
     "video": [],
     "audio": [
-      "d3m.primitives.spider.featurization.AudioSlicer"
+	"dsbox.custom_primitives.feature.audio_feature.BBNAudioPrimitiveWrapper"
     ],
     "speech": [],
     "text": [],

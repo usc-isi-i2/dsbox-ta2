@@ -90,7 +90,7 @@ class ResourceManager(object):
                 if df is None:
                     return None
 
-                # HACK !!!!
+                # FIXME: HACK !!!!
                 # Within the docker environment after running image
                 # featurization primitves, the multiprocessor.Pool
                 # stops working

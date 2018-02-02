@@ -76,8 +76,13 @@ class LevelOnePlanner(object):
             if self.primitive_library.has_primitive_by_package(path):
                 feature_primitives.append(self.primitive_library.get_primitive_by_package(path))
             else:
-                print('Library does not have primitive {}'.format(path))
-                print('Possible error in file primitive_family_mappings.json')
+                new_primitive = self.primitive_library.add_custom_primitive(path)
+                if new_primitive:
+                    print('Adding custom primitive to library: {}'.format(path))
+                    feature_primitives.append(new_primitive)
+                else:
+                    print('Library does not have primitive {}'.format(path))
+                    print('Possible error in file primitive_family_mappings.json')
         primitive_weights = [p.weight for p in feature_primitives]
         selected_primitives = random_choices_without_replacement(
             feature_primitives, primitive_weights, num_pipelines)

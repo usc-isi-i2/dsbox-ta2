@@ -398,41 +398,34 @@ class ExecutionHelper(object):
                 df.columns=ncols
             elif self.data_manager.media_type == VariableFileType.AUDIO:
                 # Featurize audio
-                fcols = []
-                for idx, row in df.iterrows():
-                    if row[col] is None:
-                        continue
-                    (audio_clip, sampling_rate) = row[col]
-                    primitive.init_kwargs['sampling_rate'] = int(sampling_rate)
-                    executable = self.instantiate_primitive(primitive)
-                    if executable is None:
-                        primitive.finished = True
-                        return None
-                    #executable.fit('time_series', [audio_clip])
-                    features = executable.produce([audio_clip]).value[0]
+                if executable is None:
+                    primitive.finished = True
+                executable = self.instantiate_primitive(primitive)
 
-                    allfeatures = {}
-                    for feature in features:
-                        for index in range(0, len(feature)):
-                            fcol = col.format() + "_" + str(index)
-                            featurevals = allfeatures.get(fcol, [])
-                            featurevals.append(feature[index])
-                            allfeatures[fcol] = featurevals
+                # df[col] is (1d array, sampling)rate)
+                call_result = executable.produce(inputs=pd.DataFrame(df[col]))
 
-                    for fcol in allfeatures.keys():
-                        if df.get(fcol) is None:
-                            fcols.append(fcol)
-                            df.set_value(idx, fcol, 0)
-                            #df[fcol] = df[fcol].astype(object)
-                        df.set_value(idx, fcol, np.average(allfeatures[fcol]))
+                # call_result.value is list of length df.shape[0] 
+                # Where each element is a list of 2d ndarrays
+                # The length of the nested list is depended on the sound clip length
+                # We should turn each element in the nested list into a new instance,
+                # but now just average over all nested elements.
 
-                del df[col]
-                '''
-                bcols = self.data_manager.boundary_columns
-                if len(bcols) == 2:
-                    del df[bcols[0]]
-                    del df[bcols[1]]
-                '''
+                features = call_result.value
+                rows = []
+                for row_list in features:
+                    total = np.zeros((row_list[0].size,))
+                    for elt in row_list:
+                        total += elt.flatten()
+                    total /= len(row_list)
+                    rows.append(total)
+                col_names = ['{}_{}'.format(col.format(), i) for i in range(total.size)]
+
+                newdf = pd.DataFrame(rows, index=df.index, columns=col_names)
+
+                # FIXME: Need to be more general
+                df.drop(['filename', 'start', 'end'], axis=1, inplace=True)
+                df = pd.concat([df, newdf], axis=1)
 
             primitive.executables[col] = executable
 
@@ -479,7 +472,7 @@ class ExecutionHelper(object):
                 df.columns=ncols
             elif self.data_manager.media_type == VariableFileType.IMAGE:
                 image_tensor = self._as_tensor(df[col].values)
-                call_result = executable.produce(image_tensor)
+                call_result = executable.produce(inputs=image_tensor)
                 nvals = call_result.value
                 fcols = [(col.format() + "_" + str(index)) for index in range(0, nvals.shape[1])]
                 newdf = pd.DataFrame(nvals, columns=fcols, index=df.index)
@@ -490,39 +483,23 @@ class ExecutionHelper(object):
                 df.columns=ncols
             elif self.data_manager.media_type == VariableFileType.AUDIO:
                 # Featurize audio
-                fcols = []
-                for idx, row in df.iterrows():
-                    if row[col] is None:
-                        continue
-                    (audio_clip, sampling_rate) = row[col]
-                    primitive.init_kwargs['sampling_rate'] = sampling_rate
-                    executable = self.instantiate_primitive(primitive)
-                    if executable is None:
-                        return None
-                    features = executable.produce([audio_clip]).value[0]
+                
+                call_result = executable.produce(inputs=pd.DataFrame(df[col]))
+                features = call_result.value
+                rows = []
+                for row_list in features:
+                    total = np.zeros((row_list[0].size,))
+                    for elt in row_list:
+                        total += elt.flatten()
+                    total /= len(row_list)
+                    rows.append(total)
+                col_names = ['{}_{}'.format(col.format(), i) for i in range(total.size)]
 
-                    allfeatures = {}
-                    for feature in features:
-                        for i in range(0, len(feature)):
-                            fcol = col.format() + "_" + str(i)
-                            featurevals = allfeatures.get(fcol, [])
-                            featurevals.append(feature[i])
-                            allfeatures[fcol] = featurevals
+                newdf = pd.DataFrame(rows, index=df.index, columns=col_names)
 
-                    for fcol in allfeatures.keys():
-                        if df.get(fcol) is None:
-                            fcols.append(fcol)
-                            df.set_value(idx, fcol, 0)
-                            #df[fcol] = df[fcol].astype(object)
-                        df.set_value(idx, fcol, np.average(allfeatures[fcol]))
-
-                del df[col]
-                '''
-                bcols = self.data_manager.boundary_columns
-                if len(bcols) == 2:
-                    del df[bcols[0]]
-                    del df[bcols[1]]
-                '''
+                # FIXME: Need to be more general
+                df.drop(['filename', 'start', 'end'], axis=1, inplace=True)
+                df = pd.concat([df, newdf], axis=1)
 
         return pd.DataFrame(df, index=indices)
 

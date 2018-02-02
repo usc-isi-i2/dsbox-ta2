@@ -9,7 +9,6 @@ from d3m import index
 
 from dsbox.planner.common.primitive import Primitive
 from dsbox.schema.profile_schema import DataProfileType as dpt
-from dsbox.planner.common import primitive
 from collections import defaultdict
 
 class D3MPrimitiveLibrary(object):
@@ -87,7 +86,24 @@ class D3MPrimitiveLibrary(object):
                                            for x in profile['Requirements']})
             if 'Error' in profile:
                 primitive.addErrorCondition({x:True for x in profile['Error']})
-                    
+
+    def add_custom_primitive(self, class_str):
+        mod, cls = class_str.rsplit('.', 1)
+        try:
+            import importlib
+            module = importlib.import_module(mod)
+            primitive_type = getattr(module, cls)
+            primitive = self._create_primitive_desc(primitive_type.metadata)
+
+            # Modify to actual python path
+            primitive.cls = class_str
+            self.primitives.append(primitive)
+            self.primitive_by_package[class_str] = primitive
+            return primitive
+        except Exception as e:
+            print('Failed to add primitive: {}'.format(e))
+            return None
+
     def _get_latest_version(self, versions : List[str]):
         version_tuples = [v.split('.') if not v.startswith('v') else v[1:].split('.') for v in versions]
         version_tuples = list(map(lambda x : list(map(int, x)), version_tuples))
