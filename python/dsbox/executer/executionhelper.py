@@ -354,19 +354,22 @@ class ExecutionHelper(object):
                 # Using an unfitted primitive for each column (needed for Corex)
                 #df_col = pd.DataFrame(df[col])
                 #executable.fit(df_col)
-                nvals = executable.fit_transform(df[col])
+                
+                #nvals = executable.fit_transform(df[col])
+                executable.set_training_data(inputs=df[col].values, outputs=[])
                 if persistent:
-                    executable.fit(df[col])
-                if isinstance(nvals, scipy.sparse.csr.csr_matrix):
-                    nvals = nvals.todense()
+                    executable.fit()
+                    call_result = executable.produce(inputs=df[col].values)
+
                 #fcols = [(col.format() + "_" + feature) for feature in executable.get_feature_names()]
-                fcols = [(col.format() + "_" + str(index)) for index in range(0, nvals.shape[1])]
-                newdf = pd.DataFrame(nvals, columns=fcols, index=df.index)
+                val = call_result.value.todense() if isinstance(call_result.value, scipy.sparse.csr.csr_matrix) else call_result.value
+                fcols = [(col.format() + "_" + str(index)) for index in range(0, val.shape[1])]
+                newdf = pd.DataFrame(val, columns=fcols, index=df.index)
                 del df[col]
                 ncols = ncols + fcols
                 ncols.remove(col)
                 df = pd.concat([df, newdf], axis=1)
-                df.columns=ncols
+                df.columns = ncols
             elif self.data_manager.media_type == VariableFileType.TIMESERIES:
                 executable = self.instantiate_primitive(primitive)
                 if executable is None:
@@ -465,14 +468,15 @@ class ExecutionHelper(object):
                 #executable.fit(df_col)
                 nvals = None
                 if persistent:
-                    nvals = executable.transform(df[col])
+                    call_result = executable.produce(df[col])
                 else:
-                    nvals = executable.fit_transform(df[col])
-                if isinstance(nvals, scipy.sparse.csr.csr_matrix):
-                    nvals = nvals.todense()
+                    executable.fit()
+                    call_result = executable.produce(inputs=df[col].values)
+
+                val = call_result.value.todense() if isinstance(call_result.value, scipy.sparse.csr.csr_matrix) else call_result.value
                 #fcols = [(col.format() + "_" + feature) for feature in executable.get_feature_names()]
-                fcols = [(col.format() + "_" + str(index)) for index in range(0, nvals.shape[1])]
-                newdf = pd.DataFrame(nvals, columns=fcols, index=df.index)
+                fcols = [(col.format() + "_" + str(index)) for index in range(0, val.shape[1])]
+                newdf = pd.DataFrame(val, columns=fcols, index=df.index)
                 del df[col]
                 ncols = ncols + fcols
                 ncols.remove(col)
