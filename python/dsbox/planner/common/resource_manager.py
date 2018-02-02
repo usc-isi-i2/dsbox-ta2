@@ -33,7 +33,7 @@ class ResourceManager(object):
         self.execution_cache = {}
 
         self.use_apply_async = True
-        
+
     def execute_pipelines(self, pipelines, df, df_lbl):
         pipeline_refs = []
         exec_pipelines = []

@@ -108,11 +108,13 @@ class ExecutionHelper(object):
                             primitive.finished = True
                             return None
                         # FIXME: Hack for Label encoder for python3 (cannot handle missing values)
+                        '''
                         if (primitive.name == "Label Encoder") and (sys.version_info[0] == 3):
                             if df[col].dtype == object:
                                 df[col] = df[col].fillna('')
                             else:
                                 df[col] = df[col].fillna(0)
+                        '''
                         (df[col], executable) = self._execute_primitive(
                             primitive, executable, df[col], None, False, persistent)
                         primitive.executables[colname] = executable
@@ -239,8 +241,8 @@ class ExecutionHelper(object):
         sys.stdout.flush()
 
         # Redirect stderr to an error file
-        errorfile = tempfile.TemporaryFile(prefix=primitive.name)
-        sys.stderr = errorfile
+        #errorfile = tempfile.TemporaryFile(prefix=primitive.name)
+        #sys.stderr = errorfile
 
         primitive.start_time = time.time()
 
@@ -354,7 +356,7 @@ class ExecutionHelper(object):
                 # Using an unfitted primitive for each column (needed for Corex)
                 #df_col = pd.DataFrame(df[col])
                 #executable.fit(df_col)
-                
+
                 #nvals = executable.fit_transform(df[col])
                 executable.set_training_data(inputs=df[col].values, outputs=[])
                 if persistent:
@@ -484,7 +486,7 @@ class ExecutionHelper(object):
                 df.columns=ncols
             elif self.data_manager.media_type == VariableFileType.IMAGE:
                 image_tensor = self._as_tensor(df[col].values)
-                call_result = executable.produce(image_tensor)
+                call_result = executable.produce(inputs=image_tensor)
                 nvals = call_result.value
                 fcols = [(col.format() + "_" + str(index)) for index in range(0, nvals.shape[1])]
                 newdf = pd.DataFrame(nvals, columns=fcols, index=df.index)
@@ -677,14 +679,33 @@ class ExecutionHelper(object):
         if ensembling:
             statements.append("results = []")
 
+        variable_cache = {}
+        varindex = 0
         for pipe_i in range(n_pipelines):
-            statements.append("\ntestdata = data_manager.input_data")
+            statements.append("\ntestdata_0 = data_manager.input_data")
             if ensembling:
                 pipeline = ens_pipeline.ensemble.pipelines[pipe_i]
-            
-            for primitive in pipeline.primitives:
-                primid = "primitive_%s" % str(index)
 
+            cachekey = ""
+            for primitive in pipeline.primitives:
+                varid = "testdata_%s" % str(varindex)
+                newvarid = "testdata_%s" % str(varindex+1)
+
+                if cachekey in variable_cache:
+                    # print ("* Using cache for %s" % primitive)
+                    varid = variable_cache.get(cachekey)
+                else:
+                    variable_cache[cachekey] = varid
+
+                cachekey = "%s.%s" % (cachekey, primitive.cls)
+                if cachekey in variable_cache:
+                    newvarid = variable_cache.get(cachekey)
+                    continue
+
+                variable_cache[cachekey] = newvarid
+                varindex += 1
+
+                primid = "primitive_%s" % str(index)
                 try:
                     statements.append("\nprint('\\nExecuting %s...')" % primitive)
                     # Remove executables(instances) from not persistent primitives
@@ -730,56 +751,52 @@ class ExecutionHelper(object):
                     #statements.append("if not os.path.exists(results_root):")
                     #statements.append("    os.makedirs(results_root)")
                     target_column = self.data_manager.target_columns[0]['colName']
-                    
 
-                    statements.append("\nprint('\\nStoring results in %s' % predictions_file)")
-                    statements.append("if not os.path.exists(results_root):")
-                    statements.append("    os.makedirs(results_root)")
-                    
-                    if ensembling:
-                        if primitive.unified_interface:
-                            statements.append("results.append(pandas.DataFrame(%s.executables.produce(inputs=testdata).value, index=testdata.index, columns=['%s']))" %
-                                (primid, target_column))
-                        else:
-                            statements.append("results.append(pandas.DataFrame(%s.executables.predict(testdata), index=testdata.index, columns=['%s']))" %
-                                (primid, target_column))
+                    if primitive.unified_interface:
+                        statements.append("result = pandas.DataFrame(%s.executables.produce(inputs=%s).value, index=%s.index, columns=['%s'])" %
+                            (primid, varid, varid, target_column))
                     else:
-                        if primitive.unified_interface:
-                            statements.append("result = pandas.DataFrame(%s.executables.produce(inputs=testdata).value, index=testdata.index, columns=['%s'])" %
-                                (primid, target_column))
-                        else:
-                            statements.append("result = pandas.DataFrame(%s.executables.predict(testdata), index=testdata.index, columns=['%s'])" %
-                                (primid, target_column))
-                        statements.append("result.to_csv(predictions_file, index_label='%s')" % self.data_manager.index_column)
+                        statements.append("result = pandas.DataFrame(%s.executables.predict(%s), index=%s.index, columns=['%s'])" %
+                            (primid, varid, varid, target_column))
+
+                    if ensembling:
+                        statements.append("results.append(result)")
 
                 else:
                     if primitive.task == "PreProcessing":
-                        statements.append("testdata = hp.test_execute_primitive(%s, testdata)" % primid)
+                        statements.append("%s = hp.test_execute_primitive(%s, %s)" % (newvarid, primid, varid))
                     elif primitive.task == "FeatureExtraction":
-                        statements.append("testdata = hp.test_featurise(%s, testdata)" % primid)
+                        statements.append("%s = hp.test_featurise(%s, %s)" % (newvarid, primid, varid))
 
                 index += 1
 
-            if ensembling:
-                statements.append("results_np = numpy.array([df.values for df in results])")
-                # ONLY to how many pipelines have executed 
-                weights_string = ', '.join([str(w) for w in ens_pipeline.ensemble.pipeline_weights[:pipe_i+1]])
-                statements.append("weights_np = numpy.array([%s]).astype(numpy.int32)" % weights_string)
-                statements.append("weighted_total = numpy.array([df*const for df, const in zip(results_np, weights_np)])")
-                statements.append("average_pred = numpy.sum(weighted_total, axis = 0)/numpy.sum(weights_np)")
-                
-                if ens_pipeline.ensemble.discrete_metric:
-                    statements.append("average_pred = numpy.rint(average_pred)")
-                statements.append("result = pandas.DataFrame(average_pred, index=testdata.index, columns=['%s'])" % self.data_manager.target_columns[0]['colName'])
-                statements.append("result.to_csv(predictions_file, index_label='%s')" % self.data_manager.index_column)
-                # ~ timeout check
+        # Write results
+        statements.append("\nprint('\\nStoring results in %s' % predictions_file)")
+        statements.append("if not os.path.exists(results_root):")
+        statements.append("    os.makedirs(results_root)")
+        statements.append("")
 
         # transform categorical labels?
+        if not ensembling:
+            statements.append("result.to_csv(predictions_file, index_label='%s')" % self.data_manager.index_column)
+        else:
+            statements.append("results_np = numpy.array([df.values for df in results])")
+            # ONLY to how many pipelines have executed
+            weights_string = ', '.join([str(w) for w in ens_pipeline.ensemble.pipeline_weights[:pipe_i+1]])
+            statements.append("weights_np = numpy.array([%s]).astype(numpy.int32)" % weights_string)
+            statements.append("weighted_total = numpy.array([df*const for df, const in zip(results_np, weights_np)])")
+            statements.append("average_pred = numpy.sum(weighted_total, axis = 0)/numpy.sum(weights_np)")
+
+            if ens_pipeline.ensemble.discrete_metric:
+                statements.append("average_pred = numpy.rint(average_pred)")
+            statements.append("result = pandas.DataFrame(average_pred, index=testdata_0.index, columns=['%s'])" % self.data_manager.target_columns[0]['colName'])
+            statements.append("result.to_csv(predictions_file, index_label='%s')" % self.data_manager.index_column)
+            # ~ timeout check
 
         # Write executable
         exfilename = "%s%s%s" % (exec_dir, os.sep, pipeid)
         with open(exfilename, 'a') as exfile:
-            exfile.write("#!/usr/bin/env python3.6\n\n")
+            exfile.write("#!/usr/bin/env python\n\n")
             for imp in set(imports):
                 exfile.write("import %s\n" % imp)
             for st in statements:
