@@ -107,7 +107,7 @@
         }, 
         "METAFEATURE_EXTRACTION": {
             "DATA_PROFILING": [
-                "v2018.1.5/byu-dml/d3m.primitives.d3metafeatureextraction.D3MetafeatureExtraction/v0.1.10/primitive.json", 
+                "v2018.1.5/byu-dml/d3m.primitives.d3metafeatureextraction.D3MetafeatureExtraction/v0.1.10/primitive.json"
             ]
         }, 
         "OPERATOR": {
@@ -118,7 +118,7 @@
                 "v2018.1.5/Test team/d3m.primitives.test.SumPrimitive/0.1.0/primitive.json" 
             ], 
             "NUMERICAL_METHOD": [
-                "v2018.1.5/common-primitives/d3m.primitives.common_primitives.DiagonalMVN/0.1.0/primitive.json", 
+                "v2018.1.5/common-primitives/d3m.primitives.common_primitives.DiagonalMVN/0.1.0/primitive.json"
             ]
         }, 
         "DATA_CLEANING": {
