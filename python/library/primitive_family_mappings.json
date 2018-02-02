@@ -16,7 +16,9 @@
     "communityDetection": ["COMMUNITY_DETECTION"],
     "graphClustering": ["GRAPH_CLUSTERING"],
     "graphMatching": ["GRAPH_MATCHING"],
-    "timeSeriesForecasting": ["TIMESERIES_FORECASTING"],
+      "timeSeriesForecasting": [
+	  "TIMESERIES_FORECASTING",
+	  "REGRESSION"],
     "collaborativeFiltering": ["COLLABORATIVE_FILTERING"]
   },
   "media_to_primitive_family": {
