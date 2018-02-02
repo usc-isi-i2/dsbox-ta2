@@ -168,12 +168,14 @@ class ExecutionHelper(object):
                     return None
 
                 try:
+                    '''
                     # FIXME: Hack for Label encoder for python3 (cannot handle missing values)
                     if (primitive.name == "Label Encoder") and (sys.version_info[0] == 3):
                         if df[col].dtype == object:
                             df[col] = df[col].fillna('')
                         else:
                             df[col] = df[col].fillna(0)
+                    '''
                     #print("- Test on column: %s" % colname)
                     (df[col], executable) = self._execute_primitive(
                         primitive, executable, df[col], None, True, persistent)
@@ -413,7 +415,7 @@ class ExecutionHelper(object):
                 # df[col] is (1d array, sampling)rate)
                 call_result = executable.produce(inputs=pd.DataFrame(df[col]))
 
-                # call_result.value is list of length df.shape[0] 
+                # call_result.value is list of length df.shape[0]
                 # Where each element is a list of 2d ndarrays
                 # The length of the nested list is depended on the sound clip length
                 # We should turn each element in the nested list into a new instance,

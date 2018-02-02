@@ -104,7 +104,7 @@ class Controller(object):
             "ram"   : "4Gi"
             #"max_ensemble" : 5
             }
-    
+
 
     """
     Set the task type, metric and output type via the schema
@@ -137,7 +137,7 @@ class Controller(object):
         self.initialize_from_features(datafile, train_features, target_features, config, view)
 
     """
-   
+
     Initialize all from features and config
     - Used by TA3
     """
@@ -264,7 +264,7 @@ class Controller(object):
                     for related_pipeline in related_pipelines:
                         if not l1_pipelines_handled.get(str(related_pipeline), False):
                             l1_related_pipelines.append(related_pipeline)
-            
+
             self.logfile.write("\nRelated L1 Pipelines to top %d L2 Pipelines:\n-------------\n" % cutoff)
             self.logfile.write("%s\n" % str(l1_related_pipelines))
             l1_pipelines = l1_related_pipelines
@@ -275,7 +275,7 @@ class Controller(object):
         except Exception as e:
             traceback.print_exc()
             sys.stderr.write("ERROR ensemble.greedy_add : %s\n" % e)
-            
+
         self.write_training_results()
 
     '''
@@ -350,8 +350,17 @@ class Controller(object):
             "name": pipeline.id,
             "primitives": []
         }
-        for primitive in pipeline.primitives:
-            logdata['primitives'].append(primitive.cls)
+        primitive_set = set()
+        ensembling = pipeline.ensemble is not None
+        if ensembling:
+            for epipe in pipeline.ensemble.pipelines:
+                for primitive in epipe.primitives:
+                    primitive_set.add(primitive.cls)
+        else:
+            for primitive in pipeline.primitives:
+                primitive_set.add(primitive.cls)
+
+        logdata["primitives"] = list(primitive_set)
         with(open(logfilename, 'w')) as pipelog:
             json.dump(logdata, pipelog,
                 sort_keys=True, indent=4, separators=(',', ': '))
