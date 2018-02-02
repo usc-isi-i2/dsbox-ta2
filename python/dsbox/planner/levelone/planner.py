@@ -43,6 +43,10 @@ class LevelOnePlanner(object):
         # ignore level for now, since only have one level hierarchy
         results =[]
         families = self.primitive_family_mappings.get_families_by_task_type(self.task_type.value)
+        if self.task_type == TaskType.GRAPH_MATCHING:
+            # if GRAPH_MATCHING then add LINK_PREDICTION
+            families = families + self.primitive_family_mappings.get_families_by_task_type(TaskType.LINK_PREDICTION)
+
         family_nodes = [self.ontology.get_family(f) for f in families]
         child_nodes = []
         for node in family_nodes:
@@ -72,8 +76,13 @@ class LevelOnePlanner(object):
             if self.primitive_library.has_primitive_by_package(path):
                 feature_primitives.append(self.primitive_library.get_primitive_by_package(path))
             else:
-                print('Library does not have primitive {}'.format(path))
-                print('Possible error in file primitive_family_mappings.json')
+                new_primitive = self.primitive_library.add_custom_primitive(path)
+                if new_primitive:
+                    print('Adding custom primitive to library: {}'.format(path))
+                    feature_primitives.append(new_primitive)
+                else:
+                    print('Library does not have primitive {}'.format(path))
+                    print('Possible error in file primitive_family_mappings.json')
         primitive_weights = [p.weight for p in feature_primitives]
         selected_primitives = random_choices_without_replacement(
             feature_primitives, primitive_weights, num_pipelines)
