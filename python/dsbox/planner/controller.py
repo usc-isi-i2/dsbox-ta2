@@ -270,8 +270,8 @@ class Controller(object):
             l1_pipelines = l1_related_pipelines
         try:
             ensemble_pipeline = self.ensemble.greedy_add(self.exec_pipelines, df, df_lbl)
-            self.exec_pipelines.append(ensemble_pipeline)
-            self.exec_pipelines = sorted(self.exec_pipelines, key=lambda x: self._sort_by_metric(x))
+            if ensemble_pipeline:
+                self.exec_pipelines.append(ensemble_pipeline)
         except Exception as e:
             traceback.print_exc()
             sys.stderr.write("ERROR ensemble.greedy_add : %s\n" % e)
