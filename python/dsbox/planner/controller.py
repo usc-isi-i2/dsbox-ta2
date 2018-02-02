@@ -19,6 +19,7 @@ from dsbox.planner.common.data_manager import Dataset, DataManager
 from dsbox.planner.common.pipeline import Pipeline, PipelineExecutionResult
 from dsbox.planner.common.problem_manager import Problem
 from dsbox.planner.common.resource_manager import ResourceManager
+from dsbox.planner.ensemble import Ensemble
 
 class Feature:
     def __init__(self, resource_id, feature_name):
@@ -35,6 +36,7 @@ class Controller(object):
     num_cpus = 0
     ram = 0
     timeout = 60
+    #max_ensemble = 5
 
     exec_pipelines = []
     l1_planner = None
@@ -62,6 +64,7 @@ class Controller(object):
         self.num_cpus = int(config.get('cpus', 0))
         self.ram = config.get('ram', 0)
         self.timeout = (config.get('timeout', 60))*60
+        #self.max_ensemble = int(config.get('max_ensemble', 0))
 
         # Create some debugging files
         self.logfile = open("%s%slog.txt" % (self.tmp_dir, os.sep), 'w')
@@ -99,7 +102,9 @@ class Controller(object):
             "timeout": 60,
             "cpus"  : "4",
             "ram"   : "4Gi"
-        }
+            #"max_ensemble" : 5
+            }
+    
 
     """
     Set the task type, metric and output type via the schema
@@ -123,6 +128,7 @@ class Controller(object):
 
     """
     Initialize from features
+
     - Used by TA3
     """
     def initialize_from_features_simple(self, datafile, train_features, target_features, outputdir, view=None):
@@ -131,9 +137,11 @@ class Controller(object):
         self.initialize_from_features(datafile, train_features, target_features, config, view)
 
     """
+   
     Initialize all from features and config
     - Used by TA3
     """
+
     def initialize_from_features(self, datafile, train_features, target_features, config, view=None):
         self.initialize_from_config(config)
         data_directory = os.path.dirname(datafile)
@@ -169,13 +177,16 @@ class Controller(object):
     """
     Train and select pipelines
     """
-    def train(self, planner_event_handler, cutoff=10):
+    def train(self, planner_event_handler, cutoff=10, ensemble = True):
         self.exec_pipelines = []
         self.l2_planner.primitive_cache = {}
         self.l2_planner.execution_cache = {}
 
         self.logfile.write("Task type: %s\n" % self.problem.task_type)
         self.logfile.write("Metrics: %s\n" % self.problem.metrics)
+
+        if ensemble:
+            self.ensemble = Ensemble(self.problem) #,self.max_ensemble)
 
         pe = planner_event_handler
 
@@ -253,18 +264,25 @@ class Controller(object):
                     for related_pipeline in related_pipelines:
                         if not l1_pipelines_handled.get(str(related_pipeline), False):
                             l1_related_pipelines.append(related_pipeline)
-
+            
             self.logfile.write("\nRelated L1 Pipelines to top %d L2 Pipelines:\n-------------\n" % cutoff)
             self.logfile.write("%s\n" % str(l1_related_pipelines))
             l1_pipelines = l1_related_pipelines
-
+        try:
+            ensemble_pipeline = self.ensemble.greedy_add(self.exec_pipelines, df, df_lbl)
+            self.exec_pipelines.append(ensemble_pipeline)
+            self.exec_pipelines = sorted(self.exec_pipelines, key=lambda x: self._sort_by_metric(x))
+        except Exception as e:
+            traceback.print_exc()
+            sys.stderr.write("ERROR ensemble.greedy_add : %s\n" % e)
+            
         self.write_training_results()
 
     '''
     Write training results to file
     '''
     def write_training_results(self):
-        # Sort pipelines
+        # Sorkt pipelines
         self.exec_pipelines = sorted(self.exec_pipelines, key=lambda x: self._sort_by_metric(x))
 
         # Ended planners
