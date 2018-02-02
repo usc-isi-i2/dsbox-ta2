@@ -241,8 +241,8 @@ class ExecutionHelper(object):
         sys.stdout.flush()
 
         # Redirect stderr to an error file
-        #errorfile = tempfile.TemporaryFile(prefix=primitive.name)
-        #sys.stderr = errorfile
+        errorfile = tempfile.TemporaryFile(prefix=primitive.name)
+        sys.stderr = errorfile
 
         primitive.start_time = time.time()
 
