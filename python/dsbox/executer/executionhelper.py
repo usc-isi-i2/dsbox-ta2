@@ -757,7 +757,6 @@ class ExecutionHelper(object):
         # TO DO : update results_np after each pipeline run with weights up to weight i 
         #        (in order to have intermediate results in case test time runs out)
         if ensembling:
-            # extra .value because df value is a CallResult?
             statements.append("results_np = numpy.array([df.values for df in results])")
             # hacky way of passing weights array into python program
             weights_string = ', '.join([str(w) for w in ens_pipeline.ensemble.pipeline_weights])
