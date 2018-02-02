@@ -1,2 +1,3 @@
 from .primitive import Primitive
-from .library import PrimitiveLibrary
+from .library import D3MPrimitiveLibrary, PrimitiveLibrary
+from .ontology import D3MOntology
