@@ -1,4 +1,5 @@
 import os
+import os.path
 import uuid
 import json
 import shutil
@@ -19,7 +20,8 @@ class Session:
         self.outputdir = tempfile.gettempdir() + os.sep + "dsbox-ta2" + os.sep + self.id
         self.execdir = self.outputdir
         self.config = self.create_config_from_env('CONFIG_JSON_PATH')
-        #print(self.outputdir)
+        if not os.path.exists(self.outputdir):
+            os.makedirs(self.outputdir)
 
     def get_pipeline(self, pipelineid):
         return self.pipelines.get(pipelineid, None)
@@ -54,7 +56,7 @@ class Session:
                 conf_data.close()
             opdir = config.get('temp_storage_root', None)
             if opdir is not None:
-                self.outputdir = opdir
+                self.outputdir = os.path.join(opdir, "ta3ta2_temp")
             execdir = config.get('executables_root', None)
             if execdir is not None:
                 self.execdir = execdir
@@ -76,4 +78,4 @@ class Session:
         session = Session.get(sessionid)
         if session is not None:
             Session.sessions.pop(session.id, None)
-            shutil.rmtree(session.outputdir)
+            #shutil.rmtree(session.outputdir)
