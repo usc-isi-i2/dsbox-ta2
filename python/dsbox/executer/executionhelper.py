@@ -108,13 +108,11 @@ class ExecutionHelper(object):
                             primitive.finished = True
                             return None
                         # FIXME: Hack for Label encoder for python3 (cannot handle missing values)
-                        '''
                         if (primitive.name == "Label Encoder") and (sys.version_info[0] == 3):
                             if df[col].dtype == object:
                                 df[col] = df[col].fillna('')
                             else:
                                 df[col] = df[col].fillna(0)
-                        '''
                         (df[col], executable) = self._execute_primitive(
                             primitive, executable, df[col], None, False, persistent)
                         primitive.executables[colname] = executable
@@ -168,14 +166,12 @@ class ExecutionHelper(object):
                     return None
 
                 try:
-                    '''
                     # FIXME: Hack for Label encoder for python3 (cannot handle missing values)
                     if (primitive.name == "Label Encoder") and (sys.version_info[0] == 3):
                         if df[col].dtype == object:
                             df[col] = df[col].fillna('')
                         else:
                             df[col] = df[col].fillna(0)
-                    '''
                     #print("- Test on column: %s" % colname)
                     (df[col], executable) = self._execute_primitive(
                         primitive, executable, df[col], None, True, persistent)
