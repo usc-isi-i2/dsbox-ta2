@@ -91,10 +91,8 @@ class ResourceManager(object):
                     return None
 
                 # FIXME: HACK !!!!
-                # Within the docker environment after running image
-                # featurization primitves, the multiprocessor.Pool
-                # stops working
-                if 'ImageFeature' in primitive.cls:
+                # Some primitives are not fork-safe. Should not use multiprocessor.Pool after using these components
+                if 'ImageFeature' in primitive.cls or 'BBNAudioPrimitiveWrapper' in primitive.cls:
                     self.use_apply_async = False
 
                 if primitive.task == "FeatureExtraction":
