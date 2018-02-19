@@ -477,6 +477,16 @@ class ExecutionHelper(object):
                 ncols.remove(col)
                 df = pd.concat([df, newdf], axis=1)
                 df.columns=ncols
+            elif self.data_manager.media_type == VariableFileType.TIMESERIES:
+                call_result = executable.produce(inputs=df[col].values)
+                features = call_result.value
+                fcols = [(col.format() + "_" + str(index)) for index in range(0, features.shape[1])]
+                newdf = pd.DataFrame(call_result.value, columns=fcols, index=df.index)
+                del df[col]
+                ncols = ncols + fcols
+                ncols.remove(col)
+                df = pd.concat([df, newdf], axis=1)
+                df.columns = ncols
             elif self.data_manager.media_type == VariableFileType.IMAGE:
                 image_tensor = self._as_tensor(df[col].values)
                 call_result = executable.produce(inputs=image_tensor)
