@@ -145,7 +145,7 @@ class HierarchyNode(object):
             self._content = content
         else:
             self._content = list()
-    def getChildren(self):
+    def get_children(self):
         return self._children
     def get_content(self):
         return self._content
@@ -227,5 +227,5 @@ class D3MOntology(object):
                 for package in package_paths:
                     if self.library.has_primitive_by_package(package):
                         self.hierarchy.add_primitive(child, self.library.get_primitive_by_package(package))
-                    else:
+                    elif not self.library.is_black_listed(package):
                         warn('D3MOnotology: primitive {} not found in library.'.format(package))

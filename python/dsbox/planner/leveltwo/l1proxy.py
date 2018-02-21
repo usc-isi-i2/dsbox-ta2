@@ -19,6 +19,12 @@ class LevelOnePlannerProxy(object):
     def __init__(self, libdir, helper):
         # Load primitives library
         self.primitives = D3MPrimitiveLibrary()
+
+        # First load black listed primtives
+        primitive_black_list_file = os.path.join(libdir, 'black-list.json')
+        self.primitives.load_black_list(primitive_black_list_file)
+
+        # Load d3m primitives
         self.primitives.load_from_d3m_index()
 
         # Augment with primitive annotations from Daniel
