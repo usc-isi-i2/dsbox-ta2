@@ -268,13 +268,15 @@ class Controller(object):
             self.logfile.write("\nRelated L1 Pipelines to top %d L2 Pipelines:\n-------------\n" % cutoff)
             self.logfile.write("%s\n" % str(l1_related_pipelines))
             l1_pipelines = l1_related_pipelines
-        try:
-            ensemble_pipeline = self.ensemble.greedy_add(self.exec_pipelines, df, df_lbl)
-            if ensemble_pipeline:
-                self.exec_pipelines.append(ensemble_pipeline)
-        except Exception as e:
-            traceback.print_exc()
-            sys.stderr.write("ERROR ensemble.greedy_add : %s\n" % e)
+
+        if ensemble:
+            try:
+                ensemble_pipeline = self.ensemble.greedy_add(self.exec_pipelines, df, df_lbl)
+                if ensemble_pipeline:
+                    self.exec_pipelines.append(ensemble_pipeline)
+            except Exception as e:
+                traceback.print_exc()
+                sys.stderr.write("ERROR ensemble.greedy_add : %s\n" % e)
 
         self.write_training_results()
 
