@@ -1,0 +1,12 @@
+[
+    {
+	"Id": "3fd60679-cc91-3703-9ce5-34098babbbdc",
+	"Name": "lupi_svm.LupiSvmClassifier",
+	"Class": "d3m.primitives.lupi_svm"
+    },
+    {
+	"Id": "37c2b19d-bdab-4a30-ba08-6be49edcc6af",
+	"Name": "sklearn.ensemble.forest.RandomForestClassifier",
+	"Class": "d3m.primitives.common_primitives.RandomForestClassifier"
+    }
+]

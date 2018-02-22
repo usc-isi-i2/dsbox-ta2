@@ -3,6 +3,7 @@ import os
 import os.path
 import grpc
 import uuid
+import shutil
 
 import core_pb2 as core
 import core_pb2_grpc as crpc
@@ -66,8 +67,13 @@ class Core(crpc.CoreServicer):
         c = session.controller
         if c is None:
             c = Controller(self.libdir)
-            c.initialize_from_features(datafile,
-                train_features, target_features, session.outputdir, view='TRAIN')
+            if session.config is None:
+                c.initialize_from_features_simple(datafile,
+                    train_features, target_features, session.outputdir, view='TRAIN')
+                session.config = c.config
+            else:
+                c.initialize_from_features(datafile,
+                    train_features, target_features, session.config, view='TRAIN')
 
         # Set Problem schema
         if request.task > 0:
@@ -122,7 +128,7 @@ class Core(crpc.CoreServicer):
 
         session.controller.initialize_from_features(datafile,
             session.train_features, session.target_features,
-            session.outputdir, view='TEST')
+            session.config, view='TEST')
 
         # Change this to be a yield too.. Save should happen within the handler
         for result in session.controller.test(pipeline, handler):
@@ -177,11 +183,24 @@ class Core(crpc.CoreServicer):
                     yield result
 
     def ExportPipeline(self, request, context):
-        """Export executable of a pipeline, including any optional preprocessing used in session
-        """
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
+        session = Session.get(request.context.session_id)
+        if session is None:
+            return self._create_response("No such session", code="SESSION_UNKNOWN")
+
+        pipeline = session.get_pipeline(request.pipeline_id)
+        if pipeline is None:
+            return self._create_response("Invalid pipeline id", code="INVALID_ARGUMENT")
+
+        if request.pipeline_exec_uri is not None:
+            ex = session.controller.execution_helper
+            ex.create_pipeline_executable(pipeline, session.config)
+            exefile = self._create_path_from_uri(request.pipeline_exec_uri)
+            origfile = os.path.join(session.execdir, pipeline.id)
+            shutil.copy(origfile, exefile)
+            os.chmod(exefile, 0o755)
+            return self._create_response("Pipeline Exported")
+        else:
+            return self._create_response("No pipeline export uri", code="INVALID_ARGUMENT")
 
     def SetProblemDoc(self, request, context):
         session = Session.get(request.context.session_id)

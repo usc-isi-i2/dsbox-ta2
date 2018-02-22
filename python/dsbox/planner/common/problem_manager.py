@@ -1,6 +1,8 @@
 import os
+import numpy as np
 import sys
 import json
+import warnings
 
 from dsbox.schema.problem_schema import TaskType, TaskSubType, Metric
 
@@ -29,8 +31,8 @@ class Problem(object):
     metric_functions = []
 
     splits_file = None
-    predictions_file = None
-    scores_file = None
+    predictions_file = "predictions.csv"
+    scores_file = "scores.csv"
 
     def load_problem(self, problemPath, problemDoc=None):
         self.prHome = problemPath
@@ -102,7 +104,12 @@ class Problem(object):
         if metric==Metric.ACCURACY:
             return sklearn.metrics.accuracy_score
         elif metric==Metric.F1:
-            return sklearn.metrics.f1_score
+            # Default f1 assumes average='binary', i.e. two types of label
+            # FIXME: For now use micro for non-binary
+            if self.task_subtype==TaskSubType.BINARY:
+                return sklearn.metrics.f1_score
+            else:
+                return self.f1_micro
         elif metric==Metric.F1_MICRO:
             return self.f1_micro
         elif metric==Metric.F1_MACRO:
@@ -127,6 +134,8 @@ class Problem(object):
             return sklearn.metrics.normalized_mutual_info_score
         elif metric==Metric.JACCARD_SIMILARITY_SCORE:
             return sklearn.metrics.jaccard_similarity_score
+        elif metric==Metric.PRECISION_AT_TOP_K:
+            return self.precision_at_top_K
         else:
             sys.stderr.write("ERROR Unknown metric : {}\n".format(metric))
             return None
@@ -147,3 +156,46 @@ class Problem(object):
     def root_mean_squared_error(self, y_true, y_pred):
         import math
         return math.sqrt(sklearn.metrics.mean_squared_error(y_true, y_pred))
+
+
+    # From: https://gitlab.datadrivendiscovery.org/MIT-LL/d3m_data_supply/blob/shared/documentation/problemSchema.md
+    def precision_at_top_K(gt, preds, K=20):
+        """
+        This function examines the first K entries of a
+        ground truth vector (gt) and predicted labels (preds)
+        and determines how many values are shared between them.
+        The result is then scaled by K to get the accuracy at top K.  
+
+        Parameters:
+        -----------
+        gt: 1d array-like
+            Array of ground truth labels.
+
+        preds: 1d array-like
+            Array of predicted labels.
+
+        K: int, 20 by default
+            The number of samples to use when computing the accuracy.
+
+        Returns:
+        --------
+        prec_at_top_K: float
+            The number of labels shared between the ground truth and
+            the predictions divided by K.
+
+
+        Example:
+            >>> gt = [0, 1, 2, 3, 4]
+            >>> pred = [1, 3, 2, 4, 0]
+
+            >>> precision_at_top_K(gt, pred, K=3)
+            0.667
+
+            >>> precision_at_top_K(gt, pred, K=4)
+            0.75
+        """
+
+        gt = gt[0:K]
+        preds = preds[0:K]
+        prec_at_top_K = np.float(len(np.intersect1d(gt, preds))) / K
+        return prec_at_top_K

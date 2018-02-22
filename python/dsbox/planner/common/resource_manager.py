@@ -10,6 +10,13 @@ from dsbox.planner.common.pipeline import Pipeline, PipelineExecutionResult
 
 TIMEOUT = 600  # Time out primitives running for more than 10 minutes
 
+class DummyAsyncResult(object):
+    def __init__(self, func, args):
+        self.func = func
+        self.args = args
+    def get(self, timeout=0):
+        return self.func(*self.args)
+
 class ResourceManager(object):
     EXECUTION_POOL = None
 
@@ -24,6 +31,8 @@ class ResourceManager(object):
 
         self.primitive_cache = {}
         self.execution_cache = {}
+
+        self.use_apply_async = True
 
     def execute_pipelines(self, pipelines, df, df_lbl):
         pipeline_refs = []
@@ -81,6 +90,11 @@ class ResourceManager(object):
                 if df is None:
                     return None
 
+                # FIXME: HACK !!!!
+                # Some primitives are not fork-safe. Should not use multiprocessor.Pool after using these components
+                if 'ImageFeature' in primitive.cls or 'BBNAudioPrimitiveWrapper' in primitive.cls:
+                    self.use_apply_async = False
+
                 if primitive.task == "FeatureExtraction":
                     print("Executing %s" % primitive.name)
                     sys.stdout.flush()
@@ -94,11 +108,16 @@ class ResourceManager(object):
                 elif primitive.task == "Modeling":
                     # Modeling Primitive
 
-                    # Evaluate: Get a cross validation score for the metric
-                    # Return reference to parallel process
-                    exref = ResourceManager.EXECUTION_POOL.apply_async(
-                        self.helper.cross_validation_score,
-                        args=(primitive, df, df_lbl, 10))
+                    if self.use_apply_async:
+                        # Evaluate: Get a cross validation score for the metric
+                        # Return reference to parallel process
+                        exref = ResourceManager.EXECUTION_POOL.apply_async(
+                            self.helper.cross_validation_score,
+                            args=(primitive, df, df_lbl, 10))
+                    else:
+                        exref = DummyAsyncResult(
+                            self.helper.cross_validation_score,
+                            args=(primitive, df, df_lbl, 10))
                     return (exref, exec_pipeline, primitive, cachekey, df, df_lbl)
 
                 else:

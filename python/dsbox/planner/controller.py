@@ -19,6 +19,7 @@ from dsbox.planner.common.data_manager import Dataset, DataManager
 from dsbox.planner.common.pipeline import Pipeline, PipelineExecutionResult
 from dsbox.planner.common.problem_manager import Problem
 from dsbox.planner.common.resource_manager import ResourceManager
+from dsbox.planner.ensemble import Ensemble
 
 class Feature:
     def __init__(self, resource_id, feature_name):
@@ -35,6 +36,7 @@ class Controller(object):
     num_cpus = 0
     ram = 0
     timeout = 60
+    #max_ensemble = 5
 
     exec_pipelines = []
     l1_planner = None
@@ -62,6 +64,7 @@ class Controller(object):
         self.num_cpus = int(config.get('cpus', 0))
         self.ram = config.get('ram', 0)
         self.timeout = (config.get('timeout', 60))*60
+        #self.max_ensemble = int(config.get('max_ensemble', 0))
 
         # Create some debugging files
         self.logfile = open("%s%slog.txt" % (self.tmp_dir, os.sep), 'w')
@@ -80,7 +83,15 @@ class Controller(object):
     Set config directories and schema from just problemdir, datadir and outputdir
     '''
     def initialize_simple(self, problemdir, datadir, outputdir):
-        self.initialize_from_config({
+        self.initialize_from_config(
+            self.create_simple_config(problemdir, datadir, outputdir)
+        )
+
+    '''
+    Create config from problemdir, datadir, outputdir
+    '''
+    def create_simple_config(self, problemdir, datadir, outputdir):
+        return {
             "problem_root": problemdir,
             "problem_schema": problemdir + os.sep + 'problemDoc.json',
             "training_data_root": datadir,
@@ -91,7 +102,9 @@ class Controller(object):
             "timeout": 60,
             "cpus"  : "4",
             "ram"   : "4Gi"
-        })
+            #"max_ensemble" : 5
+            }
+
 
     """
     Set the task type, metric and output type via the schema
@@ -114,12 +127,24 @@ class Controller(object):
         self.data_manager.initialize_data(self.problem, [dataset], view='TRAIN')
 
     """
-    Initialize all (config, problem, data) from features
+    Initialize from features
+
     - Used by TA3
     """
-    def initialize_from_features(self, datafile, train_features, target_features, outputdir, view=None):
+    def initialize_from_features_simple(self, datafile, train_features, target_features, outputdir, view=None):
         data_directory = os.path.dirname(datafile)
-        self.initialize_simple(outputdir, data_directory, outputdir)
+        config = self.create_simple_config(outputdir, data_directory, outputdir)
+        self.initialize_from_features(datafile, train_features, target_features, config, view)
+
+    """
+
+    Initialize all from features and config
+    - Used by TA3
+    """
+
+    def initialize_from_features(self, datafile, train_features, target_features, config, view=None):
+        self.initialize_from_config(config)
+        data_directory = os.path.dirname(datafile)
 
         # Load datasets first
         filters = {}
@@ -152,13 +177,16 @@ class Controller(object):
     """
     Train and select pipelines
     """
-    def train(self, planner_event_handler, cutoff=10):
+    def train(self, planner_event_handler, cutoff=10, ensemble = True):
         self.exec_pipelines = []
         self.l2_planner.primitive_cache = {}
         self.l2_planner.execution_cache = {}
 
         self.logfile.write("Task type: %s\n" % self.problem.task_type)
         self.logfile.write("Metrics: %s\n" % self.problem.metrics)
+
+        if ensemble:
+            self.ensemble = Ensemble(self.problem) #,self.max_ensemble)
 
         pe = planner_event_handler
 
@@ -241,13 +269,25 @@ class Controller(object):
             self.logfile.write("%s\n" % str(l1_related_pipelines))
             l1_pipelines = l1_related_pipelines
 
+<<<<<<< HEAD
+=======
+        if ensemble:
+            try:
+                ensemble_pipeline = self.ensemble.greedy_add(self.exec_pipelines, df, df_lbl)
+                if ensemble_pipeline:
+                    self.exec_pipelines.append(ensemble_pipeline)
+            except Exception as e:
+                traceback.print_exc()
+                sys.stderr.write("ERROR ensemble.greedy_add : %s\n" % e)
+
+>>>>>>> primitive-discovery
         self.write_training_results()
 
     '''
     Write training results to file
     '''
     def write_training_results(self):
-        # Sort pipelines
+        # Sorkt pipelines
         self.exec_pipelines = sorted(self.exec_pipelines, key=lambda x: self._sort_by_metric(x))
 
         # Ended planners
@@ -283,7 +323,10 @@ class Controller(object):
                 print("Executing %s" % primitive)
                 sys.stdout.flush()
                 if primitive.task == "Modeling":
-                    result = pd.DataFrame(primitive.executables.predict(testdf), index=testdf.index, columns=[target_col])
+                    if primitive.unified_interface:
+                        result = pd.DataFrame(primitive.executables.produce(inputs=testdf).value, index=testdf.index, columns=[target_col])
+                    else:
+                        result = pd.DataFrame(primitive.executables.predict(testdf), index=testdf.index, columns=[target_col])
                     pipeline.test_result = PipelineExecutionResult(result, None)
                     break
                 elif primitive.task == "PreProcessing":
@@ -312,8 +355,17 @@ class Controller(object):
             "name": pipeline.id,
             "primitives": []
         }
-        for primitive in pipeline.primitives:
-            logdata['primitives'].append(primitive.cls)
+        primitive_set = set()
+        ensembling = pipeline.ensemble is not None
+        if ensembling:
+            for epipe in pipeline.ensemble.pipelines:
+                for primitive in epipe.primitives:
+                    primitive_set.add(primitive.cls)
+        else:
+            for primitive in pipeline.primitives:
+                primitive_set.add(primitive.cls)
+
+        logdata["primitives"] = list(primitive_set)
         with(open(logfilename, 'w')) as pipelog:
             json.dump(logdata, pipelog,
                 sort_keys=True, indent=4, separators=(',', ': '))

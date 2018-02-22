@@ -9,7 +9,7 @@ import os.path
 import tempfile
 import numpy as np
 import pandas as pd
-
+import contextlib
 
 from primitive_interfaces.base import PrimitiveBase
 from primitive_interfaces.generator import GeneratorPrimitiveBase
@@ -38,6 +38,9 @@ from dsbox.schema.data_profile import DataProfile
 from sklearn.linear_model import LinearRegression, LogisticRegression
 from sklearn.metrics import make_scorer
 
+# Import D3M Primitives
+import d3m.primitives
+
 REMOTE = False
 
 class ExecutionHelper(object):
@@ -58,13 +61,13 @@ class ExecutionHelper(object):
         else:
             mod, cls = primitive.cls.rsplit('.', 1)
             try:
+                import importlib
                 module = importlib.import_module(mod)
                 PrimitiveClass = getattr(module, cls)
                 if issubclass(PrimitiveClass, PrimitiveBase):
                     primitive.unified_interface = True
                     hyperparams_class = PrimitiveClass.metadata.query()['primitive_code']['class_type_arguments']['Hyperparams']
                     executable = PrimitiveClass(hyperparams=hyperparams_class.defaults())
-                    primitive.unified_interface = True
                 else:
                     args = []
                     kwargs = {}
@@ -77,8 +80,9 @@ class ExecutionHelper(object):
                     executable = PrimitiveClass(*args, **kwargs)
                     primitive.unified_interface = False
             except Exception as e:
-                sys.stderr.write("ERROR _instantiate_primitive(%s) : %s\n" % (primitive, e))
-                traceback.print_exc()
+                sys.stderr.write("ERROR: instantiate_primitive {}: {}\n".format(primitive.name, e))
+                #sys.stderr.write("ERROR _instantiate_primitive(%s)\n" % (primitive.name))
+                #traceback.print_exc()
                 return None
         return executable
 
@@ -124,8 +128,9 @@ class ExecutionHelper(object):
 
         except Exception as e:
             try:
-                sys.stderr.write("ERROR execute_primitive(%s): %s\n" % (primitive, e))
-                traceback.print_exc()
+                sys.stderr.write("ERROR: execute_primitive {}: {}\n".format(primitive.name, e))
+                #sys.stderr.write("ERROR execute_primitive(%s): %s\n" % (primitive, e))
+                #traceback.print_exc()
                 primitive.finished = True
             except:
                 pass
@@ -163,13 +168,17 @@ class ExecutionHelper(object):
                 try:
                     # FIXME: Hack for Label encoder for python3 (cannot handle missing values)
                     if (primitive.name == "Label Encoder") and (sys.version_info[0] == 3):
-                        df[col] = df[col].fillna('')
+                        if df[col].dtype == object:
+                            df[col] = df[col].fillna('')
+                        else:
+                            df[col] = df[col].fillna(0)
                     #print("- Test on column: %s" % colname)
                     (df[col], executable) = self._execute_primitive(
                         primitive, executable, df[col], None, True, persistent)
                 except Exception as e:
-                    sys.stderr.write("ERROR execute_primitive(%s): %s\n" % (primitive, e))
-                    traceback.print_exc()
+                    sys.stderr.write("ERROR: execute_primitive {}: {}\n".format(primitive.name, e))
+                    #sys.stderr.write("ERROR execute_primitive(%s): %s\n" % (primitive, e))
+                    #traceback.print_exc()
                     return None
         else:
             if not persistent:
@@ -195,7 +204,7 @@ class ExecutionHelper(object):
         retval = None
         if primitive.unified_interface:
             if (testing and persistent):
-                retval = executable.produce(inputs=df)
+                retval = executable.produce(inputs=df).value
             else:
                 if isinstance(executable, SupervisedLearnerPrimitiveBase):
                     executable.set_training_data(inputs=df, outputs=df_lbl)
@@ -204,7 +213,7 @@ class ExecutionHelper(object):
                 elif isinstance(executable, GeneratorPrimitiveBase):
                     executable.set_training_data(outputs=df_lbl)
                 executable.fit()
-                retval = executable.produce(inputs=df)
+                retval = executable.produce(inputs=df).value
         else:
             if (testing and persistent):
                 if REMOTE:
@@ -230,53 +239,56 @@ class ExecutionHelper(object):
         sys.stdout.flush()
 
         # Redirect stderr to an error file
-        errorfile = tempfile.TemporaryFile(prefix=primitive.name)
-        sys.stderr = errorfile
+        #  Directly assigning stderr to tempfile.TemporaryFile cause printing str to fail
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with open(os.path.join(tmpdir, primitive.name), 'w') as errorfile:
+                with contextlib.redirect_stderr(errorfile):
 
-        primitive.start_time = time.time()
+                    primitive.start_time = time.time()
 
-        kf = KFold(n_splits=cv, shuffle=True, random_state=int(time.time()))
-        metric_values = {}
+                    kf = KFold(n_splits=cv, shuffle=True, random_state=int(time.time()))
+                    metric_values = {}
 
-        tcols = [self.data_manager.target_columns[0]['colName']]
-        yPredictions = None
-        num = 0.0
-        for k, (train, test) in enumerate(kf.split(X, y)):
-            executable = self.instantiate_primitive(primitive)
-            if executable is None:
-                primitive.finished = True
-                return None
+                    tcols = [self.data_manager.target_columns[0]['colName']]
+                    yPredictions = None
+                    num = 0.0
+                    for k, (train, test) in enumerate(kf.split(X, y)):
+                        executable = self.instantiate_primitive(primitive)
+                        if executable is None:
+                            primitive.finished = True
+                            return None
 
-            trainX = X.take(train, axis=0)
-            trainY = y.take(train, axis=0).values.ravel()
-            testX = X.take(test, axis=0)
-            testY = y.take(test, axis=0).values.ravel()
+                        trainX = X.take(train, axis=0)
+                        trainY = y.take(train, axis=0).values.ravel()
+                        testX = X.take(test, axis=0)
+                        testY = y.take(test, axis=0).values.ravel()
 
-            try:
-                if primitive.unified_interface:
-                    executable.set_training_data(inputs=trainX, outputs=trainY)
-                    executable.fit()
-                    ypred = executable.produce(inputs=testX)
-                else:
-                    if REMOTE:
-                        prim = self.e.execute('fit', args=[trainX, trainY], kwargs=None, obj=executable, objreturn=True)
-                        ypred = self.e.execute('predict', args=[testX], kwargs=None, obj=executable)
-                    else:
-                        executable.fit(trainX, trainY)
-                        ypred = executable.predict(testX)
+                        try:
+                            if primitive.unified_interface:
+                                executable.set_training_data(inputs=trainX, outputs=trainY)
+                                executable.fit()
+                                ypred = executable.produce(inputs=testX).value
+                            else:
+                                if REMOTE:
+                                    prim = self.e.execute('fit', args=[trainX, trainY], kwargs=None, obj=executable, objreturn=True)
+                                    ypred = self.e.execute('predict', args=[testX], kwargs=None, obj=executable)
+                                else:
+                                    executable.fit(trainX, trainY)
+                                    ypred = executable.predict(testX)
 
-                ypredDF = pd.DataFrame(ypred, index=testX.index, columns=tcols)
-                if yPredictions is None:
-                    yPredictions = ypredDF
-                else:
-                    yPredictions = pd.concat([yPredictions, ypredDF])
+                            ypredDF = pd.DataFrame(ypred, index=testX.index, columns=tcols)
+                            if yPredictions is None:
+                                yPredictions = ypredDF
+                            else:
+                                yPredictions = pd.concat([yPredictions, ypredDF])
 
-                num = num + 1.0
-                # TODO: Removing this for now
-                primitive.progress = num/cv
-                primitive.pipeline.notifyChanges()
-            except Exception as e:
-                traceback.print_exc(e)
+                            num = num + 1.0
+                            # TODO: Removing this for now
+                            primitive.progress = num/cv
+                            primitive.pipeline.notifyChanges()
+                        except Exception as e:
+                            sys.stderr.write("ERROR: cross_validation {}: {}\n".format(primitive.name, e))
+                            #traceback.print_exc(e)
 
         if num == 0:
             return (None, None)
@@ -344,19 +356,22 @@ class ExecutionHelper(object):
                 # Using an unfitted primitive for each column (needed for Corex)
                 #df_col = pd.DataFrame(df[col])
                 #executable.fit(df_col)
-                nvals = executable.fit_transform(df[col])
+
+                #nvals = executable.fit_transform(df[col])
+                executable.set_training_data(inputs=df[col].values, outputs=[])
                 if persistent:
-                    executable.fit(df[col])
-                if isinstance(nvals, scipy.sparse.csr.csr_matrix):
-                    nvals = nvals.todense()
+                    executable.fit()
+                    call_result = executable.produce(inputs=df[col].values)
+
                 #fcols = [(col.format() + "_" + feature) for feature in executable.get_feature_names()]
-                fcols = [(col.format() + "_" + str(index)) for index in range(0, nvals.shape[1])]
-                newdf = pd.DataFrame(nvals, columns=fcols, index=df.index)
+                val = call_result.value.todense() if isinstance(call_result.value, scipy.sparse.csr.csr_matrix) else call_result.value
+                fcols = [(col.format() + "_" + str(index)) for index in range(0, val.shape[1])]
+                newdf = pd.DataFrame(val, columns=fcols, index=df.index)
                 del df[col]
                 ncols = ncols + fcols
                 ncols.remove(col)
                 df = pd.concat([df, newdf], axis=1)
-                df.columns=ncols
+                df.columns = ncols
             elif self.data_manager.media_type == VariableFileType.TIMESERIES:
                 executable = self.instantiate_primitive(primitive)
                 if executable is None:
@@ -378,7 +393,8 @@ class ExecutionHelper(object):
                     primitive.finished = True
                     return None
                 image_tensor = self._as_tensor(df[col].values)
-                nvals = executable.transform(image_tensor)
+                call_result = executable.produce(inputs=image_tensor)
+                nvals = call_result.value
                 fcols = [(col.format() + "_" + str(index)) for index in range(0, nvals.shape[1])]
                 newdf = pd.DataFrame(nvals, columns=fcols, index=df.index)
                 del df[col]
@@ -388,41 +404,34 @@ class ExecutionHelper(object):
                 df.columns=ncols
             elif self.data_manager.media_type == VariableFileType.AUDIO:
                 # Featurize audio
-                fcols = []
-                for idx, row in df.iterrows():
-                    if row[col] is None:
-                        continue
-                    (audio_clip, sampling_rate) = row[col]
-                    primitive.init_kwargs['sampling_rate'] = int(sampling_rate)
-                    executable = self.instantiate_primitive(primitive)
-                    if executable is None:
-                        primitive.finished = True
-                        return None
-                    #executable.fit('time_series', [audio_clip])
-                    features = executable.produce([audio_clip])[0]
+                if executable is None:
+                    primitive.finished = True
+                executable = self.instantiate_primitive(primitive)
 
-                    allfeatures = {}
-                    for feature in features:
-                        for index in range(0, len(feature)):
-                            fcol = col.format() + "_" + str(index)
-                            featurevals = allfeatures.get(fcol, [])
-                            featurevals.append(feature[index])
-                            allfeatures[fcol] = featurevals
+                # df[col] is (1d array, sampling)rate)
+                call_result = executable.produce(inputs=pd.DataFrame(df[col]))
 
-                    for fcol in allfeatures.keys():
-                        if df.get(fcol) is None:
-                            fcols.append(fcol)
-                            df.set_value(idx, fcol, 0)
-                            #df[fcol] = df[fcol].astype(object)
-                        df.set_value(idx, fcol, np.average(allfeatures[fcol]))
+                # call_result.value is list of length df.shape[0]
+                # Where each element is a list of 2d ndarrays
+                # The length of the nested list is depended on the sound clip length
+                # We should turn each element in the nested list into a new instance,
+                # but now just average over all nested elements.
 
-                del df[col]
-                '''
-                bcols = self.data_manager.boundary_columns
-                if len(bcols) == 2:
-                    del df[bcols[0]]
-                    del df[bcols[1]]
-                '''
+                features = call_result.value
+                rows = []
+                for row_list in features:
+                    total = np.zeros((row_list[0].size,))
+                    for elt in row_list:
+                        total += elt.flatten()
+                    total /= len(row_list)
+                    rows.append(total)
+                col_names = ['{}_{}'.format(col.format(), i) for i in range(total.size)]
+
+                newdf = pd.DataFrame(rows, index=df.index, columns=col_names)
+
+                # FIXME: Need to be more general
+                df.drop(['filename', 'start', 'end'], axis=1, inplace=True)
+                df = pd.concat([df, newdf], axis=1)
 
             primitive.executables[col] = executable
 
@@ -454,22 +463,34 @@ class ExecutionHelper(object):
                 #executable.fit(df_col)
                 nvals = None
                 if persistent:
-                    nvals = executable.transform(df[col])
+                    call_result = executable.produce(df[col])
                 else:
-                    nvals = executable.fit_transform(df[col])
-                if isinstance(nvals, scipy.sparse.csr.csr_matrix):
-                    nvals = nvals.todense()
+                    executable.fit()
+                    call_result = executable.produce(inputs=df[col].values)
+
+                val = call_result.value.todense() if isinstance(call_result.value, scipy.sparse.csr.csr_matrix) else call_result.value
                 #fcols = [(col.format() + "_" + feature) for feature in executable.get_feature_names()]
-                fcols = [(col.format() + "_" + str(index)) for index in range(0, nvals.shape[1])]
-                newdf = pd.DataFrame(nvals, columns=fcols, index=df.index)
+                fcols = [(col.format() + "_" + str(index)) for index in range(0, val.shape[1])]
+                newdf = pd.DataFrame(val, columns=fcols, index=df.index)
                 del df[col]
                 ncols = ncols + fcols
                 ncols.remove(col)
                 df = pd.concat([df, newdf], axis=1)
                 df.columns=ncols
+            elif self.data_manager.media_type == VariableFileType.TIMESERIES:
+                call_result = executable.produce(inputs=df[col].values)
+                features = call_result.value
+                fcols = [(col.format() + "_" + str(index)) for index in range(0, features.shape[1])]
+                newdf = pd.DataFrame(call_result.value, columns=fcols, index=df.index)
+                del df[col]
+                ncols = ncols + fcols
+                ncols.remove(col)
+                df = pd.concat([df, newdf], axis=1)
+                df.columns = ncols
             elif self.data_manager.media_type == VariableFileType.IMAGE:
                 image_tensor = self._as_tensor(df[col].values)
-                nvals = executable.transform(image_tensor)
+                call_result = executable.produce(inputs=image_tensor)
+                nvals = call_result.value
                 fcols = [(col.format() + "_" + str(index)) for index in range(0, nvals.shape[1])]
                 newdf = pd.DataFrame(nvals, columns=fcols, index=df.index)
                 del df[col]
@@ -479,39 +500,22 @@ class ExecutionHelper(object):
                 df.columns=ncols
             elif self.data_manager.media_type == VariableFileType.AUDIO:
                 # Featurize audio
-                fcols = []
-                for idx, row in df.iterrows():
-                    if row[col] is None:
-                        continue
-                    (audio_clip, sampling_rate) = row[col]
-                    primitive.init_kwargs['sampling_rate'] = sampling_rate
-                    executable = self.instantiate_primitive(primitive)
-                    if executable is None:
-                        return None
-                    features = executable.produce([audio_clip])[0]
+                call_result = executable.produce(inputs=pd.DataFrame(df[col]))
+                features = call_result.value
+                rows = []
+                for row_list in features:
+                    total = np.zeros((row_list[0].size,))
+                    for elt in row_list:
+                        total += elt.flatten()
+                    total /= len(row_list)
+                    rows.append(total)
+                col_names = ['{}_{}'.format(col.format(), i) for i in range(total.size)]
 
-                    allfeatures = {}
-                    for feature in features:
-                        for i in range(0, len(feature)):
-                            fcol = col.format() + "_" + str(i)
-                            featurevals = allfeatures.get(fcol, [])
-                            featurevals.append(feature[i])
-                            allfeatures[fcol] = featurevals
+                newdf = pd.DataFrame(rows, index=df.index, columns=col_names)
 
-                    for fcol in allfeatures.keys():
-                        if df.get(fcol) is None:
-                            fcols.append(fcol)
-                            df.set_value(idx, fcol, 0)
-                            #df[fcol] = df[fcol].astype(object)
-                        df.set_value(idx, fcol, np.average(allfeatures[fcol]))
-
-                del df[col]
-                '''
-                bcols = self.data_manager.boundary_columns
-                if len(bcols) == 2:
-                    del df[bcols[0]]
-                    del df[bcols[1]]
-                '''
+                # FIXME: Need to be more general
+                df.drop(['filename', 'start', 'end'], axis=1, inplace=True)
+                df = pd.concat([df, newdf], axis=1)
 
         return pd.DataFrame(df, index=indices)
 
@@ -649,73 +653,131 @@ class ExecutionHelper(object):
         statements.append("dataset.load_dataset(test_data_root, dataset_schema)")
         statements.append("\ndata_manager = DataManager()")
         statements.append("data_manager.initialize_data(problem, [dataset], view='TEST')")
-        statements.append("\ntestdata = data_manager.input_data")
+        #statements.append("\ntestdata = data_manager.input_data")
 
         statements.append("\nhp = ExecutionHelper(problem, data_manager)")
         index = 1
-        for primitive in pipeline.primitives:
-            primid = "primitive_%s" % str(index)
 
-            try:
-                statements.append("\nprint('\\nExecuting %s...')" % primitive)
-                # Remove executables(instances) from not persistent primitives
-                # as many of them have pickling(serialization) issues
-                execs = primitive.executables
-                if not primitive.is_persistent:
-                    if primitive.column_primitive:
-                        execs = {}
-                        for colname in primitive.executables.keys():
-                            execs[colname] = primitive.executables[colname]
-                            primitive.executables[colname] = None
-                    else:
-                        execs = primitive.executables
-                        primitive.executables = None
+        ensembling = pipeline.ensemble is not None
+        n_pipelines = len(pipeline.ensemble.pipelines) if ensembling else 1
+        ens_pipeline = pipeline
 
-                primfilename = "models%s%s.%s.pkl" % (os.sep, pipeid, primid)
-                primfile = "%s%s%s" % (tmp_dir, os.sep, primfilename)
-                statements.append("primfile = temp_storage_root + '%s%s'" % (os.sep, primfilename))
-                statements.append("%s = sklearn.externals.joblib.load(primfile)" % primid)
+        if ensembling:
+            statements.append("results = []")
 
-                # Remove pipeline from pickling
-                pipe = primitive.pipeline
-                primitive.pipeline = None
+        variable_cache = {}
+        varindex = 0
+        for pipe_i in range(n_pipelines):
+            statements.append("\ntestdata_0 = data_manager.input_data")
+            if ensembling:
+                pipeline = ens_pipeline.ensemble.pipelines[pipe_i]
 
-                joblib.dump(primitive, primfile)
+            cachekey = ""
+            for primitive in pipeline.primitives:
+                varid = "testdata_%s" % str(varindex)
+                newvarid = "testdata_%s" % str(varindex+1)
 
-                # Restore pipeline after pickling is done
-                primitive.pipeline = pipe
-                # Restore executables(instances) after pickling(serialization) is done
-                primitive.executables = execs
-            except Exception as e:
-                sys.stderr.write("ERROR pickling %s : %s\n" % (primitive.name, e))
-
-            if primitive.task == "Modeling":
-                # Initialize primitive
-                if not primitive.is_persistent:
-                    mod, cls = primitive.cls.rsplit('.', 1)
-                    imports.append(mod)
-                    statements.append("args = %s" % primitive.init_args)
-                    statements.append("kwargs = %s" % primitive.init_kwargs)
-                    statements.append("%s.executables = %s(*args, **kwargs)" % (primid, primitive.cls))
-
-                statements.append("\nprint('\\nStoring results in %s' % predictions_file)")
-                statements.append("if not os.path.exists(results_root):")
-                statements.append("    os.makedirs(results_root)")
-                target_column = self.data_manager.target_columns[0]['colName']
-                if primitive.unified_interface:
-                    statements.append("result = pandas.DataFrame(%s.executables.produce(inputs=testdata), index=testdata.index, columns=['%s'])" %
-                        (primid, target_column))
+                if cachekey in variable_cache:
+                    # print ("* Using cache for %s" % primitive)
+                    varid = variable_cache.get(cachekey)
                 else:
-                    statements.append("result = pandas.DataFrame(%s.executables.predict(testdata), index=testdata.index, columns=['%s'])" %
-                        (primid, target_column))
-                statements.append("result.to_csv(predictions_file, index_label='%s')" % self.data_manager.index_column)
-            else:
-                if primitive.task == "PreProcessing":
-                    statements.append("testdata = hp.test_execute_primitive(%s, testdata)" % primid)
-                elif primitive.task == "FeatureExtraction":
-                    statements.append("testdata = hp.test_featurise(%s, testdata)" % primid)
+                    variable_cache[cachekey] = varid
 
-            index += 1
+                cachekey = "%s.%s" % (cachekey, primitive.cls)
+                if cachekey in variable_cache:
+                    newvarid = variable_cache.get(cachekey)
+                    continue
+
+                variable_cache[cachekey] = newvarid
+                varindex += 1
+
+                primid = "primitive_%s" % str(index)
+                try:
+                    statements.append("\nprint('\\nExecuting %s...')" % primitive)
+                    # Remove executables(instances) from not persistent primitives
+                    # as many of them have pickling(serialization) issues
+                    execs = primitive.executables
+                    if not primitive.is_persistent:
+                        if primitive.column_primitive:
+                            execs = {}
+                            for colname in primitive.executables.keys():
+                                execs[colname] = primitive.executables[colname]
+                                primitive.executables[colname] = None
+                        else:
+                            execs = primitive.executables
+                            primitive.executables = None
+
+                    primfilename = "models%s%s.%s.pkl" % (os.sep, pipeid, primid)
+                    primfile = "%s%s%s" % (tmp_dir, os.sep, primfilename)
+                    statements.append("primfile = temp_storage_root + '%s%s'" % (os.sep, primfilename))
+                    statements.append("%s = sklearn.externals.joblib.load(primfile)" % primid)
+
+                    # Remove pipeline from pickling
+                    pipe = primitive.pipeline
+                    primitive.pipeline = None
+
+                    joblib.dump(primitive, primfile)
+                    # Restore pipeline after pickling is done
+                    primitive.pipeline = pipe
+                    # Restore executables(instances) after pickling(serialization) is done
+                    primitive.executables = execs
+                except Exception as e:
+                    sys.stderr.write("ERROR pickling %s : %s\n" % (primitive.name, e))
+
+                if primitive.task == "Modeling":
+                    # Initialize primitive
+                    if not primitive.is_persistent:
+                        mod, cls = primitive.cls.rsplit('.', 1)
+                        imports.append(mod)
+                        statements.append("args = %s" % primitive.init_args)
+                        statements.append("kwargs = %s" % primitive.init_kwargs)
+                        statements.append("%s.executables = %s(*args, **kwargs)" % (primid, primitive.cls))
+
+                    #statements.append("\nprint('\\nStoring results in %s' % predictions_file)")
+                    #statements.append("if not os.path.exists(results_root):")
+                    #statements.append("    os.makedirs(results_root)")
+                    target_column = self.data_manager.target_columns[0]['colName']
+
+                    if primitive.unified_interface:
+                        statements.append("result = pandas.DataFrame(%s.executables.produce(inputs=%s).value, index=%s.index, columns=['%s'])" %
+                            (primid, varid, varid, target_column))
+                    else:
+                        statements.append("result = pandas.DataFrame(%s.executables.predict(%s), index=%s.index, columns=['%s'])" %
+                            (primid, varid, varid, target_column))
+
+                    if ensembling:
+                        statements.append("results.append(result)")
+
+                else:
+                    if primitive.task == "PreProcessing":
+                        statements.append("%s = hp.test_execute_primitive(%s, %s)" % (newvarid, primid, varid))
+                    elif primitive.task == "FeatureExtraction":
+                        statements.append("%s = hp.test_featurise(%s, %s)" % (newvarid, primid, varid))
+
+                index += 1
+
+        # Write results
+        statements.append("\nprint('\\nStoring results in %s' % predictions_file)")
+        statements.append("if not os.path.exists(results_root):")
+        statements.append("    os.makedirs(results_root)")
+        statements.append("")
+
+        # transform categorical labels?
+        if not ensembling:
+            statements.append("result.to_csv(predictions_file, index_label='%s')" % self.data_manager.index_column)
+        else:
+            statements.append("results_np = numpy.array([df.values for df in results])")
+            # ONLY to how many pipelines have executed
+            weights_string = ', '.join([str(w) for w in ens_pipeline.ensemble.pipeline_weights[:pipe_i+1]])
+            statements.append("weights_np = numpy.array([%s]).astype(numpy.int32)" % weights_string)
+            statements.append("weighted_total = numpy.array([df*const for df, const in zip(results_np, weights_np)])")
+            statements.append("average_pred = numpy.sum(weighted_total, axis = 0)/numpy.sum(weights_np)")
+
+            if ens_pipeline.ensemble.discrete_metric:
+                statements.append("average_pred = numpy.rint(average_pred)")
+            statements.append("result = pandas.DataFrame(average_pred, index=testdata_0.index, columns=['%s'])" % self.data_manager.target_columns[0]['colName'])
+            statements.append("result.to_csv(predictions_file, index_label='%s')" % self.data_manager.index_column)
+            # ~ timeout check
 
         # Write executable
         exfilename = "%s%s%s" % (exec_dir, os.sep, pipeid)
@@ -733,6 +795,7 @@ class ExecutionHelper(object):
             module = importlib.import_module(mod.__name__)
             return scoring_function(*args)
         except Exception as e:
-            sys.stderr.write("ERROR _call_function %s: %s\n" % (scoring_function, e))
-            traceback.print_exc()
+            sys.stderr.write("ERROR: _call_function {}: {}\n".format(scoring_function, e))
+            #sys.stderr.write("ERROR _call_function %s: %s\n" % (scoring_function, e))
+            #traceback.print_exc()
             return None

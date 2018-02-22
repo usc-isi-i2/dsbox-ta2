@@ -14,9 +14,10 @@ class Pipeline(object):
     """
     Defines a pipeline
     """
-    def __init__(self, id=None, primitives=None):
+    def __init__(self, id=None, primitives=None, ensemble= None):
         if id is None:
             id = str(uuid.uuid4())
+
         if primitives is None:
             primitives = []
         self.id = id
@@ -25,6 +26,10 @@ class Pipeline(object):
         # Execution Results
         self.planner_result = None
         self.test_result = None
+
+        # Ensemble?
+        self.ensemble = ensemble
+
 
         # Change notification
         self.changes = threading.Condition()
@@ -71,14 +76,20 @@ class Pipeline(object):
         self.changes.release()
 
     def __str__(self):
-        return str(self.primitives)
+        if self.ensemble:
+            return str(self.ensemble.pipelines)
+        else:
+            return str(self.primitives)
 
     def __repr__(self):
-        return str(self.primitives)
+        if self.ensemble:
+            return str(self.ensemble.pipelines)
+        else:
+            return str(self.primitives)
 
     def __getstate__(self):
-        return (self.id, self.primitives, self.planner_result, self.test_result, self.finished)
+        return (self.id, self.primitives, self.planner_result, self.test_result, self.finished, self.ensemble)
 
     def __setstate__(self, state):
-        self.id, self.primitives, self.planner_result, self.test_result, self.finished = state
+        self.id, self.primitives, self.planner_result, self.test_result, self.finished, self.ensemble= state
         self.changes = threading.Condition()
