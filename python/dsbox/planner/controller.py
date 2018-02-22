@@ -269,8 +269,6 @@ class Controller(object):
             self.logfile.write("%s\n" % str(l1_related_pipelines))
             l1_pipelines = l1_related_pipelines
 
-<<<<<<< HEAD
-=======
         if ensemble:
             try:
                 ensemble_pipeline = self.ensemble.greedy_add(self.exec_pipelines, df, df_lbl)
@@ -280,7 +278,6 @@ class Controller(object):
                 traceback.print_exc()
                 sys.stderr.write("ERROR ensemble.greedy_add : %s\n" % e)
 
->>>>>>> primitive-discovery
         self.write_training_results()
 
     '''
