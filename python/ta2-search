@@ -56,8 +56,10 @@ ta2-search <search_config_file>
     # Setup a signal handler to exit gracefully
     # Either on an interrupt or after a certain time
     def write_results_and_exit(signal, frame):
+        print('SIGNAL exit: {}'.format(conf_file))
         controller.write_training_results()
         sys.exit(0)
+
     signal.signal(signal.SIGINT, write_results_and_exit)
     signal.signal(signal.SIGTERM, write_results_and_exit)
     signal.signal(signal.SIGALRM, write_results_and_exit)
@@ -74,6 +76,7 @@ ta2-search <search_config_file>
             sys.exit(148)
         pass
 
+    print('exit: {}'.format(conf_file))
 
 if __name__ == "__main__":
     if DEBUG:

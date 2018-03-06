@@ -1,163 +1,514 @@
-import os
-import sys
+'''Resource Manager for pipelines'''
+import asyncio
+import concurrent
 import copy
+from datetime import datetime, timedelta
+import logging
+import sys
+import stopit
 import traceback
 
 import multiprocessing
-from multiprocessing import Pool, Queue, Lock
+from collections import defaultdict
+from sklearn.externals import joblib
+
+import pdb
+
 from dsbox.schema.data_profile import DataProfile
-from dsbox.planner.common.pipeline import Pipeline, PipelineExecutionResult
+from dsbox.planner.common.pipeline import PipelineExecutionResult
+from dsbox.executer.executionhelper import ExecutionHelper
 
 TIMEOUT = 600  # Time out primitives running for more than 10 minutes
 
-class DummyAsyncResult(object):
-    def __init__(self, func, args):
-        self.func = func
-        self.args = args
-    def get(self, timeout=0):
-        return self.func(*self.args)
+# logging.basicConfig(level=logging.DEBUG, format='%(levelname)s: %(name)s: %(message)s')
+logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(name)s: %(message)s')
 
-class ResourceManager(object):
-    EXECUTION_POOL = None
+class MyExecutor(concurrent.futures.ProcessPoolExecutor):
+    '''Used to generate debugging prints'''
+    def __init__(self, max_workers=2):
+        # print('max_workers={}'.format(max_workers))
+        super().__init__(max_workers=max_workers)
 
-    def __init__(self, helper, numcpus=0):
-        self.helper = helper
-        if ResourceManager.EXECUTION_POOL is None:
-            if numcpus == 0:
-                numcpus = multiprocessing.cpu_count()
-            ResourceManager.EXECUTION_POOL = Pool(numcpus)
-        #self.primitive_queue = Queue()
-        #self.lock = Lock()
+    def submit(self, fn, *args, **kwargs):
+        # print('executor submit({})'.format(fn))
+        return super().submit(fn, *args, **kwargs)
 
-        self.primitive_cache = {}
-        self.execution_cache = {}
+    def map(self, fn, *iterables, timeout=None, chunksize=1):
+        return super().map(fn, *iterables, timeout=timeout, chunksize=chunksize)
 
-        self.use_apply_async = True
+    def shutdown(self, wait=True):
+        super().shutdown(wait=wait)
 
-    def execute_pipelines(self, pipelines, df, df_lbl):
-        pipeline_refs = []
-        exec_pipelines = []
-        for pipeline in pipelines:
-            pipeline_refs.append(self.execute_pipeline(pipeline, df, df_lbl))
-        for pref in pipeline_refs:
-            if pref is not None:
-                (exref, exec_pipeline, primitive, cachekey, newdf, newdf_lbl) = pref
-                if exref is not None:
-                    try:
-                        retvalue = exref.get(timeout=TIMEOUT)
-                        if retvalue is not None:
-                            # Get model predictions and metric values
-                            (predictions, metric_values) = retvalue
-                            if metric_values and len(metric_values) > 0:
-                                print("Got results from {}".format(primitive))
-                                # Create a model for the primitive (Not parallel so we can store the model for evaluation)
-                                self.helper.create_primitive_model(primitive, newdf, newdf_lbl)
-                                # Store the execution result
-                                exec_pipeline.planner_result = PipelineExecutionResult(predictions, metric_values)
-                                # Cache the primitive instance
-                                self.primitive_cache[cachekey] = (primitive.executables, primitive.unified_interface)
-                                # Add to the list of executable pipelines
-                                exec_pipelines.append(exec_pipeline)
-                    except Exception as e:
-                        traceback.print_exc()
-                        sys.stderr.write("ERROR execute_pipelines(%s) : %s\n" % (pipeline, e))
-        return exec_pipelines
+class PipelineExecStat:
+    '''Pipeline execution statistics'''
+    def __init__(self, pipeline, pending_at=None):
+        self.pipeline = pipeline
+        self.pending_at = pending_at if pending_at else datetime.now()
+        self.running_at = None
+        self.finishing_at = None
+    def done(self):
+        '''Returns True if pipeline finished'''
+        return self.finishing_at is not None
+    def get_running_time(self) -> timedelta:
+        '''Returns pipeline wallclock running time'''
+        return self.finishing_at - self.running_at
+    def __str__(self):
+        now = datetime.now()
+        if self.running_at is None:
+            return 'pending {:.1f} min'.format((now-self.pending_at)/timedelta(seconds=60))
+        elif self.finishing_at is None:
+            return 'running {:.1f} min'.format((now-self.running_at)/timedelta(seconds=60))
+        return 'finished {:.1f} min'.format((self.finishing_at-self.running_at)/timedelta(seconds=60))
 
-    def execute_pipeline(self, pipeline, df, df_lbl):
-        print("** Running Pipeline: %s" % pipeline)
+class PrimitiveExecStat:
+    '''primitive execution statistics'''
+    def __init__(self, primitive, use_cache=False, pending_at=None):
+        self.primitive = primitive
+        self.use_cache = use_cache
+        self.pending_at = pending_at if pending_at else datetime.now()
+        self.finishing_at = None
+    def done(self):
+        '''Returns True if pipeline finished'''
+        return self.finishing_at is not None
+    def get_running_time(self) -> timedelta:
+        '''Returns primitive wallclock running time'''
+        return self.finishing_at - self.pending_at
+    def __str__(self):
+        now = datetime.now()
+        if self.finishing_at is None:
+            if self.use_cache:
+                return 'waiting {:.1f} min'.format((now-self.pending_at)/timedelta(seconds=60))
+            else:
+                return 'running {:.1f} min'.format((now-self.pending_at)/timedelta(seconds=60))
+        return 'finished {:.1f} min'.format((self.finishing_at-self.pending_at)/timedelta(seconds=60))
+
+
+class ExecutionStatistics:
+    '''Execution status of all pipelines and their primitives'''
+    def __init__(self):
+        self.pipelines = dict()
+        self.primitives = defaultdict(list)
+        self.unfinished_pipelines = dict()
+        self.num_pipelines = 0
+        self.num_pipelines_finished = 0
+        self.num_pipelines_successful = 0
+
+    def pipeline_pending(self, pipeline):
+        '''Pipeline submitted for execution'''
+        if pipeline.id in self.pipelines:
+            print('Pipeline already registerd: {} {}', pipeline.id, pipeline)
+        else:
+            self.num_pipelines += 1
+            self.pipelines[pipeline.id] = PipelineExecStat(pipeline)
+            self.unfinished_pipelines[pipeline.id] = pipeline
+
+    def pipeline_running(self, pipeline):
+        '''Pipeline started running'''
+        self.pipelines[pipeline.id].running_at = datetime.now()
+
+        # Replace with this pipeline, because now we have the execution version of the pipeline
+        self.pipelines[pipeline.id].pipeline = pipeline
+
+    def pipeline_finished(self, pipeline):
+        '''Pipeline finished running'''
+        self.num_pipelines_finished += 1
+        self.pipelines[pipeline.id].finishing_at = datetime.now()
+        del self.unfinished_pipelines[pipeline.id]
+
+        if pipeline.planner_result is not None:
+            self.num_pipelines_successful += 1
+
+        # Replace with this pipeline, because now we have the execution version of the pipeline
+        self.pipelines[pipeline.id].pipeline = pipeline
+
+    def primitive_waiting(self, pipeline, primitive):
+        '''Primitive started waiting for results cached from another primitive'''
+        # Primitives can either use the result cache
+        self.primitives[pipeline.id].append(PrimitiveExecStat(primitive, use_cache=True))
+
+    def primitive_running(self, pipeline, primitive):
+        '''Primitive started running'''
+        # Or, primitives run to get their own results
+        self.primitives[pipeline.id].append(PrimitiveExecStat(primitive, use_cache=False))
+
+    def primitive_finishing(self, pipeline, primitive):
+        '''Primitive got cached result, or finished running'''
+        if not self.primitives[pipeline.id][-1].primitive == primitive:
+            pdb.set_trace()
+        self.primitives[pipeline.id][-1].finishing_at = datetime.now()
+
+    def print_status(self):
+        '''prints current state'''
+        now = datetime.now()
+        print('Status {}:'.format(now.isoformat()))
+        print('Sucessful pipelines of the finished pipelines: {} of {}'.format(
+            self.num_pipelines_successful, self.num_pipelines_finished))
+        print('Unfinished pipelines of all pipelines: {} of  {}:'.format(
+            self.num_pipelines-self.num_pipelines_finished, self.num_pipelines))
+        for pipeline in self.unfinished_pipelines.values():
+            stat = self.pipelines[pipeline.id]
+            print(' Pipeline {} {} {}'.format(pipeline.id, stat, pipeline))
+        print('Unfinished primtives:')
+        for pipeline in self.unfinished_pipelines.values():
+            if self.primitives[pipeline.id]:
+                stat = self.primitives[pipeline.id][-1]
+                print(' Primitive {} {} {}'.format(pipeline.id, stat, stat.primitive))
         sys.stdout.flush()
 
-        exec_pipeline = pipeline.clone(idcopy=True)
+    def print_successful_pipelines(self):
+        pipeline_stats: PipelineExecStat = self.pipelines.values()
+        pipelines = [s.pipeline for s in pipeline_stats if s.pipeline.planner_result is not None]
+        metrics = [name for name in pipelines[0].planner_result.metric_values.keys()]
+        pipelines_sorted = sorted(pipelines, key=lambda p: p.planner_result.metric_values[metrics[0]], reverse=True)
+        for pipeline in pipelines_sorted:
+            metric_values = []
+            for metric in pipeline.planner_result.metric_values.keys():
+                metric_value = pipeline.planner_result.metric_values[metric]
+                metric_values.append("%s = %2.4f" % (metric, metric_value))
+            print("%s ( %s ) : %s" % (pipeline.id, pipeline, metric_values))
 
-        # TODO: Check for ramifications
-        pipeline.primitives = exec_pipeline.primitives
-        cols = df.columns
+    def save_without_executables(self, filename):
+        """Save statistics. WARNING: will remove primitive executables to avoid large files"""
+        for pipeline_stat in self.pipelines.values():
+            for primitive in pipeline_stat.pipeline.primitives:
+                primitive.executables = None
+        joblib.dump(self, filename)
+
+class ResourceManager:
+    '''Resource manager for running pipelines.
+
+    Use asyncio event loop to schedule primitive executions. The
+    actual execution of primitives can be inline or within a subprocess.
+
+    '''
+    def __init__(self, helper: ExecutionHelper, max_workers=0):
+        self.helper = helper
+        self.log = logging.getLogger('ResourceManager')
+        self.loop = asyncio.new_event_loop()
+        self.loop.set_debug(enabled=True)
+        self.loop.set_exception_handler(self._exception_handler)
+
+        # Pipelines that have been executed
+        self.exec_pipelines = []
+
+        # Cache results of execution
+        self.execution_cache = {}
+
+        # Cache trained primitive executables
+        self.primitive_cache = {}
+
+        # Prmitives scheduled for execution
+        self.scheduled = set()
+
+        # Tasks to run
+        self.pending_tasks = []
+
+        # Used by primitives waiting for results
+        self.condition = dict()
+
+        # Set max number of subprocesses
+        if max_workers == 0:
+            max_workers = multiprocessing.cpu_count()
+        # self.executor = concurrent.futures.ProcessPoolExecutor(max_workers=max_workers)
+        self.executor = MyExecutor(max_workers=max_workers)
+
+        self.cross_validation_folds = 10
+
+        self.stats = ExecutionStatistics()
+
+    @stopit.threading_timeoutable()
+    def execute_pipelines(self, pipelines, df, df_lbl, callbacks=None):
+        """Execute all pipelines.
+
+        Blocking returns when they are all pipelines complete
+        (including add_pipelines).
+
+        """
+        # start status reporting task
+        status_task = self.loop.create_task(self._report_status())
+
+        # Create and schedule tasks for each pipeline
+        tasks = []
+        for pipeline in pipelines:
+            tasks.append(self.loop.create_task(self._run_pipeline(pipeline, df, df_lbl)))
+            self.stats.pipeline_pending(pipeline)
+
+        if callbacks is not None:
+            for task, callback in zip(tasks, callbacks):
+                task.add_done_callback(callback)
+
+        # Run pipeline tasks
+        try:
+            self.log.info('Run initial pipelines')
+            self.loop.run_until_complete(asyncio.gather(*tasks))
+            self.stats.print_status()
+
+            # Make sure pipelines add later are completed
+            self.pending_tasks = [task for task in self.pending_tasks if not task.done()]
+
+            while len(self.pending_tasks) > 0:
+                self.log.info('Run pending pipelines %d', len(self.pending_tasks))
+                self.loop.run_until_complete(asyncio.gather(*self.pending_tasks))
+                self.pending_tasks = [task for task in self.pending_tasks if not task.done()]
+
+        except Exception as e:
+            print('Exception in running pipelines: {}'.format(e))
+            traceback.print_exc()
+
+        status_task.cancel()
+        self.loop.run_until_complete(status_task)
+
+    def add_pipeline(self, pipeline, df, df_lbl, callback=None):
+        '''Add one pipeline for execution.
+
+        Non-blocking returns right away.  Assumes execute_pipelines
+        has been called or will be called
+
+        '''
+        self.log.debug('Adding pipeline %s %s', pipeline.id, pipeline)
+
+        # Create and schedule task
+        task = self.loop.create_task(self._run_pipeline(pipeline, df, df_lbl))
+
+        self.stats.pipeline_pending(pipeline)
+
+        if callback is not None:
+            task.add_done_callback(callback)
+
+        # Make sure this task will be ran
+        self.pending_tasks.append(task)
+
+    def _exception_handler(self, loop, context):
+        print('my_handler: {}'.format(context['message']), file=sys.stderr)
+        print('{}'.format(context), file=sys.stderr)
+
+    async def _report_status(self):
+        try:
+            while True:
+                self.stats.print_status()
+                await asyncio.sleep(30)
+        except concurrent.futures.CancelledError:
+            self.stats.print_status()
+            return
+
+    async def _run_pipeline(self, pipeline, df, df_lbl):
+        print("** Running Pipeline: %s %s" % (pipeline.id, pipeline))
+        sys.stdout.flush()
+        self.log.debug('%s Pipeline running %s', pipeline.id, pipeline)
+
+        exec_pipeline = pipeline.clone(idcopy=True)
+        exec_pipeline.planner_result = None
+
+        self.stats.pipeline_running(exec_pipeline)
 
         cachekey = ""
 
         for primitive in exec_pipeline.primitives:
+
             # Mark the pipeline that the primitive is part of
             # - Used to notify waiting threads of execution changes
-            primitive.pipeline = pipeline
-            cachekey = "%s.%s" % (cachekey, primitive.cls)
+            primitive.pipeline = exec_pipeline
+
+            # Include hyperparameter in cache key
+            cachekey = "%s.%s" % (cachekey, primitive)
+
+            # Check if result is in cache
             if cachekey in self.execution_cache:
-                # print ("* Using cache for %s" % primitive)
+                self.log.debug('%s Primitive cache for %s', pipeline.id, primitive)
+                self.stats.primitive_waiting(exec_pipeline, primitive)
+
                 df = self.execution_cache.get(cachekey)
                 (primitive.executables, primitive.unified_interface) = self.primitive_cache.get(cachekey)
+
+                self.stats.primitive_finishing(exec_pipeline, primitive)
                 continue
 
+            # Check if it is already being processed
+            if cachekey in self.scheduled:
+                self.log.debug('%s Primitive waiting condition for %s', pipeline.id, primitive)
+                self.stats.primitive_waiting(exec_pipeline, primitive)
+
+                if not cachekey in self.condition:
+                    self.condition[cachekey] = asyncio.Condition()
+                cv = self.condition[cachekey]
+                with await cv:
+                    await cv.wait()
+                self.log.debug('%s Primitive wait condition for %s', pipeline.id, primitive)
+                df = self.execution_cache.get(cachekey)
+                (primitive.executables, primitive.unified_interface) = self.primitive_cache.get(cachekey)
+
+                self.stats.primitive_finishing(exec_pipeline, primitive)
+                continue
+
+            # Run the primitive
             try:
                 if df is None:
+                    # primitive in previous stage failed
+                    self.log.debug('%s Primitive previous stage failed %s', pipeline.id, primitive)
                     return None
 
-                # FIXME: HACK !!!!
-                # Some primitives are not fork-safe. Should not use multiprocessor.Pool after using these components
-                if 'ImageFeature' in primitive.cls or 'BBNAudioPrimitiveWrapper' in primitive.cls:
-                    self.use_apply_async = False
+                self.log.debug('%s Primitive scheduling %s', pipeline.id, cachekey)
 
-                if primitive.task == "FeatureExtraction":
-                    print("Executing %s" % primitive.name)
-                    sys.stdout.flush()
+                self.scheduled.add(cachekey)
+                await self._run_primitive(exec_pipeline, cachekey, primitive, df, df_lbl)
+                self.scheduled.remove(cachekey)
+                self.log.debug('%s Primitive done %s', pipeline.id, cachekey)
 
-                    # Featurisation Primitive
-                    df = self.helper.featurise(primitive, copy.copy(df), timeout=TIMEOUT)
-                    cols = df.columns
-                    self.execution_cache[cachekey] = df
-                    self.primitive_cache[cachekey] = (primitive.executables, primitive.unified_interface)
+                df = self.execution_cache.get(cachekey)
+                (primitive.executables, primitive.unified_interface) = self.primitive_cache.get(cachekey)
 
-                elif primitive.task == "Modeling":
-                    # Modeling Primitive
-
-                    if self.use_apply_async:
-                        # Evaluate: Get a cross validation score for the metric
-                        # Return reference to parallel process
-                        exref = ResourceManager.EXECUTION_POOL.apply_async(
-                            self.helper.cross_validation_score,
-                            args=(primitive, df, df_lbl, 10))
-                    else:
-                        exref = DummyAsyncResult(
-                            self.helper.cross_validation_score,
-                            args=(primitive, df, df_lbl, 10))
-                    return (exref, exec_pipeline, primitive, cachekey, df, df_lbl)
-
-                else:
-                    print("Executing %s" % primitive.name)
-                    sys.stdout.flush()
-
-                    # Re-profile intermediate data here.
-                    # TODO: Recheck if it is ok for the primitive's preconditions
-                    #       and patch pipeline if necessary
-                    cur_profile = DataProfile(df)
-
-                    # Glue primitive
-                    df = self.helper.execute_primitive(
-                        primitive, copy.copy(df), df_lbl, cur_profile, timeout=TIMEOUT)
-                    self.execution_cache[cachekey] = df
-                    self.primitive_cache[cachekey] = (primitive.executables, primitive.unified_interface)
-
+                # Notify condition
+                if cachekey in self.condition:
+                    self.log.debug('%s notify condition %s', pipeline.id, cachekey)
+                    cv = self.condition[cachekey]
+                    del self.condition[cachekey]
+                    with await cv:
+                        cv.notify_all()
             except Exception as e:
                 sys.stderr.write(
-                    "ERROR execute_pipeline(%s) : %s\n" % (exec_pipeline, e))
+                    "ERROR execute_pipeline(%s %s) : %s\n" % (exec_pipeline, exec_pipeline.id, e))
                 traceback.print_exc()
                 exec_pipeline.finished = True
                 return None
 
-        pipeline.finished = True
-        return exec_pipeline
+        self.stats.pipeline_finished(exec_pipeline)
+
+        # Add to the list of executable pipelines
+        if exec_pipeline.planner_result is not None:
+            self.log.info('%s Pipeline suceeded %s', exec_pipeline.id, exec_pipeline)
+
+            self.log.info('%s %s %s', exec_pipeline.id, exec_pipeline, exec_pipeline.planner_result.metric_values)
+
+            self.exec_pipelines.append(exec_pipeline)
+            return exec_pipeline
+        self.log.debug('%s Pipeline failed %s', pipeline.id, pipeline)
+        return None
 
 
-    def primitive_executed(self, primitive, status):
-        pass
+    async def _run_primitive(self, exec_pipeline, cachekey, primitive, df, df_lbl):
+        '''Run one primitive'''
+        inline = getattr(primitive, 'run_inline', False)
 
-    def execute_primitive(self, primitive, callback_fn):
-        pass
+        self.log.debug('Running inline %s primitive %s', inline, primitive)
 
-    '''
-    def __getstate__(self):
-        self_dict = self.__dict__.copy()
-        del self_dict['execution_pool']
-        return self_dict
+        executables = None
+        unified_interface = False
+        if primitive.task == "FeatureExtraction":
+            # Featurisation Primitive
+            self.log.debug('%s Run primitive feature   %s', exec_pipeline.id, primitive)
+            if inline:
+                self.stats.primitive_running(exec_pipeline, primitive)
+                df = self.helper.featurise(primitive, copy.copy(df), timeout=TIMEOUT)
+                self.stats.primitive_finishing(exec_pipeline, primitive)
+            else:
+                self.stats.primitive_running(exec_pipeline, primitive)
+                self.log.debug('%s Run primitive submit    %s', exec_pipeline.id, primitive)
+                task = self.loop.run_in_executor(self.executor, self.helper.featurise_remote, primitive, df)
+                self.log.debug('%s Run primitive waiting   %s', exec_pipeline.id, primitive)
+                await asyncio.wait([task], timeout=TIMEOUT)
+                self.log.debug('%s Run primitive wait done %s', exec_pipeline.id, primitive)
+                self.stats.primitive_finishing(exec_pipeline, primitive)
 
-    def __setstate__(self, state):
-        self.__dict__.update(state)
-    '''
+                if task.done():
+                    result = task.result()
+                    if isinstance(result, Exception):
+                        self.log.debug(result)
+                        df = None
+                    else:
+                        df, executables, unified_interface = result
+                else:
+                    df = None
+
+                primitive.executables = executables
+                primitive.unified_interface = unified_interface
+            self.primitive_cache[cachekey] = (primitive.executables, primitive.unified_interface)
+            self.execution_cache[cachekey] = df
+        elif primitive.task == "Modeling":
+            # Modeling Primitive
+            self.log.debug('%s Run primitive modeling  %s', exec_pipeline.id, primitive)
+
+            # always run in subprocess
+            self.stats.primitive_running(exec_pipeline, primitive)
+            self.log.debug('%s Run primitive submit    %s', exec_pipeline.id, primitive)
+            task = self.loop.run_in_executor(self.executor, self.helper.cross_validation_score,
+                                             primitive, df, df_lbl, self.cross_validation_folds)
+
+            self.log.debug('%s Run primitive waiting   %s', exec_pipeline.id, primitive)
+            await asyncio.wait([task], timeout=TIMEOUT)
+            self.log.debug('%s Run primitive wait done %s', exec_pipeline.id, primitive)
+            self.stats.primitive_finishing(exec_pipeline, primitive)
+
+            # Get model predictions and metric values.
+            metric_values = []
+            if task.done():
+                result = task.result()
+                if not isinstance(result, Exception) and result is not None:
+                    predictions, metric_values = result
+
+            if metric_values and len(metric_values) > 0:
+                print("Got results from %s" % exec_pipeline)
+                self.log.debug("%s Got results from %s", exec_pipeline.id, primitive)
+
+                self.stats.primitive_running(exec_pipeline, 'cross_validation')
+                self.log.debug('%s Run primitive submit     cross validation for %s', exec_pipeline.id, primitive)
+                task = self.loop.run_in_executor(self.executor, self.helper.create_primitive_model_remote,
+                                                 primitive, df, df_lbl)
+                self.log.debug('%s Run primitive waiting   cross validation for %s', exec_pipeline.id, primitive)
+                await asyncio.wait([task], timeout=TIMEOUT)
+                self.log.debug('%s Run primitive wait done cross validation for %s', exec_pipeline.id, primitive)
+                self.stats.primitive_finishing(exec_pipeline, 'cross_validation')
+
+                if task.done():
+                    result = task.result()
+                    if isinstance(result, Exception):
+                        print('Exception')
+                        print(result)
+                        executables = None
+                    else:
+                        executables, unified_interface = result
+                else:
+                    self.log.debug('%s Run primitive NOT DONE  cross validation for %s', exec_pipeline.id, primitive)
+
+                # Store the execution result
+                exec_pipeline.planner_result = PipelineExecutionResult(predictions, metric_values)
+
+                # Cache the primitive instance
+            primitive.executables = executables
+            primitive.unified_interface = unified_interface
+            self.primitive_cache[cachekey] = (primitive.executables, primitive.unified_interface)
+
+        else:
+            self.log.debug('%s Run primitive other primitive type', exec_pipeline.id)
+            if inline:
+                # Re-profile intermediate data here.
+                # TODO: Recheck if it is ok for the primitive's preconditions
+                #       and patch pipeline if necessary
+                cur_profile = DataProfile(df)
+
+                # Glue primitive
+                df = self.helper.execute_primitive(
+                    primitive, copy.copy(df), df_lbl, cur_profile, timeout=TIMEOUT)
+                self.primitive_cache[cachekey] = (primitive.executables, primitive.unified_interface)
+            else:
+                cur_profile = DataProfile(df)
+
+                self.log.debug('%s Run primitive submit    %s', exec_pipeline.id, primitive)
+                task = self.loop.run_in_executor(self.executor, self.helper.execute_primitive_remote, primitive,
+                                                 df, df_lbl, cur_profile)
+                self.log.debug('%s Run primitive waiting   %s', exec_pipeline.id, primitive)
+                await asyncio.wait([task], timeout=TIMEOUT)
+                self.log.debug('%s Run primitive wait done %s', exec_pipeline.id, primitive)
+
+                if task.done():
+                    result = task.result()
+                    if isinstance(result, Exception):
+                        self.log.debug(result)
+                        df = None
+                    else:
+                        df, executables, unified_interface = result
+                else:
+                    df = None
+                primitive.executables = executables
+                primitive.unified_interface = unified_interface
+            self.primitive_cache[cachekey] = (primitive.executables, primitive.unified_interface)
+            self.execution_cache[cachekey] = df
