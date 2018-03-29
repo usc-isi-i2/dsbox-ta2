@@ -47,13 +47,13 @@ class ResourceManager(object):
                         retvalue = exref.get(timeout=TIMEOUT)
                         if retvalue is not None:
                             # Get model predictions and metric values
-                            (predictions, metric_values) = retvalue
+                            (predictions, metric_values, stat) = retvalue
                             if metric_values and len(metric_values) > 0:
                                 print("Got results from {}".format(primitive))
                                 # Create a model for the primitive (Not parallel so we can store the model for evaluation)
                                 self.helper.create_primitive_model(primitive, newdf, newdf_lbl)
                                 # Store the execution result
-                                exec_pipeline.planner_result = PipelineExecutionResult(predictions, metric_values)
+                                exec_pipeline.planner_result = PipelineExecutionResult(predictions, metric_values, stat)
                                 # Cache the primitive instance
                                 self.primitive_cache[cachekey] = (primitive.executables, primitive.unified_interface)
                                 # Add to the list of executable pipelines

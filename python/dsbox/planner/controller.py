@@ -10,13 +10,15 @@ import shutil
 import traceback
 import pandas as pd
 
+from typing import List
+
 from dsbox.planner.leveltwo.l1proxy import LevelOnePlannerProxy
 from dsbox.planner.leveltwo.planner import LevelTwoPlanner
 from dsbox.schema.data_profile import DataProfile
 from dsbox.schema.problem_schema import TaskType, TaskSubType, Metric
 from dsbox.executer.executionhelper import ExecutionHelper
 from dsbox.planner.common.data_manager import Dataset, DataManager
-from dsbox.planner.common.pipeline import Pipeline, PipelineExecutionResult
+from dsbox.planner.common.pipeline import Pipeline, PipelineExecutionResult, OneStandardErrorPipelineSorter, PipelineSorter
 from dsbox.planner.common.problem_manager import Problem
 from dsbox.planner.common.resource_manager import ResourceManager
 from dsbox.planner.ensemble import Ensemble
@@ -50,6 +52,9 @@ class Controller(object):
     def __init__(self, libdir):
         # FIXME: This should change to the primitive discovery interface
         self.libdir = os.path.abspath(libdir)
+
+        self.exec_pipelines: List[Pipeline] = []
+        self._pipeline_sorter: PipelineSorter = None
 
     '''
     Set config directories and data schema file
@@ -166,6 +171,11 @@ class Controller(object):
 
         self.data_manager.initialize_data(self.problem, [dataset], view)
 
+    def get_pipeline_sorter(self):
+        if self._pipeline_sorter is None:
+            self._pipeline_sorter = OneStandardErrorPipelineSorter(self.problem.metrics[0])
+        return self._pipeline_sorter
+
 
     """
     Initialize the L1 and L2 planners
@@ -247,7 +257,8 @@ class Controller(object):
                 if exec_pipeline:
                     self.exec_pipelines.append(exec_pipeline)
 
-            self.exec_pipelines = sorted(self.exec_pipelines, key=lambda x: self._sort_by_metric(x))
+            # self.exec_pipelines = sorted(self.exec_pipelines, key=lambda x: self._sort_by_metric(x))
+            self.exec_pipelines = self.get_pipeline_sorter().sort_pipelines(self.exec_pipelines)
             self.logfile.write("\nL2 Executed Pipelines:\n-------------\n")
             self.logfile.write("%s\n" % str(self.exec_pipelines))
 
@@ -284,14 +295,16 @@ class Controller(object):
     Write training results to file
     '''
     def write_training_results(self):
-        # Sorkt pipelines
-        self.exec_pipelines = sorted(self.exec_pipelines, key=lambda x: self._sort_by_metric(x))
+        # Sort pipelines
+        # self.exec_pipelines = sorted(self.exec_pipelines, key=lambda x: self._sort_by_metric(x))
+        self.exec_pipelines = self.get_pipeline_sorter().sort_pipelines(self.exec_pipelines)
+
 
         # Ended planners
         self._show_status("Found total %d successfully executing pipeline(s)..." % len(self.exec_pipelines))
 
         # Create executables
-        self.pipelinesfile.write("# Pipelines ranked by metrics (%s)\n" % self.problem.metrics)
+        self.pipelinesfile.write("# Pipelines ranked by (adjusted) metrics (%s)\n" % self.problem.metrics)
         for index in range(0, len(self.exec_pipelines)):
             pipeline = self.exec_pipelines[index]
             rank = index + 1
@@ -383,8 +396,6 @@ class Controller(object):
 
     def _sort_by_metric(self, pipeline):
         # NOTE: Sorting/Ranking by first metric only
-        metric_name = self.problem.metrics[0].name
-        mlower = metric_name.lower()
-        if "error" in mlower or "loss" in mlower or "time" in mlower:
-            return pipeline.planner_result.metric_values[metric_name]
-        return -pipeline.planner_result.metric_values[metric_name]
+        if self.problem.metrics[0].larger_is_better():
+            return -pipeline.planner_result.metric_values[self.problem.metrics[0].name]
+        return pipeline.planner_result.metric_values[self.problem.metrics[0].name]

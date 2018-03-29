@@ -1,3 +1,6 @@
+import pickle
+import sys
+
 from d3m_metadata.metadata import PrimitiveMetadata, PrimitiveFamily, PrimitiveAlgorithmType
 
 class Primitive(object):
@@ -29,6 +32,7 @@ class Primitive(object):
 
         # Execution details
         self.executables = {}
+        self.executable_size = 0
         self.start_time = None
         self.end_time = None
         self.progress = 0.0
@@ -85,3 +89,9 @@ class Primitive(object):
 
     def __setstate__(self, state):
         self.__dict__.update(state)
+
+    def getExecutableSize(self):
+        if self.executable_size == 0:
+            if self.executables:
+                self.executable_size = sys.getsizeof(pickle.dumps(self.executables))
+        return self.executable_size
