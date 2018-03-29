@@ -110,7 +110,7 @@ class Ensemble(object):
         self.pipelines = [self.all_pipelines[index] for index in sorted(indices)]
         self.pipeline_weights = dict(zip(unique, counts))
         self.pipeline_weights = [self.pipeline_weights[p.id] for p in self.pipelines]
-        self.train_result = PipelineExecutionResult(self.predictions, self.metric_values)
+        self.train_result = PipelineExecutionResult(self.predictions, self.metric_values, None)
 
         ens_pipeline = self._ens_pipeline()
         print(ens_pipeline.id)
