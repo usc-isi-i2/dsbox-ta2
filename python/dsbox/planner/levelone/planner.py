@@ -53,7 +53,7 @@ class LevelOnePlanner(object):
         for node in family_nodes:
             child_nodes += node.get_children()
             
-        for node in next_children:
+        for node in child_nodes:
             primitives = self.ontology.hierarchy.get_primitives_as_list(node)
             if not primitives:
                 continue
@@ -78,7 +78,7 @@ class LevelOnePlanner(object):
         child_nodes = []
         for node in family_nodes:
             child_nodes += node.get_children()
-        for node in next_children:
+        for node in child_nodes:
             primitives = self.ontology.hierarchy.get_primitives_as_list(node)
             if not primitives:
                 continue
