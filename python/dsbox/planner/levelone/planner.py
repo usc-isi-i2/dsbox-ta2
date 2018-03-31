@@ -48,10 +48,12 @@ class LevelOnePlanner(object):
             families = families + self.primitive_family_mappings.get_families_by_task_type(TaskType.LINK_PREDICTION)
 
         family_nodes = [self.ontology.get_family(f) for f in families]
+
         child_nodes = []
         for node in family_nodes:
             child_nodes += node.get_children()
-        for node in child_nodes:
+            
+        for node in next_children:
             primitives = self.ontology.hierarchy.get_primitives_as_list(node)
             if not primitives:
                 continue
@@ -64,10 +66,32 @@ class LevelOnePlanner(object):
             primitive = random_choices(primitives, weights)
             pipe = Pipeline(primitives=[primitive])
             results.append(pipe)
+
         return results
 
     def fill_feature_by_weights(self, pipeline : Pipeline, num_pipelines=5) -> Pipeline:
         """Insert feature primitive weighted by on media_type"""
+        selected_primitives = []
+
+        families = self.primitive_family_mappings.get_families_by_media(self.media.value)
+        family_nodes = [self.ontology.get_family(f) for f in families]
+        child_nodes = []
+        for node in family_nodes:
+            child_nodes += node.get_children()
+        for node in next_children:
+            primitives = self.ontology.hierarchy.get_primitives_as_list(node)
+            if not primitives:
+                continue
+            weights = [p.weight for p in primitives]
+
+            # Set task type for execute_pipeline
+            for p in primitives:
+                p.task = 'FeatureExtraction'
+
+            primitive = random_choices(primitives, weights)
+            selected_primitives.append(primitive)
+
+
         feature_primitive_paths = self.primitive_family_mappings.get_primitives_by_media(
             self.media_type)
 
@@ -84,8 +108,10 @@ class LevelOnePlanner(object):
                     print('Library does not have primitive {}'.format(path))
                     print('Possible error in file primitive_family_mappings.json')
         primitive_weights = [p.weight for p in feature_primitives]
-        selected_primitives = random_choices_without_replacement(
-            feature_primitives, primitive_weights, num_pipelines)
+        selected_primitives = selected_primitives.extend(random_choices_without_replacement(
+            feature_primitives, primitive_weights, num_pipelines))
+
+
         new_pipelines = []
         for p in selected_primitives:
             # Set task type for execute_pipeline

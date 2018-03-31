@@ -35,6 +35,7 @@ class LevelOnePlannerProxy(object):
         self.ontology = D3MOntology(self.primitives)
         self.ontology.load_curated_hierarchy(libdir)
 
+               
         self.media_type = VariableFileType.NONE
         if helper.data_manager.media_type is not None:
             self.media_type = helper.data_manager.media_type
