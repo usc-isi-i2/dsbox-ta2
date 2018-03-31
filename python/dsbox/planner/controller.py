@@ -97,7 +97,7 @@ class Controller(object):
         self.logfile = open("%s%slog.txt" % (self.tmp_dir, os.sep), 'w')
         self.errorfile = open("%s%sstderr.txt" % (self.tmp_dir, os.sep), 'w')
         self.pipelinesfile = open("%s%spipelines.txt" % (self.tmp_dir, os.sep), 'w')
-        self.statistics_filename = "%s%sstatistics.pkl" % (self.tmp_dir, os.sep)
+        self.statistics_filename = "%s%sstatistics.jsonl" % (self.tmp_dir, os.sep)
 
         self.problem = Problem()
         self.data_manager = DataManager()
@@ -340,8 +340,13 @@ class Controller(object):
             self.execution_helper.create_pipeline_executable(pipeline, self.config)
             self.create_pipeline_logfile(pipeline, rank)
 
+        # Flush pipeline
+        self.pipelinesfile.flush()
+
         # save statistics
-        self.resource_manager.stats.save_without_executables(self.statistics_filename)
+        with open(self.statistics_filename, 'w') as outfile:
+            self.resource_manager.stats.json_line_dump(outfile, problem_id=self.problem.get_problem_id(),
+                                                       dataset_names=self.problem.get_dataset_ids())
 
     '''
     Predict results on test data given a pipeline

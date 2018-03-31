@@ -2,20 +2,25 @@
 import asyncio
 import concurrent
 import copy
-from datetime import datetime, timedelta
+import json
 import logging
 import sys
-import stopit
+import multiprocessing
 import traceback
 
-import multiprocessing
 from collections import defaultdict
+from datetime import datetime, timedelta, date
+from typing import Dict, List
+
+import numpy as np
+import stopit
+
+from sklearn.base import ClassifierMixin, RegressorMixin
 from sklearn.externals import joblib
 
-import pdb
-
 from dsbox.schema.data_profile import DataProfile
-from dsbox.planner.common.pipeline import PipelineExecutionResult
+from dsbox.planner.common.pipeline import Pipeline, PipelineExecutionResult
+from dsbox.planner.common.primitive import Primitive
 from dsbox.executer.executionhelper import ExecutionHelper
 
 TIMEOUT = 600  # Time out primitives running for more than 10 minutes
@@ -83,58 +88,78 @@ class PrimitiveExecStat:
         return 'finished {:.1f} min'.format((self.finishing_at-self.pending_at)/timedelta(seconds=60))
 
 
+class SimpleEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, (datetime, date)):
+            return obj.isoformat()
+        if isinstance(obj, (ClassifierMixin, RegressorMixin)):
+            return str(type(obj))
+        if isinstance(obj, np.int64):
+            return int(obj)
+        return json.JSONEncoder.default(self, obj)
+
+
 class ExecutionStatistics:
     '''Execution status of all pipelines and their primitives'''
     def __init__(self):
-        self.pipelines = dict()
-        self.primitives = defaultdict(list)
+        # For each pipeline, store its statistics
+        self.pipeline_stats = dict()  # type: Dict[str, PipelineExecStat]
+
+        # For each pipeline, store statistics for its primitve statistics
+        self.primitives = defaultdict(list)  # type: Dict[str, List[PrimitiveExecStat]]
+
+        # For unfinished pipeline statistics
         self.unfinished_pipelines = dict()
+
         self.num_pipelines = 0
         self.num_pipelines_finished = 0
         self.num_pipelines_successful = 0
 
-    def pipeline_pending(self, pipeline):
+        self.starting_at = datetime.now()
+        self.ending_at = None
+
+        self._encoder = SimpleEncoder()
+
+    def pipeline_pending(self, pipeline: Pipeline):
         '''Pipeline submitted for execution'''
-        if pipeline.id in self.pipelines:
+        if pipeline.id in self.pipeline_stats:
             print('Pipeline already registerd: {} {}', pipeline.id, pipeline)
         else:
             self.num_pipelines += 1
-            self.pipelines[pipeline.id] = PipelineExecStat(pipeline)
+            self.pipeline_stats[pipeline.id] = PipelineExecStat(pipeline)
             self.unfinished_pipelines[pipeline.id] = pipeline
 
-    def pipeline_running(self, pipeline):
+    def pipeline_running(self, pipeline: Pipeline):
         '''Pipeline started running'''
-        self.pipelines[pipeline.id].running_at = datetime.now()
+        self.pipeline_stats[pipeline.id].running_at = datetime.now()
 
         # Replace with this pipeline, because now we have the execution version of the pipeline
-        self.pipelines[pipeline.id].pipeline = pipeline
+        self.pipeline_stats[pipeline.id].pipeline = pipeline
 
-    def pipeline_finished(self, pipeline):
+    def pipeline_finished(self, pipeline: Pipeline):
         '''Pipeline finished running'''
         self.num_pipelines_finished += 1
-        self.pipelines[pipeline.id].finishing_at = datetime.now()
+        self.pipeline_stats[pipeline.id].finishing_at = datetime.now()
         del self.unfinished_pipelines[pipeline.id]
 
         if pipeline.planner_result is not None:
             self.num_pipelines_successful += 1
 
         # Replace with this pipeline, because now we have the execution version of the pipeline
-        self.pipelines[pipeline.id].pipeline = pipeline
+        self.pipeline_stats[pipeline.id].pipeline = pipeline
 
-    def primitive_waiting(self, pipeline, primitive):
+    def primitive_waiting(self, pipeline: Pipeline, primitive: Primitive):
         '''Primitive started waiting for results cached from another primitive'''
         # Primitives can either use the result cache
         self.primitives[pipeline.id].append(PrimitiveExecStat(primitive, use_cache=True))
 
-    def primitive_running(self, pipeline, primitive):
+    def primitive_running(self, pipeline: Pipeline, primitive: Primitive):
         '''Primitive started running'''
         # Or, primitives run to get their own results
         self.primitives[pipeline.id].append(PrimitiveExecStat(primitive, use_cache=False))
 
-    def primitive_finishing(self, pipeline, primitive):
+    def primitive_finishing(self, pipeline: Pipeline, primitive: Primitive):
         '''Primitive got cached result, or finished running'''
-        if not self.primitives[pipeline.id][-1].primitive == primitive:
-            pdb.set_trace()
         self.primitives[pipeline.id][-1].finishing_at = datetime.now()
 
     def print_status(self):
@@ -146,7 +171,7 @@ class ExecutionStatistics:
         print('Unfinished pipelines of all pipelines: {} of  {}:'.format(
             self.num_pipelines-self.num_pipelines_finished, self.num_pipelines))
         for pipeline in self.unfinished_pipelines.values():
-            stat = self.pipelines[pipeline.id]
+            stat = self.pipeline_stats[pipeline.id]
             print(' Pipeline {} {} {}'.format(pipeline.id, stat, pipeline))
         print('Unfinished primtives:')
         for pipeline in self.unfinished_pipelines.values():
@@ -156,7 +181,8 @@ class ExecutionStatistics:
         sys.stdout.flush()
 
     def print_successful_pipelines(self):
-        pipeline_stats: PipelineExecStat = self.pipelines.values()
+        '''Print sucessful pipelines'''
+        pipeline_stats: PipelineExecStat = self.pipeline_stats.values()
         pipelines = [s.pipeline for s in pipeline_stats if s.pipeline.planner_result is not None]
         metrics = [name for name in pipelines[0].planner_result.metric_values.keys()]
         pipelines_sorted = sorted(pipelines, key=lambda p: p.planner_result.metric_values[metrics[0]], reverse=True)
@@ -167,12 +193,79 @@ class ExecutionStatistics:
                 metric_values.append("%s = %2.4f" % (metric, metric_value))
             print("%s ( %s ) : %s" % (pipeline.id, pipeline, metric_values))
 
-    def save_without_executables(self, filename):
-        """Save statistics. WARNING: will remove primitive executables to avoid large files"""
-        for pipeline_stat in self.pipelines.values():
+    def pickle_without_executables(self, filename):
+        '''Save statistics. WARNING: will remove primitive executables to avoid large files'''
+        for pipeline_stat in self.pipeline_stats.values():
             for primitive in pipeline_stat.pipeline.primitives:
                 primitive.executables = None
         joblib.dump(self, filename)
+
+    def get_stat_by_model(self, name):
+        '''Returns pipeline stat by learner name'''
+        for stat in self.pipeline_stats.values():
+            if name in stat.pipeline.primitives[-1].name:
+                yield stat
+
+    def json_line_dump(self, out=sys.stdout, *, run_id=None, problem_id='a_run', dataset_names=['a_dataset']):
+        '''Dump data out in JSON Line format'''
+        if self.ending_at is None:
+            self.ending_at = datetime.now()
+        if run_id is None:
+            run_id = datetime.now().isoformat()
+        run_info = {
+            'run_info' : True,
+            'run_id' : run_id,
+            'problem_id' : problem_id,
+            'dataset' : dataset_names,
+            'num_pipelines' : self.num_pipelines,
+            'num_pipelines_finished' : self.num_pipelines_finished,
+            'num_pipelines_successful' : self.num_pipelines_successful,
+            'running' : self.starting_at,
+            'finishing' : self.ending_at,
+            'running_time' : (self.ending_at - self.starting_at).total_seconds()
+        }
+        print(self._encoder.encode(run_info), file=out)
+
+        for pipe_id, pipe_stat in self.pipeline_stats.items():
+            primitives_info = []
+            for primitive_stat in self.primitives[pipe_id]:
+                if isinstance(primitive_stat.primitive, str):
+                    primitive = {
+                        'id' : primitive_stat.primitive,
+                        'name' : primitive_stat.primitive,
+                        'class' : primitive_stat.primitive,
+                        'hyperparams' : None}
+                else:
+                    primitive = {
+                        'id' : primitive_stat.primitive.id,
+                        'name' : primitive_stat.primitive.name,
+                        'class' : primitive_stat.primitive.cls,
+                        'hyperparams' : (primitive_stat.primitive.getHyperparams()
+                                         if primitive_stat.primitive.hasHyperparamClass() else None)}
+                primitives_info.append({
+                    **primitive,
+                    'pending' : primitive_stat.pending_at if primitive_stat.pending_at else None,
+                    'finishing' : primitive_stat.finishing_at if primitive_stat.finishing_at else None,
+                    'done' : primitive_stat.done(),
+                    'running_time' : (primitive_stat.get_running_time().total_seconds()
+                                      if primitive_stat.done() else None),
+                    'use_cache': primitive_stat.use_cache
+                })
+            pipe_info = {
+                'pipe_info' : True,
+                'run_id' : run_id,
+                'problem_id' : problem_id,
+                'dataset' : dataset_names,
+                'pipe_id' : pipe_stat.pipeline.id,
+                'training_metric': (pipe_stat.pipeline.planner_result.metric_values
+                                    if pipe_stat.pipeline.planner_result else None),
+                'pending' : pipe_stat.pending_at if pipe_stat.pending_at else None,
+                'running' : pipe_stat.running_at if pipe_stat.running_at else None,
+                'finishing' : pipe_stat.finishing_at if pipe_stat.finishing_at else None,
+                'done' : pipe_stat.done(),
+                'running_time' : pipe_stat.get_running_time().total_seconds() if pipe_stat.done() else None,
+                'primitives' : primitives_info}
+            print(self._encoder.encode(pipe_info), file=out)
 
 class ResourceManager:
     '''Resource manager for running pipelines.

@@ -100,6 +100,12 @@ class Problem(object):
         for metric in self.metrics:
             self.metric_functions.append(self._get_metric_function(metric))
 
+    def get_problem_id(self):
+        return self.prID
+
+    def get_dataset_ids(self):
+        return list(self.dataset_filters.keys())
+
     def _get_metric_function(self, metric):
         if metric==Metric.ACCURACY:
             return sklearn.metrics.accuracy_score
@@ -164,7 +170,7 @@ class Problem(object):
         This function examines the first K entries of a
         ground truth vector (gt) and predicted labels (preds)
         and determines how many values are shared between them.
-        The result is then scaled by K to get the accuracy at top K.  
+        The result is then scaled by K to get the accuracy at top K.
 
         Parameters:
         -----------
