@@ -74,7 +74,11 @@ class LevelOnePlannerProxy(object):
 
     def get_pipelines(self, data):
         try:
+            print('getting pipelines with hierarchy l1 proxy')
             l1_pipelines = self.l1_planner.generate_pipelines_with_hierarchy(level=2)
+            print("finished l1proxy get pipelines /n /n")
+            print(l1_pipelines)
+            # If there is a media type, use featu
             new_pipes = []
             for l1_pipeline in l1_pipelines:
                 refined_pipes = self.l1_planner.fill_feature_by_weights(l1_pipeline, 1)
