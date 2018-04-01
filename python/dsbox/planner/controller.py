@@ -88,7 +88,7 @@ class Controller(object):
         self.include_primitives = config.get('include_primitives', [])
         self.include_primitives.extend(config.get('include_families', []))
         self.exclude_primitives = config.get('exclude_primitives', [])
-        self.exclude_primitives = config.get('exclude_families', [])
+        self.exclude_primitives.extend(config.get('exclude_families', []))
         # Redirect stderr to error file
         sys.stderr = self.errorfile
 
@@ -218,7 +218,9 @@ class Controller(object):
         l2_pipelines_map = {}
         l1_pipelines_handled = {}
         l2_pipelines_handled = {}
+        print('try get piplines')
         l1_pipelines = self.l1_planner.get_pipelines(df)
+        print(l1_pipelines)
         if l1_pipelines is None:
             # If no L1 Pipelines, then we don't support this problem
             yield pe.ProblemNotImplemented()
