@@ -51,12 +51,8 @@ class LevelOnePlanner(object):
             # e.g. choose a featurizer and keep classification search
         family_list = []
         primitive_list = []
-        print('interpreting incl/excl')
-        print(dir(self.primitive_library))
-        print(self.primitive_library.primitives_by_family)
-        #print(self.primitive_library.primitive_by_package)
+
         for entry in mixed_list:
-            print('evaluating ', entry)
             if entry in list(self.primitive_library.primitives_by_family.keys()):
                 family_node = self.primitive_library.primitives_by_family[entry]
                 family_list.append(entry)
@@ -65,12 +61,14 @@ class LevelOnePlanner(object):
                     primitives = self.ontology.hierarchy.get_primitives_as_list(node)
                     primitive_list.append(primitives)
 
-            elif entry in list(self.primitive_by_package.keys()):
+            elif entry in list(self.primitive_library.primitive_by_package.keys()):
                 primitive_list.append(entry)
                 if inc:
-                    family_list.append(primitive.getFamily())
+                    print(entry, self.primitive_library.primitive_by_package[entry].getFamily())
+                    family_list.append(self.primitive_library.primitive_by_package[entry].getFamily())
             else:
-                raise ValueError('include or exclude is misspecified')
+                print('Could not find include/exclude item: ', entry)
+                #raise ValueError('include or exclude is misspecified')
         return family_list, primitive_list
 
 
@@ -83,15 +81,16 @@ class LevelOnePlanner(object):
             families = families + self.primitive_family_mappings.get_families_by_task_type(TaskType.LINK_PREDICTION)
 
         
-        print(families)
-        if not set(families).isdisjoint(self.include_families):
-            families = set(families).intersect(self.include_families)
+        
+                
+        if not set(families).isdisjoint(set(self.include_families)):
+            families = set(families).intersection(set(self.include_families))
             include = self.include_primitives
         else:
             include = []
         families = set(families)-set(self.exclude_families) # use only families not in exclude families
 
-
+ 
         family_nodes = [self.ontology.get_family(f) for f in families]
 
 
@@ -101,18 +100,24 @@ class LevelOnePlanner(object):
             
         for node in child_nodes:
             primitives = self.ontology.hierarchy.get_primitives_as_list(node)
-            if not primitives:
-                continue
-
+                
             # cls or name?
-            if include or self.exclude_primitives: 
-                print('BEFORE INCLUDE: ', [p.cls for p in primitives])
-                for p in primitives:
+            if (include or self.exclude_primitives) and primitives: 
+                #if include and node.name not in families:
+                #    continue
+                #if self.exclude_primitives and node.name not in self.exclude_families:
+                #    continue
+
+                prims = list(primitives)
+                for p in prims:
+                    print(p.cls, include)
                     if include and p.cls not in include:
                         primitives.remove(p)
                     elif self.exclude_primitives and p.cls in self.exclude_primitives:
                         primitives.remove(p)
-                print('AFTER INCLUDE: ', [p.cls for p in primitives])
+
+            if not primitives:
+                continue
 
             weights = [p.weight for p in primitives]
 
@@ -230,6 +235,11 @@ class LevelOnePlanner(object):
         for p in selected:
             # Set task type for execute_pipeline
             p.task = 'Modeling'
+            
+            if self.include_primitives and p.cls not in self.include_pipelines:
+                continue
+            if self.exclude_primitives and p.cls in self.exclude_primitives:
+                continue
 
             new_pipeline = pipeline.clone()
             new_pipeline.replacePrimitiveAt(position, p)
