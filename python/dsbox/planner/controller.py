@@ -95,15 +95,15 @@ class Controller(object):
     '''
     Set config directories and schema from just problemdir, datadir and outputdir
     '''
-    def initialize_simple(self, problemdir, datadir, outputdir):
+    def initialize_simple(self, problemdir, datadir, outputdir, include = [], exclude = []):
         self.initialize_from_config(
-            self.create_simple_config(problemdir, datadir, outputdir)
+            self.create_simple_config(problemdir, datadir, outputdir, include, exclude)
         )
 
     '''
     Create config from problemdir, datadir, outputdir
     '''
-    def create_simple_config(self, problemdir, datadir, outputdir):
+    def create_simple_config(self, problemdir, datadir, outputdir, include = [], exclude = []):
         return {
             "problem_root": problemdir,
             "problem_schema": problemdir + os.sep + 'problemDoc.json',
@@ -114,7 +114,9 @@ class Controller(object):
             'temp_storage_root': outputdir + os.sep + "temp",
             "timeout": 60,
             "cpus"  : "4",
-            "ram"   : "4Gi"
+            "ram"   : "4Gi",
+            "include_primitives": include,
+            "exclude_primitives": exclude
             #"max_ensemble" : 5
             }
 
