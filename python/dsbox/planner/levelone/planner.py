@@ -85,6 +85,9 @@ class LevelOnePlanner(object):
         #    families = self.primitive_family_mappings.get_families_by_media(self.media)
         #else:
         families = self.primitive_family_mappings.get_families_by_media(self.media_type.value)
+        
+        
+                
         family_nodes = [self.ontology.get_family(f) for f in families]
 
         child_nodes = []
