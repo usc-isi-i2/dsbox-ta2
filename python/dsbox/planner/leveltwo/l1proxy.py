@@ -118,8 +118,10 @@ class LevelOnePlannerProxyOld(object):
 
     def get_pipelines(self, data):
         try:
+            print('getting pipelines with hierarchy l1 proxy')
             l1_pipelines = self.l1_planner.generate_pipelines_with_hierarchy(level=2)
-
+            print("finished l1proxy get pipelines /n /n")
+            print(l1_pipelines)
             # If there is a media type, use featurisation-added pipes instead
             # kyao: added check to skip if media_type is nested tables
             if self.media_type and not (self.media_type==VariableFileType.TABULAR or self.media_type==VariableFileType.GRAPH):
@@ -138,6 +140,7 @@ class LevelOnePlannerProxyOld(object):
 
             return pipelines
         except Exception as e:
+            print('get_pipelines l1 proxy excpetion ', e)
             return None
 
     def l1_to_proxy_pipeline(self, l1_pipeline):
