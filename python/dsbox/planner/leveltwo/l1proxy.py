@@ -31,9 +31,6 @@ class LevelOnePlannerProxy(object):
         profile_file = os.path.join(libdir, 'profile_output.json')
         self.add_primitive_requirements(profile_file)
 
-
-        inc = self.primitives.get_include()
-        exc = self.primitives.get_exclude()
         # Load ontology
         self.ontology = D3MOntology(self.primitives)
         self.ontology.load_curated_hierarchy(libdir)
@@ -49,8 +46,8 @@ class LevelOnePlannerProxy(object):
                                           task_type=helper.problem.task_type,
                                           task_subtype=helper.problem.task_subtype,
                                           media_type=self.media_type,
-                                          include = inc,
-                                          exclude = exc)
+                                          include = include,
+                                          exclude = exclude)
 
     def add_primitive_requirements(self, profile_file):
         # Augment primitive metadata with Daniel's primitive profiler output
