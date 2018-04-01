@@ -13,7 +13,7 @@ from collections import defaultdict
 
 class D3MPrimitiveLibrary(object):
     '''Creates a primitive library based on primitives_repo or d3m.index'''
-    def __init__(self, include = [], exclude = []):
+    def __init__(self):
         self.api_version = ''
         # List of all primitives, except those in black list
         self.primitives : List[Primitive] = []
@@ -23,23 +23,6 @@ class D3MPrimitiveLibrary(object):
         
         self.primitive_by_package : Dict[str, Primitive] = {}
         self.primitives_by_family : Dict[PrimitiveFamily, List[Primitive]] = defaultdict(list)
-
-    def _interpret_inc_exc(self, mixed_list):
-        list_ = []
-        for entry in mixed_list:
-            print(entry)
-            if entry in self.primitives_by_family.keys():
-                family_nodes = self.primitives_by_family[entry]
-                for node in family_nodes:
-                    child_nodes += node.get_children()
-                for node in child_nodes:
-                    primitives = self.ontology.hierarchy.get_primitives_as_list(node)
-                list_.append(primitives)
-            elif entry in self.primitive_by_package.keys():
-                list_.append(entry)
-            else:
-                raise ValueError('include or exclude is misspecified')
-        return list_
 
     def has_api_version(self, primitives_repo_dir, api_version):
         return api_version in os.listdir(primitives_repo_dir)
@@ -81,28 +64,14 @@ class D3MPrimitiveLibrary(object):
 
     def load_from_d3m_index(self):
         '''Load primitive description from installed python packages'''
+                
         for primitive_path, primitive_type in index.search().items():
             primitive = self._create_primitive_desc(primitive_type.metadata)
             if primitive.cls in self.black_list_package:
                 print('Black listing primitive: {}'.format(primitive.name))
             else:
                 self.primitives.append(primitive)
-
-        print("starting inc/exc")
-        self.include = self._interpret_inc_exc(include)
-        print("include : ", self.include)
-        print("black_list ", self.black_list_package)
-        self.black_list_package.extend(self._interpret_inc_exc(exclude))
-        print("exclude : ", self.black_list_package)
-        for prim in self.primitives:
-            print(prim.name, prim.cls)
-            if self.include and not prim.name in self.include:
-                print('removing not included', prim.name)
-                self.primitives.remove(prim)
-            if self.exclude and prim.name in self.exclude:
-                print('removing exl', prim.name)
-                self.primitives.remove(prim)
-
+ 
         self._setup()
 
 
