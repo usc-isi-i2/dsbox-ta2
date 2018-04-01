@@ -46,8 +46,8 @@ USAGE
     parser.add_argument("-o", "--output", dest="output", help="Output directory. [default: %(default)s]", default="output")
     parser.add_argument("-v", "--verbose", dest="verbose", action="count", help="set verbosity level [default: %(default)s]")
     parser.add_argument('-V', '--version', action='version', version=program_version_message)
-    parser.add_argument('-i', "--include", dest="include", default=[])
-    parser.add_argument('-e', "--exclude", dest="exclude", default=[])
+    parser.add_argument('-i', "--include", type=str, nargs='+', dest="include", default=[])
+    parser.add_argument('-e', "--exclude", type=str, nargs='+', dest="exclude", default=[])
     # Process arguments
     args = parser.parse_args()
 
