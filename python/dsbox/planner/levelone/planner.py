@@ -54,9 +54,10 @@ class LevelOnePlanner(object):
         print('interpreting incl/excl')
         print(dir(self.primitive_library))
         print(self.primitive_library.primitives_by_family)
+        #print(self.primitive_library.primitive_by_package)
         for entry in mixed_list:
             print('evaluating ', entry)
-            if entry in self.primitive_library.primitives_by_family.keys():
+            if entry in list(self.primitive_library.primitives_by_family.keys()):
                 family_node = self.primitive_library.primitives_by_family[entry]
                 family_list.append(entry)
                 
@@ -64,7 +65,7 @@ class LevelOnePlanner(object):
                     primitives = self.ontology.hierarchy.get_primitives_as_list(node)
                     primitive_list.append(primitives)
 
-            elif entry in self.primitive_by_package.keys():
+            elif entry in list(self.primitive_by_package.keys()):
                 primitive_list.append(entry)
                 if inc:
                     family_list.append(primitive.getFamily())
