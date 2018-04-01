@@ -61,13 +61,11 @@ class LevelOnePlanner(object):
             if not primitives:
                 continue
 
-            for prim in primitives:
-                if self.include and prim in self.include:
-                    pruned.append(prim)  
-                elif not prim in self.exclude:
-                    pruned.append(prim)
-
-            primitives = pruned
+            for primitive in primitives:
+                print(primitive.name)
+                if primitive not in self.primitive_library:
+                    print(primitive.name)
+                    primitives.remove(primitive)
 
             weights = [p.weight for p in primitives]
 
