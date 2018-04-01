@@ -56,17 +56,19 @@ class LevelOnePlanner(object):
             child_nodes += node.get_children()
             
         for node in child_nodes:
-            pruned = []
             primitives = self.ontology.hierarchy.get_primitives_as_list(node)
             if not primitives:
                 continue
 
+            pruned = primitives
             for primitive in primitives:
-                print(primitive.name)
-                if primitive not in self.primitive_library:
+                print(primitive, primitive.name)
+                if primitive not in self.primitive_library.primitives:
                     print(primitive.name)
-                    primitives.remove(primitive)
+                    pruned.remove(primitive)
+                print('in library')
 
+            primitives = pruned
             weights = [p.weight for p in primitives]
 
             # Set task type for execute_pipeline
@@ -86,8 +88,8 @@ class LevelOnePlanner(object):
         #else:
         families = self.primitive_family_mappings.get_families_by_media(self.media_type.value)
         
-        
-                
+
+
         family_nodes = [self.ontology.get_family(f) for f in families]
 
         child_nodes = []
