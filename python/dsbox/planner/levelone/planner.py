@@ -41,15 +41,57 @@ class LevelOnePlanner(object):
         self.primitive_family_mappings = PrimitiveFamilyMappings()
         self.primitive_family_mappings.load_json(library_dir)
 
+        self.include_families, self.include_primitives = self._interpret_inc_exc(include)
+        self.exclude_families, self.exclude_primitives = self._interpret_inc_exc(exclude, inc = False)
+
+    def _interpret_inc_exc(self, mixed_list, inc = True):
+        # mixed_list can include families and/or primitives
+        # we would like to exclude families or single primitives within families
+        # if including a primitive, we need its family to understand where in pipeline it is used 
+            # e.g. choose a featurizer and keep classification search
+        family_list = []
+        primitive_list = []
+        print('interpreting incl/excl')
+        print(self.primitive_library.primitives_by_family.keys()[0:10])
+        for entry in mixed_list:
+            print('evaluating ', entry)
+            if entry in self.primitive_library.primitives_by_family.keys():
+                family_node = self.primitive_library.primitives_by_family[entry]
+                family_list.append(entry)
+                
+                for node in family_node.get_children():
+                    primitives = self.ontology.hierarchy.get_primitives_as_list(node)
+                    primitive_list.append(primitives)
+
+            elif entry in self.primitive_by_package.keys():
+                primitive_list.append(entry)
+                if inc:
+                    family_list.append(primitive.getFamily())
+            else:
+                raise ValueError('include or exclude is misspecified')
+        return family_list, primitive_list
+
+
     def generate_pipelines_with_hierarchy(self, level=2) -> typing.List[Pipeline]:
         # ignore level for now, since only have one level hierarchy
-        results =[]
+        results = []
         families = self.primitive_family_mappings.get_families_by_task_type(self.task_type.value)
         if self.task_type == TaskType.GRAPH_MATCHING:
             # if GRAPH_MATCHING then add LINK_PREDICTION
             families = families + self.primitive_family_mappings.get_families_by_task_type(TaskType.LINK_PREDICTION)
 
+        
+        print(families)
+        if not set(families).isdisjoint(self.include_families):
+            families = set(families).intersect(self.include_families)
+            include = self.include_primitives
+        else:
+            include = []
+        families = set(families)-set(self.exclude_families) # use only families not in exclude families
+
+
         family_nodes = [self.ontology.get_family(f) for f in families]
+
 
         child_nodes = []
         for node in family_nodes:
@@ -60,15 +102,16 @@ class LevelOnePlanner(object):
             if not primitives:
                 continue
 
-            pruned = primitives
-            for primitive in primitives:
-                print(primitive, primitive.name)
-                if primitive not in self.primitive_library.primitives:
-                    print(primitive.name)
-                    pruned.remove(primitive)
-                print('in library')
+            # cls or name?
+            if include or self.exclude_primitives: 
+                print('BEFORE INCLUDE: ', [p.cls for p in primitives])
+                for p in primitives:
+                    if include and p.cls not in include:
+                        primitives.remove(p)
+                    elif self.exclude_primitives and p.cls in self.exclude_primitives:
+                        primitives.remove(p)
+                print('AFTER INCLUDE: ', [p.cls for p in primitives])
 
-            primitives = pruned
             weights = [p.weight for p in primitives]
 
             # Set task type for execute_pipeline
@@ -92,19 +135,15 @@ class LevelOnePlanner(object):
 
         family_nodes = [self.ontology.get_family(f) for f in families]
 
-        child_nodes = []
-        for node in family_nodes:
-            child_nodes += node.get_children()
-        for node in child_nodes:
-            primitives = self.ontology.hierarchy.get_primitives_as_list(node)
-            weights = [p.weight for p in primitives]
+        # child_nodes = []
+        # for node in family_nodes:
+        #     child_nodes += node.get_children()
+        # for node in child_nodes:
+        #     primitives = self.ontology.hierarchy.get_primitives_as_list(node)
+        #     weights = [p.weight for p in primitives]
             
-            # Set task type for execute_pipeline
-            #for p in primitives:
-            #    p.task = 'FeatureExtraction'
-            
-            primitive = random_choices_without_replacement(primitives, weights, num_pipelines)
-            selected_primitives.extend(primitive)
+        #     primitive = random_choices_without_replacement(primitives, weights, num_pipelines)
+        #     selected_primitives.extend(primitive)
             
 
         feature_primitive_paths = self.primitive_family_mappings.get_primitives_by_media(

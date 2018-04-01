@@ -38,10 +38,8 @@ class Controller(object):
     num_cpus = 0
     ram = 0
     timeout = 60
-    include_primitives = []
-    include_families = []
-    exclude_primitives = []
-    exclude_families = []
+    include = []
+    exclude = []
     #max_ensemble = 5
 
     exec_pipelines = []
@@ -85,10 +83,9 @@ class Controller(object):
         self.execution_helper = ExecutionHelper(self.problem, self.data_manager)
         self.resource_manager = ResourceManager(self.execution_helper, self.num_cpus)
 
-        self.include_primitives = config.get('include_primitives', [])
-        self.include_primitives.extend(config.get('include_families', []))
-        self.exclude_primitives = config.get('exclude_primitives', [])
-        self.exclude_primitives.extend(config.get('exclude_families', []))
+        self.include = config.get('include', [])
+        self.exclude = config.get('exclude', [])
+
         # Redirect stderr to error file
         sys.stderr = self.errorfile
 
@@ -115,8 +112,8 @@ class Controller(object):
             "timeout": 60,
             "cpus"  : "4",
             "ram"   : "4Gi",
-            "include_primitives": include,
-            "exclude_primitives": exclude
+            "include": include,
+            "exclude": exclude
             #"max_ensemble" : 5
             }
 
@@ -191,7 +188,7 @@ class Controller(object):
     Initialize the L1 and L2 planners
     """
     def initialize_planners(self):
-        self.l1_planner = LevelOnePlannerProxy(self.libdir, self.execution_helper, include = self.include_primitives, exclude = self.exclude_primitives)
+        self.l1_planner = LevelOnePlannerProxy(self.libdir, self.execution_helper, include = self.include, exclude = self.exclude)
         self.l2_planner = LevelTwoPlanner(self.libdir, self.execution_helper)
 
     """

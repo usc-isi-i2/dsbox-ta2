@@ -78,20 +78,6 @@ class D3MPrimitiveLibrary(object):
                         self.primitives.append(primitive)
                     print('Primitive.cls: ', primitive.cls)
         self._setup()
-        print("starting inc/exc")
-        self.include = self._interpret_inc_exc(include)
-        print("include : ", self.include)
-        print("black_list ", self.black_list_package)
-        self.black_list_package.extend(self._interpret_inc_exc(exclude))
-        print("exclude : ", self.black_list_package)
-        for prim in self.primitives:
-            print(prim.name)
-            if self.include and not prim.name in self.include:
-                print('removing not incl', prim.name)
-                self.primitives.remove(prim)
-            if self.exclude and prim.name in self.exclude:
-                print('removing exl', prim.name)
-                self.primitives.remove(prim)
 
     def load_from_d3m_index(self):
         '''Load primitive description from installed python packages'''
@@ -101,7 +87,24 @@ class D3MPrimitiveLibrary(object):
                 print('Black listing primitive: {}'.format(primitive.name))
             else:
                 self.primitives.append(primitive)
+
+        print("starting inc/exc")
+        self.include = self._interpret_inc_exc(include)
+        print("include : ", self.include)
+        print("black_list ", self.black_list_package)
+        self.black_list_package.extend(self._interpret_inc_exc(exclude))
+        print("exclude : ", self.black_list_package)
+        for prim in self.primitives:
+            print(prim.name, prim.cls)
+            if self.include and not prim.name in self.include:
+                print('removing not included', prim.name)
+                self.primitives.remove(prim)
+            if self.exclude and prim.name in self.exclude:
+                print('removing exl', prim.name)
+                self.primitives.remove(prim)
+
         self._setup()
+
 
     def get_primitives_by_family(self, family : PrimitiveFamily) -> List[Primitive]:
         return self.primitives_by_family[family]
