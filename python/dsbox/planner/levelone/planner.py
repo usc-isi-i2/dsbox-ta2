@@ -52,7 +52,8 @@ class LevelOnePlanner(object):
         family_list = []
         primitive_list = []
         print('interpreting incl/excl')
-        print(self.primitive_library.primitives_by_family.keys()[0:10])
+        print(dir(self.primitive_library))
+        print(self.primitive_library.primitives_by_family)
         for entry in mixed_list:
             print('evaluating ', entry)
             if entry in self.primitive_library.primitives_by_family.keys():
