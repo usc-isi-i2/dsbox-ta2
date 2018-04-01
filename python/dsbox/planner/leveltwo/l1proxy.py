@@ -16,9 +16,9 @@ class LevelOnePlannerProxy(object):
 
     This is here to integrate with Ke-Thia's L1 Planner until we come up with a consistent interface
     """
-    def __init__(self, libdir, helper):
+    def __init__(self, libdir, helper, include = [], exclude = []):
         # Load primitives library
-        self.primitives = D3MPrimitiveLibrary()
+        self.primitives = D3MPrimitiveLibrary(include = include, exclude = exclude)
 
         # First load black listed primtives
         primitive_black_list_file = os.path.join(libdir, 'black-list.json')
@@ -31,6 +31,9 @@ class LevelOnePlannerProxy(object):
         profile_file = os.path.join(libdir, 'profile_output.json')
         self.add_primitive_requirements(profile_file)
 
+
+        inc = self.primitives.get_include()
+        exc = self.primitives.get_exclude()
         # Load ontology
         self.ontology = D3MOntology(self.primitives)
         self.ontology.load_curated_hierarchy(libdir)
@@ -45,7 +48,9 @@ class LevelOnePlannerProxy(object):
                                           library_dir=libdir,
                                           task_type=helper.problem.task_type,
                                           task_subtype=helper.problem.task_subtype,
-                                          media_type=self.media_type)
+                                          media_type=self.media_type,
+                                          include = inc,
+                                          exclude = exc)
 
     def add_primitive_requirements(self, profile_file):
         # Augment primitive metadata with Daniel's primitive profiler output

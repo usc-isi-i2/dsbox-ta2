@@ -13,16 +13,36 @@ from collections import defaultdict
 
 class D3MPrimitiveLibrary(object):
     '''Creates a primitive library based on primitives_repo or d3m.index'''
-    def __init__(self):
+    def __init__(self, include = [], exclude = []):
         self.api_version = ''
         # List of all primitives, except those in black list
         self.primitives : List[Primitive] = []
 
         # List of black listed primitives, e.g. pickling problems
         self.black_list_package : List[str] = []
-
+        
         self.primitive_by_package : Dict[str, Primitive] = {}
         self.primitives_by_family : Dict[PrimitiveFamily, List[Primitive]] = defaultdict(list)
+
+    def _interpret_inc_exc(self, mixed_list):
+        list_ = []
+        
+        for p in self.primitives:
+   
+        for entry in mixed_list:
+            print(entry)
+            if entry in self.primitives_by_family.keys():
+                family_nodes = self.primitives_by_family[entry]
+                for node in family_nodes:
+                    child_nodes += node.get_children()
+                for node in child_nodes:
+                    primitives = self.ontology.hierarchy.get_primitives_as_list(node)
+                list_.append(primitives)
+            elif entry in self.primitive_by_package.keys():
+                list_.append(entry)
+            else:
+                raise ValueError('include or exclude is misspecified')
+        return list_
 
     def has_api_version(self, primitives_repo_dir, api_version):
         return api_version in os.listdir(primitives_repo_dir)
@@ -59,7 +79,14 @@ class D3MPrimitiveLibrary(object):
                         print('Black listing primitive: {}'.format(primitive.name))
                     else:
                         self.primitives.append(primitive)
+                    print('Primitive.cls: ', primitive.cls)
         self._setup()
+        print("starting inc/exc")
+        self.include = self._interpret_inc_exc(include)
+        print("include : ", self.include)
+        print("black_list ", self.black_list_package)
+        self.black_list_package.extend(self._interpret_inc_exc(exclude))
+        print("exclude : ", self.black_list_package)
 
     def load_from_d3m_index(self):
         '''Load primitive description from installed python packages'''

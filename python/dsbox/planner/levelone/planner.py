@@ -30,7 +30,9 @@ class LevelOnePlanner(object):
                  library_dir : str,
                  task_type : TaskType,
                  task_subtype : TaskSubType,
-                 media_type : VariableFileType = VariableFileType.NONE):
+                 media_type : VariableFileType = VariableFileType.NONE,
+                 include = [],
+                 exclude = []):
         self.primitive_library = primitive_library
         self.ontology = ontology
         self.library_dir = library_dir
@@ -38,6 +40,8 @@ class LevelOnePlanner(object):
         self.media_type = media_type
         self.primitive_family_mappings = PrimitiveFamilyMappings()
         self.primitive_family_mappings.load_json(library_dir)
+        self.include = include
+        self.exclude = exclude
 
     def generate_pipelines_with_hierarchy(self, level=2) -> typing.List[Pipeline]:
         # ignore level for now, since only have one level hierarchy
@@ -54,9 +58,19 @@ class LevelOnePlanner(object):
             child_nodes += node.get_children()
             
         for node in child_nodes:
+            pruned = []
             primitives = self.ontology.hierarchy.get_primitives_as_list(node)
             if not primitives:
                 continue
+
+            for prim in primitives:
+                if self.include and prim in self.include:
+                    pruned.append(prim)  
+                elif not prim in self.exclude:
+                    pruned.append(prim)
+
+            primitives = pruned
+
             weights = [p.weight for p in primitives]
 
             # Set task type for execute_pipeline
@@ -66,25 +80,20 @@ class LevelOnePlanner(object):
             primitive = random_choices(primitives, weights)
             pipe = Pipeline(primitives=[primitive])
             results.append(pipe)
-        print('generated pipelines')
         return results
 
     def fill_feature_by_weights(self, pipeline : Pipeline, num_pipelines=5) -> Pipeline:
         """Insert feature primitive weighted by on media_type"""
         selected_primitives = []
-        print('featurizing')
         #if isinstance(self.media, str):
         #    families = self.primitive_family_mappings.get_families_by_media(self.media)
         #else:
         families = self.primitive_family_mappings.get_families_by_media(self.media_type.value)
-        print('returned families by media')
-        print('families by media ', self.media_type.value, families)
         family_nodes = [self.ontology.get_family(f) for f in families]
-        print(family_nodes)
+
         child_nodes = []
         for node in family_nodes:
             child_nodes += node.get_children()
-            print(node.get_children())
         for node in child_nodes:
             primitives = self.ontology.hierarchy.get_primitives_as_list(node)
             weights = [p.weight for p in primitives]
@@ -118,7 +127,7 @@ class LevelOnePlanner(object):
         if feature_primitives:
             selected_primitives.extend(random_choices_without_replacement
                 (feature_primitives, primitive_weights, num_pipelines))
-        print('selected ', selected_primitives)
+        
         new_pipelines = []
         for p in selected_primitives:
             # Set task type for execute_pipeline
@@ -222,9 +231,6 @@ class PrimitiveFamilyMappings(object):
     def get_families_by_media(self, media : str) -> typing.List[str]:
         '''Given VariableFileType names return list of primitive family names'''
         if isinstance(media, str):
-            a = self.media_to_family[media]
-            b = self.media_to_family['generic']
-            print(a+b)
             return self.media_to_family[media] + self.media_to_family['generic']
         else:
             return self.media_to_family[media.value] + self.media_to_family['generic']
