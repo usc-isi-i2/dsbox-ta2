@@ -26,9 +26,6 @@ class D3MPrimitiveLibrary(object):
 
     def _interpret_inc_exc(self, mixed_list):
         list_ = []
-        
-        for p in self.primitives:
-   
         for entry in mixed_list:
             print(entry)
             if entry in self.primitives_by_family.keys():
