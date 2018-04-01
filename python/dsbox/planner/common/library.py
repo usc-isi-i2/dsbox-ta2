@@ -84,6 +84,14 @@ class D3MPrimitiveLibrary(object):
         print("black_list ", self.black_list_package)
         self.black_list_package.extend(self._interpret_inc_exc(exclude))
         print("exclude : ", self.black_list_package)
+        for prim in self.primitives:
+            print(prim.name)
+            if self.include and not prim.name in self.include:
+                print('removing not incl', prim.name)
+                self.primitives.remove(prim)
+            if self.exclude and prim.name in self.exclude:
+                print('removing exl', prim.name)
+                self.primitives.remove(prim)
 
     def load_from_d3m_index(self):
         '''Load primitive description from installed python packages'''

@@ -40,8 +40,6 @@ class LevelOnePlanner(object):
         self.media_type = media_type
         self.primitive_family_mappings = PrimitiveFamilyMappings()
         self.primitive_family_mappings.load_json(library_dir)
-        self.include = include
-        self.exclude = exclude
 
     def generate_pipelines_with_hierarchy(self, level=2) -> typing.List[Pipeline]:
         # ignore level for now, since only have one level hierarchy

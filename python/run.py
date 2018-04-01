@@ -46,7 +46,8 @@ USAGE
     parser.add_argument("-o", "--output", dest="output", help="Output directory. [default: %(default)s]", default="output")
     parser.add_argument("-v", "--verbose", dest="verbose", action="count", help="set verbosity level [default: %(default)s]")
     parser.add_argument('-V', '--version', action='version', version=program_version_message)
-
+    parser.add_argument('-i', "--include", dest="include")
+    parser.add_argument('-e', "--exclude", dest="exclude")
     # Process arguments
     args = parser.parse_args()
 
@@ -55,6 +56,9 @@ USAGE
         sys.stderr.write(program_name + ": No problem directory specified\n")
         sys.stderr.write("  for help use --help\n")
         exit(1)
+
+    include = args.include
+    exclude = args.exclude
 
     problem_name = os.path.basename(problem_root_directory)
 
