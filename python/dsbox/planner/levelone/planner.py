@@ -41,8 +41,8 @@ class LevelOnePlanner(object):
         self.primitive_family_mappings = PrimitiveFamilyMappings()
         self.primitive_family_mappings.load_json(library_dir)
 
-        self.include_families, self.include_primitives = self._interpret_inc_exc(include)
-        self.exclude_families, self.exclude_primitives = self._interpret_inc_exc(exclude, inc = False)
+        self.include_families, self.include_types, self.include_primitives = self._interpret_inc_exc(include)
+        self.exclude_families, self.exclude_types, self.exclude_primitives = self._interpret_inc_exc(exclude, inc = False)
 
     def _interpret_inc_exc(self, mixed_list, inc = True):
         # mixed_list can include families and/or primitives
@@ -51,12 +51,8 @@ class LevelOnePlanner(object):
             # e.g. choose a featurizer and keep classification search
         family_list = []
         primitive_list = []
-        print('interpreting incl/excl')
-        print(dir(self.primitive_library))
-        print(self.primitive_library.primitives_by_family)
-        #print(self.primitive_library.primitive_by_package)
         for entry in mixed_list:
-            print('evaluating ', entry)
+            print('including ' if inc else 'excluding ', entry)
             if entry in list(self.primitive_library.primitives_by_family.keys()):
                 family_node = self.primitive_library.primitives_by_family[entry]
                 family_list.append(entry)
@@ -64,11 +60,11 @@ class LevelOnePlanner(object):
                 for node in family_node.get_children():
                     primitives = self.ontology.hierarchy.get_primitives_as_list(node)
                     primitive_list.append(primitives)
-
-            elif entry in list(self.primitive_by_package.keys()):
+            elif entry in list(self.primitive_library.primitives_by_type.keys())
+            elif entry in list(self.primitive_library.primitive_by_package.keys()):
                 primitive_list.append(entry)
                 if inc:
-                    family_list.append(primitive.getFamily())
+                    family_list.append(self.primitive_library.primitive_by_package[entry].getFamily())
             else:
                 raise ValueError('include or exclude is misspecified')
         return family_list, primitive_list
@@ -84,8 +80,10 @@ class LevelOnePlanner(object):
 
         
         print(families)
+        print(self.include_families)
+        print(self.include_primitives)
         if not set(families).isdisjoint(self.include_families):
-            families = set(families).intersect(self.include_families)
+            families = set(families).intersection(self.include_families)
             include = self.include_primitives
         else:
             include = []
@@ -133,7 +131,12 @@ class LevelOnePlanner(object):
         #else:
         families = self.primitive_family_mappings.get_families_by_media(self.media_type.value)
         
-
+        if not set(families).isdisjoint(self.include_families):
+            families = set(families).intersection(self.include_families)
+            include = self.include_primitives
+        else:
+            include = []
+        families = set(families)-set(self.exclude_families)
 
         family_nodes = [self.ontology.get_family(f) for f in families]
 
@@ -230,6 +233,11 @@ class LevelOnePlanner(object):
         for p in selected:
             # Set task type for execute_pipeline
             p.task = 'Modeling'
+
+            if self.include_primitives and p.cls not in self.include_pipelines:
+                continue
+            if self.exclude_primitives and p.cls in self.exclude_primitives:
+                continue
 
             new_pipeline = pipeline.clone()
             new_pipeline.replacePrimitiveAt(position, p)

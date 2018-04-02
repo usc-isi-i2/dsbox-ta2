@@ -4,7 +4,7 @@ import os
 from datetime import date
 from typing import List, Dict
 
-from d3m_metadata.metadata import PrimitiveMetadata, PrimitiveFamily
+from d3m_metadata.metadata import PrimitiveMetadata, PrimitiveFamily, PrimitiveAlgorithmType
 from d3m import index
 
 from dsbox.planner.common.primitive import Primitive
@@ -23,6 +23,7 @@ class D3MPrimitiveLibrary(object):
         
         self.primitive_by_package : Dict[str, Primitive] = {}
         self.primitives_by_family : Dict[PrimitiveFamily, List[Primitive]] = defaultdict(list)
+        self.primitives_by_type : Dict[PrimitiveAlgorithmType, List[Primitive]] = defaultdict(list)
 
     def has_api_version(self, primitives_repo_dir, api_version):
         return api_version in os.listdir(primitives_repo_dir)
@@ -150,7 +151,7 @@ class D3MPrimitiveLibrary(object):
         for p in self.primitives:
             self.primitive_by_package[p.cls] = p
             self.primitives_by_family[p.getFamily()].append(p)
-
+            self.primitives_by_type[p.getAlgorithmType()].append(p)
 
 class PrimitiveLibrary(object):
     """
