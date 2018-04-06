@@ -51,7 +51,7 @@ class LevelOnePlanner(object):
             # e.g. choose a featurizer and keep classification search
         family_list = []
         primitive_list = []
-        
+
         for entry in mixed_list:
             print(entry, type(entry))
             if entry in list(self.primitive_library.primitives_by_family.keys()):
@@ -95,8 +95,7 @@ class LevelOnePlanner(object):
         
         print('FAMILIES: ', families, self.include_families, self.exclude_families)
         # moved to get_child_nodes
-        #families = set(families)-set(self.exclude_families)
-
+        #families = set(families)-set(self.exclude_families   
         family_nodes = [self.ontology.get_family(f) for f in families]
 
         # include / exclude family and type checks
@@ -104,8 +103,6 @@ class LevelOnePlanner(object):
 
         for node in child_nodes:
             primitives = self.ontology.hierarchy.get_primitives_as_list(node)
-            if not primitives:
-                continue
 
             # Inclusion checks
             primitives = [p for p in primitives if self._primitive_include(p)]
@@ -176,6 +173,7 @@ class LevelOnePlanner(object):
             primitives = [p for p in primitives if self._primitive_include(p)]
 
             weights = [p.weight for p in primitives]
+
             primitive = random_choices_without_replacement(primitives, weights, num_pipelines)
             selected_primitives.extend(primitive)
             
@@ -186,7 +184,6 @@ class LevelOnePlanner(object):
         feature_primitives = []
         for path in feature_primitive_paths:
             if self.primitive_library.has_primitive_by_package(path):
-                print('appending ', path)
                 feature_primitives.append(self.primitive_library.get_primitive_by_package(path))
             else:
                 new_primitive = self.primitive_library.add_custom_primitive(path)
@@ -262,8 +259,8 @@ class LevelOnePlanner(object):
         for p in selected:
             # Set task type for execute_pipeline
             p.task = 'Modeling'
-
-            if self.include_primitives and p.cls not in self.include_pipelines:
+            
+            if self.include_primitives and p.cls not in self.include_primitives:
                 continue
             if self.exclude_primitives and p.cls in self.exclude_primitives:
                 continue

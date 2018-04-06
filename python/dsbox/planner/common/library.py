@@ -60,7 +60,6 @@ class D3MPrimitiveLibrary(object):
                         print('Black listing primitive: {}'.format(primitive.name))
                     else:
                         self.primitives.append(primitive)
-                    print('Primitive.cls: ', primitive.cls)
         self._setup()
 
     def load_from_d3m_index(self):
@@ -72,7 +71,7 @@ class D3MPrimitiveLibrary(object):
                 print('Black listing primitive: {}'.format(primitive.name))
             else:
                 self.primitives.append(primitive)
- 
+
         self._setup()
 
 
@@ -151,7 +150,12 @@ class D3MPrimitiveLibrary(object):
         for p in self.primitives:
             self.primitive_by_package[p.cls] = p
             self.primitives_by_family[p.getFamily()].append(p)
-            self.primitives_by_type[p.getAlgorithmType()].append(p)
+            types = p.getAlgorithmTypes()
+            for entry in types:
+                if isinstance(types[0], str):
+                    self.primitives_by_type[entry].append(p)
+                else:
+                    self.primitives_by_type[entry.value].append(p)
 
 class PrimitiveLibrary(object):
     """
