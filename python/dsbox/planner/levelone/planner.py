@@ -51,23 +51,37 @@ class LevelOnePlanner(object):
             # e.g. choose a featurizer and keep classification search
         family_list = []
         primitive_list = []
+        
         for entry in mixed_list:
-            print('including ' if inc else 'excluding ', entry)
+            print(entry, type(entry))
             if entry in list(self.primitive_library.primitives_by_family.keys()):
-                family_node = self.primitive_library.primitives_by_family[entry]
+                #family_primitives = [p.cls for p in self.primitive_library.primitives_by_family[entry]]
                 family_list.append(entry)
-                
-                for node in family_node.get_children():
-                    primitives = self.ontology.hierarchy.get_primitives_as_list(node)
-                    primitive_list.append(primitives)
-            elif entry in list(self.primitive_library.primitives_by_type.keys())
+                #family_node = self.ontology.get_family(entry)
+                #print(family_node)
+                #or node in family_node.get_children():
+                #    print(node.name)
+                #    type_list.append(str(node.name))
+                #    print('type_list', type_list)
+                #    primitive_list.extend(family_primitives)
             elif entry in list(self.primitive_library.primitive_by_package.keys()):
                 primitive_list.append(entry)
                 if inc:
                     family_list.append(self.primitive_library.primitive_by_package[entry].getFamily())
+                #type_list.append(str(self.primitive_library.primitive_by_package[entry].getAlgorithmTypes()[0]))
+                #if inc:
+                #   print(entry, self.primitive_library.primitive_by_package[entry].getFamily())
+                #   family_list.extend(self.primitive_library.primitive_by_package[entry].getFamily())
+            elif entry in list(self.primitive_library.primitives_by_type.keys()):
+                #primitive_list.extend([p.cls for p in self.primitive_library.primitives_by_type[entry]])
+                type_list.append(str(entry))
+                #if inc and self.primitive_library.primitives_by_type[entry]:
+                #    family_list.append(str(self.primitive_library.primitives_by_type[entry][0].getFamily()))
             else:
-                raise ValueError('include or exclude is misspecified')
-        return family_list, primitive_list
+                print('Could not find include/exclude item: ', entry)
+                #raise ValueError('include or exclude is misspecified')
+
+        return family_list, type_list, primitive_list
 
 
     def generate_pipelines_with_hierarchy(self, level=2) -> typing.List[Pipeline]:
@@ -79,38 +93,22 @@ class LevelOnePlanner(object):
             families = families + self.primitive_family_mappings.get_families_by_task_type(TaskType.LINK_PREDICTION)
 
         
-        print(families)
-        print(self.include_families)
-        print(self.include_primitives)
-        if not set(families).isdisjoint(self.include_families):
-            families = set(families).intersection(self.include_families)
-            include = self.include_primitives
-        else:
-            include = []
-        families = set(families)-set(self.exclude_families) # use only families not in exclude families
-
+        print('FAMILIES: ', families, self.include_families, self.exclude_families)
+        # moved to get_child_nodes
+        #families = set(families)-set(self.exclude_families)
 
         family_nodes = [self.ontology.get_family(f) for f in families]
 
+        # include / exclude family and type checks
+        child_nodes = self._get_child_nodes(family_nodes)
 
-        child_nodes = []
-        for node in family_nodes:
-            child_nodes += node.get_children()
-            
         for node in child_nodes:
             primitives = self.ontology.hierarchy.get_primitives_as_list(node)
             if not primitives:
                 continue
 
-            # cls or name?
-            if include or self.exclude_primitives: 
-                print('BEFORE INCLUDE: ', [p.cls for p in primitives])
-                for p in primitives:
-                    if include and p.cls not in include:
-                        primitives.remove(p)
-                    elif self.exclude_primitives and p.cls in self.exclude_primitives:
-                        primitives.remove(p)
-                print('AFTER INCLUDE: ', [p.cls for p in primitives])
+            # Inclusion checks
+            primitives = [p for p in primitives if self._primitive_include(p)]
 
             weights = [p.weight for p in primitives]
 
@@ -123,32 +121,63 @@ class LevelOnePlanner(object):
             results.append(pipe)
         return results
 
+    def _get_child_nodes(self, family_nodes):
+        child_nodes = []
+        family_types = []
+        
+        family_nodes = [f if f.name not in self.exclude_families] 
+
+        # check family / type inclusions / exclusions here
+        for node in family_nodes:
+            # include primitives will get through here because family included for each
+            if node.name in self.include_families:
+                child_nodes += node.get_children()
+            elif node.name not in self.exclude_families:
+                for child in node.get_children():
+                    family_types.append(child.name)
+                    # add child if it is in include_types
+                    if child.name in self.include_types:
+                        child_nodes.append(child)
+
+                # if types regard different task, then continue (e.g. featurization types, classification family)
+                if set(family_types).isdisjoint(self.include_types):
+                    child_nodes += node.get_children()
+                if not set(family_types).isdisjoint(self.exclude_types):
+                    print("Excluding types: "  self.exclude_types, " incl: ", set(node.get_children()) - set(self.exclude_types))
+                    child_nodes += set(node.get_children()) - set(self.exclude_types)
+
+        return child_nodes
+
+    def _check_primitive_include(self, p):
+        if (self.include_families or self.include_types or self.include_primitives) 
+            and not (p.getFamily() in self.include_families or
+                 set(p.getAlgorithmTypes()).intersection(self.include_types) or
+                 p.cls in self.include_primitives()):
+            return False
+        if p.cls in self.exclude_primitives:
+            return False
+        return True
+
+
     def fill_feature_by_weights(self, pipeline : Pipeline, num_pipelines=5) -> Pipeline:
         """Insert feature primitive weighted by on media_type"""
         selected_primitives = []
-        #if isinstance(self.media, str):
-        #    families = self.primitive_family_mappings.get_families_by_media(self.media)
-        #else:
-        families = self.primitive_family_mappings.get_families_by_media(self.media_type.value)
         
-        if not set(families).isdisjoint(self.include_families):
-            families = set(families).intersection(self.include_families)
-            include = self.include_primitives
-        else:
-            include = []
-        families = set(families)-set(self.exclude_families)
+        # Allow featurization for other media types than specified in primitives_by_media (e.g. numeric)    
+        families = self.primitive_family_mappings.get_families_by_media(self.media_type.value)
+        # families = set(families)-set(self.exclude_families)
 
         family_nodes = [self.ontology.get_family(f) for f in families]
 
-        # child_nodes = []
-        # for node in family_nodes:
-        #     child_nodes += node.get_children()
-        # for node in child_nodes:
-        #     primitives = self.ontology.hierarchy.get_primitives_as_list(node)
-        #     weights = [p.weight for p in primitives]
-            
-        #     primitive = random_choices_without_replacement(primitives, weights, num_pipelines)
-        #     selected_primitives.extend(primitive)
+        child_nodes = self._get_child_nodes(family_nodes)
+        for node in child_nodes:
+            primitives = self.ontology.hierarchy.get_primitives_as_list(node)
+
+            primitives = [p for p in primitives if self._primitive_include(p)]
+
+            weights = [p.weight for p in primitives]
+            primitive = random_choices_without_replacement(primitives, weights, num_pipelines)
+            selected_primitives.extend(primitive)
             
 
         feature_primitive_paths = self.primitive_family_mappings.get_primitives_by_media(
