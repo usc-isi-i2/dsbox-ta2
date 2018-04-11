@@ -468,11 +468,11 @@ class ResourceManager:
 
         # Add to the list of executable pipelines
         if exec_pipeline.planner_result is not None:
-            self.log.info('%s Pipeline suceeded %s', exec_pipeline.id, exec_pipeline)
-
-            self.log.info('%s %s %s', exec_pipeline.id, exec_pipeline, exec_pipeline.planner_result.metric_values)
-
             self.exec_pipelines.append(exec_pipeline)
+            self.log.info('%s Pipeline suceeded %s', exec_pipeline.id, exec_pipeline)
+            self.log.info('%s %s %s', exec_pipeline.id, exec_pipeline, exec_pipeline.planner_result.metric_values)
+            self.log.info('Number of exec_pipelines = %d', len(self.exec_pipelines))
+
             return exec_pipeline
         self.log.debug('%s Pipeline failed %s', pipeline.id, pipeline)
         return None
@@ -536,7 +536,7 @@ class ResourceManager:
             if task.done():
                 result = task.result()
                 if not isinstance(result, Exception) and result is not None:
-                    predictions, metric_values = result
+                    predictions, metric_values, cross_validation_stat = result
 
             if metric_values and len(metric_values) > 0:
                 print("Got results from %s" % exec_pipeline)
@@ -563,7 +563,7 @@ class ResourceManager:
                     self.log.debug('%s Run primitive NOT DONE  cross validation for %s', exec_pipeline.id, primitive)
 
                 # Store the execution result
-                exec_pipeline.planner_result = PipelineExecutionResult(predictions, metric_values)
+                exec_pipeline.planner_result = PipelineExecutionResult(predictions, metric_values, cross_validation_stat)
 
                 # Cache the primitive instance
             primitive.executables = executables
