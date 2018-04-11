@@ -149,6 +149,7 @@ class LevelOnePlanner(object):
                     family_types.append(child.name)
                     # add child if it is in include_types
                     if child.name in self.include_types or child.name in incl_prim_types:
+                        print(child.name)
                         child_nodes.append(child)
 
                 # if types regard different task, then continue (e.g. featurization types, classification family)
@@ -165,6 +166,7 @@ class LevelOnePlanner(object):
         check2 = p.getFamily() in self.include_families
         check3 = self.include_types and not set(p.getAlgorithmTypes()).isdisjoint(self.include_types) 
         check4 = p.cls in self.include_primitives
+        
         check = check1 and (check2 or check3 or check4)
         if p.cls in self.exclude_primitives:
             return False
@@ -276,9 +278,7 @@ class LevelOnePlanner(object):
             # Set task type for execute_pipeline
             p.task = 'Modeling'
             
-            if self.include_primitives and p.cls not in self.include_primitives:
-                continue
-            if self.exclude_primitives and p.cls in self.exclude_primitives:
+            if not self._check_primitive_include(p):
                 continue
 
             new_pipeline = pipeline.clone()
