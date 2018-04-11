@@ -58,7 +58,14 @@ ta2-search <search_config_file>
     def write_results_and_exit(signal, frame):
         print('SIGNAL exit: {}'.format(conf_file))
         controller.write_training_results()
-        sys.exit(0)
+        print('SIGNAL exit done writing: {}'.format(conf_file), flush=True)
+
+        # sys.exit(0) generates SystemExit exception, which may
+        # be caught and ignore.
+
+        # This os._exit() cannot be caught.
+        # TODO: But for some runs. The process still keeps running. Need to investigate more.
+        os._exit(0)
 
     signal.signal(signal.SIGINT, write_results_and_exit)
     signal.signal(signal.SIGTERM, write_results_and_exit)
@@ -73,7 +80,7 @@ ta2-search <search_config_file>
     for result in controller.train(PlannerEventHandler()):
         if result == False:
             print("ProblemNotImplemented")
-            sys.exit(148)
+            os._exit(148)
         pass
 
     print('exit: {}'.format(conf_file))
@@ -82,4 +89,5 @@ if __name__ == "__main__":
     if DEBUG:
         sys.argv.append("-h")
         sys.argv.append("-v")
-    sys.exit(main())
+    result = main()
+    os._exit(result)
