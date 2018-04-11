@@ -163,12 +163,19 @@ class OneStandardErrorPipelineSorter(PipelineSorter):
         super().__init__(metric)
 
     def sort_pipelines(self, pipelines):
-        print('sort_pipelines()')
-        print(pipelines)
+        if len(pipelines) <= 1:
+            return pipelines[:]
+
         metric_sorted = MetricPipelineSorter(self.metric).sort_pipelines(pipelines)
         best_result = metric_sorted[0].planner_result
         best_value = best_result.get_value(self.metric)
-        std_error = best_result.stat.get_standard_error(self.metric)
+
+        if best_result.stat is None:
+            # Best result is an ensemble.
+            # TODO: What should be the standard error? For now just use the standard error from next best pipeline
+            std_error = metric_sorted[1].planner_result.stat.get_standard_error(self.metric)
+        else:
+            std_error = best_result.stat.get_standard_error(self.metric)
         close = []
         rest = []
         for pipe in metric_sorted:
