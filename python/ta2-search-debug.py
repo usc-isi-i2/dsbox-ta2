@@ -76,7 +76,7 @@ ta2-search <search_config_file>
 
     # Start training
     controller.initialize_planners()
-    for result in controller.train(PlannerEventHandler()):
+    for result in controller.train(PlannerEventHandler(), timeout=TIMEOUT):
         if result == False:
             print("ProblemNotImplemented")
             sys.exit(148)
