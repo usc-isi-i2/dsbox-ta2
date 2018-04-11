@@ -275,8 +275,7 @@ class Controller(object):
             callbacks.append(functools.partial(self.pipeline_result_call_back, pipeline, df, df_lbl))
 
         self.resource_manager.execute_pipelines(
-            # l2_pipelines, df, df_lbl, callbacks, timeout=600)
-            l2_pipelines, df, df_lbl, callbacks, timeout=3000)
+            l2_pipelines, df, df_lbl, callbacks, timeout=timeout)
 
         self.exec_pipelines = self.resource_manager.exec_pipelines
         # self.exec_pipelines = sorted(self.exec_pipelines, key=lambda x: self._sort_by_metric(x))
