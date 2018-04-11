@@ -1,25 +1,20 @@
 
 import json
 import os
+import re
 import sys
 sys.path.insert(0, '/nas/home/kyao/kyao-repo/dsbox/dsbox-ta2/python')
 
 from collections import defaultdict
 
-from sklearn.externals import joblib
-
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
-from typing import Dict, List
+from typing import List
 
 import numpy as np
 import pandas as pd
 
-from dsbox.planner.common.pipeline import Pipeline
 from dsbox.schema.problem_schema import Metric
-from dsbox.planner.common.resource_manager import PipelineExecStat, ExecutionStatistics, PrimitiveExecStat
-from dsbox.planner.common.pipeline import PipelineExecutionResult
-from dsbox.planner.common.primitive import Primitive
 
 def filter_key(dict_list: List[dict], key, value=None, substring=True):
     '''Return list of dict that satisfies the key value criteria'''
@@ -36,6 +31,23 @@ def split_key(dict_list: List[dict], key):
         if key in d:
             result[d[key]].append(d)
     return result
+
+def grep(fin, substring, invert=False):
+    '''Return lines containing substring'''
+    for line in fin:
+        if substring in line:
+            if not invert:
+                yield line
+        else:
+            if invert:
+                yield line
+
+def egrep(fin, pattern):
+    if isinstance(pattern, str):
+        pattern = re.compile(pattern)
+    for line in fin:
+        if re.search(pattern, line):
+            yield line
 
 def get_learner_info(info):
     '''Returns dict describing the classifier/regresser primitive'''
@@ -278,7 +290,8 @@ def learner_hist(learner_values, order_by_max=True, title=None, xlabel=None,
         axis[i].set_title(label)
 
         # Setting the xlim here works when showing to screen. But, pdf is broken.
-        # axis[i].set_xlim([min_value, max_value])
+        if savepdf is None:
+            axis[i].set_xlim([min_value, max_value])
 
         i += 1
 
@@ -299,10 +312,12 @@ def gen_hist_files(fin, plot_file_pattern='output-hist-{}.pdf'):
     all_stats = [json.loads(line) for line in fin if 'pipe_info' in line]
     by_runs = split_key(all_stats, 'run_id')
     pd.set_option('display.width', 160)
+    pp = None
     for run_id, stats in by_runs.items():
 
-        plot_file = plot_file_pattern.format(run_id)
-        pp = PdfPages(plot_file)
+        if plot_file_pattern:
+            plot_file = plot_file_pattern.format(run_id)
+            pp = PdfPages(plot_file)
 
         for problem_name, stat in split_key(stats, 'problem_id').items():
             print('** ', problem_name)
@@ -316,7 +331,8 @@ def gen_hist_files(fin, plot_file_pattern='output-hist-{}.pdf'):
             learner_hist(learner_values, title=title, order_by_max=order_by_max, savepdf=pp)
             # learner_hist(learner_values, title=title, order_by_max=order_by_max)
             print()
-        pp.close()
+        if plot_file_pattern:
+            pp.close()
 
 def gen_learner_plots(fin, plot_file='output-by-algo.pdf'):
     """Generate one box-wisker metrics plot  for each learner algorithm."""
@@ -369,3 +385,9 @@ with open('/nas/home/kyao/dsbox/runs/json-output/output-event-loop-3-to-6.json',
 
 with open('/nas/home/kyao/dsbox/runs/json-output/output-event-loop-3-to-6.json', 'r') as fin:
     gen_learner_plots(fin, '/nas/home/kyao/dsbox/runs/plots/output-by-algo.pdf')
+
+# Display histogram for 'event-loop-3' run with the following datasets '26_|56_|196_|534_|uu3_|299_'
+with open('/nas/home/kyao/dsbox/runs/json-output/output-event-loop-3-to-6.json', 'r') as fin:
+    fin2 = grep(fin, 'event-loop-3')
+    fin3 = egrep(fin2, '26_|56_|196_|534_|uu3_|299_')
+    gen_hist_files(fin3, None)
