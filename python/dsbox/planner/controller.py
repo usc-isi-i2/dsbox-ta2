@@ -312,7 +312,8 @@ class Controller(object):
     def write_training_results(self):
         # Sort pipelines
         # self.exec_pipelines = sorted(self.exec_pipelines, key=lambda x: self._sort_by_metric(x))
-        self.exec_pipelines = self.get_pipeline_sorter().sort_pipelines(self.exec_pipelines)
+        
+        #self.exec_pipelines = self.get_pipeline_sorter().sort_pipelines(self.exec_pipelines)
         # Ended planners
         self._show_status("Found total %d successfully executing pipeline(s)..." % len(self.exec_pipelines))
 
@@ -334,7 +335,9 @@ class Controller(object):
     def write_test_results(self):
         # Sort pipelines
         # self.exec_pipelines = sorted(self.exec_pipelines, key=lambda x: self._sort_by_metric(x))
-        self.exec_pipelines = self.get_pipeline_sorter().sort_pipelines(self.exec_pipelines)
+        
+
+        #self.exec_pipelines = self.get_pipeline_sorter().sort_pipelines(self.exec_pipelines)
         # Ended planners
         self._show_status("Found total %d successfully executing pipeline(s)..." % len(self.exec_pipelines))
 
