@@ -66,11 +66,14 @@ def main(argv=None): # IGNORE:C0111
 
     #conf_file = sys.argv[1]
     prnt = True
+    failures = []
+    count = 0
     for folder, sub_dirs, _ in os.walk(dataset_folder):
         dataset = folder.split('/')[-1]
         if folder != dataset_folder and '.git' not in folder:
             config = {}
             del sub_dirs[:]
+            print('RUNNING ', dataset)
             config["problem_schema"] = os.path.join(dataset_folder, str(dataset), str(dataset+'_problem'), 'problemDoc.json')
             config["problem_root"] = os.path.join(dataset_folder, str(dataset), str(dataset+'_problem'))
             config["dataset_schema"] = os.path.join(dataset_folder, str(dataset), str(dataset+'_dataset'), 'datasetDoc.json')
@@ -104,13 +107,21 @@ def main(argv=None): # IGNORE:C0111
 
             # Start training
             controller.initialize_planners()
+            try:
+                for result in controller.train(PlannerEventHandler()):
+                    if result == False:
+                        print("ProblemNotImplemented")
+                        sys.exit(148)
+                    pass
+                count = count + 1
+            except:
+                failures.append(dataset)
+                continue
 
-            for result in controller.train(PlannerEventHandler()):
-                print('training ', result)
-                if result == False:
-                    print("ProblemNotImplemented")
-                    sys.exit(148)
-                pass
+    print("Completed Running ", count, " Pipelines")
+    print("Failed on datasets:")
+    for fail in failures:
+        print(fail)
 
 
 if __name__ == "__main__":
