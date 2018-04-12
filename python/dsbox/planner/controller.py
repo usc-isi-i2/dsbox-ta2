@@ -362,9 +362,10 @@ class Controller(object):
     def test_pipelines(self):
         #handler = GRPC_PlannerEventHandler()
         for pipeline in self.exec_pipelines:
-            for result in self.test(pipeline):#, handler):
-                if result is not None:
-                    yield result
+            self.test(pipeline)
+            #for result in self.test(pipeline):#, handler):
+            #    if result is not None:
+            #        yield result
 
         self.write_test_results()
 
