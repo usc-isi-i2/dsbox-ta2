@@ -303,8 +303,10 @@ class Controller(object):
                 sys.stderr.write("ERROR ensemble.greedy_add : %s\n" % e)
 
         self.write_training_results()
-
+        print('running tests')
         self.test_pipelines()
+        print('ran test')
+        print('writing test')
         self.write_test_results()
     '''
     Write training results to file
