@@ -79,6 +79,7 @@ class Controller(object):
         self.logfile = open("%s%slog.txt" % (self.tmp_dir, os.sep), 'w')
         self.errorfile = open("%s%sstderr.txt" % (self.tmp_dir, os.sep), 'w')
         self.pipelinesfile = open("%s%spipelines.txt" % (self.tmp_dir, os.sep), 'w')
+        self.test_pipelinesfile = open("%s%stest_pipelines.txt" % (self.tmp_dir, os.sep), 'w')
 
         self.problem = Problem()
         self.data_manager = DataManager()
@@ -338,7 +339,7 @@ class Controller(object):
         self._show_status("Found total %d successfully executing pipeline(s)..." % len(self.exec_pipelines))
 
         # Create executables
-        self.pipelinesfile.write("# Pipelines ranked by (adjusted) metrics (%s)\n" % self.problem.metrics)
+        self.test_pipelinesfile.write("# Pipelines ranked by (adjusted) metrics (%s)\n" % self.problem.metrics)
         for index in range(0, len(self.exec_pipelines)):
             pipeline = self.exec_pipelines[index]
             rank = index + 1
@@ -348,7 +349,7 @@ class Controller(object):
                 metric_value = pipeline.test_result.metric_values[metric]
                 metric_values.append("%s = %2.4f" % (metric, metric_value))
 
-            self.pipelinesfile.write("%s ( %s ) : %s\n" % (pipeline.id, pipeline, metric_values))
+            self.test_pipelinesfile.write("%s ( %s ) : %s\n" % (pipeline.id, pipeline, metric_values))
             #self.execution_helper.create_pipeline_executable(pipeline, self.config)
             self.create_pipeline_logfile(pipeline, rank)
 
