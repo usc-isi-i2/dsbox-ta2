@@ -41,8 +41,12 @@ class LevelOnePlanner(object):
         self.primitive_family_mappings = PrimitiveFamilyMappings()
         self.primitive_family_mappings.load_json(library_dir)
 
-        self.include_families, self.include_types, self.include_primitives = self._interpret_inc_exc(include)
-        self.exclude_families, self.exclude_types, self.exclude_primitives = self._interpret_inc_exc(exclude, inc = False)
+        if not include and not exclude:    
+            self.include = False
+        else:
+            self.include = True
+            self.include_families, self.include_types, self.include_primitives = self._interpret_inc_exc(include)
+            self.exclude_families, self.exclude_types, self.exclude_primitives = self._interpret_inc_exc(exclude, inc = False)
 
     def _interpret_inc_exc(self, mixed_list, inc = True):
         # mixed_list can include families and/or primitives
@@ -142,6 +146,9 @@ class LevelOnePlanner(object):
         # check family / type inclusions / exclusions here
         for node in family_nodes:
             # include primitives will get through here because family included for each
+            if not self.include:
+                child_nodes += node.get_children()
+
             if node.name in self.include_families:
                 child_nodes += [n for n in node.get_children() if n.name not in self.exclude_types]
             elif node.name not in self.exclude_families:                
@@ -156,18 +163,25 @@ class LevelOnePlanner(object):
                 if self.include_types and set(family_types).isdisjoint(self.include_types):
                     child_nodes += node.get_children()
                 if not set(family_types).isdisjoint(self.exclude_types):
-                    print("Excluding types: ",  self.exclude_types, " incl: ", set(node.get_children()) - set(self.exclude_types))
-                    child_nodes += set(node.get_children()) - set(self.exclude_types)
+                    print("Excluding types: "  self.exclude_types, " incl: ", set(node.get_children()) - set(self.exclude_types))
+                    child_nodes += (set(node.get_children()) - set(self.exclude_types))
+
+                #if set([n.cls for n in node.get_children()]).intersection([ip.cls for ip in self.include_primitives]):
+                #    child_nodes.append()
 
         return child_nodes
 
     def _check_primitive_include(self, p):
+        if not self.include:
+            return True
+
         check1 = (self.include_families or self.include_types or self.include_primitives)
         check2 = p.getFamily() in self.include_families
         check3 = self.include_types and not set(p.getAlgorithmTypes()).isdisjoint(self.include_types) 
         check4 = p.cls in self.include_primitives
         
         check = check1 and (check2 or check3 or check4)
+
         if p.cls in self.exclude_primitives:
             return False
         else:
