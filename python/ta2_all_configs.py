@@ -55,6 +55,8 @@ def main(argv=None): # IGNORE:C0111
 
     #conf_file = sys.argv[1]
     verbose = True
+    cnt = 0
+
     for folder, sub_dirs, _ in os.walk(dataset_folder):
         dataset = folder.split('/')[-1]
         if folder != dataset_folder and '.git' not in folder:
@@ -68,15 +70,34 @@ def main(argv=None): # IGNORE:C0111
             config["executables_root"] =  os.path.join(os.getcwd(), output_dir, str(dataset),'executables')  
             config["temp_storage_root"] =  os.path.join(os.getcwd(), output_dir, str(dataset),'temp')
             config["timeout"] = TIMEOUT
-            config["exclude"] = "[d3m.primitives.sklearn_wrap.SKAdaBoostClassifier]"
+            config["cpus"] = "4"
+            config["ram"] = "4Gi"
+            config["include"] = ["d3m.primitives.sklearn_wrap.SKAdaBoostClassifier", \
+        "d3m.primitives.sklearn_wrap.SKExtraTreesClassifier", \
+        "d3m.primitives.sklearn_wrap.SKLogisticRegression", \
+        "d3m.primitives.sklearn_wrap.SKLinearSVC", \
+        "d3m.primitives.sklearn_wrap.SKKNeighborsClassifier", \
+        "d3m.primitives.sklearn_wrap.SKLinearDiscriminantAnalysis", \
+        "d3m.primitives.sklearn_wrap.SKRandomForestClassifier", \
+        "d3m.primitives.sklearn_wrap.SKGaussianNB", \
+        "d3m.primitives.sklearn_wrap.SKMultinomialNB", \
+        "d3m.primitives.sklearn_wrap.SKSGDClassifier", \
+        "d3m.primitives.sklearn_wrap.SKQuadraticDiscriminantAnalysis"]
+#            config["include"] = ["d3m.primitives.sklearn_wrap.SKAdaBoostClassifier", \ 
+#                                "LINEAR_DISCRIMINANT_ANALYSIS", \ 
+#                                "NAIVE_BAYES_CLASSIFIER"]
+            config["exclude"] = ["*"]
+#            config["exclude"] = ["d3m.primitives.sklearn_wrap.SKMultinomialNB", \
+#                                "d3m.primitives.sklearn_wrap.SKBernoulliNB"]
             #print(config)
-            # don't change timeout, cpus, ram?
 
             conf_dir = "conf"
-#            print(conf_dir + "/" + dataset + ".conf")
-#            return
             with open(conf_dir + "/" + dataset + ".conf", "w+") as fp:
                 json.dump(config, fp, sort_keys=False, indent=4)
+#            break
+
+        cnt = cnt + 1
+        print(str(cnt) + ". " + "Generated config file for", dataset)
 
 
 if __name__ == "__main__":
