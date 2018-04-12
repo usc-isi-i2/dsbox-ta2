@@ -148,8 +148,8 @@ class LevelOnePlanner(object):
             # include primitives will get through here because family included for each
             if not self.include:
                 child_nodes += node.get_children()
-
-            if node.name in self.include_families:
+                
+            elif node.name in self.include_families:
                 child_nodes += [n for n in node.get_children() if n.name not in self.exclude_types]
             elif node.name not in self.exclude_families:                
                 for child in node.get_children():
