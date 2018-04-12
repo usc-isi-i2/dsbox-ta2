@@ -41,8 +41,12 @@ class LevelOnePlanner(object):
         self.primitive_family_mappings = PrimitiveFamilyMappings()
         self.primitive_family_mappings.load_json(library_dir)
 
-        self.include_families, self.include_types, self.include_primitives = self._interpret_inc_exc(include)
-        self.exclude_families, self.exclude_types, self.exclude_primitives = self._interpret_inc_exc(exclude, inc = False)
+        if not include and not exclude:    
+            self.include = False
+        else:
+            self.include = True
+            self.include_families, self.include_types, self.include_primitives = self._interpret_inc_exc(include)
+            self.exclude_families, self.exclude_types, self.exclude_primitives = self._interpret_inc_exc(exclude, inc = False)
 
     def _interpret_inc_exc(self, mixed_list, inc = True):
         # mixed_list can include families and/or primitives
@@ -92,8 +96,6 @@ class LevelOnePlanner(object):
             # if GRAPH_MATCHING then add LINK_PREDICTION
             families = families + self.primitive_family_mappings.get_families_by_task_type(TaskType.LINK_PREDICTION)
 
-        
-        print('FAMILIES: ', families, self.include_families, self.exclude_families)
         # moved to get_child_nodes
         #families = set(families)-set(self.exclude_families   
         family_nodes = [self.ontology.get_family(f) for f in families]
@@ -127,6 +129,9 @@ class LevelOnePlanner(object):
         # check family / type inclusions / exclusions here
         for node in family_nodes:
             # include primitives will get through here because family included for each
+            if not self.include:
+                child_nodes += node.get_children()
+
             if node.name in self.include_families:
                 child_nodes += node.get_children()
             elif node.name not in self.exclude_families:
@@ -141,11 +146,17 @@ class LevelOnePlanner(object):
                     child_nodes += node.get_children()
                 if not set(family_types).isdisjoint(self.exclude_types):
                     print("Excluding types: "  self.exclude_types, " incl: ", set(node.get_children()) - set(self.exclude_types))
-                    child_nodes += set(node.get_children()) - set(self.exclude_types)
+                    child_nodes += (set(node.get_children()) - set(self.exclude_types))
+
+                if set([n.cls for n in node.get_children()]).intersection([ip.cls for ip in self.include_primitives]):
+                    child_nodes.append()
 
         return child_nodes
 
     def _check_primitive_include(self, p):
+        if not self.include:
+            return True
+
         if (self.include_families or self.include_types or self.include_primitives) 
             and not (p.getFamily() in self.include_families or
                  set(p.getAlgorithmTypes()).intersection(self.include_types) or
