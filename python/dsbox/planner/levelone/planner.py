@@ -163,7 +163,7 @@ class LevelOnePlanner(object):
                 if self.include_types and set(family_types).isdisjoint(self.include_types):
                     child_nodes += node.get_children()
                 if not set(family_types).isdisjoint(self.exclude_types):
-                    print("Excluding types: "  self.exclude_types, " incl: ", set(node.get_children()) - set(self.exclude_types))
+                    print("Excluding types: ", self.exclude_types, " incl: ", set(node.get_children()) - set(self.exclude_types))
                     child_nodes += (set(node.get_children()) - set(self.exclude_types))
 
                 #if set([n.cls for n in node.get_children()]).intersection([ip.cls for ip in self.include_primitives]):
