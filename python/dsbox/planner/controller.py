@@ -22,7 +22,7 @@ from dsbox.planner.common.pipeline import Pipeline, PipelineExecutionResult, One
 from dsbox.planner.common.problem_manager import Problem
 from dsbox.planner.common.resource_manager import ResourceManager
 from dsbox.planner.ensemble import Ensemble
-from dsbox.server.controller.grpc_event_handler import GRPC_PlannerEventHandler
+#from dsbox.server.controller.grpc_event_handler import GRPC_PlannerEventHandler
 
 
 class Feature:
@@ -355,9 +355,9 @@ class Controller(object):
 
 
     def test_pipelines(self):
-        handler = GRPC_PlannerEventHandler()
+        #handler = GRPC_PlannerEventHandler()
         for pipeline in self.exec_pipelines:
-            for result in self.test(pipeline, handler):
+            for result in self.test(pipeline):#, handler):
                 if result is not None:
                     yield result
 
@@ -366,7 +366,7 @@ class Controller(object):
     '''
     Predict results on test data given a pipeline
     '''
-    def test(self, pipeline, test_event_handler):
+    def test(self, pipeline, test_event_handler = None):
         helper = ExecutionHelper(self.problem, self.data_manager)
         testdf = pd.DataFrame(copy.copy(self.data_manager.input_data))
         target_col = self.data_manager.target_columns[0]['colName']
@@ -394,8 +394,8 @@ class Controller(object):
                 sys.stderr.write(
                     "ERROR test(%s) : %s\n" % (pipeline, e))
                 traceback.print_exc()
-
-        yield test_event_handler.ExecutedPipeline(pipeline)
+        if handler is not None:
+            yield test_event_handler.ExecutedPipeline(pipeline)
 
     def stop(self):
         '''
