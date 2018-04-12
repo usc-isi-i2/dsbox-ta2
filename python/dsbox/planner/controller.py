@@ -22,6 +22,8 @@ from dsbox.planner.common.pipeline import Pipeline, PipelineExecutionResult, One
 from dsbox.planner.common.problem_manager import Problem
 from dsbox.planner.common.resource_manager import ResourceManager
 from dsbox.planner.ensemble import Ensemble
+from dsbox.server.controller.grpc_event_handler import GRPC_PlannerEventHandler
+
 
 class Feature:
     def __init__(self, resource_id, feature_name):
@@ -291,6 +293,7 @@ class Controller(object):
 
         if ensemble:
             try:
+                # df_lbl = test data
                 ensemble_pipeline = self.ensemble.greedy_add(self.exec_pipelines, df, df_lbl)
                 if ensemble_pipeline:
                     self.exec_pipelines.append(ensemble_pipeline)
@@ -300,6 +303,8 @@ class Controller(object):
 
         self.write_training_results()
 
+        self.test_pipelines()
+        self.write_test_results()
     '''
     Write training results to file
     '''
@@ -307,8 +312,6 @@ class Controller(object):
         # Sort pipelines
         # self.exec_pipelines = sorted(self.exec_pipelines, key=lambda x: self._sort_by_metric(x))
         self.exec_pipelines = self.get_pipeline_sorter().sort_pipelines(self.exec_pipelines)
-
-
         # Ended planners
         self._show_status("Found total %d successfully executing pipeline(s)..." % len(self.exec_pipelines))
 
@@ -326,6 +329,38 @@ class Controller(object):
             self.pipelinesfile.write("%s ( %s ) : %s\n" % (pipeline.id, pipeline, metric_values))
             self.execution_helper.create_pipeline_executable(pipeline, self.config)
             self.create_pipeline_logfile(pipeline, rank)
+
+    def write_test_results(self):
+        # Sort pipelines
+        # self.exec_pipelines = sorted(self.exec_pipelines, key=lambda x: self._sort_by_metric(x))
+        self.exec_pipelines = self.get_pipeline_sorter().sort_pipelines(self.exec_pipelines)
+        # Ended planners
+        self._show_status("Found total %d successfully executing pipeline(s)..." % len(self.exec_pipelines))
+
+        # Create executables
+        self.pipelinesfile.write("# Pipelines ranked by (adjusted) metrics (%s)\n" % self.problem.metrics)
+        for index in range(0, len(self.exec_pipelines)):
+            pipeline = self.exec_pipelines[index]
+            rank = index + 1
+            # Format the metric values
+            metric_values = []
+            for metric in pipeline.test_result.metric_values.keys():
+                metric_value = pipeline.test_result.metric_values[metric]
+                metric_values.append("%s = %2.4f" % (metric, metric_value))
+
+            self.pipelinesfile.write("%s ( %s ) : %s\n" % (pipeline.id, pipeline, metric_values))
+            #self.execution_helper.create_pipeline_executable(pipeline, self.config)
+            self.create_pipeline_logfile(pipeline, rank)
+
+
+    def test_pipelines(self):
+        handler = GRPC_PlannerEventHandler()
+        for pipeline in self.exec_pipelines:
+            for result in self.test(pipeline, handler):
+                if result is not None:
+                    yield result
+
+        self.write_test_results()
 
     '''
     Predict results on test data given a pipeline
