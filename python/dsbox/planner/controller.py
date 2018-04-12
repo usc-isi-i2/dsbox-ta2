@@ -1,30 +1,38 @@
+import asyncio
+import copy
+import json
+import functools
 import os
 import sys
-import os.path
-import uuid
-import copy
-import math
-import json
-import numpy
-import shutil
 import traceback
+
 import pandas as pd
+
+from typing import List
 
 from dsbox.planner.leveltwo.l1proxy import LevelOnePlannerProxy
 from dsbox.planner.leveltwo.planner import LevelTwoPlanner
 from dsbox.schema.data_profile import DataProfile
-from dsbox.schema.problem_schema import TaskType, TaskSubType, Metric
 from dsbox.executer.executionhelper import ExecutionHelper
 from dsbox.planner.common.data_manager import Dataset, DataManager
-from dsbox.planner.common.pipeline import Pipeline, PipelineExecutionResult
+from dsbox.planner.common.pipeline import Pipeline, PipelineExecutionResult, OneStandardErrorPipelineSorter, PipelineSorter
 from dsbox.planner.common.problem_manager import Problem
 from dsbox.planner.common.resource_manager import ResourceManager
 from dsbox.planner.ensemble import Ensemble
+from dsbox.planner.hyperparam_tuning import RandomHyperparamTuning
 
 class Feature:
     def __init__(self, resource_id, feature_name):
         self.resource_id = resource_id
         self.feature_name = feature_name
+
+class ExecutionCache:
+    def __init__(self):
+        self.l1_pipelines_handled = {}
+        self.l2_pipelines_handled = {}
+        self.l2_pipelines_map = {}
+
+        self.l2_l1_map = {}
 
 class Controller(object):
     problem = None
@@ -47,9 +55,33 @@ class Controller(object):
     and the primitives library directory, and it generates plans by calling out to L1, L2
     and L3 planners.
     """
-    def __init__(self, libdir):
+    def __init__(self, libdir, development_mode=False):
         # FIXME: This should change to the primitive discovery interface
         self.libdir = os.path.abspath(libdir)
+        self.development_mode = development_mode
+
+        self.cache = ExecutionCache()
+        self.tuner = RandomHyperparamTuning()
+
+        # Planner event handler
+        self.pe = None
+
+        # All pipelines that have finished executing
+        self.exec_pipelines = []
+
+        self.log_dir = None
+        self.exec_dir = None
+        self.tmp_dir = None
+        self.problem = None
+        self.data_manager = None
+        self.logfile = None
+        self.errorfile = None
+        self.pipelinesfile = None
+
+        self.hyperparam_count = 0
+
+        self.exec_pipelines: List[Pipeline] = []
+        self._pipeline_sorter: PipelineSorter = None
 
     '''
     Set config directories and data schema file
@@ -70,14 +102,16 @@ class Controller(object):
         self.logfile = open("%s%slog.txt" % (self.tmp_dir, os.sep), 'w')
         self.errorfile = open("%s%sstderr.txt" % (self.tmp_dir, os.sep), 'w')
         self.pipelinesfile = open("%s%spipelines.txt" % (self.tmp_dir, os.sep), 'w')
+        self.statistics_filename = "%s%sstatistics.jsonl" % (self.tmp_dir, os.sep)
 
         self.problem = Problem()
         self.data_manager = DataManager()
         self.execution_helper = ExecutionHelper(self.problem, self.data_manager)
         self.resource_manager = ResourceManager(self.execution_helper, self.num_cpus)
 
-        # Redirect stderr to error file
-        sys.stderr = self.errorfile
+        if not self.development_mode:
+            # Redirect stderr to error file
+            sys.stderr = self.errorfile
 
     '''
     Set config directories and schema from just problemdir, datadir and outputdir
@@ -166,6 +200,11 @@ class Controller(object):
 
         self.data_manager.initialize_data(self.problem, [dataset], view)
 
+    def get_pipeline_sorter(self):
+        if self._pipeline_sorter is None:
+            self._pipeline_sorter = OneStandardErrorPipelineSorter(self.problem.metrics[0])
+        return self._pipeline_sorter
+
 
     """
     Initialize the L1 and L2 planners
@@ -174,124 +213,130 @@ class Controller(object):
         self.l1_planner = LevelOnePlannerProxy(self.libdir, self.execution_helper)
         self.l2_planner = LevelTwoPlanner(self.libdir, self.execution_helper)
 
-    """
-    Train and select pipelines
-    """
-    def train(self, planner_event_handler, cutoff=10, ensemble = True):
-        self.exec_pipelines = []
-        self.l2_planner.primitive_cache = {}
-        self.l2_planner.execution_cache = {}
 
-        self.logfile.write("Task type: %s\n" % self.problem.task_type)
-        self.logfile.write("Metrics: %s\n" % self.problem.metrics)
+    def train(self, planner_event_handler, cutoff=10, ensemble=True, timeout=300):
+        """Train and select pipelines"""
+        self.pe = planner_event_handler
 
         if ensemble:
             self.ensemble = Ensemble(self.problem) #,self.max_ensemble)
 
-        pe = planner_event_handler
-
-        self._show_status("Planning...")
+        self.training = True
 
         # Get data details
         df = copy.copy(self.data_manager.input_data)
         df_lbl = copy.copy(self.data_manager.target_data)
         df_profile = DataProfile(df)
         self.logfile.write("Data profile: %s\n" % df_profile)
-        l2_pipelines_map = {}
-        l1_pipelines_handled = {}
-        l2_pipelines_handled = {}
+
+        # Generate pipelines and store in self.exec_pipelines
+        print('I am here')
+
+        # l2_pipelines = self.generate_executable_pipelines(df, df_profile)
+
+
+        print('generate_executable_pipelines')
         l1_pipelines = self.l1_planner.get_pipelines(df)
         if l1_pipelines is None:
             # If no L1 Pipelines, then we don't support this problem
-            yield pe.ProblemNotImplemented()
+            yield self.pe.ProblemNotImplemented()
+            return []
+
+        print('l1_pipelines: {}'.format([p for p in l1_pipelines]))
+        l2_pipelines = []
+        for l1_pipeline in l1_pipelines:
+            if self.cache.l1_pipelines_handled.get(str(l1_pipeline), False):
+                continue
+
+            l2_pipeline_list = self.l2_planner.expand_pipeline(l1_pipeline, df_profile)
+            self.cache.l1_pipelines_handled[str(l1_pipeline)] = True
+
+            print('l2_pipeline_list: {}'.format([p for p in l2_pipeline_list]))
+
+            if l2_pipeline_list:
+                for l2_pipeline in l2_pipeline_list:
+                    if not self.cache.l2_pipelines_handled.get(str(l2_pipeline), False):
+                        self.cache.l2_l1_map[l2_pipeline.id] = l1_pipeline
+                        l2_pipelines.append(l2_pipeline)
+                        self.cache.l2_pipelines_map[str(l2_pipeline)] = l2_pipeline
+                        yield self.pe.SubmittedPipeline(l2_pipeline)
+        print('l2_pipelines: {}'.format([p for p in l2_pipelines]))
+
+        if not l2_pipelines:
             return
-        self.exec_pipelines = []
 
-        while len(l1_pipelines) > 0:
-            self.logfile.write("\nL1 Pipelines:\n-------------\n")
-            self.logfile.write("%s\n" % str(l1_pipelines))
-            self.logfile.write("-------------\n")
+        for l2_pipeline in l2_pipelines:
+            yield self.pe.RunningPipeline(l2_pipeline)
 
-            l2_l1_map = {}
+        callbacks = []
+        for pipeline in l2_pipelines:
+            # func = functools.partial(test_pipeline_result_call_back, pipeline, df, df_lbl)
+            # test_result = func('test')
+            callbacks.append(functools.partial(self.pipeline_result_call_back, pipeline, df, df_lbl))
 
-            self._show_status("Exploring %d basic pipeline(s)..." % len(l1_pipelines))
+        self.resource_manager.execute_pipelines(
+            l2_pipelines, df, df_lbl, callbacks, timeout=timeout)
 
-            l2_pipelines = []
-            for l1_pipeline in l1_pipelines:
-                if l1_pipelines_handled.get(str(l1_pipeline), False):
-                    continue
-                l2_pipeline_list = self.l2_planner.expand_pipeline(l1_pipeline, df_profile)
-                l1_pipelines_handled[str(l1_pipeline)] = True
-                if l2_pipeline_list:
-                    for l2_pipeline in l2_pipeline_list:
-                        if not l2_pipelines_handled.get(str(l2_pipeline), False):
-                            l2_l1_map[l2_pipeline.id] = l1_pipeline
-                            l2_pipelines.append(l2_pipeline)
-                            l2_pipelines_map[str(l2_pipeline)] = l2_pipeline
-                            yield pe.SubmittedPipeline(l2_pipeline)
+        self.exec_pipelines = self.resource_manager.exec_pipelines
+        # self.exec_pipelines = sorted(self.exec_pipelines, key=lambda x: self._sort_by_metric(x))
+        self.exec_pipelines = self.get_pipeline_sorter().sort_pipelines(self.exec_pipelines)
 
-            self.logfile.write("\nL2 Pipelines:\n-------------\n")
-            self.logfile.write("%s\n" % str(l2_pipelines))
-
-            self._show_status("Found %d executable pipeline(s). Testing them..." % len(l2_pipelines))
-
-            for l2_pipeline in l2_pipelines:
-                yield pe.RunningPipeline(l2_pipeline)
-                # exec_pipeline = self.l2_planner.patch_and_execute_pipeline(l2_pipeline, df, df_lbl)
-
-            exec_pipelines = self.resource_manager.execute_pipelines(l2_pipelines, df, df_lbl)
-            for exec_pipeline in exec_pipelines:
-                l2_pipeline = l2_pipelines_map[str(exec_pipeline)]
-                l2_pipelines_handled[str(l2_pipeline)] = True
-                yield pe.CompletedPipeline(l2_pipeline, exec_pipeline)
-                if exec_pipeline:
-                    self.exec_pipelines.append(exec_pipeline)
-
-            self.exec_pipelines = sorted(self.exec_pipelines, key=lambda x: self._sort_by_metric(x))
-            self.logfile.write("\nL2 Executed Pipelines:\n-------------\n")
-            self.logfile.write("%s\n" % str(self.exec_pipelines))
-
-            # TODO: Do Pipeline Hyperparameter Tuning
-
-            # Pick top N pipelines, and get similar pipelines to it from the L1 planner to further explore
-            l1_related_pipelines = []
-            for index in range(0, cutoff):
-                if index >= len(self.exec_pipelines):
-                    break
-                l1_pipeline = l2_l1_map.get(self.exec_pipelines[index].id)
-                if l1_pipeline:
-                    related_pipelines = self.l1_planner.get_related_pipelines(l1_pipeline)
-                    for related_pipeline in related_pipelines:
-                        if not l1_pipelines_handled.get(str(related_pipeline), False):
-                            l1_related_pipelines.append(related_pipeline)
-
-            self.logfile.write("\nRelated L1 Pipelines to top %d L2 Pipelines:\n-------------\n" % cutoff)
-            self.logfile.write("%s\n" % str(l1_related_pipelines))
-            l1_pipelines = l1_related_pipelines
-
+        # Create ensemble
         if ensemble:
             try:
-                ensemble_pipeline = self.ensemble.greedy_add(self.exec_pipelines, df, df_lbl)
+                ensemble_pipeline = self.ensemble.greedy_add(
+                    self.exec_pipelines, df, df_lbl)
                 if ensemble_pipeline:
                     self.exec_pipelines.append(ensemble_pipeline)
+
+                    # Add to ensemble pipeline to stats
+                    self.resource_manager.stats.pipeline_pending(ensemble_pipeline)
+                    self.resource_manager.stats.pipeline_running(ensemble_pipeline)
+                    self.resource_manager.stats.pipeline_finished(ensemble_pipeline)
             except Exception as e:
                 traceback.print_exc()
                 sys.stderr.write("ERROR ensemble.greedy_add : %s\n" % e)
 
+        self.resource_manager.stats.print_successful_pipelines()
         self.write_training_results()
+        print('DONE controler.train()')
+
+    def pipeline_result_call_back(self, pipeline, df, df_lbl, task: asyncio.Future):
+        if self.hyperparam_count > 1000:
+        # if self.hyperparam_count > 10:
+            print('call_back limit reached')
+            return
+
+        self.hyperparam_count += 1
+        exec_pipeline = task.result()
+        if exec_pipeline is None:
+            print('call_back pipeline failed %s' % pipeline.id)
+        else:
+            new_pipelines = self.tuner.generate_new_pipelines(exec_pipeline)
+            # Problem with yields in this function.
+            # for l2_pipeline in new_pipelines:
+            #     yield self.pe.SubmittedPipeline(l2_pipeline)
+            # for l2_pipeline in new_pipelines:
+            #     yield self.pe.RunningPipeline(l2_pipeline)
+            for l2_pipeline in new_pipelines:
+                self.resource_manager.add_pipeline(l2_pipeline, df, df_lbl,
+                                                   functools.partial(self.pipeline_result_call_back, pipeline, df, df_lbl))
+
+
 
     '''
     Write training results to file
     '''
     def write_training_results(self):
-        # Sorkt pipelines
-        self.exec_pipelines = sorted(self.exec_pipelines, key=lambda x: self._sort_by_metric(x))
+        # Sort pipelines
+        # self.exec_pipelines = sorted(self.exec_pipelines, key=lambda x: self._sort_by_metric(x))
+        self.exec_pipelines = self.get_pipeline_sorter().sort_pipelines(self.exec_pipelines)
 
         # Ended planners
         self._show_status("Found total %d successfully executing pipeline(s)..." % len(self.exec_pipelines))
 
         # Create executables
-        self.pipelinesfile.write("# Pipelines ranked by metrics (%s)\n" % self.problem.metrics)
+        self.pipelinesfile.write("# Pipelines ranked by (adjusted) metrics (%s)\n" % self.problem.metrics)
         for index in range(0, len(self.exec_pipelines)):
             pipeline = self.exec_pipelines[index]
             rank = index + 1
@@ -304,6 +349,14 @@ class Controller(object):
             self.pipelinesfile.write("%s ( %s ) : %s\n" % (pipeline.id, pipeline, metric_values))
             self.execution_helper.create_pipeline_executable(pipeline, self.config)
             self.create_pipeline_logfile(pipeline, rank)
+
+        # Flush pipeline
+        self.pipelinesfile.flush()
+
+        # save statistics
+        with open(self.statistics_filename, 'w') as outfile:
+            self.resource_manager.stats.json_line_dump(outfile, problem_id=self.problem.get_problem_id(),
+                                                       dataset_names=self.problem.get_dataset_ids())
 
     '''
     Predict results on test data given a pipeline
@@ -383,8 +436,6 @@ class Controller(object):
 
     def _sort_by_metric(self, pipeline):
         # NOTE: Sorting/Ranking by first metric only
-        metric_name = self.problem.metrics[0].name
-        mlower = metric_name.lower()
-        if "error" in mlower or "loss" in mlower or "time" in mlower:
-            return pipeline.planner_result.metric_values[metric_name]
-        return -pipeline.planner_result.metric_values[metric_name]
+        if self.problem.metrics[0].larger_is_better():
+            return -pipeline.planner_result.metric_values[self.problem.metrics[0].name]
+        return pipeline.planner_result.metric_values[self.problem.metrics[0].name]

@@ -9,6 +9,10 @@ import dsbox.datapreprocessing.profiler.feature_compute_lfh as fc_lfh
 import dsbox.datapreprocessing.profiler.feature_compute_hih as fc_hih
 from collections import defaultdict
 
+# To allow pickling
+def default_dict():
+    return defaultdict()
+
 class DataProfiler(object):
     """
     Converted the main function of the data profiler into a class
@@ -39,7 +43,8 @@ class DataProfiler(object):
                 samplevalue = col.iloc[validindices[0]]
 
             # dict: map feature name to content
-            each_res = defaultdict(lambda: defaultdict())
+            # each_res = defaultdict(lambda: defaultdict())
+            each_res = defaultdict(default_dict)
 
             if col.dtype.kind in np.typecodes['AllInteger']+'uMmf':
                 each_res["missing"]["num_missing"] = pd.isnull(col).sum()

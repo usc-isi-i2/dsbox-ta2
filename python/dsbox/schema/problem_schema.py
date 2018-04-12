@@ -18,7 +18,7 @@ class TaskType(Enum):
     GRAPH_MATCHING = "graphMatching"
     TIME_SERIES_FORECASTING = "timeSeriesForecasting"
     COLLABORATIVE_FILTERING = "collaborativeFiltering"
- 
+
 class TaskSubType(Enum):
     NONE = "none"
     BINARY = "binary"  # applicable for classification, vertexNomination
@@ -46,3 +46,9 @@ class Metric(Enum):
     JACCARD_SIMILARITY_SCORE = "jaccardSimilarityScore" # see jaccard.py script
     PRECISION_AT_TOP_K = "precisionAtTopK"
     EXECUTION_TIME = "executionTime"
+
+    def larger_is_better(self):
+        '''Returns True, if larger metric values are better'''
+        return not (self in [Metric.MEAN_SQUARED_ERROR, Metric.ROOT_MEAN_SQUARED_ERROR,
+                             Metric.ROOT_MEAN_SQUARED_ERROR_AVG,
+                             Metric.MEAN_ABSOLUTE_ERROR, Metric.EXECUTION_TIME])

@@ -14,9 +14,16 @@ import signal
 from dsbox.planner.controller import Controller, Feature
 from dsbox.planner.event_handler import PlannerEventHandler
 
+# import pydevd
+# pydevd.settrace('76.174.187.118')
+#pydevd.settrace('128.9.184.183')
+#pydevd.settrace('128.9.128.37')
+
+
 TIMEOUT = 25*60 # Timeout after 25 minutes
 
-DEBUG = 0
+DEBUG = 1
+
 LIB_DIRECTORY = os.path.dirname(os.path.realpath(__file__)) + "/library"
 
 def main(argv=None): # IGNORE:C0111
@@ -49,28 +56,20 @@ ta2-search <search_config_file>
         TIMEOUT = int(config.get("timeout"))*60 - 60
 
     # Start the controller
-    controller = Controller(LIB_DIRECTORY)
+    controller = Controller(LIB_DIRECTORY, development_mode=DEBUG>0)
     controller.initialize_from_config(config)
     controller.load_problem()
 
     # Setup a signal handler to exit gracefully
     # Either on an interrupt or after a certain time
     def write_results_and_exit(signal, frame):
-        print('SIGNAL exit: {}'.format(conf_file))
         controller.write_training_results()
-        print('SIGNAL exit done writing: {}'.format(conf_file), flush=True)
-
-        # sys.exit(0) generates SystemExit exception, which may
-        # be caught and ignore.
-
-        # This os._exit() cannot be caught.
-        # TODO: But for some runs. The process still keeps running. Need to investigate more.
-        os._exit(0)
-
-    signal.signal(signal.SIGINT, write_results_and_exit)
-    signal.signal(signal.SIGTERM, write_results_and_exit)
-    signal.signal(signal.SIGALRM, write_results_and_exit)
-    signal.alarm(TIMEOUT)
+        sys.exit(0)
+    if not DEBUG:
+        signal.signal(signal.SIGINT, write_results_and_exit)
+        signal.signal(signal.SIGTERM, write_results_and_exit)
+        signal.signal(signal.SIGALRM, write_results_and_exit)
+        signal.alarm(TIMEOUT)
 
     # Load in data
     controller.initialize_training_data_from_config()
@@ -80,14 +79,12 @@ ta2-search <search_config_file>
     for result in controller.train(PlannerEventHandler(), timeout=TIMEOUT):
         if result == False:
             print("ProblemNotImplemented")
-            os._exit(148)
+            sys.exit(148)
         pass
 
-    print('exit: {}'.format(conf_file))
 
 if __name__ == "__main__":
     if DEBUG:
         sys.argv.append("-h")
         sys.argv.append("-v")
-    result = main()
-    os._exit(result)
+    sys.exit(main())

@@ -1,10 +1,7 @@
 import os
 import sys
 import json
-import copy
 import time
-import uuid
-import shutil
 import os.path
 import tempfile
 import numpy as np
@@ -22,7 +19,7 @@ from dsbox.schema.dataset_schema import VariableFileType
 from dsbox.schema.profile_schema import DataProfileType as dpt
 from dsbox.schema.problem_schema import TaskType
 from dsbox.executer.execution import Execution
-from dsbox.executer import pickle_patch
+from dsbox.planner.common.pipeline import CrossValidationStat
 
 import scipy.sparse.csr
 
@@ -66,8 +63,7 @@ class ExecutionHelper(object):
                 PrimitiveClass = getattr(module, cls)
                 if issubclass(PrimitiveClass, PrimitiveBase):
                     primitive.unified_interface = True
-                    hyperparams_class = PrimitiveClass.metadata.query()['primitive_code']['class_type_arguments']['Hyperparams']
-                    executable = PrimitiveClass(hyperparams=hyperparams_class.defaults())
+                    executable = PrimitiveClass(hyperparams=primitive.getHyperparams())
                 else:
                     args = []
                     kwargs = {}
@@ -86,6 +82,11 @@ class ExecutionHelper(object):
                 return None
         return executable
 
+
+    def execute_primitive_remote(self, primitive, df, df_lbl, cur_profile=None):
+        '''Remote version execute_primitive'''
+        pd = self.execute_primitive(primitive, df, df_lbl, cur_profile)
+        return (pd, primitive.executables, primitive.unified_interface)
 
     @stopit.threading_timeoutable()
     def execute_primitive(self, primitive, df, df_lbl, cur_profile=None):
@@ -238,6 +239,9 @@ class ExecutionHelper(object):
         print("Executing %s" % primitive.name)
         sys.stdout.flush()
 
+        metric_values = {}  # Dict[str, float]
+        stat = CrossValidationStat()
+
         # Redirect stderr to an error file
         #  Directly assigning stderr to tempfile.TemporaryFile cause printing str to fail
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -246,9 +250,9 @@ class ExecutionHelper(object):
 
                     primitive.start_time = time.time()
 
-                    kf = KFold(n_splits=cv, shuffle=True, random_state=int(time.time()))
-                    metric_values = {}
+                    # TODO: Should use same random_state for comparison across algorithms
 
+                    kf = KFold(n_splits=cv, shuffle=True, random_state=int(time.time()))
                     tcols = [self.data_manager.target_columns[0]['colName']]
                     yPredictions = None
                     num = 0.0
@@ -256,7 +260,7 @@ class ExecutionHelper(object):
                         executable = self.instantiate_primitive(primitive)
                         if executable is None:
                             primitive.finished = True
-                            return None
+                            return (None, None, None)
 
                         trainX = X.take(train, axis=0)
                         trainY = y.take(train, axis=0).values.ravel()
@@ -286,12 +290,22 @@ class ExecutionHelper(object):
                             # TODO: Removing this for now
                             primitive.progress = num/cv
                             primitive.pipeline.notifyChanges()
+
+                            # TODO: Training metrics for each fold
+
+                            # Test metrics for each fold
+                            for i in range(0, len(self.problem.metrics)):
+                                metric = self.problem.metrics[i]
+                                fn = self.problem.metric_functions[i]
+                                fold_metric_val = self._call_function(fn, y.loc[ypredDF.index], ypredDF)
+                                stat.add_fold_metric(metric, fold_metric_val)
+
                         except Exception as e:
                             sys.stderr.write("ERROR: cross_validation {}: {}\n".format(primitive.name, e))
-                            #traceback.print_exc(e)
+                            # traceback.print_exc(e)
 
         if num == 0:
-            return (None, None)
+            return (None, None, None)
 
         yPredictions = yPredictions.sort_index()
 
@@ -301,7 +315,7 @@ class ExecutionHelper(object):
             fn = self.problem.metric_functions[i]
             metric_val = self._call_function(fn, y, yPredictions)
             if metric_val is None:
-                return None
+                return (None, None, None)
             metric_values[metric.name] = metric_val
 
         primitive.end_time = time.time()
@@ -309,8 +323,18 @@ class ExecutionHelper(object):
         primitive.finished = True
         primitive.pipeline.notifyChanges()
 
+        print('metric values = {}'.format(metric_values))
+        for metric in self.problem.metrics:
+            print('Cross valiation standard error for meric {} = {}'.format(
+                metric, stat.get_standard_error(metric)))
+
         #print ("Returning {}".format(metric_values))
-        return (yPredictions, metric_values)
+        return (yPredictions, metric_values, stat)
+
+    def create_primitive_model_remote(self, primitive, X, y):
+        '''Remote version of create_primitive_model'''
+        self.create_primitive_model( primitive, X, y)
+        return (primitive.executables, primitive.unified_interface)
 
     def create_primitive_model(self, primitive, X, y):
         # fit the model finally over the whole training data for evaluation later over actual test data
@@ -336,6 +360,13 @@ class ExecutionHelper(object):
         for i in range(len(image_list)):
             result[i] = image.img_to_array(image_list[i])
         return result
+
+    def featurise_remote(self, primitive, df):
+        '''Use this method if running in subprocess of remotely'''
+        pd = self.featurise(primitive, df)
+
+        # Return executable as well
+        return (pd, primitive.executables, primitive.unified_interface)
 
     @stopit.threading_timeoutable()
     def featurise(self, primitive, df):
