@@ -55,9 +55,8 @@ class LevelOnePlanner(object):
             # e.g. choose a featurizer and keep classification search
         family_list = []
         primitive_list = []
-
+        type_list = []
         for entry in mixed_list:
-            print(entry, type(entry))
             if entry in list(self.primitive_library.primitives_by_family.keys()):
                 #family_primitives = [p.cls for p in self.primitive_library.primitives_by_family[entry]]
                 family_list.append(entry)
@@ -70,8 +69,8 @@ class LevelOnePlanner(object):
                 #    primitive_list.extend(family_primitives)
             elif entry in list(self.primitive_library.primitive_by_package.keys()):
                 primitive_list.append(entry)
-                if inc:
-                    family_list.append(self.primitive_library.primitive_by_package[entry].getFamily())
+                #if inc:
+                #    family_list.append(self.primitive_library.primitive_by_package[entry].getFamily())
                 #type_list.append(str(self.primitive_library.primitive_by_package[entry].getAlgorithmTypes()[0]))
                 #if inc:
                 #   print(entry, self.primitive_library.primitive_by_package[entry].getFamily())
@@ -97,7 +96,7 @@ class LevelOnePlanner(object):
             families = families + self.primitive_family_mappings.get_families_by_task_type(TaskType.LINK_PREDICTION)
 
         # moved to get_child_nodes
-        #families = set(families)-set(self.exclude_families   
+        #families = sebt(families)-set(self.exclude_families   
         family_nodes = [self.ontology.get_family(f) for f in families]
 
         # include / exclude family and type checks
@@ -106,15 +105,24 @@ class LevelOnePlanner(object):
         for node in child_nodes:
             primitives = self.ontology.hierarchy.get_primitives_as_list(node)
 
+            if not primitives:
+                continue
+                
             # Inclusion checks
-            primitives = [p for p in primitives if self._primitive_include(p)]
+            
+            primitives = [p for p in primitives if self._check_primitive_include(p)]
+            
+            if not primitives:
+                continue
 
+            for p in primitives:
+                print(p.cls, p.weight)
             weights = [p.weight for p in primitives]
-
+        
             # Set task type for execute_pipeline
             for p in primitives:
                 p.task = 'Modeling'
-
+        
             primitive = random_choices(primitives, weights)
             pipe = Pipeline(primitives=[primitive])
             results.append(pipe)
@@ -124,8 +132,17 @@ class LevelOnePlanner(object):
         child_nodes = []
         family_types = []
         
-        family_nodes = [f if f.name not in self.exclude_families] 
-
+        family_nodes = [f for f in family_nodes if f.name not in self.exclude_families] 
+        incl_prim_types = []
+        
+        for p in self.include_primitives:
+            #need the prim 
+            try:
+                p = self.ontology.hierarchy.node_by_primitive[p]._content[0]
+            except:
+                continue
+            incl_prim_types.extend(list(p.getAlgorithmTypes()))
+        
         # check family / type inclusions / exclusions here
         for node in family_nodes:
             # include primitives will get through here because family included for each
@@ -133,23 +150,24 @@ class LevelOnePlanner(object):
                 child_nodes += node.get_children()
 
             if node.name in self.include_families:
-                child_nodes += node.get_children()
-            elif node.name not in self.exclude_families:
+                child_nodes += [n for n in node.get_children() if n.name not in self.exclude_types]
+            elif node.name not in self.exclude_families:                
                 for child in node.get_children():
                     family_types.append(child.name)
                     # add child if it is in include_types
-                    if child.name in self.include_types:
+                    if child.name in self.include_types or child.name in incl_prim_types:
+                        print(child.name)
                         child_nodes.append(child)
 
                 # if types regard different task, then continue (e.g. featurization types, classification family)
-                if set(family_types).isdisjoint(self.include_types):
+                if self.include_types and set(family_types).isdisjoint(self.include_types):
                     child_nodes += node.get_children()
                 if not set(family_types).isdisjoint(self.exclude_types):
                     print("Excluding types: "  self.exclude_types, " incl: ", set(node.get_children()) - set(self.exclude_types))
                     child_nodes += (set(node.get_children()) - set(self.exclude_types))
 
-                if set([n.cls for n in node.get_children()]).intersection([ip.cls for ip in self.include_primitives]):
-                    child_nodes.append()
+                #if set([n.cls for n in node.get_children()]).intersection([ip.cls for ip in self.include_primitives]):
+                #    child_nodes.append()
 
         return child_nodes
 
@@ -157,14 +175,17 @@ class LevelOnePlanner(object):
         if not self.include:
             return True
 
-        if (self.include_families or self.include_types or self.include_primitives) 
-            and not (p.getFamily() in self.include_families or
-                 set(p.getAlgorithmTypes()).intersection(self.include_types) or
-                 p.cls in self.include_primitives()):
-            return False
+        check1 = (self.include_families or self.include_types or self.include_primitives)
+        check2 = p.getFamily() in self.include_families
+        check3 = self.include_types and not set(p.getAlgorithmTypes()).isdisjoint(self.include_types) 
+        check4 = p.cls in self.include_primitives
+        
+        check = check1 and (check2 or check3 or check4)
+
         if p.cls in self.exclude_primitives:
             return False
-        return True
+        else:
+            return check
 
 
     def fill_feature_by_weights(self, pipeline : Pipeline, num_pipelines=5) -> Pipeline:
@@ -181,7 +202,7 @@ class LevelOnePlanner(object):
         for node in child_nodes:
             primitives = self.ontology.hierarchy.get_primitives_as_list(node)
 
-            primitives = [p for p in primitives if self._primitive_include(p)]
+            primitives = [p for p in primitives if self._check_primitive_include(p)]
 
             weights = [p.weight for p in primitives]
 
@@ -271,9 +292,7 @@ class LevelOnePlanner(object):
             # Set task type for execute_pipeline
             p.task = 'Modeling'
             
-            if self.include_primitives and p.cls not in self.include_primitives:
-                continue
-            if self.exclude_primitives and p.cls in self.exclude_primitives:
+            if not self._check_primitive_include(p):
                 continue
 
             new_pipeline = pipeline.clone()

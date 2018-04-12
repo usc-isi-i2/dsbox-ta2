@@ -4,6 +4,7 @@ path_setup()
 import sys
 import os
 import json
+import argparse
 import signal
 from dsbox.planner.controller import Controller, Feature
 from dsbox.planner.event_handler import PlannerEventHandler
@@ -30,28 +31,38 @@ def main(argv=None): # IGNORE:C0111
 #ta2-search <training_data_root_directory> <output_dir>
 #''' % program_shortdesc
 
-    if len(sys.argv) < 3 or sys.argv[0] == '-h':
-        def_path = '/nas/home/kyao/dsbox/data/datadrivendiscovery.org/data/training_datasets/LL0/'
-        print('def path')
-        if os.path.exists(def_path): 
-            dataset_folder = def_path
-            output_dir = 'outputs/'
-            if not os.path.exists(output_dir):
-                os.makedirs(output_dir)
-        else:
-            print('Exit')
-            print(program_usage)
-            exit(1)
-    else:
-        dataset_folder = sys.argv[1]
-        output_dir = sys.argv[2]
-    
-    try:
-        print(sys.argv[0])
-        print(sys.argv[1])
-        print(sys.argv[2])
-    except:
-        pass
+    parser = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument("-i", "--include", dest="include",type=str, nargs='+', default=[], help="list of families, algo types, or primitives to include")
+    parser.add_argument("-e", "--exclude", dest="exclude",type=str, nargs='+', default=[],  help="list of families, algo types, or primitives to exclude")
+    parser.add_argument("-d", "--dataset", dest="dataset",type=str, default= '/nas/home/kyao/dsbox/data/datadrivendiscovery.org/data/training_datasets/LL0/', help="dataset path")
+    parser.add_argument("-o", "--output", dest="output",type=str, default= 'outputs/', help='output dir')
+    args = parser.parse_args()
+
+    #if len(sys.argv) < 3 or sys.argv[0] == '-h':
+    #    print('def path')
+    #    if os.path.exists(def_path): 
+    #        dataset_folder = def_path
+    #        output_dir = 'outputs/'
+    #        if not os.path.exists(output_dir):
+    #            os.makedirs(output_dir)
+    #    else:
+    #        print('Exit')
+    #        print(program_usage)
+    #        exit(1)
+    #else:
+    dataset_folder = args.dataset #sys.argv[1]
+    output_dir = args.output #sys.argv[2]
+        
+    include = args.include
+    exclude = args.exclude #sys.argv[4]
+    print(include)
+    print(exclude)
+    #try:
+    #    print(sys.argv[0])
+    #    print(sys.argv[1])
+    #    print(sys.argv[2])
+    #except:
+    #    pass
 
     #conf_file = sys.argv[1]
     prnt = True
@@ -68,6 +79,8 @@ def main(argv=None): # IGNORE:C0111
             config["executables_root"] =  os.path.join(os.getcwd(), output_dir, str(dataset),'executables')  
             config["temp_storage_root"] =  os.path.join(os.getcwd(), output_dir, str(dataset),'temp')
             config["timeout"] = TIMEOUT
+            config["include"] = include
+            config["exclude"] = exclude
             #print(config)
             # don't change timeout, cpus, ram?
 
