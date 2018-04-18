@@ -305,6 +305,8 @@ class Controller(object):
         self.write_training_results()
         print('running tests')
         self.test_pipelines()
+        print('ran test')
+        print('writing test')
         self.write_test_results()
     '''
     Write training results to file
@@ -360,6 +362,7 @@ class Controller(object):
     def test_pipelines(self):
         #handler = GRPC_PlannerEventHandler()
         for pipeline in self.exec_pipelines:
+
             try:
                 res = self.test(pipeline, None)
             except Exception as e:
