@@ -11,7 +11,7 @@ import traceback
 import pandas as pd
 
 from typing import List
-
+from collections import defaultdict
 from dsbox.planner.leveltwo.l1proxy import LevelOnePlannerProxy
 from dsbox.planner.leveltwo.planner import LevelTwoPlanner
 from dsbox.schema.data_profile import DataProfile
@@ -303,7 +303,7 @@ class Controller(object):
                 sys.stderr.write("ERROR ensemble.greedy_add : %s\n" % e)
 
         self.write_training_results()
-
+        print('running tests')
         self.test_pipelines()
         self.write_test_results()
     '''
@@ -360,11 +360,13 @@ class Controller(object):
     def test_pipelines(self):
         #handler = GRPC_PlannerEventHandler()
         for pipeline in self.exec_pipelines:
-            for result in self.test(pipeline):#, handler):
-                if result is not None:
-                    yield result
-
-        self.write_test_results()
+            try:
+                res = self.test(pipeline, None)
+            except Exception as e:
+                print(e)
+            #for result in self.test(pipeline):#, handler):
+            #    if result is not None:
+            #        yield result
 
     '''
     Predict results on test data given a pipeline
@@ -373,33 +375,73 @@ class Controller(object):
         helper = ExecutionHelper(self.problem, self.data_manager)
         testdf = pd.DataFrame(copy.copy(self.data_manager.input_data))
         target_col = self.data_manager.target_columns[0]['colName']
+        sys.stdout.flush()
         print("** Evaluating pipeline %s" % str(pipeline))
         sys.stdout.flush()
-        for primitive in pipeline.primitives:
-            # Initialize primitive
+        
+        metric_dict = defaultdict(int)
+        for i in self.problem.metrics:
+            metric_dict[i.name]= 0.0
+        results = []
+        pipelines = []
+                    
+        if pipeline.ensemble is not None:
             try:
-                print("Executing %s" % primitive)
-                sys.stdout.flush()
-                if primitive.task == "Modeling":
-                    if primitive.unified_interface:
-                        result = pd.DataFrame(primitive.executables.produce(inputs=testdf).value, index=testdf.index, columns=[target_col])
-                    else:
-                        result = pd.DataFrame(primitive.executables.predict(testdf), index=testdf.index, columns=[target_col])
-                    pipeline.test_result = PipelineExecutionResult(result, None)
-                    break
-                elif primitive.task == "PreProcessing":
-                    testdf = helper.test_execute_primitive(primitive, testdf)
-                elif primitive.task == "FeatureExtraction":
-                    testdf = helper.test_featurise(primitive, testdf)
-                if testdf is None:
-                    break
-            except Exception as e:
-                sys.stderr.write(
-                    "ERROR test(%s) : %s\n" % (pipeline, e))
-                traceback.print_exc()
-        if handler is not None:
-            yield test_event_handler.ExecutedPipeline(pipeline)
+                for ens_pipeline in pipeline.ensemble.pipelines:
+                    pipelines.append(ens_pipeline)
+            except:
+                pipelines.append(pipeline)
+        else:
+            pipelines.append(pipeline)
+        for pipeline_ in pipelines:
+            for primitive in pipeline_.primitives:
+                print(primitive.name)
+                # Initialize primitive
+                try:
+                    print("Executing %s" % primitive)
+                    sys.stdout.flush()
+                    if primitive.task == "Modeling":
+                        if primitive.unified_interface:
+                            result = pd.DataFrame(primitive.executables.produce(inputs=testdf).value, index=testdf.index, columns=[target_col])
+                        else:
+                            result = pd.DataFrame(primitive.executables.predict(testdf), index=testdf.index, columns=[target_col])
+                        for ind in range(len(self.problem.metrics)):
+                            metric = self.problem.metrics[ind]
+                            metric_fn = self.problem.metric_functions[ind]
+                            metric_val = self.execution_helper._call_function(metric_fn, self.data_manager.target_data, result)
+                            metric_dict[metric.name] = metric_dict[metric.name]+ metric_val
+                        results.append(result)
+                        #pipeline.test_result = PipelineExecutionResult(result, metric_dict)
+                        break
+                    elif primitive.task == "PreProcessing":
+                        testdf = helper.test_execute_primitive(primitive, testdf)
+                    elif primitive.task == "FeatureExtraction":
+                        testdf = helper.test_featurise(primitive, testdf)
+                    if testdf is None:
+                        break
+                except Exception as e: 
+                    sys.stderr.write(
+                        "ERROR test(%s) : %s\n" % (pipeline_, e))
+                    traceback.print_exc()
+        print('aggregating results')
+        for k, v in metric_dict.items():
+            metric_dict[k] = v/len(pipelines)
+        #try:
+        #    method = pipeline.ensemble.method
+        #except:
+        #    method = 'mean'
+        method = 'mean'
+        if method == 'mean':
+            res = numpy.mean(numpy.array(results), axis = 0) 
+        elif method == 'median':
+            res  = numpy.median(numpy.array(results), axis = 0)
+        
+        pipeline.test_result = PipelineExecutionResult(pd.DataFrame(res), metric_dict, None)
 
+        if test_event_handler is not None:
+            yield test_event_handler.ExecutedPipeline(pipeline)
+        
+            
     def stop(self):
         '''
         Stop planning, and write out the current list (sorted by metric)

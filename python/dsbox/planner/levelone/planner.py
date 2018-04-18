@@ -98,7 +98,7 @@ class LevelOnePlanner(object):
         # moved to get_child_nodes
         #families = sebt(families)-set(self.exclude_families   
         family_nodes = [self.ontology.get_family(f) for f in families]
-
+        
         # include / exclude family and type checks
         child_nodes = self._get_child_nodes(family_nodes)
 
@@ -115,8 +115,6 @@ class LevelOnePlanner(object):
             if not primitives:
                 continue
 
-            for p in primitives:
-                print(p.cls, p.weight)
             weights = [p.weight for p in primitives]
         
             # Set task type for execute_pipeline
@@ -132,23 +130,27 @@ class LevelOnePlanner(object):
         child_nodes = []
         family_types = []
         
-        family_nodes = [f for f in family_nodes if f.name not in self.exclude_families] 
+        try:
+            family_nodes = [f for f in family_nodes if f.name not in self.exclude_families] 
+        except:
+            pass
+
         incl_prim_types = []
         
-        for p in self.include_primitives:
-            #need the prim 
-            try:
-                p = self.ontology.hierarchy.node_by_primitive[p]._content[0]
-            except:
-                continue
-            incl_prim_types.extend(list(p.getAlgorithmTypes()))
+        if hasattr(self, 'include_primitives'):
+            for p in self.include_primitives:
+                #need the prim 
+                try:
+                    p = self.ontology.hierarchy.node_by_primitive[p]._content[0]
+                except:
+                    continue
+                incl_prim_types.extend(list(p.getAlgorithmTypes()))
         
         # check family / type inclusions / exclusions here
         for node in family_nodes:
             # include primitives will get through here because family included for each
             if not self.include:
                 child_nodes += node.get_children()
-                
             elif node.name in self.include_families:
                 child_nodes += [n for n in node.get_children() if n.name not in self.exclude_types]
             elif node.name not in self.exclude_families:                
