@@ -23,7 +23,7 @@ MIN_METRICS = [Metric.MEAN_SQUARED_ERROR, Metric.ROOT_MEAN_SQUARED_ERROR, Metric
 DISCRETE_METRIC = [TaskSubType.BINARY, TaskSubType.MULTICLASS, TaskSubType.MULTILABEL, TaskSubType.OVERLAPPING, TaskSubType.NONOVERLAPPING]
 
 class Ensemble(object):
-    def __init__(self, problem, max_pipelines = 5):
+    def __init__(self, problem, median = True, max_pipelines = 5):
         self.max_pipelines = max_pipelines
         self.predictions = None  # Predictions dataframe
         self.metric_values =  None # Dictionary of metric to value
@@ -33,6 +33,7 @@ class Ensemble(object):
         self.all_pipelines = []
         #self.test_pipeline_ids = []
         self.problem = problem
+        self.median = median
         self._analyze_metrics()
 
     def _analyze_metrics(self):
@@ -45,7 +46,9 @@ class Ensemble(object):
         self.discrete_metric = True if self.problem.task_subtype in DISCRETE_METRIC else False
 
 
-    def greedy_add(self, pipelines, X, y, max_pipelines = None):
+    def greedy_add(self, pipelines, X, y, max_pipelines = None, plan = True, median = None):
+        self.median = median if median is not None else self.median
+        which_result = 'planner_result' if plan else 'test_result'
         tic = time.time()
         if self.predictions is None:
             self.predictions = pd.DataFrame(index = X.index, columns = y.columns).fillna(0)
@@ -62,9 +65,9 @@ class Ensemble(object):
             found_improvement = False
             # first time through
             if not self.all_pipelines:
-                best_predictions = pipelines[0].planner_result.predictions
+                best_predictions = getattr(pipelines[0], which_result).predictions
                 best_pipeline = pipelines[0]
-                best_metrics = pipelines[0].planner_result.metric_values
+                best_metrics = getattr(pipelines[0], which_result).metric_values
                 best_score = np.mean(np.array([a for a in best_metrics.values()]))
                 found_improvement = True
                 print('Best single pipeline score ',  str(best_score))
@@ -72,7 +75,10 @@ class Ensemble(object):
                 for pipeline in pipelines:
                     metric_values = {}
 
-                    y_temp = self._add_new_prediction(self.predictions, pipeline.planner_result)
+                    if median:
+                        y_temp = self._add_median_prediction(self.all_pipelines, getattr(pipeline, which_result))
+                    else:
+                        y_temp = self._add_mean_prediction(self.predictions, getattr(pipeline, which_result))
 
                     y_rounded = np.rint(y_temp) if self.discrete_metric else y_temp
 
@@ -110,7 +116,10 @@ class Ensemble(object):
         self.pipelines = [self.all_pipelines[index] for index in sorted(indices)]
         self.pipeline_weights = dict(zip(unique, counts))
         self.pipeline_weights = [self.pipeline_weights[p.id] for p in self.pipelines]
-        self.train_result = PipelineExecutionResult(self.predictions, self.metric_values, None)
+        if plan:
+            self.train_result = PipelineExecutionResult(self.predictions, self.metric_values, None)
+        else:
+            self.test_result = PipelineExecutionResult(self.predictions, self.metric_values, None)
 
         ens_pipeline = self._ens_pipeline()
         print(ens_pipeline.id)
@@ -141,7 +150,14 @@ class Ensemble(object):
         #self.full_test_ensemble()
         #self.intermediate_test_ensemble()
 
-    def _add_new_prediction(self, old_prediction, new_result, old_weight = None, new_weight = None):
+    def _add_median_prediction(self, pipelines, new_result):
+        all_preds = [p.values for p in self.all_pipelines]
+        all_preds.append(new_result)
+        all_preds = np.concatenate(all_preds, axis = -1) # join predictions as columns
+        return np.median(all_preds, axis = -1)
+
+
+    def _add_mean_prediction(self, old_prediction, new_result, old_weight = None, new_weight = None, median = True):
         # TODO : NON-NUMERIC LABELS
         if new_weight is None or old_weight is None:
             _divisor = (1.0*len(self.all_pipelines)+1)
@@ -173,7 +189,7 @@ class Ensemble(object):
         # sequential add
         for i in range(len(self.all_pipelines)):
             if self.all_pipelines[i].test_result is not None:
-                self.test_result.predictions = self._add_new_prediction(self.test_result.predictions, self.all_pipelines[i].test_result)
+                self.test_result.predictions = self._add_mean_prediction(self.test_result.predictions, self.all_pipelines[i].test_result)
             else:
                 print('No test result for pipeline: ', self.all_pipelines[i])
         if self.discrete_metric and self.test_result is not None:
@@ -191,7 +207,7 @@ class Ensemble(object):
                     ensemble_weight = new_weight
                 else:
                     #if self.all_pipelines[i].id not in self.test_pipelines_ids:
-                    self.test_result.predictions = self._add_new_prediction(self.test_result.predictions, self.pipelines[i].test_result,
+                    self.test_result.predictions = self._add_mean_prediction(self.test_result.predictions, self.pipelines[i].test_result,
                                 ensemble_weight, ensemble_weight + new_weight)
                     ensemble_weight = ensemble_weight + new_weight
             else:
