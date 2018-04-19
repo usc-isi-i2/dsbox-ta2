@@ -290,7 +290,17 @@ class Controller(object):
             self.logfile.write("\nRelated L1 Pipelines to top %d L2 Pipelines:\n-------------\n" % cutoff)
             self.logfile.write("%s\n" % str(l1_related_pipelines))
             l1_pipelines = l1_related_pipelines
-
+        
+        attempts = list(l2_pipelines_handled.keys())
+        print(attempts)
+        attempts.append('dummy')
+        # L2 PIPELINES DOESN'T APPEAR TO BE WHAT I WANT
+        successes = [str(pl) for pl in self.exec_pipelines]
+        print('exec ', successes)
+        failed = list(set(attempts) - set(successes))
+        print('FAILED PIPELINES: ', set(attempts) - set(successes))
+        self.logfile.write("\n Found %i Failed Pipelines:\n-------------\n" % len(failed))
+        self.logfile.write("%s\n" % str(failed))
         if ensemble:
             try:
                 # df_lbl = test data
