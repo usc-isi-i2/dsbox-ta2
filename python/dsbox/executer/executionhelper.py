@@ -364,95 +364,111 @@ class ExecutionHelper(object):
         ncols = [col.format() for col in df.columns]
         featurecols = self.raw_data_columns(self.data_manager.input_columns)
         indices = df.index
-        for col in featurecols:
-            executable = None
-            if self.data_manager.media_type == VariableFileType.TEXT:
-                executable = self.instantiate_primitive(primitive)
-                if executable is None:
-                    primitive.finished = True
-                    return None
+        if self.data_manager.media_type == VariableFileType.NONE:
+            executable = self.instantiate_primitive(primitive)
+            if executable is None:
+                primitive.finished = True
+                return None
+            
+            executable.set_training_data(inputs=df.values, outputs=[])
+            executable.fit()
+            call_result = executable.produce(inputs=df.values)
+            fcols = [(primitive.cls.split('.')[-1].format() + "_" + str(index)) for index in range(0, call_result.value.shape[1])]
+            newdf = pd.DataFrame(call_result.value, columns=fcols, index=df.index)
+            ncols = ncols + fcols
+            df = pd.concat([df, newdf], axis=1)
+            df.columns = ncols
 
-                # Using an unfitted primitive for each column (needed for Corex)
-                #df_col = pd.DataFrame(df[col])
-                #executable.fit(df_col)
+        else:
+            for col in featurecols:
+              executable = None
+              if self.data_manager.media_type == VariableFileType.TEXT:
+                  executable = self.instantiate_primitive(primitive)
+                  if executable is None:
+                      primitive.finished = True
+                      return None
 
-                #nvals = executable.fit_transform(df[col])
-                executable.set_training_data(inputs=df[col].values, outputs=[])
-                if persistent:
-                    executable.fit()
-                    call_result = executable.produce(inputs=df[col].values)
+                  # Using an unfitted primitive for each column (needed for Corex)
+                  #df_col = pd.DataFrame(df[col])
+                  #executable.fit(df_col)
 
-                #fcols = [(col.format() + "_" + feature) for feature in executable.get_feature_names()]
-                val = call_result.value.todense() if isinstance(call_result.value, scipy.sparse.csr.csr_matrix) else call_result.value
-                fcols = [(col.format() + "_" + str(index)) for index in range(0, val.shape[1])]
-                newdf = pd.DataFrame(val, columns=fcols, index=df.index)
-                del df[col]
-                ncols = ncols + fcols
-                ncols.remove(col)
-                df = pd.concat([df, newdf], axis=1)
-                df.columns = ncols
-            elif self.data_manager.media_type == VariableFileType.TIMESERIES:
-                executable = self.instantiate_primitive(primitive)
-                if executable is None:
-                    primitive.finished = True
-                    return None
-                executable.set_training_data(inputs=df[col].values, outputs=[])
-                executable.fit()
-                call_result = executable.produce(inputs=df[col].values)
-                fcols = [(col.format() + "_" + str(index)) for index in range(0, call_result.value.shape[1])]
-                newdf = pd.DataFrame(call_result.value, columns=fcols, index=df.index)
-                del df[col]
-                ncols = ncols + fcols
-                ncols.remove(col)
-                df = pd.concat([df, newdf], axis=1)
-                df.columns = ncols
-            elif self.data_manager.media_type == VariableFileType.IMAGE:
-                executable = self.instantiate_primitive(primitive)
-                if executable is None:
-                    primitive.finished = True
-                    return None
-                image_tensor = self._as_tensor(df[col].values)
-                call_result = executable.produce(inputs=image_tensor)
-                nvals = call_result.value
-                fcols = [(col.format() + "_" + str(index)) for index in range(0, nvals.shape[1])]
-                newdf = pd.DataFrame(nvals, columns=fcols, index=df.index)
-                del df[col]
-                ncols = ncols + fcols
-                ncols.remove(col)
-                df = pd.concat([df, newdf], axis=1)
-                df.columns=ncols
-            elif self.data_manager.media_type == VariableFileType.AUDIO:
-                # Featurize audio
-                if executable is None:
-                    primitive.finished = True
-                executable = self.instantiate_primitive(primitive)
+                  #nvals = executable.fit_transform(df[col])
+                  executable.set_training_data(inputs=df[col].values, outputs=[])
+                  if persistent:
+                      executable.fit()
+                      call_result = executable.produce(inputs=df[col].values)
 
-                # df[col] is (1d array, sampling)rate)
-                call_result = executable.produce(inputs=pd.DataFrame(df[col]))
+                  #fcols = [(col.format() + "_" + feature) for feature in executable.get_feature_names()]
+                  val = call_result.value.todense() if isinstance(call_result.value, scipy.sparse.csr.csr_matrix) else call_result.value
+                  fcols = [(col.format() + "_" + str(index)) for index in range(0, val.shape[1])]
+                  newdf = pd.DataFrame(val, columns=fcols, index=df.index)
+                  del df[col]
+                  ncols = ncols + fcols
+                  ncols.remove(col)
+                  df = pd.concat([df, newdf], axis=1)
+                  df.columns = ncols
+              elif self.data_manager.media_type == VariableFileType.TIMESERIES:
+                  executable = self.instantiate_primitive(primitive)
+                  if executable is None:
+                      primitive.finished = True
+                      return None
+                  executable.set_training_data(inputs=df[col].values, outputs=[])
+                  executable.fit()
+                  call_result = executable.produce(inputs=df[col].values)
+                  fcols = [(col.format() + "_" + str(index)) for index in range(0, call_result.value.shape[1])]
+                  newdf = pd.DataFrame(call_result.value, columns=fcols, index=df.index)
+                  del df[col]
+                  ncols = ncols + fcols
+                  ncols.remove(col)
+                  df = pd.concat([df, newdf], axis=1)
+                  df.columns = ncols
+              elif self.data_manager.media_type == VariableFileType.IMAGE:
+                  executable = self.instantiate_primitive(primitive)
+                  if executable is None:
+                      primitive.finished = True
+                      return None
+                  image_tensor = self._as_tensor(df[col].values)
+                  call_result = executable.produce(inputs=image_tensor)
+                  nvals = call_result.value
+                  fcols = [(col.format() + "_" + str(index)) for index in range(0, nvals.shape[1])]
+                  newdf = pd.DataFrame(nvals, columns=fcols, index=df.index)
+                  del df[col]
+                  ncols = ncols + fcols
+                  ncols.remove(col)
+                  df = pd.concat([df, newdf], axis=1)
+                  df.columns=ncols
+              elif self.data_manager.media_type == VariableFileType.AUDIO:
+                  # Featurize audio
+                  if executable is None:
+                      primitive.finished = True
+                  executable = self.instantiate_primitive(primitive)
 
-                # call_result.value is list of length df.shape[0]
-                # Where each element is a list of 2d ndarrays
-                # The length of the nested list is depended on the sound clip length
-                # We should turn each element in the nested list into a new instance,
-                # but now just average over all nested elements.
+                  # df[col] is (1d array, sampling)rate)
+                  call_result = executable.produce(inputs=pd.DataFrame(df[col]))
 
-                features = call_result.value
-                rows = []
-                for row_list in features:
-                    total = np.zeros((row_list[0].size,))
-                    for elt in row_list:
-                        total += elt.flatten()
-                    total /= len(row_list)
-                    rows.append(total)
-                col_names = ['{}_{}'.format(col.format(), i) for i in range(total.size)]
+                  # call_result.value is list of length df.shape[0]
+                  # Where each element is a list of 2d ndarrays
+                  # The length of the nested list is depended on the sound clip length
+                  # We should turn each element in the nested list into a new instance,
+                  # but now just average over all nested elements.
 
-                newdf = pd.DataFrame(rows, index=df.index, columns=col_names)
+                  features = call_result.value
+                  rows = []
+                  for row_list in features:
+                      total = np.zeros((row_list[0].size,))
+                      for elt in row_list:
+                          total += elt.flatten()
+                      total /= len(row_list)
+                      rows.append(total)
+                  col_names = ['{}_{}'.format(col.format(), i) for i in range(total.size)]
 
-                # FIXME: Need to be more general
-                df.drop(['filename', 'start', 'end'], axis=1, inplace=True)
-                df = pd.concat([df, newdf], axis=1)
+                  newdf = pd.DataFrame(rows, index=df.index, columns=col_names)
 
-            primitive.executables[col] = executable
+                  # FIXME: Need to be more general
+                  df.drop(['filename', 'start', 'end'], axis=1, inplace=True)
+                  df = pd.concat([df, newdf], axis=1)
+
+              primitive.executables[col] = executable
 
         primitive.end_time = time.time()
         primitive.progress = 1.0
