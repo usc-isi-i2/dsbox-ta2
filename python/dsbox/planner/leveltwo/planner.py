@@ -51,7 +51,7 @@ class LevelTwoPlanner(object):
     :returns: A list of expanded pipelines
     """
 
-    def expand_pipeline(self, pipeline, profile, mod_profile=None, start_index=0):
+    def expand_pipeline(self, pipeline, profile, mod_profile=None, start_index=0, media_type = None):
         if not mod_profile:
             mod_profile = profile
 
@@ -67,9 +67,15 @@ class LevelTwoPlanner(object):
         issues = self._get_pipeline_issues(pipeline, profile)
         #print("Issues: %s" % issues)
         ok = True
+
         for index in range(start_index, pipeline.length()):
             primitive = pipeline.getPrimitiveAt(index)
             issue = issues[index]
+
+            #try:
+            #    print(primitive.d3m_metadata.query()['preconditions'] if primitive.d3m_metadata is not None else '')
+            #except:
+            #    print('no preconditions!')
             if len(issue) > 0:
                 ok = False
                 # There are some unresolved issues with this primitive
@@ -78,7 +84,7 @@ class LevelTwoPlanner(object):
                 for subpipe in subpipes:
                     ok = True
                     l2_pipeline = pipeline.clone()
-                    l2_pipeline.replaceSubpipelineAt(index, subpipe)
+                    l2_pipeline.replaceSubpipelineAt(index if (media_type is None or media_type.value != 'none') else 0, subpipe)
                     nindex = index + subpipe.length() + pipeline.length()
                     cprofile = self._predict_profile(subpipe, profile)
                     npipes = self.expand_pipeline(

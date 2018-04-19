@@ -48,6 +48,7 @@ class Ensemble(object):
 
     def greedy_add(self, pipelines, X, y, max_pipelines = None, plan = True, median = None):
         self.median = median if median is not None else self.median
+        print("Using MEDIAN for ENSEMBLE Add" if self.median else "Using MEAN for ENSEMBLE Add")
         which_result = 'planner_result' if plan else 'test_result'
         tic = time.time()
         if self.predictions is None:
@@ -99,6 +100,9 @@ class Ensemble(object):
                     if (score_improve > 0):
                         best_score = score
                         best_pipeline = pipeline
+                        print('Adding Pipeline ', pipeline)
+                        print("Example predictions:") 
+                        print(pipeline.planner_result.predictions.values[0:10])
                         best_predictions = pd.DataFrame(y_temp, index = X.index, columns = y.columns)
                         best_metrics = metric_values
                         found_improvement = True
@@ -122,7 +126,7 @@ class Ensemble(object):
             self.test_result = PipelineExecutionResult(self.predictions, self.metric_values, None)
 
         ens_pipeline = self._ens_pipeline()
-        print(ens_pipeline.id)
+        print('Ensemble Pipeline ID ', ens_pipeline.id)
         return ens_pipeline
 
     def _ens_pipeline(self):

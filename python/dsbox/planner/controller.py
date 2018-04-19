@@ -220,9 +220,8 @@ class Controller(object):
         l2_pipelines_map = {}
         l1_pipelines_handled = {}
         l2_pipelines_handled = {}
-        print('try get piplines')
         l1_pipelines = self.l1_planner.get_pipelines(df)
-        print(l1_pipelines)
+        
         if l1_pipelines is None:
             # If no L1 Pipelines, then we don't support this problem
             yield pe.ProblemNotImplemented()
@@ -242,7 +241,7 @@ class Controller(object):
             for l1_pipeline in l1_pipelines:
                 if l1_pipelines_handled.get(str(l1_pipeline), False):
                     continue
-                l2_pipeline_list = self.l2_planner.expand_pipeline(l1_pipeline, df_profile)
+                l2_pipeline_list = self.l2_planner.expand_pipeline(l1_pipeline, df_profile, media_type = self.l1_planner.media_type)
                 l1_pipelines_handled[str(l1_pipeline)] = True
                 if l2_pipeline_list:
                     for l2_pipeline in l2_pipeline_list:
@@ -303,11 +302,9 @@ class Controller(object):
                 sys.stderr.write("ERROR ensemble.greedy_add : %s\n" % e)
 
         self.write_training_results()
-        print('running tests')
-        self.test_pipelines()
-        print('ran test')
-        print('writing test')
-        self.write_test_results()
+        #print('running tests')
+        #self.test_pipelines()
+        #self.write_test_results()
     '''
     Write training results to file
     '''
@@ -362,14 +359,13 @@ class Controller(object):
     def test_pipelines(self):
         #handler = GRPC_PlannerEventHandler()
         for pipeline in self.exec_pipelines:
-
-            try:
-                res = self.test(pipeline, None)
-            except Exception as e:
-                print(e)
-            #for result in self.test(pipeline):#, handler):
-            #    if result is not None:
-            #        yield result
+            #try:
+            #    res = self.test(pipeline, None)
+            #except Exception as e:
+            #    print(e)
+            for result in self.test(pipeline):#, handler):
+                if result is not None:
+                    yield result
 
     '''
     Predict results on test data given a pipeline

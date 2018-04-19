@@ -164,6 +164,7 @@ class LevelOnePlanner(object):
                 # if types regard different task, then continue (e.g. featurization types, classification family)
                 if self.include_types and set(family_types).isdisjoint(self.include_types):
                     child_nodes += node.get_children()
+                #if self.include_primitives and set(family_types).isdisjoint(set( ))
                 if not set(family_types).isdisjoint(self.exclude_types):
                     print("Excluding types: ", self.exclude_types, " incl: ", set(node.get_children()) - set(self.exclude_types))
                     child_nodes += (set(node.get_children()) - set(self.exclude_types))
@@ -193,7 +194,6 @@ class LevelOnePlanner(object):
     def fill_feature_by_weights(self, pipeline : Pipeline, num_pipelines=5) -> Pipeline:
         """Insert feature primitive weighted by on media_type"""
         selected_primitives = []
-        
         # Allow featurization for other media types than specified in primitives_by_media (e.g. numeric)    
         families = self.primitive_family_mappings.get_families_by_media(self.media_type.value)
         # families = set(families)-set(self.exclude_families)
