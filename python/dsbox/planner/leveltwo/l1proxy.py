@@ -40,6 +40,7 @@ class LevelOnePlannerProxy(object):
         if helper.data_manager.media_type is not None:
             self.media_type = helper.data_manager.media_type
 
+
         self.l1_planner = LevelOnePlanner(primitive_library=self.primitives,
                                           ontology=self.ontology,
                                           library_dir=libdir,

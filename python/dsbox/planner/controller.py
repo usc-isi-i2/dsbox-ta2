@@ -292,15 +292,11 @@ class Controller(object):
             l1_pipelines = l1_related_pipelines
         
         attempts = list(l2_pipelines_handled.keys())
-        print(attempts)
-        attempts.append('dummy')
-        # L2 PIPELINES DOESN'T APPEAR TO BE WHAT I WANT
         successes = [str(pl) for pl in self.exec_pipelines]
-        print('exec ', successes)
-        failed = list(set(attempts) - set(successes))
-        print('FAILED PIPELINES: ', set(attempts) - set(successes))
-        self.logfile.write("\n Found %i Failed Pipelines:\n-------------\n" % len(failed))
-        self.logfile.write("%s\n" % str(failed))
+        self.failed_pipelines = list(set(attempts) - set(successes))
+        print('Failed Pipelines: ', set(attempts) - set(successes))
+        self.logfile.write("\n Found %i Failed Pipelines:\n-------------\n" % len(self.failed_pipelines))
+        self.logfile.write("%s\n" % str(self.failed_pipelines))
         if ensemble:
             try:
                 # df_lbl = test data
@@ -338,6 +334,8 @@ class Controller(object):
                 metric_values.append("%s = %2.4f" % (metric, metric_value))
 
             self.pipelinesfile.write("%s ( %s ) : %s\n" % (pipeline.id, pipeline, metric_values))
+            #self.pipelinesfile.write("\n Failed Pipelines \n")
+            #self.pipelinesfile.write("%s\n" % str(self.failed_pipelines))
             self.execution_helper.create_pipeline_executable(pipeline, self.config)
             self.create_pipeline_logfile(pipeline, rank)
 

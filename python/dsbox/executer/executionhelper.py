@@ -364,7 +364,10 @@ class ExecutionHelper(object):
         ncols = [col.format() for col in df.columns]
         featurecols = self.raw_data_columns(self.data_manager.input_columns)
         indices = df.index
-        if self.data_manager.media_type == VariableFileType.NONE:
+
+        # TO DO : TEST FEATURIZATION FOR DATA WITHOUT MEDIA TYPE
+        if False and (self.data_manager.media_type == VariableFileType.NONE or self.data_manager.media_type is None):
+            print('------ Featurization with primitive --------- ', primitive.cls.split('.')[-1])
             executable = self.instantiate_primitive(primitive)
             if executable is None:
                 primitive.finished = True
@@ -698,6 +701,7 @@ class ExecutionHelper(object):
         ens_pipeline = pipeline
 
         if ensembling:
+            [low_pred, hi_pred] = pipeline.ensemble.prediction_range
             statements.append("results = []")
 
         variable_cache = {}
@@ -807,6 +811,12 @@ class ExecutionHelper(object):
             statements.append("weights_np = numpy.array([%s]).astype(numpy.int32)" % weights_string)
             statements.append("weighted_total = numpy.array([df*const for df, const in zip(results_np, weights_np)])")
             statements.append("average_pred = numpy.sum(weighted_total, axis = 0)/numpy.sum(weights_np)")
+
+            print(pipeline.ensemble.prediction_range, 'PRED RANGE')
+            [low_pred, hi_pred] = pipeline.ensemble.prediction_range
+                
+            statements.append("weight_mask = numpy.multiply(weights_np[:,numpy.newaxis, numpy.newaxis], numpy.logical_and(results_np >= %s, results_np <= %s))" % (low_pred, hi_pred))
+            statements.append("averages = numpy.average(results_np, axis = 0, weights = weight_mask)")
 
             if ens_pipeline.ensemble.discrete_metric:
                 statements.append("average_pred = numpy.rint(average_pred)")

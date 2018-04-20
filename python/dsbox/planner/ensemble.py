@@ -35,6 +35,7 @@ class Ensemble(object):
         self.problem = problem
         self.median = median
         self._analyze_metrics()
+        self.prediction_range = [-np.inf, np.inf]
 
     def _analyze_metrics(self):
         # *** ONLY CONSIDERS 1 METRIC ***
@@ -46,8 +47,11 @@ class Ensemble(object):
         self.discrete_metric = True if self.problem.task_subtype in DISCRETE_METRIC else False
 
 
-    def greedy_add(self, pipelines, X, y, max_pipelines = None, plan = True, median = None):
+    def greedy_add(self, pipelines, X, y, max_pipelines = None, plan = True, median = None, pred_minmax_stdevs = 2):
         self.median = median if median is not None else self.median
+
+        stdev_pred = np.std(y.values)
+        self.prediction_range = [np.min(y.values) - pred_minmax_stdevs*stdev_pred, np.max(y.values) + pred_minmax_stdevs*stdev_pred]
         print("Using MEDIAN for ENSEMBLE Add" if self.median else "Using MEAN for ENSEMBLE Add")
         which_result = 'planner_result' if plan else 'test_result'
         tic = time.time()
