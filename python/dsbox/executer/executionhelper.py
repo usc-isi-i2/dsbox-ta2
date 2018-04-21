@@ -19,10 +19,10 @@ from dsbox.schema.dataset_schema import VariableFileType
 from dsbox.schema.profile_schema import DataProfileType as dpt
 from dsbox.schema.problem_schema import TaskType
 from dsbox.executer.execution import Execution
-<<<<<<< HEAD
-=======
+
+
 from dsbox.executer import pickle_patch
->>>>>>> corex
+
 from dsbox.planner.common.pipeline import CrossValidationStat
 
 import scipy.sparse.csr
