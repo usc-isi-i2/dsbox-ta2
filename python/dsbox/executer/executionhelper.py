@@ -809,14 +809,12 @@ class ExecutionHelper(object):
             # ONLY to how many pipelines have executed
             weights_string = ', '.join([str(w) for w in ens_pipeline.ensemble.pipeline_weights[:pipe_i+1]])
             statements.append("weights_np = numpy.array([%s]).astype(numpy.int32)" % weights_string)
-            statements.append("weighted_total = numpy.array([df*const for df, const in zip(results_np, weights_np)])")
-            statements.append("average_pred = numpy.sum(weighted_total, axis = 0)/numpy.sum(weights_np)")
+            #statements.append("weighted_total = numpy.array([df*const for df, const in zip(results_np, weights_np)])")
+            #statements.append("average_pred = numpy.sum(weighted_total, axis = 0)/numpy.sum(weights_np)")
 
-            print(pipeline.ensemble.prediction_range, 'PRED RANGE')
-            [low_pred, hi_pred] = pipeline.ensemble.prediction_range
                 
             statements.append("weight_mask = numpy.multiply(weights_np[:,numpy.newaxis, numpy.newaxis], numpy.logical_and(results_np >= %s, results_np <= %s))" % (low_pred, hi_pred))
-            statements.append("averages = numpy.average(results_np, axis = 0, weights = weight_mask)")
+            statements.append("average_pred = numpy.average(results_np, axis = 0, weights = weight_mask)")
 
             if ens_pipeline.ensemble.discrete_metric:
                 statements.append("average_pred = numpy.rint(average_pred)")

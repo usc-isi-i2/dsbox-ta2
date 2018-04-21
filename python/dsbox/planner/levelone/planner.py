@@ -58,31 +58,16 @@ class LevelOnePlanner(object):
         type_list = []
         for entry in mixed_list:
             if entry in list(self.primitive_library.primitives_by_family.keys()):
-                #family_primitives = [p.cls for p in self.primitive_library.primitives_by_family[entry]]
                 family_list.append(entry)
-                #family_node = self.ontology.get_family(entry)
-                #print(family_node)
-                #or node in family_node.get_children():
-                #    print(node.name)
-                #    type_list.append(str(node.name))
-                #    print('type_list', type_list)
-                #    primitive_list.extend(family_primitives)
+                
             elif entry in list(self.primitive_library.primitive_by_package.keys()):
                 primitive_list.append(entry)
-                #if inc:
-                #    family_list.append(self.primitive_library.primitive_by_package[entry].getFamily())
-                #type_list.append(str(self.primitive_library.primitive_by_package[entry].getAlgorithmTypes()[0]))
-                #if inc:
-                #   print(entry, self.primitive_library.primitive_by_package[entry].getFamily())
-                #   family_list.extend(self.primitive_library.primitive_by_package[entry].getFamily())
+            
             elif entry in list(self.primitive_library.primitives_by_type.keys()):
-                #primitive_list.extend([p.cls for p in self.primitive_library.primitives_by_type[entry]])
                 type_list.append(str(entry))
-                #if inc and self.primitive_library.primitives_by_type[entry]:
-                #    family_list.append(str(self.primitive_library.primitives_by_type[entry][0].getFamily()))
+            
             else:
                 print('Could not find include/exclude item: ', entry)
-                #raise ValueError('include or exclude is misspecified')
 
         return family_list, type_list, primitive_list
 
@@ -169,9 +154,6 @@ class LevelOnePlanner(object):
                     print("Excluding types: ", self.exclude_types, " incl: ", set(node.get_children()) - set(self.exclude_types))
                     child_nodes += (set(node.get_children()) - set(self.exclude_types))
 
-                #if set([n.cls for n in node.get_children()]).intersection([ip.cls for ip in self.include_primitives]):
-                #    child_nodes.append()
-
         return child_nodes
 
     def _check_primitive_include(self, p):
@@ -194,24 +176,7 @@ class LevelOnePlanner(object):
     def fill_feature_by_weights(self, pipeline : Pipeline, num_pipelines=5) -> Pipeline:
         """Insert feature primitive weighted by on media_type"""
         selected_primitives = []
-        # Allow featurization for other media types than specified in primitives_by_media (e.g. numeric)    
-        families = self.primitive_family_mappings.get_families_by_media(self.media_type.value)
-        # families = set(families)-set(self.exclude_families)
-
-        family_nodes = [self.ontology.get_family(f) for f in families]
-
-        child_nodes = self._get_child_nodes(family_nodes)
-        for node in child_nodes:
-            primitives = self.ontology.hierarchy.get_primitives_as_list(node)
-
-            primitives = [p for p in primitives if self._check_primitive_include(p)]
-
-            weights = [p.weight for p in primitives]
-
-            primitive = random_choices_without_replacement(primitives, weights, num_pipelines)
-            selected_primitives.extend(primitive)
-            
-
+        
         feature_primitive_paths = self.primitive_family_mappings.get_primitives_by_media(
             self.media_type)
         

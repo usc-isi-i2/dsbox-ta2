@@ -197,7 +197,7 @@ class Controller(object):
     """
     Train and select pipelines
     """
-    def train(self, planner_event_handler, cutoff=10, ensemble = True):
+    def train(self, planner_event_handler, cutoff=10, ensemble = True, ensemble_median = True):
         self.exec_pipelines = []
         self.l2_planner.primitive_cache = {}
         self.l2_planner.execution_cache = {}
@@ -300,7 +300,7 @@ class Controller(object):
         if ensemble:
             try:
                 # df_lbl = test data
-                ensemble_pipeline = self.ensemble.greedy_add(self.exec_pipelines, df, df_lbl)
+                ensemble_pipeline = self.ensemble.greedy_add(self.exec_pipelines, df, df_lbl, median = ensemble_median)
                 if ensemble_pipeline:
                     self.exec_pipelines.append(ensemble_pipeline)
             except Exception as e:
@@ -346,7 +346,7 @@ class Controller(object):
 
         #self.exec_pipelines = self.get_pipeline_sorter().sort_pipelines(self.exec_pipelines)
         # Ended planners
-        self._show_status("Found total %d successfully executing pipeline(s)..." % len(self.exec_pipelines))
+        self._show_status("Testing %d successfully executing pipeline(s)..." % len(self.exec_pipelines))
 
         # Create executables
         self.test_pipelinesfile.write("# Pipelines ranked by (adjusted) metrics (%s)\n" % self.problem.metrics)
@@ -402,7 +402,6 @@ class Controller(object):
             pipelines.append(pipeline)
         for pipeline_ in pipelines:
             for primitive in pipeline_.primitives:
-                print(primitive.name)
                 # Initialize primitive
                 try:
                     print("Executing %s" % primitive)
