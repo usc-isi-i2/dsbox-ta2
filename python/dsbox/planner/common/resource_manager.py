@@ -269,10 +269,8 @@ class ExecutionStatistics:
 
 class ResourceManager:
     '''Resource manager for running pipelines.
-
     Use asyncio event loop to schedule primitive executions. The
     actual execution of primitives can be inline or within a subprocess.
-
     '''
     def __init__(self, helper: ExecutionHelper, max_workers=0):
         self.helper = helper
@@ -312,10 +310,8 @@ class ResourceManager:
     @stopit.threading_timeoutable()
     def execute_pipelines(self, pipelines, df, df_lbl, callbacks=None):
         """Execute all pipelines.
-
         Blocking returns when they are all pipelines complete
         (including add_pipelines).
-
         """
         # start status reporting task
         status_task = self.loop.create_task(self._report_status())
@@ -353,10 +349,8 @@ class ResourceManager:
 
     def add_pipeline(self, pipeline, df, df_lbl, callback=None):
         '''Add one pipeline for execution.
-
         Non-blocking returns right away.  Assumes execute_pipelines
         has been called or will be called
-
         '''
         self.log.debug('Adding pipeline %s %s', pipeline.id, pipeline)
 

@@ -4,7 +4,7 @@ import os
 from datetime import date
 from typing import List, Dict
 
-from d3m_metadata.metadata import PrimitiveMetadata, PrimitiveFamily
+from d3m_metadata.metadata import PrimitiveMetadata, PrimitiveFamily, PrimitiveAlgorithmType
 from d3m import index
 
 from dsbox.planner.common.primitive import Primitive
@@ -20,9 +20,10 @@ class D3MPrimitiveLibrary(object):
 
         # List of black listed primitives, e.g. pickling problems
         self.black_list_package : List[str] = []
-
+        
         self.primitive_by_package : Dict[str, Primitive] = {}
         self.primitives_by_family : Dict[PrimitiveFamily, List[Primitive]] = defaultdict(list)
+        self.primitives_by_type : Dict[PrimitiveAlgorithmType, List[Primitive]] = defaultdict(list)
 
     def has_api_version(self, primitives_repo_dir, api_version):
         return api_version in os.listdir(primitives_repo_dir)
@@ -63,13 +64,16 @@ class D3MPrimitiveLibrary(object):
 
     def load_from_d3m_index(self):
         '''Load primitive description from installed python packages'''
+                
         for primitive_path, primitive_type in index.search().items():
             primitive = self._create_primitive_desc(primitive_type.metadata)
             if primitive.cls in self.black_list_package:
                 print('Black listing primitive: {}'.format(primitive.name))
             else:
                 self.primitives.append(primitive)
+
         self._setup()
+
 
     def get_primitives_by_family(self, family : PrimitiveFamily) -> List[Primitive]:
         return self.primitives_by_family[family]
@@ -146,7 +150,12 @@ class D3MPrimitiveLibrary(object):
         for p in self.primitives:
             self.primitive_by_package[p.cls] = p
             self.primitives_by_family[p.getFamily()].append(p)
-
+            types = p.getAlgorithmTypes()
+            for entry in types:
+                if isinstance(types[0], str):
+                    self.primitives_by_type[entry].append(p)
+                else:
+                    self.primitives_by_type[entry.value].append(p)
 
 class PrimitiveLibrary(object):
     """

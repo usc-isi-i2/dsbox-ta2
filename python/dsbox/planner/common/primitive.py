@@ -143,10 +143,10 @@ class Primitive(object):
         return '{}:{}'.format(self.name, hash.hexdigest())
 
     def getFamily(self) -> PrimitiveFamily:
-        self.d3m_metadata.query()['primitive_family']
+        return self.d3m_metadata.query()['primitive_family']
 
     def getAlgorithmTypes(self) -> PrimitiveAlgorithmType:
-        self.d3m_metadata.query()['algorithm_types']
+        return self.d3m_metadata.query()['algorithm_types']
 
     def __getstate__(self):
         self_dict = self.__dict__.copy()

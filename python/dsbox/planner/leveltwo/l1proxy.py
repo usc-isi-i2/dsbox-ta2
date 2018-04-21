@@ -16,7 +16,7 @@ class LevelOnePlannerProxy(object):
 
     This is here to integrate with Ke-Thia's L1 Planner until we come up with a consistent interface
     """
-    def __init__(self, libdir, helper):
+    def __init__(self, libdir, helper, include = [], exclude = []):
         # Load primitives library
         self.primitives = D3MPrimitiveLibrary()
 
@@ -35,16 +35,20 @@ class LevelOnePlannerProxy(object):
         self.ontology = D3MOntology(self.primitives)
         self.ontology.load_curated_hierarchy(libdir)
 
+        #self.media_type = VariableFileType.GENERIC       
         self.media_type = VariableFileType.NONE
         if helper.data_manager.media_type is not None:
             self.media_type = helper.data_manager.media_type
+
 
         self.l1_planner = LevelOnePlanner(primitive_library=self.primitives,
                                           ontology=self.ontology,
                                           library_dir=libdir,
                                           task_type=helper.problem.task_type,
                                           task_subtype=helper.problem.task_subtype,
-                                          media_type=self.media_type)
+                                          media_type=self.media_type,
+                                          include = include,
+                                          exclude = exclude)
 
     def add_primitive_requirements(self, profile_file):
         # Augment primitive metadata with Daniel's primitive profiler output
@@ -71,7 +75,11 @@ class LevelOnePlannerProxy(object):
 
     def get_pipelines(self, data):
         try:
+            print('getting pipelines with hierarchy l1 proxy')
             l1_pipelines = self.l1_planner.generate_pipelines_with_hierarchy(level=2)
+            print("finished l1proxy get pipelines /n /n")
+            print(l1_pipelines)
+            # If there is a media type, use featu
             new_pipes = []
             for l1_pipeline in l1_pipelines:
                 refined_pipes = self.l1_planner.fill_feature_by_weights(l1_pipeline, 1)
@@ -115,8 +123,10 @@ class LevelOnePlannerProxyOld(object):
 
     def get_pipelines(self, data):
         try:
+            print('getting pipelines with hierarchy l1 proxy')
             l1_pipelines = self.l1_planner.generate_pipelines_with_hierarchy(level=2)
-
+            print("finished l1proxy get pipelines /n /n")
+            print(l1_pipelines)
             # If there is a media type, use featurisation-added pipes instead
             # kyao: added check to skip if media_type is nested tables
             if self.media_type and not (self.media_type==VariableFileType.TABULAR or self.media_type==VariableFileType.GRAPH):
@@ -135,6 +145,7 @@ class LevelOnePlannerProxyOld(object):
 
             return pipelines
         except Exception as e:
+            print('get_pipelines l1 proxy excpetion ', e)
             return None
 
     def l1_to_proxy_pipeline(self, l1_pipeline):

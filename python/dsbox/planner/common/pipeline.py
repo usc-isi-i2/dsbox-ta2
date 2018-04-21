@@ -176,6 +176,7 @@ class OneStandardErrorPipelineSorter(PipelineSorter):
             std_error = metric_sorted[1].planner_result.stat.get_standard_error(self.metric)
         else:
             std_error = best_result.stat.get_standard_error(self.metric)
+
         close = []
         rest = []
         for pipe in metric_sorted:

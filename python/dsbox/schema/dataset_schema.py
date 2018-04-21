@@ -16,6 +16,7 @@ class VariableFileType(Enum):
     GRAPH = "graph"
     TABULAR = "table"
     TIMESERIES = "timeseries"
+    GENERIC = "generic"
     NONE = "none"
 
 class ColumnRole(Enum):
