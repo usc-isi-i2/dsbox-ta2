@@ -334,14 +334,14 @@ class ExecutionHelper(object):
 
         #print ("Returning {}".format(metric_values))
         return (yPredictions, metric_values, stat)
-<<<<<<< HEAD
+
 
     def create_primitive_model_remote(self, primitive, X, y):
         '''Remote version of create_primitive_model'''
         self.create_primitive_model( primitive, X, y)
         return (primitive.executables, primitive.unified_interface)
-=======
->>>>>>> corex
+
+
 
     def create_primitive_model(self, primitive, X, y):
         # fit the model finally over the whole training data for evaluation later over actual test data
