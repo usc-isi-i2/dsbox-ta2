@@ -22,6 +22,8 @@ import typing
 
 import pdb
 
+from warnings import warn
+
 class LevelOnePlanner(object):
     '''Level One Planner'''
     def __init__(self, * ,
@@ -150,7 +152,28 @@ class LevelOnePlanner(object):
             new_pipeline.replacePrimitiveAt(position, p)
             new_pipelines.append(new_pipeline)
         return new_pipelines
+	
+    def extend_pipeline_with_feature_selection(self, l2_pipeline) -> Pipeline:
+        """
+        get a feature selection primitive;
+        insert it to the last second position of l2_pipeline (right before the estimator)
+        """
 
+        family_node = self.ontology.get_family("FEATURE_SELECTION")
+        child_nodes = family_node.get_children() # different methods of feature selection
+
+        for node in child_nodes:
+            warn("child node name: {}".format(node.name))
+            primitives = self.ontology.hierarchy.get_primitives_as_list(node)
+            if not primitives:
+                continue
+            # for p in primitives:
+            #     warn("primitive name: {}".format(p.name))
+
+            # after getting the primitive
+            for p in primitives:
+                l2_pipeline.insertPrimitiveAt(-1, p)
+                return l2_pipeline
 
     def _get_feature_weights(self, primitives : typing.List[Primitive]):
         factor = 50

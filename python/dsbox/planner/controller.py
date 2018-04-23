@@ -5,6 +5,7 @@ import functools
 import os
 import sys
 import traceback
+import pdb
 
 import pandas as pd
 
@@ -264,6 +265,15 @@ class Controller(object):
 
         if not l2_pipelines:
             return
+	
+        # Add feature selection
+        all_extended_pipelines = []
+        for l2_pipeline in l2_pipelines:
+            extended_pipeline = self.l1_planner.extend_pipeline_with_feature_selection(l2_pipeline)
+            all_extended_pipelines.append(extended_pipeline)
+
+        l2_pipelines = all_extended_pipelines
+
 
         for l2_pipeline in l2_pipelines:
             yield self.pe.RunningPipeline(l2_pipeline)

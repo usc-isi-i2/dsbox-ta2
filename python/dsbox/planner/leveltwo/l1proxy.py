@@ -86,6 +86,14 @@ class LevelOnePlannerProxy(object):
         pipelines = self.l1_planner.find_similar_learner(pipeline, include_siblings=True)
         return pipelines
 
+    def extend_pipeline_with_feature_selection(self, l2_pipeline):
+        """
+        extend the given pipeline with feature selection module
+        
+        """
+        return self.l1_planner.extend_pipeline_with_feature_selection(l2_pipeline)
+
+
 class LevelOnePlannerProxyOld(object):
     """
     The Level-1 DSBox Proxy Planner.
