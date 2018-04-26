@@ -22,6 +22,8 @@ from dsbox.planner.common.resource_manager import ResourceManager
 from dsbox.planner.ensemble import Ensemble
 from dsbox.planner.hyperparam_tuning import RandomHyperparamTuning
 
+NUMBER_HYPERPARAM_SEARCHES = 100
+
 class Feature:
     def __init__(self, resource_id, feature_name):
         self.resource_id = resource_id
@@ -265,7 +267,7 @@ class Controller(object):
 
         if not l2_pipelines:
             return
-	
+
         # Add feature selection
         all_extended_pipelines = []
         for l2_pipeline in l2_pipelines:
@@ -312,8 +314,7 @@ class Controller(object):
         print('DONE controler.train()')
 
     def pipeline_result_call_back(self, pipeline, df, df_lbl, task: asyncio.Future):
-        if self.hyperparam_count > 1000:
-        # if self.hyperparam_count > 10:
+        if self.hyperparam_count > NUMBER_HYPERPARAM_SEARCHES:
             print('call_back limit reached')
             return
 
