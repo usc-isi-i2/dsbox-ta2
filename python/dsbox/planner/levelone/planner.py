@@ -167,18 +167,14 @@ class LevelOnePlanner(object):
         child_nodes = family_node.get_children() # different methods of feature selection
 
         for node in child_nodes:
-            warn("child node name: {}".format(node.name))
             primitives = self.ontology.hierarchy.get_primitives_as_list(node)
             if not primitives:
                 continue
-            # for p in primitives:
-            #     warn("primitive name: {}".format(p.name))
-
             # after getting the primitive
-            for p in primitives:
-                l2_pipeline_copy.insertPrimitiveAt(-1, p)
-                result.append(l2_pipeline_copy)
-                return result
+            p = primitives[0] # fixed, just use the first one
+            l2_pipeline_copy.insertPrimitiveAt(-1, p)
+            result.append(l2_pipeline_copy)
+            return result
 
     def _get_feature_weights(self, primitives : typing.List[Primitive]):
         factor = 50
