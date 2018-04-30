@@ -271,8 +271,8 @@ class Controller(object):
         # Add feature selection
         all_extended_pipelines = []
         for l2_pipeline in l2_pipelines:
-            extended_pipeline = self.l1_planner.extend_pipeline_with_feature_selection(l2_pipeline)
-            all_extended_pipelines.append(extended_pipeline)
+            extended_pipelines = self.l1_planner.extend_pipeline_with_feature_selection(l2_pipeline)
+            all_extended_pipelines = all_extended_pipelines + extended_pipelines
 
         l2_pipelines = all_extended_pipelines
 
