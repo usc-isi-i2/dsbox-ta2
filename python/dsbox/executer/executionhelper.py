@@ -239,7 +239,7 @@ class ExecutionHelper(object):
         return (retval, executable)
 
     @stopit.threading_timeoutable()
-    def cross_validation_score(self, primitive, X, y, cv=4):
+    def cross_validation_score(self, primitive, X, y, cv=4, seed=0):
         print("Executing %s" % primitive.name)
         sys.stdout.flush()
 
@@ -255,8 +255,9 @@ class ExecutionHelper(object):
                     primitive.start_time = time.time()
 
                     # TODO: Should use same random_state for comparison across algorithms
-
-                    kf = KFold(n_splits=cv, shuffle=True, random_state=int(time.time()))
+                    
+                    kf = KFold(n_splits=cv, shuffle=True, random_state=seed)#int(time.time()))
+                    
                     tcols = [self.data_manager.target_columns[0]['colName']]
                     yPredictions = None
                     num = 0.0
@@ -722,6 +723,7 @@ class ExecutionHelper(object):
         if ensembling:
             [low_pred, hi_pred] = pipeline.ensemble.prediction_range
             statements.append("results = []")
+            median = pipeline.ensemble.median
 
         variable_cache = {}
         varindex = 0
@@ -831,13 +833,16 @@ class ExecutionHelper(object):
             #statements.append("weighted_total = numpy.array([df*const for df, const in zip(results_np, weights_np)])")
             #statements.append("average_pred = numpy.sum(weighted_total, axis = 0)/numpy.sum(weights_np)")
 
-                
-            statements.append("weight_mask = numpy.multiply(weights_np[:,numpy.newaxis, numpy.newaxis], numpy.logical_and(results_np >= %s, results_np <= %s))" % (low_pred, hi_pred))
-            statements.append("average_pred = numpy.average(results_np, axis = 0, weights = weight_mask)")
+            if median:
+                statements.append("results_np = numpy.repeat(results_np, repeats = weights_np, axis = 0)")
+                statements.append("ens_pred = numpy.median(results_np, axis = 0)")
+            else:
+                statements.append("weight_mask = numpy.multiply(weights_np[:,numpy.newaxis, numpy.newaxis], numpy.logical_and(results_np >= %s, results_np <= %s))" % (low_pred, hi_pred))
+                statements.append("ens_pred = numpy.average(results_np, axis = 0, weights = weight_mask)")
 
             if ens_pipeline.ensemble.discrete_metric:
-                statements.append("average_pred = numpy.rint(average_pred)")
-            statements.append("result = pandas.DataFrame(average_pred, index=testdata_0.index, columns=['%s'])" % self.data_manager.target_columns[0]['colName'])
+                statements.append("ens_pred = numpy.rint(ens_pred)")
+            statements.append("result = pandas.DataFrame(ens_pred, index=testdata_0.index, columns=['%s'])" % self.data_manager.target_columns[0]['colName'])
             statements.append("result.to_csv(predictions_file, index_label='%s')" % self.data_manager.index_column)
             # ~ timeout check
 

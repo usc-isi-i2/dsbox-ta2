@@ -304,6 +304,7 @@ class ResourceManager:
         self.executor = MyExecutor(max_workers=max_workers)
 
         self.cross_validation_folds = 10
+        self.cv_seed = 0
 
         self.stats = ExecutionStatistics()
 
@@ -518,7 +519,7 @@ class ResourceManager:
             self.stats.primitive_running(exec_pipeline, primitive)
             self.log.debug('%s Run primitive submit    %s', exec_pipeline.id, primitive)
             task = self.loop.run_in_executor(self.executor, self.helper.cross_validation_score,
-                                             primitive, df, df_lbl, self.cross_validation_folds)
+                                             primitive, df, df_lbl, self.cross_validation_folds, self.cv_seed)
 
             self.log.debug('%s Run primitive waiting   %s', exec_pipeline.id, primitive)
             await asyncio.wait([task], timeout=TIMEOUT)

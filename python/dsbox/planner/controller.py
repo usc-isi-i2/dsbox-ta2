@@ -306,7 +306,7 @@ class Controller(object):
         if ensemble:
             try:
                 ensemble_pipeline = self.ensemble.greedy_add(
-                    self.exec_pipelines, df, df_lbl)
+                    self.exec_pipelines, df, df_lbl, cv = self.resource_manager.cross_validation_folds, seed = self.resource_manager.cv_seed)
                 if ensemble_pipeline:
                     self.exec_pipelines.append(ensemble_pipeline)
 
@@ -330,7 +330,6 @@ class Controller(object):
 
     def pipeline_result_call_back(self, pipeline, df, df_lbl, task: asyncio.Future):
         if self.hyperparam_count > 1000:
-        # if self.hyperparam_count > 10:
             print('call_back limit reached')
             return
 
