@@ -25,8 +25,8 @@ from dsbox.executer.executionhelper import ExecutionHelper
 
 TIMEOUT = 600  # Time out primitives running for more than 10 minutes
 
-logging.basicConfig(level=logging.DEBUG, format='%(levelname)s: %(name)s: %(message)s')
-# logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(name)s: %(message)s')
+# logging.basicConfig(level=logging.DEBUG, format='%(levelname)s: %(name)s: %(message)s')
+logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(name)s: %(message)s')
 
 class MyExecutor(concurrent.futures.ProcessPoolExecutor):
     '''Used to generate debugging prints'''
