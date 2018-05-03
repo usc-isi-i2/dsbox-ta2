@@ -5,6 +5,7 @@ import functools
 import os
 import sys
 import traceback
+import pdb
 
 import pandas as pd
 
@@ -24,6 +25,7 @@ from dsbox.planner.ensemble import Ensemble
 
 from dsbox.planner.hyperparam_tuning import RandomHyperparamTuning
 
+NUMBER_HYPERPARAM_SEARCHES = 100
 
 class Feature:
     def __init__(self, resource_id, feature_name):
@@ -285,6 +287,15 @@ class Controller(object):
         if not l2_pipelines:
             return
 
+        # Add feature selection
+        all_extended_pipelines = []
+        for l2_pipeline in l2_pipelines:
+            extended_pipelines = self.l1_planner.extend_pipeline_with_feature_selection(l2_pipeline)
+            all_extended_pipelines = all_extended_pipelines + extended_pipelines
+
+        l2_pipelines = all_extended_pipelines
+
+
         for l2_pipeline in l2_pipelines:
             yield self.pe.RunningPipeline(l2_pipeline)
 
@@ -326,10 +337,10 @@ class Controller(object):
         #self.test_pipelines()
         #self.write_test_results()
 
-    
+
 
     def pipeline_result_call_back(self, pipeline, df, df_lbl, task: asyncio.Future):
-        if self.hyperparam_count > 1000:
+        if self.hyperparam_count > NUMBER_HYPERPARAM_SEARCHES:
             print('call_back limit reached')
             return
 
@@ -387,7 +398,7 @@ class Controller(object):
     def write_test_results(self):
         # Sort pipelines
         # self.exec_pipelines = sorted(self.exec_pipelines, key=lambda x: self._sort_by_metric(x))
-        
+
 
         #self.exec_pipelines = self.get_pipeline_sorter().sort_pipelines(self.exec_pipelines)
         # Ended planners
@@ -430,13 +441,13 @@ class Controller(object):
         sys.stdout.flush()
         print("** Evaluating pipeline %s" % str(pipeline))
         sys.stdout.flush()
-        
+
         metric_dict = defaultdict(int)
         for i in self.problem.metrics:
             metric_dict[i.name]= 0.0
         results = []
         pipelines = []
-                    
+
         if pipeline.ensemble is not None:
             try:
                 for ens_pipeline in pipeline.ensemble.pipelines:
@@ -470,7 +481,7 @@ class Controller(object):
                         testdf = helper.test_featurise(primitive, testdf)
                     if testdf is None:
                         break
-                except Exception as e: 
+                except Exception as e:
                     sys.stderr.write(
                         "ERROR test(%s) : %s\n" % (pipeline_, e))
                     traceback.print_exc()
@@ -483,16 +494,16 @@ class Controller(object):
         #    method = 'mean'
         method = 'mean'
         if method == 'mean':
-            res = numpy.mean(numpy.array(results), axis = 0) 
+            res = numpy.mean(numpy.array(results), axis = 0)
         elif method == 'median':
             res  = numpy.median(numpy.array(results), axis = 0)
-        
+
         pipeline.test_result = PipelineExecutionResult(pd.DataFrame(res), metric_dict, None)
 
         if test_event_handler is not None:
             yield test_event_handler.ExecutedPipeline(pipeline)
-        
-            
+
+
     def stop(self):
         '''
         Stop planning, and write out the current list (sorted by metric)

@@ -134,6 +134,7 @@ class ExecutionHelper(object):
         except Exception as e:
             try:
                 sys.stderr.write("ERROR: execute_primitive {}: {}\n".format(primitive.name, e))
+                print("ERROR: execute_primitive {}: {}\n".format(primitive.name, e))
                 #sys.stderr.write("ERROR execute_primitive(%s): %s\n" % (primitive, e))
                 #traceback.print_exc()
                 primitive.finished = True

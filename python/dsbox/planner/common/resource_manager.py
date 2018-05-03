@@ -433,6 +433,8 @@ class ResourceManager:
                 if df is None:
                     # primitive in previous stage failed
                     self.log.debug('%s Primitive previous stage failed %s', pipeline.id, primitive)
+                    self.stats.pipeline_finished(exec_pipeline)
+                    exec_pipeline.finished = True
                     return None
 
                 self.log.debug('%s Primitive scheduling %s', pipeline.id, cachekey)
@@ -453,9 +455,11 @@ class ResourceManager:
                     with await cv:
                         cv.notify_all()
             except Exception as e:
+                print("ERROR execute_pipeline(%s %s) : %s\n" % (exec_pipeline, exec_pipeline.id, e))
                 sys.stderr.write(
                     "ERROR execute_pipeline(%s %s) : %s\n" % (exec_pipeline, exec_pipeline.id, e))
                 traceback.print_exc()
+                self.stats.pipeline_finished(exec_pipeline)
                 exec_pipeline.finished = True
                 return None
 
@@ -566,6 +570,8 @@ class ResourceManager:
             self.primitive_cache[cachekey] = (primitive.executables, primitive.unified_interface)
 
         else:
+            # !!!!
+            inline = True
             self.log.debug('%s Run primitive other primitive type', exec_pipeline.id)
             if inline:
                 # Re-profile intermediate data here.
@@ -589,12 +595,15 @@ class ResourceManager:
 
                 if task.done():
                     result = task.result()
-                    if isinstance(result, Exception):
-                        self.log.debug(result)
+                    if result is None or isinstance(result, Exception):
+                        self.log.debug('%s Run primitive FAILED    %s', exec_pipeline.id, primitive)
                         df = None
                     else:
+                        self.log.debug('%s Run primitive Success   %s', exec_pipeline.id, primitive)
+                        print(len(result))
                         df, executables, unified_interface = result
                 else:
+                    self.log.debug('%s Run primitive FAILED2   %s', exec_pipeline.id, primitive)
                     df = None
                 primitive.executables = executables
                 primitive.unified_interface = unified_interface
