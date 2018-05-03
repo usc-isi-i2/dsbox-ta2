@@ -32,7 +32,9 @@ class LevelOnePlanner(object):
                  library_dir : str,
                  task_type : TaskType,
                  task_subtype : TaskSubType,
-                 media_type : VariableFileType = VariableFileType.NONE):
+                 media_type : VariableFileType = VariableFileType.NONE,
+                 include = [],
+                 exclude = []):
         self.primitive_library = primitive_library
         self.ontology = ontology
         self.library_dir = library_dir
@@ -41,38 +43,145 @@ class LevelOnePlanner(object):
         self.primitive_family_mappings = PrimitiveFamilyMappings()
         self.primitive_family_mappings.load_json(library_dir)
 
+        if not include and not exclude:    
+            self.include = False
+        else:
+            self.include = True
+            self.include_families, self.include_types, self.include_primitives = self._interpret_inc_exc(include)
+            self.exclude_families, self.exclude_types, self.exclude_primitives = self._interpret_inc_exc(exclude, inc = False)
+
+    def _interpret_inc_exc(self, mixed_list, inc = True):
+        # mixed_list can include families and/or primitives
+        # we would like to exclude families or single primitives within families
+        # if including a primitive, we need its family to understand where in pipeline it is used 
+            # e.g. choose a featurizer and keep classification search
+        family_list = []
+        primitive_list = []
+        type_list = []
+        for entry in mixed_list:
+            if entry in list(self.primitive_library.primitives_by_family.keys()):
+                family_list.append(entry)
+                
+            elif entry in list(self.primitive_library.primitive_by_package.keys()):
+                primitive_list.append(entry)
+            
+            elif entry in list(self.primitive_library.primitives_by_type.keys()):
+                type_list.append(str(entry))
+            
+            else:
+                print('Could not find include/exclude item: ', entry)
+
+        return family_list, type_list, primitive_list
+
+
     def generate_pipelines_with_hierarchy(self, level=2) -> typing.List[Pipeline]:
         # ignore level for now, since only have one level hierarchy
-        results =[]
+        results = []
         families = self.primitive_family_mappings.get_families_by_task_type(self.task_type.value)
         if self.task_type == TaskType.GRAPH_MATCHING:
             # if GRAPH_MATCHING then add LINK_PREDICTION
             families = families + self.primitive_family_mappings.get_families_by_task_type(TaskType.LINK_PREDICTION)
 
+        # moved to get_child_nodes
+        #families = sebt(families)-set(self.exclude_families   
         family_nodes = [self.ontology.get_family(f) for f in families]
-        child_nodes = []
-        for node in family_nodes:
-            child_nodes += node.get_children()
+        
+        # include / exclude family and type checks
+        child_nodes = self._get_child_nodes(family_nodes)
+
         for node in child_nodes:
             primitives = self.ontology.hierarchy.get_primitives_as_list(node)
+
             if not primitives:
                 continue
-            weights = [p.weight for p in primitives]
+                
+            # Inclusion checks
+            
+            primitives = [p for p in primitives if self._check_primitive_include(p)]
+            
+            if not primitives:
+                continue
 
+            weights = [p.weight for p in primitives]
+        
             # Set task type for execute_pipeline
             for p in primitives:
                 p.task = 'Modeling'
-
+        
             primitive = random_choices(primitives, weights)
             pipe = Pipeline(primitives=[primitive])
             results.append(pipe)
         return results
 
+    def _get_child_nodes(self, family_nodes):
+        child_nodes = []
+        family_types = []
+        
+        try:
+            family_nodes = [f for f in family_nodes if f.name not in self.exclude_families] 
+        except:
+            pass
+
+        incl_prim_types = []
+        
+        if hasattr(self, 'include_primitives'):
+            for p in self.include_primitives:
+                #need the prim 
+                try:
+                    p = self.ontology.hierarchy.node_by_primitive[p]._content[0]
+                except:
+                    continue
+                incl_prim_types.extend(list(p.getAlgorithmTypes()))
+        
+        # check family / type inclusions / exclusions here
+        for node in family_nodes:
+            # include primitives will get through here because family included for each
+            if not self.include:
+                child_nodes += node.get_children()
+            elif node.name in self.include_families:
+                child_nodes += [n for n in node.get_children() if n.name not in self.exclude_types]
+            elif node.name not in self.exclude_families:                
+                for child in node.get_children():
+                    family_types.append(child.name)
+                    # add child if it is in include_types
+                    if child.name in self.include_types or child.name in incl_prim_types:
+                        print(child.name)
+                        child_nodes.append(child)
+
+                # if types regard different task, then continue (e.g. featurization types, classification family)
+                if self.include_types and set(family_types).isdisjoint(self.include_types):
+                    child_nodes += node.get_children()
+                #if self.include_primitives and set(family_types).isdisjoint(set( ))
+                if not set(family_types).isdisjoint(self.exclude_types):
+                    print("Excluding types: ", self.exclude_types, " incl: ", set(node.get_children()) - set(self.exclude_types))
+                    child_nodes += (set(node.get_children()) - set(self.exclude_types))
+
+        return child_nodes
+
+    def _check_primitive_include(self, p):
+        if not self.include:
+            return True
+
+        check1 = (self.include_families or self.include_types or self.include_primitives)
+        check2 = p.getFamily() in self.include_families
+        check3 = self.include_types and not set(p.getAlgorithmTypes()).isdisjoint(self.include_types) 
+        check4 = p.cls in self.include_primitives
+        
+        check = check1 and (check2 or check3 or check4)
+
+        if p.cls in self.exclude_primitives:
+            return False
+        else:
+            return check
+
+
     def fill_feature_by_weights(self, pipeline : Pipeline, num_pipelines=5) -> Pipeline:
         """Insert feature primitive weighted by on media_type"""
+        selected_primitives = []
+        
         feature_primitive_paths = self.primitive_family_mappings.get_primitives_by_media(
             self.media_type)
-
+        
         feature_primitives = []
         for path in feature_primitive_paths:
             if self.primitive_library.has_primitive_by_package(path):
@@ -86,16 +195,20 @@ class LevelOnePlanner(object):
                     print('Library does not have primitive {}'.format(path))
                     print('Possible error in file primitive_family_mappings.json')
         primitive_weights = [p.weight for p in feature_primitives]
-        selected_primitives = random_choices_without_replacement(
-            feature_primitives, primitive_weights, num_pipelines)
+        
+        if feature_primitives:
+            selected_primitives.extend(random_choices_without_replacement
+                (feature_primitives, primitive_weights, num_pipelines))
+        
         new_pipelines = []
         for p in selected_primitives:
             # Set task type for execute_pipeline
             p.task = 'FeatureExtraction'
-
+            
             newp = pipeline.clone()
             newp.insertPrimitiveAt(0, p)
             new_pipelines.append(newp)
+            
         if new_pipelines:
             return new_pipelines
         else:
@@ -147,6 +260,9 @@ class LevelOnePlanner(object):
         for p in selected:
             # Set task type for execute_pipeline
             p.task = 'Modeling'
+            
+            if not self._check_primitive_include(p):
+                continue
 
             new_pipeline = pipeline.clone()
             new_pipeline.replacePrimitiveAt(position, p)

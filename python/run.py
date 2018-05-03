@@ -46,7 +46,8 @@ USAGE
     parser.add_argument("-o", "--output", dest="output", help="Output directory. [default: %(default)s]", default="output")
     parser.add_argument("-v", "--verbose", dest="verbose", action="count", help="set verbosity level [default: %(default)s]")
     parser.add_argument('-V', '--version', action='version', version=program_version_message)
-
+    parser.add_argument('-i', "--include", type=str, nargs='+', dest="include", default=[])
+    parser.add_argument('-e', "--exclude", type=str, nargs='+', dest="exclude", default=[])
     # Process arguments
     args = parser.parse_args()
 
@@ -71,12 +72,16 @@ USAGE
         print("Verbose mode on")
 
     controller = Controller(library_directory)
-    controller.initialize_simple(problem_directory, data_directory, output_directory)
+    controller.initialize_simple(problem_directory, data_directory, output_directory, include = args.include, exclude = args.exclude)
     controller.load_problem()
     controller.initialize_training_data_from_config()
     controller.initialize_planners()
     for result in controller.train(PlannerEventHandler()):
         pass
+
+    #include = args.include
+    #exclude = args.exclude
+    #controller.include_
 
 
 if __name__ == "__main__":

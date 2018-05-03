@@ -269,10 +269,8 @@ class ExecutionStatistics:
 
 class ResourceManager:
     '''Resource manager for running pipelines.
-
     Use asyncio event loop to schedule primitive executions. The
     actual execution of primitives can be inline or within a subprocess.
-
     '''
     def __init__(self, helper: ExecutionHelper, max_workers=0):
         self.helper = helper
@@ -306,16 +304,15 @@ class ResourceManager:
         self.executor = MyExecutor(max_workers=max_workers)
 
         self.cross_validation_folds = 10
+        self.cv_seed = 0
 
         self.stats = ExecutionStatistics()
 
     @stopit.threading_timeoutable()
     def execute_pipelines(self, pipelines, df, df_lbl, callbacks=None):
         """Execute all pipelines.
-
         Blocking returns when they are all pipelines complete
         (including add_pipelines).
-
         """
         # start status reporting task
         status_task = self.loop.create_task(self._report_status())
@@ -353,10 +350,8 @@ class ResourceManager:
 
     def add_pipeline(self, pipeline, df, df_lbl, callback=None):
         '''Add one pipeline for execution.
-
         Non-blocking returns right away.  Assumes execute_pipelines
         has been called or will be called
-
         '''
         self.log.debug('Adding pipeline %s %s', pipeline.id, pipeline)
 
@@ -528,7 +523,7 @@ class ResourceManager:
             self.stats.primitive_running(exec_pipeline, primitive)
             self.log.debug('%s Run primitive submit    %s', exec_pipeline.id, primitive)
             task = self.loop.run_in_executor(self.executor, self.helper.cross_validation_score,
-                                             primitive, df, df_lbl, self.cross_validation_folds)
+                                             primitive, df, df_lbl, self.cross_validation_folds, self.cv_seed)
 
             self.log.debug('%s Run primitive waiting   %s', exec_pipeline.id, primitive)
             await asyncio.wait([task], timeout=TIMEOUT)
