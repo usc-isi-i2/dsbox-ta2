@@ -182,6 +182,7 @@ class LevelTwoPlanner(object):
                     self.primitive_cache[cachekey] = (primitive.executables, primitive.unified_interface)
 
             except Exception as e:
+                print("ERROR patch_and_execute_pipeline(%s) : %s\n" % (exec_pipeline, e))
                 sys.stderr.write(
                     "ERROR patch_and_execute_pipeline(%s) : %s\n" % (exec_pipeline, e))
                 traceback.print_exc()

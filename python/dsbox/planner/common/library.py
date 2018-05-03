@@ -4,7 +4,7 @@ import os
 from datetime import date
 from typing import List, Dict
 
-from d3m_metadata.metadata import PrimitiveMetadata, PrimitiveFamily, PrimitiveAlgorithmType
+from d3m.metadata.base import PrimitiveMetadata, PrimitiveFamily, PrimitiveAlgorithmType
 from d3m import index
 
 from dsbox.planner.common.primitive import Primitive
@@ -20,7 +20,7 @@ class D3MPrimitiveLibrary(object):
 
         # List of black listed primitives, e.g. pickling problems
         self.black_list_package : List[str] = []
-        
+
         self.primitive_by_package : Dict[str, Primitive] = {}
         self.primitives_by_family : Dict[PrimitiveFamily, List[Primitive]] = defaultdict(list)
         self.primitives_by_type : Dict[PrimitiveAlgorithmType, List[Primitive]] = defaultdict(list)
@@ -64,7 +64,7 @@ class D3MPrimitiveLibrary(object):
 
     def load_from_d3m_index(self):
         '''Load primitive description from installed python packages'''
-                
+
         for primitive_path, primitive_type in index.search().items():
             primitive = self._create_primitive_desc(primitive_type.metadata)
             if primitive.cls in self.black_list_package:

@@ -35,7 +35,7 @@ class LevelOnePlannerProxy(object):
         self.ontology = D3MOntology(self.primitives)
         self.ontology.load_curated_hierarchy(libdir)
 
-        #self.media_type = VariableFileType.GENERIC       
+        #self.media_type = VariableFileType.GENERIC
         self.media_type = VariableFileType.NONE
         if helper.data_manager.media_type is not None:
             self.media_type = helper.data_manager.media_type
@@ -87,7 +87,8 @@ class LevelOnePlannerProxy(object):
 
             l1_pipelines = new_pipes
             return l1_pipelines
-        except Exception as _:
+        except Exception as e:
+            print('L1 proxy get_pipelines() exception: {}'.format(e))
             return None
 
     def get_related_pipelines(self, pipeline):
@@ -145,7 +146,7 @@ class LevelOnePlannerProxyOld(object):
 
             return pipelines
         except Exception as e:
-            print('get_pipelines l1 proxy excpetion ', e)
+            print('L1proxy get_pipelines() excpetion ', e)
             return None
 
     def l1_to_proxy_pipeline(self, l1_pipeline):

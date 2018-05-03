@@ -8,10 +8,10 @@ import numpy as np
 import pandas as pd
 import contextlib
 
-from primitive_interfaces.base import PrimitiveBase
-from primitive_interfaces.generator import GeneratorPrimitiveBase
-from primitive_interfaces.supervised_learning import SupervisedLearnerPrimitiveBase
-from primitive_interfaces.unsupervised_learning import UnsupervisedLearnerPrimitiveBase
+from d3m.primitive_interfaces.base import PrimitiveBase
+from d3m.primitive_interfaces.generator import GeneratorPrimitiveBase
+from d3m.primitive_interfaces.supervised_learning import SupervisedLearnerPrimitiveBase
+from d3m.primitive_interfaces.unsupervised_learning import UnsupervisedLearnerPrimitiveBase
 from sklearn.externals import joblib
 from sklearn.model_selection import KFold
 
@@ -132,13 +132,10 @@ class ExecutionHelper(object):
                     primitive.executables = executable
 
         except Exception as e:
-            try:
-                sys.stderr.write("ERROR: execute_primitive {}: {}\n".format(primitive.name, e))
-                #sys.stderr.write("ERROR execute_primitive(%s): %s\n" % (primitive, e))
-                #traceback.print_exc()
-                primitive.finished = True
-            except:
-                pass
+            sys.stderr.write("ERROR: execute_primitive {}: {}\n".format(primitive.name, e))
+            #sys.stderr.write("ERROR execute_primitive(%s): %s\n" % (primitive, e))
+            #traceback.print_exc()
+            primitive.finished = True
             return None
 
         primitive.end_time = time.time()
@@ -255,9 +252,9 @@ class ExecutionHelper(object):
                     primitive.start_time = time.time()
 
                     # TODO: Should use same random_state for comparison across algorithms
-                    
+
                     kf = KFold(n_splits=cv, shuffle=True, random_state=seed)#int(time.time()))
-                    
+
                     tcols = [self.data_manager.target_columns[0]['colName']]
                     yPredictions = None
                     num = 0.0
@@ -392,7 +389,7 @@ class ExecutionHelper(object):
             if executable is None:
                 primitive.finished = True
                 return None
-            
+
             executable.set_training_data(inputs=df.values, outputs=[])
             executable.fit()
             call_result = executable.produce(inputs=df.values)

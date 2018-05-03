@@ -96,6 +96,8 @@ class SimpleEncoder(json.JSONEncoder):
             return str(type(obj))
         if isinstance(obj, np.int64):
             return int(obj)
+        if isinstance(obj, np.ndarray):
+            return json.JSONEncoder.default(self, obj.tolist())
         return json.JSONEncoder.default(self, obj)
 
 
@@ -184,6 +186,10 @@ class ExecutionStatistics:
         '''Print sucessful pipelines'''
         pipeline_stats: PipelineExecStat = self.pipeline_stats.values()
         pipelines = [s.pipeline for s in pipeline_stats if s.pipeline.planner_result is not None]
+        if not pipelines:
+            print('All pipelines failed')
+            return
+
         metrics = [name for name in pipelines[0].planner_result.metric_values.keys()]
         pipelines_sorted = sorted(pipelines, key=lambda p: p.planner_result.metric_values[metrics[0]], reverse=True)
         for pipeline in pipelines_sorted:

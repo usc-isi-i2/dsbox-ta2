@@ -8,7 +8,7 @@ from warnings import warn
 
 import d3m
 
-from d3m_metadata.metadata import PrimitiveFamily
+from d3m.metadata.base import PrimitiveFamily
 
 from .library import D3MPrimitiveLibrary
 from dsbox.planner.common.primitive import Primitive
@@ -210,7 +210,10 @@ class D3MOntology(object):
         #  family : typing.Union(PrimitiveFamily, str)
         if not isinstance(family, str):
             family = family.name
-        return self.hierarchy.root.get_child(family)
+        if self.hierarchy.root.has_child(family):
+            return self.hierarchy.root.get_child(family)
+        else:
+            return None
 
 
     def _add(self, node : HierarchyNode, spec : dict):
