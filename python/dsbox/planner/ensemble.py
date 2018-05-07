@@ -82,6 +82,7 @@ class Ensemble(object):
                 print('Best single pipeline score ',  str(best_score))
             else:
                 for pipeline in pipelines:
+                    metric_val = CrossValidationStat()
                     metric_values = {}
 
                     if median:
