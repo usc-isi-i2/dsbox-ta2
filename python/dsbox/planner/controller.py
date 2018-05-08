@@ -353,8 +353,11 @@ class Controller(object):
     Write training results to file
     '''
     def write_training_results(self):
+        # If called by signal alarm, then self.exec_pipelines may not be set
+        if not self.exec_pipelines:
+            self.exec_pipelines = self.resource_manager.exec_pipelines
+
         # Sort pipelines
-        self.exec_pipelines = self.resource_manager.exec_pipelines
         self.exec_pipelines = self.get_pipeline_sorter().sort_pipelines(self.exec_pipelines)
 
         # Ended planners
