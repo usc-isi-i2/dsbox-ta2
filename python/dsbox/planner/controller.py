@@ -326,7 +326,7 @@ class Controller(object):
         #self.test_pipelines()
         #self.write_test_results()
 
-    
+
 
     def pipeline_result_call_back(self, pipeline, df, df_lbl, task: asyncio.Future):
         if self.hyperparam_count > 1000:
@@ -354,7 +354,7 @@ class Controller(object):
     '''
     def write_training_results(self):
         # Sort pipelines
-
+        self.exec_pipelines = self.resource_manager.exec_pipelines
         self.exec_pipelines = self.get_pipeline_sorter().sort_pipelines(self.exec_pipelines)
 
         # Ended planners
@@ -379,15 +379,18 @@ class Controller(object):
 
         # Flush pipeline
         self.pipelinesfile.flush()
+        self._show_status("Done writing results")
 
         # save statistics
         with open(self.statistics_filename, 'w') as outfile:
             self.resource_manager.stats.json_line_dump(outfile, problem_id=self.problem.get_problem_id(),
                                                        dataset_names=self.problem.get_dataset_ids())
+        self._show_status("Done writing stats")
+
     def write_test_results(self):
         # Sort pipelines
         # self.exec_pipelines = sorted(self.exec_pipelines, key=lambda x: self._sort_by_metric(x))
-        
+
 
         #self.exec_pipelines = self.get_pipeline_sorter().sort_pipelines(self.exec_pipelines)
         # Ended planners
@@ -430,13 +433,13 @@ class Controller(object):
         sys.stdout.flush()
         print("** Evaluating pipeline %s" % str(pipeline))
         sys.stdout.flush()
-        
+
         metric_dict = defaultdict(int)
         for i in self.problem.metrics:
             metric_dict[i.name]= 0.0
         results = []
         pipelines = []
-                    
+
         if pipeline.ensemble is not None:
             try:
                 for ens_pipeline in pipeline.ensemble.pipelines:
@@ -470,7 +473,7 @@ class Controller(object):
                         testdf = helper.test_featurise(primitive, testdf)
                     if testdf is None:
                         break
-                except Exception as e: 
+                except Exception as e:
                     sys.stderr.write(
                         "ERROR test(%s) : %s\n" % (pipeline_, e))
                     traceback.print_exc()
@@ -483,16 +486,16 @@ class Controller(object):
         #    method = 'mean'
         method = 'mean'
         if method == 'mean':
-            res = numpy.mean(numpy.array(results), axis = 0) 
+            res = numpy.mean(numpy.array(results), axis = 0)
         elif method == 'median':
             res  = numpy.median(numpy.array(results), axis = 0)
-        
+
         pipeline.test_result = PipelineExecutionResult(pd.DataFrame(res), metric_dict, None)
 
         if test_event_handler is not None:
             yield test_event_handler.ExecutedPipeline(pipeline)
-        
-            
+
+
     def stop(self):
         '''
         Stop planning, and write out the current list (sorted by metric)
