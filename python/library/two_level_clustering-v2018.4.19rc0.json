@@ -1,0 +1,340 @@
+{
+    "PrimitivesOntology": {
+        "CLUSTERING": {
+            "HIDDEN_MARKOV_MODEL": [
+                "v2018.4.18/UChicago/d3m.primitives.datasmash.SmashClustering/0.1.17/primitive.json"
+            ],
+            "LATENT_DIRICHLET_ALLOCATION": [
+                "v2018.4.18/CMU/d3m.primitives.cmu.fastlvm.GLDA/1.0/primitive.json",
+                "v2018.4.18/CMU/d3m.primitives.cmu.fastlvm.HDP/1.0/primitive.json",
+                "v2018.4.18/CMU/d3m.primitives.cmu.fastlvm.LDA/1.0/primitive.json"
+            ],
+            "K_MEANS_CLUSTERING": [
+                "v2018.4.18/BBN/d3m.primitives.bbn.time_series.ClusterCurveFittingKMeans/0.0.3/primitive.json",
+                "v2018.4.18/CMU/d3m.primitives.cmu.fastlvm.GMM/1.0/primitive.json",
+                "v2018.4.18/CMU/d3m.primitives.cmu.fastlvm.KMeans/1.0/primitive.json",
+                "v2018.4.18/common-primitives/d3m.primitives.common_primitives.KMeans/0.1.0/primitive.json"
+            ]
+        },
+        "DATA_TRANSFORMATION": {
+            "HIDDEN_MARKOV_MODEL": [
+                "v2018.4.18/UChicago/d3m.primitives.datasmash.SmashDistanceMetricLearning/0.1.17/primitive.json"
+            ],
+            "COMPUTER_ALGEBRA": [
+                "v2018.4.18/SRI/d3m.primitives.pslgraph.CollaborativeFilteringParser/0.2.8/primitive.json",
+                "v2018.4.18/SRI/d3m.primitives.pslgraph.GraphMatchingParser/0.2.8/primitive.json",
+                "v2018.4.18/SRI/d3m.primitives.pslgraph.GraphTransformer/0.2.8/primitive.json"
+            ],
+            "DATA_PROFILING": [
+                "v2018.4.18/BBN/d3m.primitives.bbn.time_series.BBNTfidfTransformer/0.0.3/primitive.json",
+                "v2018.4.18/BBN/d3m.primitives.bbn.time_series.SequenceToBagOfTokens/0.0.3/primitive.json"
+            ],
+            "PARAMETRIC_TRAJECTORY_MODELING": [
+                "v2018.4.18/BBN/d3m.primitives.bbn.time_series.SegmentCurveFitter/0.0.3/primitive.json"
+            ]
+        },
+        "SIMILARITY_MODELING": {
+            "RANDOM_FOREST": [
+                "v2018.4.18/Michigan/d3m.primitives.spider.distance.RFD/0.0.4/primitive.json"
+            ],
+            "K_NEAREST_NEIGHBORS": [
+                "v2018.4.18/CMU/d3m.primitives.cmu.fastlvm.CoverTree/1.0/primitive.json"
+            ]
+        },
+        "CLASSIFICATION": {
+            "NAIVE_BAYES_CLASSIFIER": [
+                "v2018.4.18/JPL/d3m.primitives.sklearn_wrap.SKBernoulliNB/0.1.0/primitive.json",
+                "v2018.4.18/JPL/d3m.primitives.sklearn_wrap.SKGaussianNB/0.1.0/primitive.json",
+                "v2018.4.18/JPL/d3m.primitives.sklearn_wrap.SKMultinomialNB/0.1.0/primitive.json"
+            ],
+            "LINEAR_DISCRIMINANT_ANALYSIS": [
+                "v2018.4.18/JPL/d3m.primitives.sklearn_wrap.SKLinearDiscriminantAnalysis/0.1.0/primitive.json"
+            ],
+            "PASSIVE_AGGRESSIVE": [
+                "v2018.4.18/JPL/d3m.primitives.sklearn_wrap.SKPassiveAggressiveClassifier/0.1.0/primitive.json"
+            ],
+            "GRADIENT_DESCENT": [
+                "v2018.4.18/JPL/d3m.primitives.sklearn_wrap.SKSGDClassifier/0.1.0/primitive.json"
+            ],
+            "DECISION_TREE": [
+                "v2018.4.18/CMU/d3m.primitives.cmu.autonlab.find_projections.Search/2.0/primitive.json",
+                "v2018.4.18/JPL/d3m.primitives.sklearn_wrap.SKDecisionTreeClassifier/0.1.0/primitive.json",
+                "v2018.4.18/JPL/d3m.primitives.sklearn_wrap.SKExtraTreesClassifier/0.1.0/primitive.json"
+            ],
+            "LOGISTIC_REGRESSION": [
+                "v2018.4.18/ICSI/d3m.primitives.realML.kernel.TensorMachinesBinaryClassification/0.2/primitive.json",
+                "v2018.4.18/JPL/d3m.primitives.sklearn_wrap.SKLogisticRegression/0.1.0/primitive.json"
+            ],
+            "QUADRATIC_DISCRIMINANT_ANALYSIS": [
+                "v2018.4.18/JPL/d3m.primitives.sklearn_wrap.SKQuadraticDiscriminantAnalysis/0.1.0/primitive.json"
+            ],
+            "ADABOOST": [
+                "v2018.4.18/JPL/d3m.primitives.sklearn_wrap.SKAdaBoostClassifier/0.1.0/primitive.json"
+            ],
+            "RANDOM_FOREST": [
+                "v2018.4.18/common-primitives/d3m.primitives.common_primitives.RandomForestClassifier/0.1.0/primitive.json",
+                "v2018.4.18/JPL/d3m.primitives.sklearn_wrap.SKRandomForestClassifier/0.1.0/primitive.json"
+            ],
+            "SUPPORT_VECTOR_MACHINE": [
+                "v2018.4.18/JPL/d3m.primitives.sklearn_wrap.SKLinearSVC/0.1.0/primitive.json",
+                "v2018.4.18/JPL/d3m.primitives.sklearn_wrap.SKSVC/0.1.0/primitive.json",
+                "v2018.4.18/VencoreLabs/d3m.primitives.lupi_svm/v1.0.1/primitive.json"
+            ],
+            "MARKOV_CHAIN_MONTE_CARLO": [
+                "v2018.4.18/common-primitives/d3m.primitives.common_primitives.BayesianLogisticRegression/0.1.0/primitive.json"
+            ],
+            "K_NEAREST_NEIGHBORS": [
+                "v2018.4.18/JPL/d3m.primitives.sklearn_wrap.SKKNeighborsClassifier/0.1.0/primitive.json"
+            ]
+        },
+        "EVALUATION": {
+            "HIDDEN_MARKOV_MODEL": [
+                "v2018.4.18/UChicago/d3m.primitives.datasmash.SmashEmbedding/0.1.17/primitive.json"
+            ]
+        },
+        "FEATURE_CONSTRUCTION": {
+            "DEEP_FEATURE_SYNTHESIS": [
+                "v2018.4.18/MIT_FeatureLabs/d3m.primitives.featuretools_ta1.DFS/0.2.0/primitive.json"
+            ],
+            "EXPECTATION_MAXIMIZATION_ALGORITHM": [
+                "v2018.4.18/ISI/d3m.primitives.corex_continuous.CorexContinuous/v0.2.8/primitive.json"
+            ],
+            "HIDDEN_MARKOV_MODEL": [
+                "v2018.4.18/UChicago/d3m.primitives.datasmash.SmashFeaturization/0.1.17/primitive.json"
+            ],
+            "LATENT_DIRICHLET_ALLOCATION": [
+                "v2018.4.18/ISI/d3m.primitives.corex_text.CorexText/v0.2.10/primitive.json"
+            ]
+        },
+        "LINK_PREDICTION": {
+            "MARKOV_LOGIC_NETWORK": [
+                "v2018.4.18/SRI/d3m.primitives.pslgraph.CollaborativeFilteringLinkPrediction/0.2.8/primitive.json",
+                "v2018.4.18/SRI/d3m.primitives.pslgraph.GraphMatchingLinkPrediction/0.2.8/primitive.json",
+                "v2018.4.18/SRI/d3m.primitives.pslgraph.LinkPrediction/0.2.8/primitive.json"
+            ]
+        },
+        "DATA_PREPROCESSING": {
+            "ENCODE_ONE_HOT": [
+                "v2018.4.18/common-primitives/d3m.primitives.common_primitives.OneHotMaker/0.1.0/primitive.json",
+                "v2018.4.18/JPL/d3m.primitives.sklearn_wrap.SKOneHotEncoder/0.1.0/primitive.json"
+            ],
+            "FEATURE_SCALING": [
+                "v2018.4.18/JPL/d3m.primitives.sklearn_wrap.SKMinMaxScaler/0.1.0/primitive.json",
+                "v2018.4.18/JPL/d3m.primitives.sklearn_wrap.SKStandardScaler/0.1.0/primitive.json"
+            ],
+            "KERNEL_METHOD": [
+                "v2018.4.18/JPL/d3m.primitives.sklearn_wrap.SKNystroem/0.1.0/primitive.json",
+                "v2018.4.18/JPL/d3m.primitives.sklearn_wrap.SKRBFSampler/0.1.0/primitive.json"
+            ],
+            "DATA_PROFILING": [
+                "v2018.4.18/ISI/d3m.primitives.dsbox.Profiler/1.1.0/primitive.json"
+            ],
+            "IMPUTATION": [
+                "v2018.4.18/JPL/d3m.primitives.sklearn_wrap.SKImputer/0.1.0/primitive.json",
+                "v2018.4.18/MIT_FeatureLabs/d3m.primitives.featuretools_ta1.Imputer/0.2.0/primitive.json"
+            ],
+            "PRINCIPAL_COMPONENT_ANALYSIS": [
+                "v2018.4.18/JPL/d3m.primitives.sklearn_wrap.SKFastICA/0.1.0/primitive.json",
+                "v2018.4.18/JPL/d3m.primitives.sklearn_wrap.SKKernelPCA/0.1.0/primitive.json",
+                "v2018.4.18/JPL/d3m.primitives.sklearn_wrap.SKPCA/0.1.0/primitive.json"
+            ],
+            "AUDIO_STREAM_MANIPULATION": [
+                "v2018.4.18/Michigan/d3m.primitives.spider.featurization.AudioSlicer/0.0.4/primitive.json"
+            ],
+            "NUMERICAL_METHOD": [
+                "v2018.4.18/common-primitives/d3m.primitives.common_primitives.CSVFeatureExtractor/0.1.0/primitive.json",
+                "v2018.4.18/common-primitives/d3m.primitives.common_primitives.ImageReader/0.1.0/primitive.json"
+            ],
+            "DATA_STREAM_CLUSTERING": [
+                "v2018.4.18/JPL/d3m.primitives.sklearn_wrap.SKFeatureAgglomeration/0.1.0/primitive.json"
+            ],
+            "RANDOM_FOREST": [
+                "v2018.4.18/JPL/d3m.primitives.sklearn_wrap.SKRandomTreesEmbedding/0.1.0/primitive.json"
+            ],
+            "AUDIO_MIXING": [
+                "v2018.4.18/BBN/d3m.primitives.bbn.time_series.ChannelAverager/0.0.3/primitive.json"
+            ],
+            "SIGNAL_DITHERING": [
+                "v2018.4.18/BBN/d3m.primitives.bbn.time_series.SignalDither/0.0.3/primitive.json"
+            ],
+            "STATISTICAL_MOMENT_ANALYSIS": [
+                "v2018.4.18/JPL/d3m.primitives.sklearn_wrap.SKPolynomialFeatures/0.1.0/primitive.json"
+            ],
+            "SINGULAR_VALUE_DECOMPOSITION": [
+                "v2018.4.18/JPL/d3m.primitives.sklearn_wrap.SKTruncatedSVD/0.1.0/primitive.json"
+            ]
+        },
+        "TIMESERIES_SEGMENTATION": {
+            "UNIFORM_TIMESERIES_SEGMENTATION": [
+                "v2018.4.18/BBN/d3m.primitives.bbn.time_series.SignalFramer/0.0.3/primitive.json",
+                "v2018.4.18/BBN/d3m.primitives.bbn.time_series.UniformSegmentation/0.0.3/primitive.json"
+            ]
+        },
+        "FEATURE_EXTRACTION": {
+            "RELATIONAL_DATA_MINING": [
+                "v2018.4.18/ISI/d3m.primitives.dsbox.MultiTableFeaturization/0.1.1/primitive.json"
+            ],
+            "RANDOM_PROJECTION": [
+                "v2018.4.18/ISI/d3m.primitives.dsbox.RandomProjectionTimeSeriesFeaturization/0.1.1/primitive.json"
+            ],
+            "INFORMATION_ENTROPY": [
+                "v2018.4.18/Michigan/d3m.primitives.spider.featurization.AudioFeaturization/0.0.4/primitive.json"
+            ],
+            "FEEDFORWARD_NEURAL_NETWORK": [
+                "v2018.4.18/ISI/d3m.primitives.dsbox.ResNet50ImageFeature/0.1.1/primitive.json",
+                "v2018.4.18/ISI/d3m.primitives.dsbox.Vgg16ImageFeature/0.1.1/primitive.json"
+            ],
+            "PRINCIPAL_COMPONENT_ANALYSIS": [
+                "v2018.4.18/common-primitives/d3m.primitives.common_primitives.PCA/0.1.0/primitive.json"
+            ],
+            "FREQUENCY_TRANSFORM": [
+                "v2018.4.18/Michigan/d3m.primitives.spider.featurization.LogMelSpectrogram/0.0.4/primitive.json"
+            ],
+            "CONVOLUTIONAL_NEURAL_NETWORK": [
+                "v2018.4.18/Michigan/d3m.primitives.spider.featurization.VGG16/0.0.4/primitive.json"
+            ],
+            "MFCC_FEATURE_EXTRACTION": [
+                "v2018.4.18/BBN/d3m.primitives.bbn.time_series.SignalMFCC/0.0.3/primitive.json"
+            ],
+            "LOW_RANK_MATRIX_APPROXIMATIONS": [
+                "v2018.4.18/Cornell/d3m.primitives.cornell.pyglrm_d3m.huber_pca/0.1.0/primitive.json"
+            ]
+        },
+        "DATA_GENERATION": {
+            "NORMAL_DISTRIBUTION": [
+                "v2018.4.18/Test team/d3m.primitives.test.RandomPrimitive/0.1.0/primitive.json"
+            ]
+        },
+        "METAFEATURE_EXTRACTION": {
+            "DATA_PROFILING": [
+                "v2018.4.18/byu-dml/d3m.primitives.d3metafeatureextraction.D3MetafeatureExtraction/v0.2.0/primitive.json"
+            ]
+        },
+        "TIMESERIES_CLASSIFICATION": {
+            "HIDDEN_MARKOV_MODEL": [
+                "v2018.4.18/UChicago/d3m.primitives.datasmash.CGSmashClassification/0.1.17/primitive.json",
+                "v2018.4.18/UChicago/d3m.primitives.datasmash.CSmashClassification/0.1.17/primitive.json",
+                "v2018.4.18/UChicago/d3m.primitives.datasmash.GSmashClassification/0.1.17/primitive.json",
+                "v2018.4.18/UChicago/d3m.primitives.datasmash.SmashClassification/0.1.17/primitive.json",
+                "v2018.4.18/UChicago/d3m.primitives.datasmash.XG1/0.1.17/primitive.json",
+                "v2018.4.18/UChicago/d3m.primitives.datasmash.XG2/0.1.17/primitive.json"
+            ]
+        },
+        "OPERATOR": {
+            "LINEAR_REGRESSION": [
+                "v2018.4.18/common-primitives/d3m.primitives.common_primitives.LinearRegression/0.1.0/primitive.json"
+            ],
+            "COMPUTER_ALGEBRA": [
+                "v2018.4.18/Test team/d3m.primitives.test.IncrementPrimitive/0.1.0/primitive.json",
+                "v2018.4.18/Test team/d3m.primitives.test.SumPrimitive/0.1.0/primitive.json"
+            ],
+            "NUMERICAL_METHOD": [
+                "v2018.4.18/common-primitives/d3m.primitives.common_primitives.DiagonalMVN/0.1.0/primitive.json"
+            ]
+        },
+        "DATA_CLEANING": {
+            "ADAPTIVE_ALGORITHM": [
+                "v2018.4.18/Distil/d3m.primitives.distil.CleanDates/2.0.0/primitive.json",
+                "v2018.4.18/Distil/d3m.primitives.distil.CleanNumbers/2.0.0/primitive.json",
+                "v2018.4.18/Distil/d3m.primitives.distil.CleanStrings/2.0.0/primitive.json"
+            ],
+            "ENCODE_ONE_HOT": [
+                "v2018.4.18/ISI/d3m.primitives.dsbox.Encoder/1.1.0/primitive.json",
+                "v2018.4.18/ISI/d3m.primitives.dsbox.UnaryEncoder/1.1.0/primitive.json"
+            ],
+            "IMPUTATION": [
+                "v2018.4.18/ISI/d3m.primitives.dsbox.GreedyImputation/1.1.0/primitive.json",
+                "v2018.4.18/ISI/d3m.primitives.dsbox.IterativeRegressionImputation/1.1.0/primitive.json",
+                "v2018.4.18/ISI/d3m.primitives.dsbox.KnnImputation/1.1.0/primitive.json",
+                "v2018.4.18/ISI/d3m.primitives.dsbox.MeanImputation/1.1.0/primitive.json",
+                "v2018.4.18/ISI/d3m.primitives.dsbox.MiceImputation/1.1.0/primitive.json"
+            ]
+        },
+        "FEATURE_SELECTION": {
+            "MINIMUM_REDUNDANCY_FEATURE_SELECTION": [
+                "v2018.4.18/RPI/d3m.primitives.rpi_featureSelection_python_tools.aSTMBplus_Selector/2.1.2/primitive.json",
+                "v2018.4.18/RPI/d3m.primitives.rpi_featureSelection_python_tools.F_aSTMB_Selector/2.1.2/primitive.json",
+                "v2018.4.18/RPI/d3m.primitives.rpi_featureSelection_python_tools.F_sSTMB_Selector/2.1.2/primitive.json",
+                "v2018.4.18/RPI/d3m.primitives.rpi_featureSelection_python_tools.F_STMB_Selector/2.1.2/primitive.json",
+                "v2018.4.18/RPI/d3m.primitives.rpi_featureSelection_python_tools.IPCMBplus_Selector/2.1.2/primitive.json",
+                "v2018.4.18/RPI/d3m.primitives.rpi_featureSelection_python_tools.JMIp_Selector/2.1.2/primitive.json",
+                "v2018.4.18/RPI/d3m.primitives.rpi_featureSelection_python_tools.JMIplus_Selector/2.1.2/primitive.json",
+                "v2018.4.18/RPI/d3m.primitives.rpi_featureSelection_python_tools.pSTMB_Selector/2.1.2/primitive.json",
+                "v2018.4.18/RPI/d3m.primitives.rpi_featureSelection_python_tools.sSTMBplus_Selector/2.1.2/primitive.json",
+                "v2018.4.18/RPI/d3m.primitives.rpi_featureSelection_python_tools.STMBplus_Selector/2.1.2/primitive.json"
+            ],
+            "STATISTICAL_MOMENT_ANALYSIS": [
+                "v2018.4.18/JPL/d3m.primitives.sklearn_wrap.SKGenericUnivariateSelect/0.1.0/primitive.json",
+                "v2018.4.18/JPL/d3m.primitives.sklearn_wrap.SKSelectPercentile/0.1.0/primitive.json"
+            ],
+            "RANDOM_FOREST": [
+                "v2018.4.18/Distil/d3m.primitives.distil.RFFeatures/2.0.0/primitive.json",
+                "v2018.4.18/MIT_FeatureLabs/d3m.primitives.featuretools_ta1.RFClassifierFeatureSelector/0.2.0/primitive.json",
+                "v2018.4.18/MIT_FeatureLabs/d3m.primitives.featuretools_ta1.RFRegressorFeatureSelector/0.2.0/primitive.json"
+            ],
+            "PRINCIPAL_COMPONENT_ANALYSIS": [
+                "v2018.4.18/Distil/d3m.primitives.distil.PCAFeatures/2.0.0/primitive.json"
+            ]
+        },
+        "REGRESSION": {
+            "LINEAR_REGRESSION": [
+                "v2018.4.18/Test team/d3m.primitives.test.MonomialPrimitive/0.1.0/primitive.json"
+            ],
+            "BAYESIAN_LINEAR_REGRESSION": [
+                "v2018.4.18/JPL/d3m.primitives.sklearn_wrap.SKARDRegression/0.1.0/primitive.json"
+            ],
+            "NEURAL_NETWORK_BACKPROPAGATION": [
+                "v2018.4.18/common-primitives/d3m.primitives.common_primitives.ConvolutionalNeuralNet/0.1.0/primitive.json",
+                "v2018.4.18/common-primitives/d3m.primitives.common_primitives.FeedForwardNeuralNet/0.1.0/primitive.json",
+                "v2018.4.18/common-primitives/d3m.primitives.common_primitives.Loss/0.1.0/primitive.json"
+            ],
+            "GRADIENT_DESCENT": [
+                "v2018.4.18/JPL/d3m.primitives.sklearn_wrap.SKSGDRegressor/0.1.0/primitive.json"
+            ],
+            "DECISION_TREE": [
+                "v2018.4.18/CMU/d3m.primitives.cmu.autonlab.find_projections.SearchNumeric/2.0/primitive.json",
+                "v2018.4.18/JPL/d3m.primitives.sklearn_wrap.SKDecisionTreeRegressor/0.1.0/primitive.json",
+                "v2018.4.18/JPL/d3m.primitives.sklearn_wrap.SKExtraTreesRegressor/0.1.0/primitive.json"
+            ],
+            "PASSIVE_AGGRESSIVE": [
+                "v2018.4.18/JPL/d3m.primitives.sklearn_wrap.SKPassiveAggressiveRegressor/0.1.0/primitive.json"
+            ],
+            "TIKHONOV_REGULARIZATION": [
+                "v2018.4.18/JPL/d3m.primitives.sklearn_wrap.SKRidge/0.1.0/primitive.json"
+            ],
+            "ADABOOST": [
+                "v2018.4.18/JPL/d3m.primitives.sklearn_wrap.SKAdaBoostRegressor/0.1.0/primitive.json"
+            ],
+            "RANDOM_FOREST": [
+                "v2018.4.18/JPL/d3m.primitives.sklearn_wrap.SKRandomForestRegressor/0.1.0/primitive.json"
+            ],
+            "SUPPORT_VECTOR_MACHINE": [
+                "v2018.4.18/JPL/d3m.primitives.sklearn_wrap.SKLinearSVR/0.1.0/primitive.json",
+                "v2018.4.18/JPL/d3m.primitives.sklearn_wrap.SKSVR/0.1.0/primitive.json"
+            ],
+            "GAUSSIAN_PROCESS": [
+                "v2018.4.18/JPL/d3m.primitives.sklearn_wrap.SKGaussianProcessRegressor/0.1.0/primitive.json"
+            ],
+            "GRADIENT_BOOSTING": [
+                "v2018.4.18/JPL/d3m.primitives.sklearn_wrap.SKGradientBoostingRegressor/0.1.0/primitive.json"
+            ],
+            "K_NEAREST_NEIGHBORS": [
+                "v2018.4.18/JPL/d3m.primitives.sklearn_wrap.SKKNeighborsRegressor/0.1.0/primitive.json"
+            ]
+        },
+        "ADVANCED": {
+            "DATA_CLEANING": {
+                "CONVOLUTIONAL_NEURAL_NETWORK": [
+                    "v2018.4.18/Distil/d3m.primitives.distil.simon/1.0.0/primitive.json"
+                ],
+                "RECURRENT_NEURAL_NETWORK": [
+                    "v2018.4.18/Distil/d3m.primitives.distil.duke/1.0.0/primitive.json"
+                ],
+                "NUMERICAL_METHOD": [
+                    "v2018.4.18/Distil/d3m.primitives.distil.Goat.forward/1.0.0/primitive.json",
+                    "v2018.4.18/Distil/d3m.primitives.distil.Goat.reverse/1.0.0/primitive.json"
+                ]
+            }
+        }
+    }
+}
