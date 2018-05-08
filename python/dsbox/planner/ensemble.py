@@ -69,15 +69,16 @@ class Ensemble(object):
             if self.metric_values is not None:
                 best_metrics = self.metric_values
 
-            metric_val = CrossValidationStat()
             found_improvement = False
             # first time through
             if not self.all_pipelines:
+                metric_val = CrossValidationStat()
                 best_predictions = getattr(pipelines[0], which_result).predictions
                 best_pipeline = pipelines[0]
                 best_metrics = getattr(pipelines[0], which_result).metric_values
                 best_score = np.mean(np.array([a for a in best_metrics.values()]))
-                metric_val = getattr(pipelines[0], which_result).stat
+                metric_val.add_fold_metric(metric, getattr(pipelines[0], which_result).metric_values) 
+                #= getattr(pipelines[0], which_result).stat
                 found_improvement = True
                 print('Best single pipeline score ',  str(best_score))
             else:
@@ -124,7 +125,7 @@ class Ensemble(object):
                 self.all_pipelines.append(best_pipeline)
                 self.predictions = best_predictions
                 self.metric_values = best_metrics
-                self.cv_stat = metric_val 
+                self.cv_stat = best_stat 
                 self.score = best_score
 
         print('Found ensemble of size ', str(len(self.all_pipelines)), ' with score ',  str(self.score))
