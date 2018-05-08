@@ -11,6 +11,8 @@ import sys
 import os
 import json
 import signal
+import traceback
+
 from dsbox.planner.controller import Controller, Feature
 from dsbox.planner.event_handler import PlannerEventHandler
 
@@ -55,16 +57,26 @@ ta2-search <search_config_file>
 
     # Setup a signal handler to exit gracefully
     # Either on an interrupt or after a certain time
-    def write_results_and_exit(signal, frame):
+    def write_results_and_exit(a_signal, frame):
         print('SIGNAL exit: {}'.format(conf_file))
-        controller.write_training_results()
-        print('SIGNAL exit done writing: {}'.format(conf_file), flush=True)
+        try:
+            # Reset to handlers to default as not to output multiple times
+            signal.signal(signal.SIGINT, signal.SIG_DFL)
+            signal.signal(signal.SIGTERM, signal.SIG_DFL)
+            signal.signal(signal.SIGALRM, signal.SIG_DFL)
+            print('SIGNAL exit done reset signal {}'.format(conf_file))
+
+            controller.write_training_results()
+            print('SIGNAL exit done writing: {}'.format(conf_file), flush=True)
+        except Exception as e:
+            print(e)
+            traceback.print_exc()
 
         # sys.exit(0) generates SystemExit exception, which may
         # be caught and ignore.
 
         # This os._exit() cannot be caught.
-        # TODO: But for some runs. The process still keeps running. Need to investigate more.
+        print('SIGNAL exiting {}'.format(conf_file), flush=True)
         os._exit(0)
 
     signal.signal(signal.SIGINT, write_results_and_exit)
