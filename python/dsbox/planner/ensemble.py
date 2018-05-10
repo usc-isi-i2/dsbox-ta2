@@ -77,8 +77,8 @@ class Ensemble(object):
                 best_pipeline = pipelines[0]
                 best_metrics = getattr(pipelines[0], which_result).metric_values
                 best_score = np.mean(np.array([a for a in best_metrics.values()]))
-                metric_val.add_fold_metric(metric, getattr(pipelines[0], which_result).metric_values) 
-                #= getattr(pipelines[0], which_result).stat
+                #metric_val.add_fold_metric(metric, getattr(pipelines[0], which_result).metric_values) 
+                metric_val = getattr(pipelines[0], which_result).stat
                 found_improvement = True
                 print('Best single pipeline score ',  str(best_score))
             else:
