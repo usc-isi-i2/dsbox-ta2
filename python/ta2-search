@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 
 """
 Command Line Interface for running the DSBox TA2 Search
@@ -7,99 +7,129 @@ Command Line Interface for running the DSBox TA2 Search
 from dsbox_dev_setup import path_setup
 path_setup()
 
-import sys
-import os
+import argparse
 import json
+import os
 import signal
+import sys
 import traceback
 
-from dsbox.planner.controller import Controller, Feature
-from dsbox.planner.event_handler import PlannerEventHandler
+from pprint import pprint
 
-TIMEOUT = 25*60 # Timeout after 25 minutes
+from importlib import reload
+import dsbox.controller.controller
+reload(dsbox.controller.controller)
+from dsbox.controller.controller import Controller
 
-DEBUG = 0
-LIB_DIRECTORY = os.path.dirname(os.path.realpath(__file__)) + "/library"
+controller = Controller('/', development_mode=True)
+config = {'cpus': '10',
+ 'dataset_schema': '/nas/home/kyao/dsbox/data/datadrivendiscovery.org/data/seed_datasets_current/38_sick/38_sick_dataset/datasetDoc.json',
+ 'executables_root': '/nas/home/kyao/dsbox/runs/output/38_sick/executables',
+ 'pipeline_logs_root': '/nas/home/kyao/dsbox/runs/output/38_sick/logs',
+ 'problem_root': '/nas/home/kyao/dsbox/data/datadrivendiscovery.org/data/seed_datasets_current/38_sick/38_sick_problem',
+ 'problem_schema': '/nas/home/kyao/dsbox/data/datadrivendiscovery.org/data/seed_datasets_current/38_sick/38_sick_problem/problemDoc.json',
+ 'ram': '10Gi',
+ 'temp_storage_root': '/nas/home/kyao/dsbox/runs/output/38_sick/temp',
+ 'timeout': 49,
+ 'training_data_root': '/nas/home/kyao/dsbox/data/datadrivendiscovery.org/data/seed_datasets_current/38_sick/38_sick_dataset'}
+controller.initialize_from_config(config)
+status = controller.train()
 
-def main(argv=None): # IGNORE:C0111
-    '''Command line options.'''
+# from dsbox.planner.controller import Controller, Feature
+# from dsbox.planner.event_handler import PlannerEventHandler
 
-    if argv is None:
-        argv = sys.argv
-    else:
-        sys.argv.extend(argv)
+def main(args):
 
-    program_name = os.path.basename(sys.argv[0])
-    program_shortdesc = __import__('__main__').__doc__.split("\n")[1]
-    program_usage = '''%s
-USAGE
-ta2-search <search_config_file>
-''' % program_shortdesc
+    library_directory = os.path.dirname(os.path.realpath(__file__)) + "/library"
+    timeout = 0
+    configuration_file = args.configuration_file
+    debug = args.debug
 
-    if len(sys.argv) < 2:
-        print(program_usage)
-        exit(1)
+    controller = Controller(library_directory, development_mode=debug)
 
-    conf_file = sys.argv[1]
-    config = {}
-    with open(conf_file) as conf_data:
-        config = json.load(conf_data)
-        conf_data.close()
+    with open(configuration_file) as data:
+        config = json.load(data)
 
-    if "timeout" in config:
-        # Timeout less 60 seconds, to give system chance to clean up
-        TIMEOUT = int(config.get("timeout"))*60 - 60
-
-    # Start the controller
-    controller = Controller(LIB_DIRECTORY)
-    controller.initialize_from_config(config)
-    controller.load_problem()
-
-    # Setup a signal handler to exit gracefully
+    # Define signal handler to exit gracefully
     # Either on an interrupt or after a certain time
     def write_results_and_exit(a_signal, frame):
-        print('SIGNAL exit: {}'.format(conf_file))
+        print('SIGNAL exit: {}'.format(configuration_file))
         try:
             # Reset to handlers to default as not to output multiple times
             signal.signal(signal.SIGINT, signal.SIG_DFL)
             signal.signal(signal.SIGTERM, signal.SIG_DFL)
             signal.signal(signal.SIGALRM, signal.SIG_DFL)
-            print('SIGNAL exit done reset signal {}'.format(conf_file))
+            print('SIGNAL exit done reset signal {}'.format(configuration_file))
 
             controller.write_training_results()
-            print('SIGNAL exit done writing: {}'.format(conf_file), flush=True)
+            print('SIGNAL exit done writing: {}'.format(configuration_file), flush=True)
         except Exception as e:
             print(e)
             traceback.print_exc()
+        finally:
+            # sys.exit(0) generates SystemExit exception, which may
+            # be caught and ignore.
 
-        # sys.exit(0) generates SystemExit exception, which may
-        # be caught and ignore.
+            # This os._exit() cannot be caught.
+            print('SIGNAL exiting {}'.format(configuration_file), flush=True)
+            os._exit(0)
 
-        # This os._exit() cannot be caught.
-        print('SIGNAL exiting {}'.format(conf_file), flush=True)
-        os._exit(0)
+    # Set timeout, alarm and signal handler
+    if 'timeout' in config:
+        # Timeout less 1 minute to give system chance to clean up
+        timeout = int(config['timeout']) - 1
+    if args.timeout > -1:
+        # Overide config timeout
+        timeout = args.timeout
+    if timeout > 0:
+        signal.signal(signal.SIGINT, write_results_and_exit)
+        signal.signal(signal.SIGTERM, write_results_and_exit)
+        signal.signal(signal.SIGALRM, write_results_and_exit)
+        signal.alarm(60*timeout)
+    config['timeout'] = timeout
 
-    signal.signal(signal.SIGINT, write_results_and_exit)
-    signal.signal(signal.SIGTERM, write_results_and_exit)
-    signal.signal(signal.SIGALRM, write_results_and_exit)
-    signal.alarm(TIMEOUT)
+    if args.cpus > -1:
+        config['cpus'] = args.cpus
 
-    # Load in data
-    controller.initialize_training_data_from_config()
+    # Replace output directories
+    if args.output_prefix is not None:
+        for key in ['pipeline_logs_root', 'executables_root', 'temp_storage_root']:
+            if not '/output/' in config[key]:
+                print('Skipping. No "*/output/" for config[{}]={}.'.format(key, config[key]))
+            else:
+                suffix = config[key].split('/output/', 1)[1]
+                config[key] = os.path.join(args.output_prefix, suffix)
 
-    # Start training
-    controller.initialize_planners()
-    for result in controller.train(PlannerEventHandler(), timeout=TIMEOUT):
-        if result == False:
-            print("ProblemNotImplemented")
-            os._exit(148)
-        pass
+    print('Using configuation:')
+    pprint(config)
 
-    print('exit: {}'.format(conf_file))
+    controller.initialize_from_config(config)
+
+    status = controller.train()
+    return status.value
+
 
 if __name__ == "__main__":
-    if DEBUG:
-        sys.argv.append("-h")
-        sys.argv.append("-v")
-    result = main()
+
+    parser = argparse.ArgumentParser(
+        description='Run DSBox TA2 system using json configuration file'
+    )
+
+    parser.add_argument('configuration_file', 
+                        help='D3M TA2 json configuration file')
+    parser.add_argument('--timeout', action='store', type=int, default=-1,
+                        help='Overide configuation timeout setting. In minutes.')
+    parser.add_argument('--cpus', action='store', type=int, default=-1,
+                        help='Overide configuation number of cpus usage setting')
+    parser.add_argument('--output-prefix', action='store', default=None,
+                        help='''Overide configuation output directories paths (pipeline_logs_root, executables_root, temp_storage_root).
+                        Replace path prefix "*/output/" with argument''')
+    parser.add_argument('--debug', action='store_true', default=False,
+                        help='Debug mode. No timeout and no output redirection')
+
+    args = parser.parse_args()
+
+    print(args)
+    
+    result = main(args)
     os._exit(result)

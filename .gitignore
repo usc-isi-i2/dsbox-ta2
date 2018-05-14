@@ -94,3 +94,6 @@ ENV/
 # Eclipse
 .project
 .pydevproject
+
+# Mypy
+.mypy_cache
