@@ -132,7 +132,7 @@ class LevelOnePlanner(object):
                 #need the prim
                 try:
                     p = self.ontology.hierarchy.node_by_primitive[p]._content[0]
-                except:
+                except Exception:
                     continue
                 incl_prim_types.extend(list(p.getAlgorithmTypes()))
 

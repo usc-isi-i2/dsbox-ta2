@@ -348,11 +348,15 @@ class Controller(object):
                 self.resource_manager.add_pipeline(l2_pipeline, df, df_lbl,
                                                    functools.partial(self.pipeline_result_call_back, pipeline, df, df_lbl))
 
+    def shutdown(self):
+        self.resource_manager.shutdown()
 
     '''
     Write training results to file
     '''
     def write_training_results(self):
+        self._show_status("write_training_results")
+
         # If called by signal alarm, then self.exec_pipelines may not be set
         if not self.exec_pipelines:
             self.exec_pipelines = self.resource_manager.exec_pipelines
@@ -447,7 +451,7 @@ class Controller(object):
             try:
                 for ens_pipeline in pipeline.ensemble.pipelines:
                     pipelines.append(ens_pipeline)
-            except:
+            except Exception:
                 pipelines.append(pipeline)
         else:
             pipelines.append(pipeline)
@@ -485,7 +489,7 @@ class Controller(object):
             metric_dict[k] = v/len(pipelines)
         #try:
         #    method = pipeline.ensemble.method
-        #except:
+        #except Exception:
         #    method = 'mean'
         method = 'mean'
         if method == 'mean':

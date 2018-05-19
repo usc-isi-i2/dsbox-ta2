@@ -306,7 +306,7 @@ class DataResource(object):
             return AudioResource(resID, resPath, resType, resFormat)
         elif resType == "graph":
             return GraphResource(resID, resPath, resType, resFormat)
-        elif resType == "timeseries": 
+        elif resType == "timeseries":
             if "isCollection" in obj and not obj["isCollection"]:
                 raise NotImplementedError("Resource type 'timeseries isCollection=false' not recognized")
             else:
@@ -524,7 +524,7 @@ class AudioResource(RawResource):
             kwargs['duration'] = end-start
         try:
             return self.librosa.load(filepath, **kwargs)
-        except:
+        except Exception:
             return None
 
 class TimeSeriesResource(RawResource):
@@ -533,7 +533,7 @@ class TimeSeriesResource(RawResource):
     """
     def __init__(self, resID, resPath, resType, resFormat):
         super(TimeSeriesResource, self).__init__(resID, resPath, resType, resFormat)
-        
+
         # FIXME: assume name of index is 'time'
         self.index_column = 'time'
 
@@ -543,7 +543,7 @@ class TimeSeriesResource(RawResource):
 
     def load_resource(self, filepath, _):
         self.df = pd.read_csv(filepath, index_col=self.index_column)
-        self.orig_df = copy.copy(self.df)        
+        self.orig_df = copy.copy(self.df)
         return self.df
 
 class GraphResource(DataResource):

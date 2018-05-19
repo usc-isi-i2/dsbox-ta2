@@ -300,6 +300,9 @@ class ResourceManager:
         # Tasks to run
         self.pending_tasks = []
 
+        # True if resource mananger is shutting down
+        self.shutdown = False
+
         # Used by primitives waiting for results
         self.condition = dict()
 
@@ -313,6 +316,12 @@ class ResourceManager:
         self.cv_seed = 0
 
         self.stats = ExecutionStatistics()
+
+    def shutdown(self):
+        self.shutdown = True
+        self.executor.shutdown(wait=False)
+        self.loop.stop()
+        self.loop.close()
 
     @stopit.threading_timeoutable()
     def execute_pipelines(self, pipelines, df, df_lbl, callbacks=None):
@@ -378,7 +387,7 @@ class ResourceManager:
 
     async def _report_status(self):
         try:
-            while True:
+            while not self.shutdown:
                 self.stats.print_status()
                 await asyncio.sleep(30)
         except concurrent.futures.CancelledError:
