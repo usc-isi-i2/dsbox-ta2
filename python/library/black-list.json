@@ -5,6 +5,11 @@
 	"Class": "d3m.primitives.lupi_svm"
     },
     {
+	"Id": "50b499a5-cef8-3028-8a99-ae553819f855",
+	"Name": "sklearn.neighbors.regression.KNeighborsRegressor",
+	"Class": "d3m.primitives.sklearn_wrap.SKKNeighborsRegressor"
+    },
+    {
 	"Id": "37c2b19d-bdab-4a30-ba08-6be49edcc6af",
 	"Name": "sklearn.ensemble.forest.RandomForestClassifier",
 	"Class": "d3m.primitives.common_primitives.RandomForestClassifier"
