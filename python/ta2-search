@@ -99,7 +99,13 @@ ta2-search <search_config_file>
             sys.exit(148)
             os._exit(148)
         pass
-    controller.shutdown()
+    print('Done training. reset handler.')
+    # Reset to handlers to default as not to output multiple times
+    signal.signal(signal.SIGINT, signal.SIG_DFL)
+    signal.signal(signal.SIGTERM, signal.SIG_DFL)
+    signal.signal(signal.SIGALRM, signal.SIG_DFL)
+    print('Done training. Shutting down.')
+    # controller.shutdown()
 
     print('exit: {}'.format(conf_file))
     return 0
@@ -109,5 +115,4 @@ if __name__ == "__main__":
         sys.argv.append("-h")
         sys.argv.append("-v")
     result = main()
-    sys.exit(result)
     os._exit(result)
