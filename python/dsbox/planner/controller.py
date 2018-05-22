@@ -349,6 +349,7 @@ class Controller(object):
                                                    functools.partial(self.pipeline_result_call_back, pipeline, df, df_lbl))
 
     def shutdown(self):
+        print('controller shutting down', flush=True)
         self.resource_manager.shutdown()
 
     '''

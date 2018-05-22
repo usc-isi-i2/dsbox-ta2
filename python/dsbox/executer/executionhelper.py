@@ -82,7 +82,7 @@ class ExecutionHelper(object):
             except Exception as e:
                 sys.stderr.write("ERROR: instantiate_primitive {}: {}\n".format(primitive.name, e))
                 #sys.stderr.write("ERROR _instantiate_primitive(%s)\n" % (primitive.name))
-                #traceback.print_exc()
+                traceback.print_exc()
                 return None
         return executable
 
@@ -134,7 +134,7 @@ class ExecutionHelper(object):
         except Exception as e:
             sys.stderr.write("ERROR: execute_primitive {}: {}\n".format(primitive.name, e))
             #sys.stderr.write("ERROR execute_primitive(%s): %s\n" % (primitive, e))
-            #traceback.print_exc()
+            traceback.print_exc()
             primitive.finished = True
             return None
 
@@ -180,7 +180,7 @@ class ExecutionHelper(object):
                 except Exception as e:
                     sys.stderr.write("ERROR: execute_primitive {}: {}\n".format(primitive.name, e))
                     #sys.stderr.write("ERROR execute_primitive(%s): %s\n" % (primitive, e))
-                    #traceback.print_exc()
+                    traceback.print_exc()
                     return None
         else:
             if not persistent:
@@ -304,7 +304,7 @@ class ExecutionHelper(object):
 
                         except Exception as e:
                             sys.stderr.write("ERROR: cross_validation {}: {}\n".format(primitive.name, e))
-                            # traceback.print_exc(e)
+                            traceback.print_exc(e)
 
         if num == 0:
             return (None, None, None)
@@ -780,6 +780,7 @@ class ExecutionHelper(object):
                     primitive.executables = execs
                 except Exception as e:
                     sys.stderr.write("ERROR pickling %s : %s\n" % (primitive.name, e))
+                    traceback.print_exc()
 
                 if primitive.task == "Modeling":
                     # Initialize primitive
@@ -861,5 +862,5 @@ class ExecutionHelper(object):
         except Exception as e:
             sys.stderr.write("ERROR: _call_function {}: {}\n".format(scoring_function, e))
             #sys.stderr.write("ERROR _call_function %s: %s\n" % (scoring_function, e))
-            #traceback.print_exc()
+            traceback.print_exc()
             return None
