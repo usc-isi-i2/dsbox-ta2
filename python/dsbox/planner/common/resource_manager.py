@@ -3,9 +3,10 @@ import asyncio
 import concurrent
 import copy
 import json
-import logging
-import sys
 import multiprocessing
+import logging
+import pprint
+import sys
 import traceback
 
 from collections import defaultdict
@@ -230,7 +231,11 @@ class ExecutionStatistics:
             'finishing' : self.ending_at,
             'running_time' : (self.ending_at - self.starting_at).total_seconds()
         }
-        print(self._encoder.encode(run_info), file=out)
+        try:
+            print(self._encoder.encode(run_info), file=out)
+        except Exception as e:
+            print('Failed to json encode run_info: {}'.format(e))
+            pprint.pprint(run_info)
 
         for pipe_id, pipe_stat in self.pipeline_stats.items():
             primitives_info = []
@@ -271,7 +276,12 @@ class ExecutionStatistics:
                 'done' : pipe_stat.done(),
                 'running_time' : pipe_stat.get_running_time().total_seconds() if pipe_stat.done() else None,
                 'primitives' : primitives_info}
-            print(self._encoder.encode(pipe_info), file=out)
+            try:
+                print(self._encoder.encode(pipe_info), file=out)
+            except Exception as e:
+                print('Failed to json encode pipe_info: {}'.format(e))
+                pprint.pprint(pipe_info)
+
 
 class ResourceManager:
     '''Resource manager for running pipelines.
@@ -319,9 +329,14 @@ class ResourceManager:
 
     def shutdown(self):
         self.shutdown = True
+        print('ResourceManager: shutting down executor')
+        print('ResourceManager: shutting down executor', flush=True)
         self.executor.shutdown(wait=False)
+        print('ResourceManager: stopping loop', flush=True)
         self.loop.stop()
+        print('ResourceManager: closing loop', flush=True)
         self.loop.close()
+        print('ResourceManager: down shutting down', flush=True)
 
     @stopit.threading_timeoutable()
     def execute_pipelines(self, pipelines, df, df_lbl, callbacks=None):
@@ -391,6 +406,7 @@ class ResourceManager:
                 self.stats.print_status()
                 await asyncio.sleep(30)
         except concurrent.futures.CancelledError:
+            print("_report_status: Cancelled")
             self.stats.print_status()
             return
 
