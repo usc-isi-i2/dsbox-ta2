@@ -159,5 +159,9 @@ class Primitive(object):
     def getExecutableSize(self):
         if self.executable_size == 0:
             if self.executables:
-                self.executable_size = sys.getsizeof(pickle.dumps(self.executables))
+                try:
+                    self.executable_size = sys.getsizeof(pickle.dumps(self.executables))
+                except Exception as e:
+                    sys.stderr.write("ERROR: getExecutableSize {}: {}\n".format(self.name, e))
+                    self.executable_size = sys.maxsize
         return self.executable_size
