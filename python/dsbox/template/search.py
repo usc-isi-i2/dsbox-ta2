@@ -9,6 +9,8 @@ import d3m.exceptions as exceptions
 from d3m import utils
 from d3m.container.dataset import Dataset
 from d3m.metadata.base import PrimitiveMetadata
+from d3m.metadata.hyperparams import Hyperparams
+from d3m.metadata.pipeline import Resolver
 from d3m.primitive_interfaces.base import PrimitiveBaseMeta
 from d3m.runtime import Runtime
 
@@ -53,6 +55,19 @@ class ConfigurationSpace(typing.Generic[T]):
         """
         pass
 
+    def get_point(self, values: typing.Dict[DimensionName, T]):
+        """
+        Returns the point asscoiate with values.
+        """
+        return ConfigurationPoint(self, values)
+
+class ConfigurationPoint(typing.Dict[DimensionName, T]):
+    def __init__(self, space: ConfigurationSpace[T], values: typing.Dict[DimensionName, T]) -> None:
+        super().__init__(values)
+        self.space = space
+        self.data: typing.Dict = {}
+
+# TODO: SimpleConfigurationSpace should manage and reuse ConfigurationPoints
 
 class SimpleConfigurationSpace(ConfigurationSpace[T]):
     def __init__(self, dimension_values: typing.Dict[DimensionName, typing.List[T]], *, 
@@ -93,37 +108,60 @@ class SimpleConfigurationSpace(ConfigurationSpace[T]):
         return self._dimension_ordering
         
 class DimensionalSearch(typing.Generic[T]):
-    def __init__(self, evaluate: typing.Callable[[typing.Dict], float], configuration_space: ConfigurationSpace[T], minimize: bool) -> None:
+    """
+    Search configuration space on dimension at a time.
+
+    Attributes
+    ----------
+    evaluate : Callable[[typing.Dict], float]
+        Evaluate given point in configuration space
+    configuration_space: ConfigurationSpace[T]
+        Definition of the configuration space
+    minimize: bool
+        If True, minimize the value returned by `evaluate` function
+    """
+    def __init__(self, evaluate: typing.Callable[[ConfigurationPoint[T]], float], configuration_space: ConfigurationSpace[T], minimize: bool) -> None:
         self.evaluate = evaluate
         self.configuration_space = configuration_space
         self.minimize = minimize
         self.dimension_ordering = configuration_space.get_dimension_search_ordering()
 
-    def random_assignment(self) -> typing.Dict[str, T]:
-        assignment: typing.Dict[str, T] = {}
+    def random_assignment(self) -> typing.Dict[DimensionName, T]:
+        assignment: typing.Dict[DimensionName, T] = {}
         for dimension in self.dimension_ordering:
             assignment[dimension] = random.choice(self.configuration_space.get_values(dimension))
         return assignment
 
-    def search_one_iter(self, candidate: typing.Dict[str, T] = None, candidate_value: float = None, max_per_dimension=10):
+    def search_one_iter(self, candidate: ConfigurationPoint[T] = None, candidate_value: float = None, max_per_dimension=10):
         """
-        Performs one iteration of dimensional search
+        Performs one iteration of dimensional search.
+
+        Parameters
+        ----------
+        candidate: typing.Dict[str, T]
+            Current best candidate
+        candidate_value: float
+            The valude for the current best candidate
+        max_per_dimension: int
+            Maximunum number of values to search per dimension
         """
         if candidate is None:
-            candidate = self.random_assignment()
+            candidate = ConfigurationPoint(self.configuration_space, self.random_assignment())
 
         for dimension in self.dimension_ordering:
             choices: typing.List[T] = self.configuration_space.get_values(dimension)
             weights = [self.configuration_space.get_weight(dimension, x) for x in choices]
             selected = random_choices_without_replacement(choices, weights, max_per_dimension)
+
+            # No need to evaluate if value is already known
             if candidate_value is None and candidate[dimension] in selected:
                 selected.remove(candidate[dimension])
 
-            new_candidates = []
+            new_candidates: typing.List[ConfigurationPoint] = []
             for value in selected:
                 new = dict(candidate)
                 new[dimension] = value
-                new_candidates.append(new)
+                new_candidates.append(self.configuration_space.get_point(new))
             values = [self.evaluate(x) for x in new_candidates]
             best_index = values.index(min(values))
             if candidate_value is None:
@@ -134,7 +172,7 @@ class DimensionalSearch(typing.Generic[T]):
                 candidate_value = values[best_index]
         return (candidate, candidate_value)
 
-    def search(self, candidate: typing.Dict[str, T] = None, candidate_value: float = None, num_iter=3, max_per_dimension=10):
+    def search(self, candidate: ConfigurationPoint[T] = None, candidate_value: float = None, num_iter=3, max_per_dimension=10):
         for i in range(num_iter):
             candidate, candidate_value = self.search_one_iter(candidate, candidate_value, max_per_dimension=max_per_dimension)
         return (candidate, candidate_value)
@@ -148,7 +186,7 @@ class TemplateDimensionalSearch(DimensionalSearch[PythonPath]):
 
     Attributes
     ----------
-    template : TemplatePipeline
+    template_description : TemplateDescription
         The template pipeline to be fill in
     configuration_space : ConfigurationSpace[PythonPath]
         Configuration space where values are primitive python paths
@@ -160,33 +198,49 @@ class TemplateDimensionalSearch(DimensionalSearch[PythonPath]):
         The dataset to evaluate pipeline
     performance_metrics : typing.List[typing.Dict]
         Performance metrics from parse_problem_description()['problem']['performance_metrics']
+    resolver : typing.Optional[Resolver]
+        Resolve primitives
     """
 
-    def __init__(self, template_description: TemplateDescription, configuration_space: ConfigurationSpace[PythonPath],
-                 primitive_index: typing.Dict[PythonPath, PrimitiveBaseMeta], train_dataset : Dataset, validation_dataset : Dataset, 
-                 performance_metrics: typing.List[typing.Dict]) -> None:
+    def __init__(self, template_description: TemplateDescription, 
+                 configuration_space: ConfigurationSpace[PythonPath],
+                 primitive_index: typing.Dict[PythonPath, PrimitiveBaseMeta], 
+                 train_dataset : Dataset, validation_dataset : Dataset, 
+                 performance_metrics: typing.List[typing.Dict],
+                 resolver: Resolver = None) -> None:
         
         # Use first metric from validation
         minimize = optimization_type(performance_metrics[0]['metric']) == OptimizationType.MINIMIZE
         super().__init__(self.evaluate, configuration_space, minimize)
 
         self.template_description = template_description
-        self.template = self.template_description.template
+        self.template: TemplatePipeline = self.template_description.template
         # self.configuration_space = configuration_space
         self.primitive_index = primitive_index
         self.train_dataset = train_dataset
         self.validation_dataset = validation_dataset
         self.performance_metrics = performance_metrics
+        self.resolver = resolver
 
         if not set(self.template.template_nodes.keys()) <= set(configuration_space.get_dimensions()):
             raise exceptions.InvalidArgumentValueError("Not all template steps are in configuration space: {}".format(self.template.template_nodes.keys()))
 
-    def evaluate(self, configuration: typing.Dict[str, PythonPath]) -> float:
+    def evaluate(self, configuration: ConfigurationPoint[PythonPath]) -> float:
+        """
+        Evaluate at configuration point.
+        Note: This methods will modify the configuration point, by updating its data field.
+        """
         
         # convert PythonPath to primitive metadata
         metadata_configuration: typing.Dict[str, PrimitiveMetadata] = {
             key: self.primitive_index[python_path].metadata for key, python_path in configuration.items()}
 
+        value, new_data = self._evaluate(metadata_configuration)
+        configuration.data.update(new_data)
+        
+        return value
+
+    def _evaluate(self, metadata_configuration: typing.Dict) -> typing.Tuple[float, dict]:
         binding = self.template.to_steps(metadata_configuration)
         pipeline = self.template.get_pipeline(binding, None, context='PRETRAINING')
 
@@ -216,8 +270,12 @@ class TemplateDimensionalSearch(DimensionalSearch[PythonPath]):
                 'value': metric(validation_ground_truth, validation_prediction)
             })
 
+        data = {
+            'pipeline' : pipeline, 
+            'training_metrics' : training_metrics,
+            'validation_metrics' : validation_metrics}
         # Use first metric from validation
-        return validation_metrics[0]['value']
+        return validation_metrics[0]['value'], data
 
 def random_choices_without_replacement(population, weights, k=1):
     """
