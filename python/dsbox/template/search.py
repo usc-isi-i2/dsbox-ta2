@@ -19,6 +19,8 @@ from dsbox.schema.problem import optimization_type, OptimizationType
 from .template import TemplatePipeline
 from .library import TemplateDescription
 
+HYPERPARAMETER_DIRECTIVE: str = 'hyperparameter_directive'
+
 T = typing.TypeVar('T')
 DimensionName = typing.NewType('DimensionName', str)
 
@@ -202,9 +204,9 @@ class TemplateDimensionalSearch(DimensionalSearch[PythonPath]):
         Resolve primitives
     """
 
-    def __init__(self, template_description: TemplateDescription, 
+    def __init__(self, template_description: TemplateDescription,
                  configuration_space: ConfigurationSpace[PythonPath],
-                 primitive_index: typing.Dict[PythonPath, PrimitiveBaseMeta], 
+                 primitive_index: typing.Dict[PythonPath, PrimitiveBaseMeta],
                  train_dataset : Dataset, validation_dataset : Dataset, 
                  performance_metrics: typing.List[typing.Dict],
                  resolver: Resolver = None) -> None:
@@ -277,6 +279,68 @@ class TemplateDimensionalSearch(DimensionalSearch[PythonPath]):
         # Use first metric from validation
         return validation_metrics[0]['value'], data
 
+class HyperparamDirective(utils.Enum):
+    """
+    Specify how to choose hyperparameters
+    """
+    DEFAULT = 1
+    RANDOM = 2
+    
+class HyperparamConfigurationSpace(ConfigurationSpace[PythonPath]) -> ConfigurationSpace[typing.Tuple[PythonPath, Hyperparams]]:
+    def __init__(self, configuration_space: ConfigurationSpace[PythonPath],
+                 primitive_index: typing.Dict[PythonPath, PrimitiveBaseMeta]):
+        self.base_configuration_space = configuration_space
+        self.primitive_index = primitive_index
+        
+    def get_dimension(self):
+        return self.base_configuration_space.get_dimensions()
+    def get_values(self, dimension: DimensionName) -> typing.List[T]:
+        base_values = self._dimension_values[dimension]
+        hyperparam_directive = [HyperparamDirective.DEFAULT] + [HyperparamDirective.RANDOM] * 3
+        values = [(path, directive) for path in base_values for directive in hyperparam_directive]
+        return values
+    def get_weight(self, dimension: DimensionName, value: T) -> float:
+        return self.base_configuration_space.get_weight(dimension, value)
+    def get_dimension_search_ordering(self) -> typing.List[DimensionName]:
+        return self.base_configuration_space.get_dimension_search_ordering()
+
+class HyperparameterResolver(pipeline.Resolver):
+    def __init__(self, strict_resolving: bool = False) -> None:
+        super.__init__(strict_resolving)
+        
+        def get_primitive(self, primitive_description: typing.Dict) -> typing.Optional[base.PrimitiveBase]:
+            primitive = super.get_primitive(primitive_description)
+            if primitive is not None and HYPERPARAMETER_DIRECTIVE in primitive_description:
+                if primitive_description[HYPERPARAMETER_DIRECTIVE] == HyperparamDirective.RANDOM:
+                    hyperparams_class = primitive.getHyperparamClass()
+                    primitive.setHyperparams(hyperparams_class.sample())
+
+            return primitive
+                                                                
+class TemplateDimensionalRandomHyperparameterSearch(TemplateDimensionalSearch):
+    """
+    Use dimensional search with random hyperparameters to find best pipeline.
+    """
+    def __init__(self, template_description: TemplateDescription,
+                 configuration_space: HyperparamConfigurationSpace,
+                 primitive_index: typing.Dict[PythonPath, PrimitiveBaseMeta],
+                 train_dataset : Dataset, validation_dataset : Dataset, 
+                 performance_metrics: typing.List[typing.Dict],
+                 resolver: HyperparameterResolver = None) -> None:
+        if resolver is None:
+            resolver = HyperparameterResolver()
+        super().__init__(template_description, configuration_space, primitive_index,
+                         train_dataset, validation_dataset, performance_metrics, resolver)
+
+    def evaluate(self, configuration: typing.Dict[str, typing.Tuple[PythonPath, HyperparamDirective]]) -> float:
+        # convert PythonPath to primitive metadata
+        metadata_configuration: typing.Dict[str, PrimitiveMetadata] = {}
+        for key, (python_path, directive) in configuration.items():
+            metadata_configuration[key] = dict(self.primitive_index[python_path].metadata)
+            metadata_configuration[key][HYPERPARAMETER_DIRECTIVE] = directive
+
+        return self._evaluate(metadata_configuration)
+    
 def random_choices_without_replacement(population, weights, k=1):
     """
     Randomly sample multiple element based on weights witout replacement.

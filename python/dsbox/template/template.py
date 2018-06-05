@@ -115,19 +115,19 @@ class TemplatePipeline(Pipeline):
                 raise exceptions.InvalidArgumentValueError("TemplateStep '{}' already in pipeline".format(step.name))
             self.template_nodes[step.name] = step
 
-    def to_step(cls, metadata: PrimitiveMetadata) -> PrimitiveStep:
+    def to_step(cls, metadata: PrimitiveMetadata, resolver: Resolver = None) -> PrimitiveStep:
         """
         Convenience method for generating PrimitiveStep from primitive id
         """
-        return PrimitiveStep(metadata.query())
+        return PrimitiveStep(metadata.query(), resolver)
 
-    def to_steps(cls, primitive_map: typing.Dict[str, PrimitiveMetadata]) -> typing.Dict[str, PrimitiveStep]:
+    def to_steps(cls, primitive_map: typing.Dict[str, PrimitiveMetadata], resolver: Resolver = None) -> typing.Dict[str, PrimitiveStep]:
         """
         Convenience method for generating PrimitiveStep from primitive id
         """
         result = {}
         for template_node_name, metadata in primitive_map.items():
-            result[template_node_name] = cls.to_step(metadata)
+            result[template_node_name] = cls.to_step(metadata, resolver)
         return result
 
     def get_pipeline(self, binding: typing.Dict[str, PrimitiveStep] = {}, pipeline_id: str = None, *, context: typing.Any,
