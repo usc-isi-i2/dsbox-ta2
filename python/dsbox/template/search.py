@@ -9,6 +9,7 @@ import d3m.exceptions as exceptions
 from d3m import utils
 from d3m.container.dataset import Dataset
 from d3m.metadata.base import PrimitiveMetadata
+from d3m import pipeline
 from d3m.primitive_interfaces.base import PrimitiveBaseMeta
 from d3m.runtime import Runtime
 
@@ -16,6 +17,8 @@ from dsbox.schema.problem import optimization_type, OptimizationType
 
 from .template import TemplatePipeline
 from .library import TemplateDescription
+
+HYPERPARAMETER_DIRECTIVE: str = 'hyperparameter_directive'
 
 T = typing.TypeVar('T')
 DimensionName = typing.NewType('DimensionName', str)
@@ -93,6 +96,18 @@ class SimpleConfigurationSpace(ConfigurationSpace[T]):
         return self._dimension_ordering
         
 class DimensionalSearch(typing.Generic[T]):
+    """
+    Search configuration space on dimension at a time.
+
+    Attributes
+    ----------
+    evaluate : Callable[[typing.Dict], float]
+        Evaluate given point in configuration space
+    configuration_space: ConfigurationSpace[T]
+        Definition of the configuration space
+    minimize: bool
+        If True, minimize the value returned by `evaluate` function
+    """
     def __init__(self, evaluate: typing.Callable[[typing.Dict], float], configuration_space: ConfigurationSpace[T], minimize: bool) -> None:
         self.evaluate = evaluate
         self.configuration_space = configuration_space
@@ -148,7 +163,7 @@ class TemplateDimensionalSearch(DimensionalSearch[PythonPath]):
 
     Attributes
     ----------
-    template : TemplatePipeline
+    template_description : TemplateDescription
         The template pipeline to be fill in
     configuration_space : ConfigurationSpace[PythonPath]
         Configuration space where values are primitive python paths
@@ -160,23 +175,29 @@ class TemplateDimensionalSearch(DimensionalSearch[PythonPath]):
         The dataset to evaluate pipeline
     performance_metrics : typing.List[typing.Dict]
         Performance metrics from parse_problem_description()['problem']['performance_metrics']
+    resolver : typing.Optional[Resolver]
+        Resolve primitives
     """
 
-    def __init__(self, template_description: TemplateDescription, configuration_space: ConfigurationSpace[PythonPath],
-                 primitive_index: typing.Dict[PythonPath, PrimitiveBaseMeta], train_dataset : Dataset, validation_dataset : Dataset, 
-                 performance_metrics: typing.List[typing.Dict]) -> None:
+    def __init__(self, template_description: TemplateDescription,
+                 configuration_space: ConfigurationSpace[PythonPath],
+                 primitive_index: typing.Dict[PythonPath, PrimitiveBaseMeta],
+                 train_dataset : Dataset, validation_dataset : Dataset, 
+                 performance_metrics: typing.List[typing.Dict],
+                 resolver: Resolver = None) -> None:
         
         # Use first metric from validation
         minimize = optimization_type(performance_metrics[0]['metric']) == OptimizationType.MINIMIZE
         super().__init__(self.evaluate, configuration_space, minimize)
 
         self.template_description = template_description
-        self.template = self.template_description.template
+        self.template: TemplatePipeline = self.template_description.template
         # self.configuration_space = configuration_space
         self.primitive_index = primitive_index
         self.train_dataset = train_dataset
         self.validation_dataset = validation_dataset
         self.performance_metrics = performance_metrics
+        self.resolver = resolver
 
         if not set(self.template.template_nodes.keys()) <= set(configuration_space.get_dimensions()):
             raise exceptions.InvalidArgumentValueError("Not all template steps are in configuration space: {}".format(self.template.template_nodes.keys()))
@@ -187,7 +208,11 @@ class TemplateDimensionalSearch(DimensionalSearch[PythonPath]):
         metadata_configuration: typing.Dict[str, PrimitiveMetadata] = {
             key: self.primitive_index[python_path].metadata for key, python_path in configuration.items()}
 
-        binding = self.template.to_steps(metadata_configuration)
+        return self._evaluate(metadata_configuration)
+
+    def _evaluate(self, metadata_configuration: typing.Dict):
+
+        binding = self.template.to_steps(metadata_configuration, self.resolver)
         pipeline = self.template.get_pipeline(binding, None, context='PRETRAINING')
 
         # Todo: update ResourceManager to run pipeline:  ResourceManager.add_pipeline(pipeline)
@@ -219,6 +244,68 @@ class TemplateDimensionalSearch(DimensionalSearch[PythonPath]):
         # Use first metric from validation
         return validation_metrics[0]['value']
 
+class HyperparamDirective(utils.Enum):
+    """
+    Specify how to choose hyperparameters
+    """
+    DEFAULT = 1
+    RANDOM = 2
+    
+class HyperparamConfigurationSpace(ConfigurationSpace[PythonPath]) -> ConfigurationSpace[typing.Tuple[PythonPath, Hyperparams]]:
+    def __init__(self, configuration_space: ConfigurationSpace[PythonPath],
+                 primitive_index: typing.Dict[PythonPath, PrimitiveBaseMeta]):
+        self.base_configuration_space = configuration_space
+        self.primitive_index = primitive_index
+        
+    def get_dimension(self):
+        return self.base_configuration_space.get_dimensions()
+    def get_values(self, dimension: DimensionName) -> typing.List[T]:
+        base_values = self._dimension_values[dimension]
+        hyperparam_directive = [HyperparamDirective.DEFAULT] + [HyperparamDirective.RANDOM] * 3
+        values = [(path, directive) for path in base_values for directive in hyperparam_directive]
+        return values
+    def get_weight(self, dimension: DimensionName, value: T) -> float:
+        return self.base_configuration_space.get_weight(dimension, value)
+    def get_dimension_search_ordering(self) -> typing.List[DimensionName]:
+        return self.base_configuration_space.get_dimension_search_ordering()
+
+class HyperparameterResolver(pipeline.Resolver):
+    def __init__(self, strict_resolving: bool = False) -> None:
+        super.__init__(strict_resolving)
+        
+        def get_primitive(self, primitive_description: typing.Dict) -> typing.Optional[base.PrimitiveBase]:
+            primitive = super.get_primitive(primitive_description)
+            if primitive is not None and HYPERPARAMETER_DIRECTIVE in primitive_description:
+                if primitive_description[HYPERPARAMETER_DIRECTIVE] == HyperparamDirective.RANDOM:
+                    hyperparams_class = primitive.getHyperparamClass()
+                    primitive.setHyperparams(hyperparams_class.sample())
+
+            return primitive
+                                                                
+class TemplateDimensionalRandomHyperparameterSearch(TemplateDimensionalSearch):
+    """
+    Use dimensional search with random hyperparameters to find best pipeline.
+    """
+    def __init__(self, template_description: TemplateDescription,
+                 configuration_space: HyperparamConfigurationSpace,
+                 primitive_index: typing.Dict[PythonPath, PrimitiveBaseMeta],
+                 train_dataset : Dataset, validation_dataset : Dataset, 
+                 performance_metrics: typing.List[typing.Dict],
+                 resolver: HyperparameterResolver = None) -> None:
+        if resolver is None:
+            resolver = HyperparameterResolver()
+        super().__init__(template_description, configuration_space, primitive_index,
+                         train_dataset, validation_dataset, performance_metrics, resolver)
+
+    def evaluate(self, configuration: typing.Dict[str, typing.Tuple[PythonPath, HyperparamDirective]]) -> float:
+        # convert PythonPath to primitive metadata
+        metadata_configuration: typing.Dict[str, PrimitiveMetadata] = {}
+        for key, (python_path, directive) in configuration.items():
+            metadata_configuration[key] = dict(self.primitive_index[python_path].metadata)
+            metadata_configuration[key][HYPERPARAMETER_DIRECTIVE] = directive
+
+        return self._evaluate(metadata_configuration)
+    
 def random_choices_without_replacement(population, weights, k=1):
     """
     Randomly sample multiple element based on weights witout replacement.
