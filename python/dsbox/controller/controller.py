@@ -1,5 +1,6 @@
 import enum
 import os
+import random
 import typing
 
 import d3m
@@ -10,7 +11,7 @@ from d3m.metadata.problem import parse_problem_description, TaskType, TaskSubtyp
 from d3m.exceptions import NotSupportedError, InvalidArgumentValueError
 
 from dsbox.template.library import TemplateLibrary, TemplateDescription
-from dsbox.template.search import TemplateDimensionalSearch, ConfigurationSpace, SimpleConfigurationSpace, PythonPath, DimensionName
+from dsbox.template.search import TemplateDimensionalRandomHyperparameterSearch, TemplateDimensionalSearch, ConfigurationSpace, SimpleConfigurationSpace, PythonPath, DimensionName
 from dsbox.template.template import TemplatePipeline, SemanticType
 
 __all__ = ['Status', 'Controller']
@@ -46,6 +47,9 @@ class Controller:
 
         # Primitives
         self.primitive: typing.Dict = d3m.index.search()
+
+        # set random seed
+        random.seed(4676)
 
     def initialize_from_config(self, config: typing.Dict) -> None:
         self.config = config
@@ -91,7 +95,8 @@ class Controller:
         
         metrics = self.problem['problem']['performance_metrics']
 
-        search = TemplateDimensionalSearch(template, space, d3m.index.search(), self.dataset, self.dataset, metrics)
+        # search = TemplateDimensionalSearch(template, space, d3m.index.search(), self.dataset, self.dataset, metrics)
+        search = TemplateDimensionalRandomHyperparameterSearch(template, space, d3m.index.search(), self.dataset, self.dataset, metrics)
         pipeline, value = search.search_one_iter()
         print(pipeline, value)
 
