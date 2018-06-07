@@ -12,7 +12,7 @@ from d3m.exceptions import NotSupportedError, InvalidArgumentValueError
 from dsbox.template.library import TemplateLibrary, TemplateDescription
 from dsbox.template.search import TemplateDimensionalSearch, ConfigurationSpace, SimpleConfigurationSpace, PythonPath, DimensionName
 from dsbox.template.template import TemplatePipeline, SemanticType
-from dsbox.template.saveload import PipelineSave, PipelineLoad
+from dsbox.pipeline.fitted_pipeline import FittedPipeline
 
 __all__ = ['Status', 'Controller']
 
@@ -101,21 +101,39 @@ class Controller:
 
         search = TemplateDimensionalSearch(
             template, space, d3m.index.search(), self.dataset, self.dataset, metrics)
-        pipeline, value = search.search_one_iter()
+        candidate, value = search.search_one_iter()
         print("=====~~~~~~~~~~~  new pipeline saving function test  ~~~~~~~~~~~=====")
-        pipeline_to_be_saved = PipelineSave(search.configuration_space)
-        pipeline_to_be_saved.save_to(self.config['saving_folder_loc'])
+        # Here we transfer the candidate from template dimensional search to fittedPipeline class first
+        # Then, we can do further fit function or save them
+
+        pipeline = FittedPipeline.create(configuration = candidate, dataset = self.dataset)
+        pipeline.save(self.config['saving_folder_loc'])
 
         print("=====~~~~~~~~~~~  new pipeline saving function finished  ~~~~~~~~~~~=====")
-        print(pipeline, value)
-
+        print()
+        print("-----------------------------------end----------------------------------------")
+        print(candidate, value)
         return Status.OK
 
     def test(self) -> Status:
         """
-        Run trained pipeline on test data.
+        First read the fitted pipeline and then run trained pipeline on test data.
         """
-        pass
+        print("=====~~~~~~~~~~~  new pipeline loading function test  ~~~~~~~~~~~=====")
+
+
+        d = os.path.expanduser(self.config['saving_folder_loc'] + '/pipelines') 
+        # for now, the program will automatically load the newest created file in the folder
+        files = [os.path.join(d, f) for f in os.listdir(d)]
+        files.sort(key=lambda f: os.stat(f).st_mtime)
+        lastmodified = files[-1]
+        read_pipeline_id = lastmodified.split('/')[-1].split('.')[0]
+        
+        pipeline_load = FittedPipeline.load(folder_loc = self.config['saving_folder_loc'], pipeline_id = read_pipeline_id, dataset = self.dataset)
+
+        print("=====~~~~~~~~~~~  new pipeline loading function finished  ~~~~~~~~~~~=====")
+        
+        return Status.OK
 
     def generate_configuration_space(self, template_desc: TemplateDescription, problem: typing.Dict, dataset: typing.Optional[Dataset]) -> ConfigurationSpace:
         """
@@ -128,7 +146,7 @@ class Controller:
         for name, step in template_desc.template.template_nodes.items():
             if step.semantic_type == SemanticType.CLASSIFIER:
                 values[DimensionName(name)] = [
-                    'd3m.primitives.common_primitives.RandomForestClassifier', 'd3m.primitives.sklearn_wrap.SKSGDClassifier']
+                    'd3m.primitives.sklearn_wrap.SKSGDClassifier', 'd3m.primitives.sklearn_wrap.SKSGDClassifier']
             elif step.semantic_type == SemanticType.REGRESSOR:
                 values[DimensionName(name)] = ['d3m.primitives.common_primitives.LinearRegression',
                                                'd3m.primitives.sklearn_wrap.SKSGDRegressor',

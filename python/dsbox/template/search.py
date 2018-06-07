@@ -182,6 +182,7 @@ class DimensionalSearch(typing.Generic[T]):
             elif (self.minimize and values[best_index] < candidate_value) or (not self.minimize and values[best_index] > candidate_value):
                 candidate = new_candidates[best_index]
                 candidate_value = values[best_index]
+        # here we can get the details of pipelines from "candidate.data"
         return (candidate, candidate_value)
 
     def search(self, candidate: ConfigurationPoint[T] = None, candidate_value: float = None, num_iter=3, max_per_dimension=10):
@@ -289,10 +290,11 @@ class TemplateDimensionalSearch(DimensionalSearch[PythonPath]):
             })
 
         data = {
+            'runtime': run,
             'pipeline': pipeline,
-            #'run' : run.pipeline,
             'training_metrics': training_metrics,
-            'validation_metrics': validation_metrics}
+            'validation_metrics': validation_metrics
+        }
         # Use first metric from validation
         return validation_metrics[0]['value'], data
 

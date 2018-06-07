@@ -190,6 +190,11 @@ class TemplatePipeline(Pipeline):
                 for input in template_step.inputs:
                     step.add_input(input)
 
+        for input in self.inputs:
+            result.add_input(input['name'])
+
+        for output in self.outputs:
+            result.add_output(output['data'], output['name'])
         return result
 
     @classmethod
