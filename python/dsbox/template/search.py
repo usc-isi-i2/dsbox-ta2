@@ -267,8 +267,7 @@ class TemplateDimensionalSearch(DimensionalSearch[PythonPath]):
 
     def _evaluate(self, metadata_configuration: typing.Dict) -> typing.Tuple[float, dict]:
 
-    def _evaluate(self, metadata_configuration: typing.Dict) -> typing.Tuple[float, dict]:
-        binding = self.template.to_steps(metadata_configuration)
+        binding = self.template.to_steps(metadata_configuration, self.resolver)
         pipeline = self.template.get_pipeline(binding, None, context='PRETRAINING')
 
         # Todo: update ResourceManager to run pipeline:  ResourceManager.add_pipeline(pipeline)
