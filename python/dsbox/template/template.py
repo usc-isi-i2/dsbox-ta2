@@ -29,6 +29,14 @@ class SemanticType(utils.Enum):
     CLASSIFIER = 6
     REGRESSOR = 7
 
+HYPERPARAMETER_DIRECTIVE: str = 'dsbox_hyperparameter_directive'
+class HyperparamDirective(utils.Enum):
+    """
+    Specify how to choose hyperparameters
+    """
+    DEFAULT = 1
+    RANDOM = 2
+
 TS = typing.TypeVar('TS', bound='TemplateStep')
 
 class TemplateStep(PlaceholderStep):
@@ -95,7 +103,6 @@ class TemplateStep(PlaceholderStep):
         return step_description
 
 TP = typing.TypeVar('TP', bound='TemplatePipeline')
-# S = typing.TypeVar('S', bound=StepBase)
 
 class TemplatePipeline(Pipeline):
     """
@@ -103,7 +110,6 @@ class TemplatePipeline(Pipeline):
     """
     def __init__(self, pipeline_id: str = None, *, context: typing.Any, created: datetime.datetime = None,
                  source: typing.Dict = None, name: str = None, description: str = None) -> None:
-        print(pipeline_id, created)
         super().__init__(pipeline_id, context=context, created=created, source=source, name=name, description=description)
         self.template_nodes: typing.Dict[str, TemplateStep] = {}
 
@@ -115,19 +121,39 @@ class TemplatePipeline(Pipeline):
                 raise exceptions.InvalidArgumentValueError("TemplateStep '{}' already in pipeline".format(step.name))
             self.template_nodes[step.name] = step
 
-    def to_step(cls, metadata: PrimitiveMetadata) -> PrimitiveStep:
+    def to_step(cls, metadata: dict, resolver: Resolver = None) -> PrimitiveStep:
         """
         Convenience method for generating PrimitiveStep from primitive id
         """
-        return PrimitiveStep(metadata.query())
+        step = PrimitiveStep(metadata, resolver = resolver)
 
-    def to_steps(cls, primitive_map: typing.Dict[str, PrimitiveMetadata]) -> typing.Dict[str, PrimitiveStep]:
+        # Set hyperparameters
+        if HYPERPARAMETER_DIRECTIVE in metadata:
+            directive = metadata[HYPERPARAMETER_DIRECTIVE]
+            if directive == HyperparamDirective.RANDOM:
+                primitive = resolver.get_primitive(metadata)
+                hyperparams_class = primitive.metadata.query()['primitive_code']['class_type_arguments']['Hyperparams']
+                hyperparams = {}
+                for key, value in hyperparams_class.sample().items():
+                    if value is None or issubclass(type(value), int) or issubclass(type(value), float) or issubclass(type(value), str):
+                        argument_type = ArgumentType.DATA
+                    else:
+                        raise ValueError('TemplatePipeline.to_step(): Need to add case for type: {}'.format(type(value)))
+                    hyperparams[key] = {
+                        'type' : argument_type,
+                        'data' : value
+                    }
+                step.hyperparams = hyperparams
+
+        return step
+
+    def to_steps(cls, primitive_map: typing.Dict[str, dict], resolver: Resolver = None) -> typing.Dict[str, PrimitiveStep]:
         """
         Convenience method for generating PrimitiveStep from primitive id
         """
         result = {}
         for template_node_name, metadata in primitive_map.items():
-            result[template_node_name] = cls.to_step(metadata)
+            result[template_node_name] = cls.to_step(metadata, resolver)
         return result
 
     def get_pipeline(self, binding: typing.Dict[str, PrimitiveStep] = {}, pipeline_id: str = None, *, context: typing.Any,
@@ -164,6 +190,8 @@ class TemplatePipeline(Pipeline):
 
         for i, template_step in enumerate(self.steps):
             if isinstance(template_step, TemplateStep):
+                print('Hyperparam binding for template step {} ({}) : {}'.format(
+                    template_step.name, template_step.semantic_type, binding[template_step.name].hyperparams))
                 result.add_step(binding[template_step.name])
             elif isinstance(template_step, PrimitiveStep):
                 result.add_step(PrimitiveStep(template_step.primitive_description))
