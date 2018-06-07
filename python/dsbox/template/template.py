@@ -190,7 +190,8 @@ class TemplatePipeline(Pipeline):
 
         for i, template_step in enumerate(self.steps):
             if isinstance(template_step, TemplateStep):
-                print(binding[template_step.name].hyperparams)
+                print('Hyperparam binding for template step {} ({}) : {}'.format(
+                    template_step.name, template_step.semantic_type, binding[template_step.name].hyperparams))
                 result.add_step(binding[template_step.name])
             elif isinstance(template_step, PrimitiveStep):
                 result.add_step(PrimitiveStep(template_step.primitive_description))

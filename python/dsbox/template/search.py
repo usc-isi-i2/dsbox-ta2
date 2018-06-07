@@ -2,6 +2,7 @@ import abc
 import bisect
 import operator
 import random
+import traceback
 import typing
 
 import d3m.exceptions as exceptions
@@ -170,19 +171,35 @@ class DimensionalSearch(typing.Generic[T]):
                 new = dict(candidate)
                 new[dimension] = value
                 new_candidates.append(self.configuration_space.get_point(new))
-            values = [self.evaluate(x)[0] for x in new_candidates]
+            values = []
+            sucessful_candidates = []
+            for x in new_candidates:
+                try:
+                    result = self.evaluate(x)
+                    values.append(result[0])
+                    sucessful_candidates.append(x)
+                except:
+                    print('Pipeline failed: ', x)
+                    traceback.print_exc()
+
+            # All primitives failed
+            if len(values)==0:
+                return (None, None)
+
             best_index = values.index(min(values))
             if candidate_value is None:
-                candidate = new_candidates[best_index]
+                candidate = sucessful_candidates[best_index]
                 candidate_value = values[best_index]
             elif (self.minimize and values[best_index] < candidate_value) or (not self.minimize and values[best_index] > candidate_value):
-                candidate = new_candidates[best_index]
+                candidate = sucessful_candidates[best_index]
                 candidate_value = values[best_index]
         return (candidate, candidate_value)
 
     def search(self, candidate: ConfigurationPoint[T] = None, candidate_value: float = None, num_iter=3, max_per_dimension=10):
         for i in range(num_iter):
             candidate, candidate_value = self.search_one_iter(candidate, candidate_value, max_per_dimension=max_per_dimension)
+            if candidate is None:
+                return (None, None)
         return (candidate, candidate_value)
 
 # python path of primitive, i.e. 'd3m.primitives.common_primitives.RandomForestClassifier'
