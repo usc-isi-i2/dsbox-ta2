@@ -6,10 +6,13 @@ import d3m
 
 from d3m.metadata.pipeline import Pipeline, PrimitiveStep, ArgumentType, PlaceholderStep
 
+# import os
+# os.sys.path.append('/nas/home/kyao/kyao-repo/dsbox2/dsbox-ta2/python')
+
 from importlib import reload
-import dsbox.template
-reload(dsbox.template)
-from dsbox.template import TemplatePipeline, TemplateStep, SemanticType, ExtendedPipelineStep, to_digraph
+import dsbox.template.template
+reload(dsbox.template.template)
+from dsbox.template.template import TemplatePipeline, TemplateStep, SemanticType, ExtendedPipelineStep, to_digraph
 
 primitive = d3m.index.search()
 
@@ -154,11 +157,14 @@ values = {
     'modeller': PrimitiveStep(primitive['d3m.primitives.datasets.DatasetToDataFrame'].metadata.query())
 }
 # Error
-tp2 = tp.get_pipeline(values, None, context='PRETRAINING')
+try:
+    tp2 = tp.get_pipeline(values, None, context='PRETRAINING')
+except d3m.exceptions.InvalidArgumentValueError:
+    pass
 
 
 
-import dsbox.template.search as search
+oimport dsbox.template.search as search
 reload(search)
 
 configuration_space = search.SimpleConfigurationSpace({
@@ -171,23 +177,25 @@ def eval(x):
     value = 0
     for x in x.values():
         value += float(x)
-    return value
+    return (value,)
 
 
-df = search.DimensionalSearch(eval, configuration_space)
+df = search.DimensionalSearch(eval, configuration_space, minimize=True)
 print()
+point = None
 for i in range(10):
     print(i)
-    result = df.search_one_iter(max_per_dimension=3)
-    print(result)
+    point, result = df.search_one_iter(point, max_per_dimension=3)
+    print(point, result)
 
 print()
+point = None
 for i in range(10):
     print(i)
-    result = df.search_one_iter(max_per_dimension=3)
-    print(result)
-    result = df.search_one_iter(result[0], result[1], max_per_dimension=3)
-    print(result)
+    point, result = df.search_one_iter(point, max_per_dimension=3)
+    print(point, result)
+    point, result = df.search_one_iter(point, result, max_per_dimension=3)
+    print(point, result)
 
 ######
 

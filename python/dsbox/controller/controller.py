@@ -1,5 +1,6 @@
 import enum
 import os
+import random
 import typing
 
 import d3m
@@ -10,7 +11,7 @@ from d3m.metadata.problem import parse_problem_description, TaskType, TaskSubtyp
 from d3m.exceptions import NotSupportedError, InvalidArgumentValueError
 
 from dsbox.template.library import TemplateLibrary, TemplateDescription
-from dsbox.template.search import TemplateDimensionalSearch, ConfigurationSpace, SimpleConfigurationSpace, PythonPath, DimensionName
+from dsbox.template.search import TemplateDimensionalRandomHyperparameterSearch, TemplateDimensionalSearch, ConfigurationSpace, SimpleConfigurationSpace, PythonPath, DimensionName
 from dsbox.template.template import TemplatePipeline, SemanticType
 from dsbox.pipeline.fitted_pipeline import FittedPipeline
 
@@ -50,6 +51,9 @@ class Controller:
 
         # Primitives
         self.primitive: typing.Dict = d3m.index.search()
+
+        # set random seed
+        random.seed(4676)
 
     def initialize_from_config(self, config: typing.Dict) -> None:
         self.config = config
@@ -99,21 +103,21 @@ class Controller:
 
         metrics = self.problem['problem']['performance_metrics']
 
-        search = TemplateDimensionalSearch(
-            template, space, d3m.index.search(), self.dataset, self.dataset, metrics)
+        # search = TemplateDimensionalSearch(template, space, d3m.index.search(), self.dataset, self.dataset, metrics)
+        search = TemplateDimensionalSearch(template, space, d3m.index.search(), self.dataset, self.dataset, metrics)
         candidate, value = search.search_one_iter()
-        print("=====~~~~~~~~~~~  new pipeline saving function test  ~~~~~~~~~~~=====")
-        # Here we transfer the candidate from template dimensional search to fittedPipeline class first
-        # Then, we can do further fit function or save them
+        if candidate is None:
+            return Status.PROBLEM_NOT_IMPLEMENT
+        else:
+            print("????")
+            print(candidate.data)
+            print(candidate, value)
 
-        pipeline = FittedPipeline.create(configuration = candidate, dataset = self.dataset)
-        pipeline.save(self.config['saving_folder_loc'])
+            # save the pipeline
+            pipeline = FittedPipeline.create(configuration = candidate, dataset = self.dataset)
+            pipeline.save(self.config['saving_folder_loc'])
 
-        print("=====~~~~~~~~~~~  new pipeline saving function finished  ~~~~~~~~~~~=====")
-        print()
-        print("-----------------------------------end----------------------------------------")
-        print(candidate, value)
-        return Status.OK
+            return Status.OK
 
     def test(self) -> Status:
         """
