@@ -1,0 +1,5 @@
+{
+	"muxin_a": ["d3m.primitives.datasets.DatasetToDataFrame"],
+	"muxin_b":["d3m.primitives.sklearn_wrap.SKRandomForestClassifier","d3m.primitives.data.ExtractAttributes"],
+	"muxin_c":["d3m.primitives.sklearn_wrap.SKRandomForestClassifier"]
+}
