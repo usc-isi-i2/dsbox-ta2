@@ -1,5 +1,10 @@
+import json
+import os
+import glob
+import sys
 import typing
-# import .search  # added
+
+
 from enum import Enum
 
 from d3m import utils, index
@@ -215,10 +220,7 @@ class SemanticTypeDict(object):
         self.mapper = {}
 
     def read_primitives(self)->None:
-        import json
-        import os
-        import glob
-        import sys
+
         # jsonPath = os.path.join(libdir, filename)
         # print(self.pos)
         user_Defined_Confs = glob.glob(self.pos + "/*_template_semantic_mapping.json")
