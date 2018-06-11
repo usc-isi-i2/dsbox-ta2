@@ -10,9 +10,9 @@ from d3m.metadata.base import ALL_ELEMENTS
 from d3m.metadata.problem import parse_problem_description, TaskType, TaskSubtype
 from d3m.exceptions import NotSupportedError, InvalidArgumentValueError
 
-from dsbox.template.library import TemplateLibrary, TemplateDescription
+from dsbox.template.library import TemplateLibrary, TemplateDescription, SemanticTypeDict
 from dsbox.template.search import TemplateDimensionalRandomHyperparameterSearch, TemplateDimensionalSearch, ConfigurationSpace, SimpleConfigurationSpace, PythonPath, DimensionName
-from dsbox.template.template import TemplatePipeline, SemanticType
+from dsbox.template.template import TemplatePipeline
 from dsbox.pipeline.fitted_pipeline import FittedPipeline
 
 __all__ = ['Status', 'Controller']
@@ -70,7 +70,7 @@ class Controller:
         # Resource limits
         self.num_cpus = int(config.get('cpus', 0))
         self.ram = config.get('ram', 0)
-        self.timeout = (config.get('timeout', self.TIMEOUT))*60
+        self.timeout = (config.get('timeout', self.TIMEOUT)) * 60
 
         # Templates
         self.load_templates(
@@ -139,40 +139,50 @@ class Controller:
         
         return Status.OK
 
+    # def generate_configuration_space(self, template_desc: TemplateDescription, problem: typing.Dict, dataset: typing.Optional[Dataset]) -> ConfigurationSpace:
+    #     """
+    #     Generate search space
+    #     """
+
+    #     # TODO: Need to update dsbox.planner.common.ontology.D3MOntology and dsbox.planner.common.ontology.D3MPrimitiveLibrary, and integrate with them
+
+    #     values: typing.Dict[DimensionName, typing.List] = {}
+    #     for name, step in template_desc.template.template_nodes.items():
+    #         if step.semantic_type == SemanticType.CLASSIFIER:
+    #             values[DimensionName(name)] = ['d3m.primitives.common_primitives.RandomForestClassifier', 'd3m.primitives.sklearn_wrap.SKSGDClassifier']
+    #         elif step.semantic_type == SemanticType.REGRESSOR:
+    #             values[DimensionName(name)] = ['d3m.primitives.common_primitives.LinearRegression',
+    #                                            'd3m.primitives.sklearn_wrap.SKSGDRegressor',
+    #                                            'd3m.primitives.sklearn_wrap.SKRandomForestRegressor']
+    #         elif step.semantic_type == SemanticType.ENCODER:
+    #             raise NotSupportedError('Template semantic type not supported: {}'.format(step.semantic_type))
+    #         elif step.semantic_type == SemanticType.IMPUTER:
+    #             raise NotSupportedError('Template semantic type not supported: {}'.format(step.semantic_type))
+    #         elif step.semantic_type == SemanticType.FEATURER_GENERATOR:
+    #             raise NotSupportedError('Template semantic type not supported: {}'.format(step.semantic_type))
+    #         elif step.semantic_type == SemanticType.FEATURER_SELECTOR:
+    #             raise NotSupportedError('Template semantic type not supported: {}'.format(step.semantic_type))
+    #         elif step.semantic_type == SemanticType.UNDEFINED:
+    #             raise NotSupportedError('Template semantic type not supported: {}'.format(step.semantic_type))
+    #         else:
+    #             raise NotSupportedError('Template semantic type not supported: {}'.format(step.semantic_type))
+    #     return SimpleConfigurationSpace(values)
     def generate_configuration_space(self, template_desc: TemplateDescription, problem: typing.Dict, dataset: typing.Optional[Dataset]) -> ConfigurationSpace:
         """
         Generate search space
         """
 
         # TODO: Need to update dsbox.planner.common.ontology.D3MOntology and dsbox.planner.common.ontology.D3MPrimitiveLibrary, and integrate with them
-
-        values: typing.Dict[DimensionName, typing.List] = {}
-        for name, step in template_desc.template.template_nodes.items():
-            if step.semantic_type == SemanticType.CLASSIFIER:
-                values[DimensionName(name)] = [
-                    'd3m.primitives.sklearn_wrap.SKSGDClassifier', 'd3m.primitives.sklearn_wrap.SKSGDClassifier']
-            elif step.semantic_type == SemanticType.REGRESSOR:
-                values[DimensionName(name)] = ['d3m.primitives.common_primitives.LinearRegression',
-                                               'd3m.primitives.sklearn_wrap.SKSGDRegressor',
-                                               'd3m.primitives.sklearn_wrap.SKRandomForestRegressor']
-            elif step.semantic_type == SemanticType.ENCODER:
-                raise NotSupportedError(
-                    'Template semantic type not supported: {}'.format(step.semantic_type))
-            elif step.semantic_type == SemanticType.IMPUTER:
-                raise NotSupportedError(
-                    'Template semantic type not supported: {}'.format(step.semantic_type))
-            elif step.semantic_type == SemanticType.FEATURER_GENERATOR:
-                raise NotSupportedError(
-                    'Template semantic type not supported: {}'.format(step.semantic_type))
-            elif step.semantic_type == SemanticType.FEATURER_SELECTOR:
-                raise NotSupportedError(
-                    'Template semantic type not supported: {}'.format(step.semantic_type))
-            elif step.semantic_type == SemanticType.UNDEFINED:
-                raise NotSupportedError(
-                    'Template semantic type not supported: {}'.format(step.semantic_type))
-            else:
-                raise NotSupportedError(
-                    'Template semantic type not supported: {}'.format(step.semantic_type))
+        libdir = os.path.join(os.getcwd(), "library")
+        # print(libdir)
+        mapper_to_primitives = SemanticTypeDict(libdir)
+        mapper_to_primitives.read_primitives()
+        # print(mapper_to_primitives.mapper)
+        # print(mapper_to_primitives.mapper)
+        values = mapper_to_primitives.create_configuration_space(template_desc.template)
+        # print(template_desc.template.template_nodes.items())
+        print(values)
+        # values: typing.Dict[DimensionName, typing.List] = {}
         return SimpleConfigurationSpace(values)
 
     def _check_and_set_dataset_metadata(self) -> None:

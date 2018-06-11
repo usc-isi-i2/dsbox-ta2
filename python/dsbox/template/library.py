@@ -1,13 +1,18 @@
+import json
+import os
+import glob
+import sys
 import typing
+
 
 from enum import Enum
 
 from d3m import utils, index
 from d3m.container.dataset import Dataset
-from d3m.metadata.pipeline import PrimitiveStep,  ArgumentType
+from d3m.metadata.pipeline import PrimitiveStep, ArgumentType
 from d3m.metadata.problem import TaskType, TaskSubtype
 
-from dsbox.template.template import TemplatePipeline, TemplateStep, SemanticType
+from dsbox.template.template import TemplatePipeline, TemplateStep
 
 
 class TemplateDescription:
@@ -25,6 +30,7 @@ class TemplateDescription:
     predicted_target_step: int
         The step of the template generates the predictions
     """
+
     def __init__(self, task: TaskType, template: TemplatePipeline, target_step: int, predicted_target_step: int) -> None:
         self.task = task
         self.template = template
@@ -32,6 +38,7 @@ class TemplateDescription:
         # Instead of having these attributes here, probably should attach attributes to the template steps
         self.target_step = target_step
         self.predicted_target_step = predicted_target_step
+
 
 class TemplateLibrary:
     """
@@ -61,13 +68,14 @@ class TemplateLibrary:
         pass
 
     def _load_inline_templates(self):
-        self.templates.append(self._generate_simple_classifer_template())
-        self.templates.append(self._generate_simple_regressor_template())
+        # self.templates.append(self._generate_simple_classifer_template())
+        # self.templates.append(self._generate_simple_regressor_template())
 
-    def _generate_simple_classifer_template(self) -> TemplateDescription:
-        """
-        Default classification template
-        """
+        # added new inline_templates muxin
+        self.templates.append(self._generate_simple_classifer_template_new())
+        self.templates.append(self._generate_simple_regressor_template_new())
+
+    def _generate_simple_classifer_template_new(self)-> TemplateDescription:
         template = TemplatePipeline(context='PRETRAINING')
 
         denormalize_step = PrimitiveStep(self.primitive['d3m.primitives.datasets.Denormalize'].metadata.query())
@@ -79,7 +87,8 @@ class TemplateLibrary:
         extract_target_step = PrimitiveStep(self.primitive['d3m.primitives.data.ExtractTargets'].metadata.query())
         cast_2_step = PrimitiveStep(self.primitive['d3m.primitives.data.CastToType'].metadata.query())
 
-        model_step = TemplateStep('modeller', SemanticType.CLASSIFIER)
+        # model_step = TemplateStep("modeller", "dsbox-classifiers")
+        model_step = TemplateStep('classifiers', "dsbox-classifiers")
 
         template_input = template.add_input('input dataset')
 
@@ -95,7 +104,7 @@ class TemplateLibrary:
         template.add_step(model_step)
         # template.add_step(prediction_step)
 
-        denormalize_step.add_argument('inputs',  ArgumentType.CONTAINER, template_input)
+        denormalize_step.add_argument('inputs', ArgumentType.CONTAINER, template_input)
         denormalize_step_produce = denormalize_step.add_output('produce')
 
         to_DataFrame_step.add_argument('inputs', ArgumentType.CONTAINER, denormalize_step_produce)
@@ -120,7 +129,6 @@ class TemplateLibrary:
         cast_2_step.add_argument('inputs', ArgumentType.CONTAINER, extract_target_produce)
         cast_2_produce = cast_2_step.add_output('produce')
 
-
         model_step.add_expected_argument('inputs', ArgumentType.CONTAINER)
         model_step.add_expected_argument('outputs', ArgumentType.CONTAINER)
         model_step.add_input(impute_produce)
@@ -133,7 +141,7 @@ class TemplateLibrary:
                                           template.steps.index(model_step))
         return description
 
-    def _generate_simple_regressor_template(self) -> TemplateDescription:
+    def _generate_simple_regressor_template_new(self) -> TemplateDescription:
         """
         Default regression template
         """
@@ -148,7 +156,8 @@ class TemplateLibrary:
         extract_target_step = PrimitiveStep(self.primitive['d3m.primitives.data.ExtractTargets'].metadata.query())
         # cast_2_step = PrimitiveStep(self.primitive['d3m.primitives.data.CastToType'].metadata.query())
 
-        model_step = TemplateStep('modeller', SemanticType.REGRESSOR)
+        # model_step = TemplateStep('modeller', "dsbox-regressions")
+        model_step = TemplateStep('regressors', "dsbox-regressions")
 
         template_input = template.add_input('input dataset')
 
@@ -187,7 +196,6 @@ class TemplateLibrary:
         # cast_2_step.add_argument('inputs', ArgumentType.CONTAINER, extract_target_produce)
         # cast_2_produce = cast_2_step.add_output('produce')
 
-
         model_step.add_expected_argument('inputs', ArgumentType.CONTAINER)
         model_step.add_expected_argument('outputs', ArgumentType.CONTAINER)
         model_step.add_input(impute_produce)
@@ -200,5 +208,37 @@ class TemplateLibrary:
         description = TemplateDescription(TaskType.REGRESSION, template, template.steps.index(extract_target_step), template.steps.index(model_step))
         return description
 
-        
-        
+
+# class added by Muxin
+# read json files from library
+# return configuration_space
+
+
+class SemanticTypeDict(object):
+    def __init__(self, libdir):
+        self.pos = libdir
+        self.mapper = {}
+
+    def read_primitives(self)->None:
+
+        # jsonPath = os.path.join(libdir, filename)
+        # print(self.pos)
+        user_Defined_Confs = glob.glob(self.pos + "/*_template_semantic_mapping.json")
+        # print(user_Defined_Confs)
+        for u in user_Defined_Confs:
+            with open(u, "r") as cf:
+                print("opened", u)
+                for v in json.load(cf).items():
+                    self.mapper[v[0]] = v[1]
+
+    def create_configuration_space(self, template: TemplatePipeline):
+        definition = {}
+        # for t in TemplatePipeline:
+        #     if isinstance(t, list):
+        steps = template.template_nodes.keys()
+        for s in steps:
+            if template.template_nodes[s].semantic_type in self.mapper.keys():
+                definition[s] = self.mapper[template.template_nodes[s].semantic_type]
+
+        # return SimpleConfigurationSpace(definition)
+        return definition

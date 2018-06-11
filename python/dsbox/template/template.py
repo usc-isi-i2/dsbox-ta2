@@ -13,23 +13,15 @@ from d3m.metadata.pipeline import Pipeline, PipelineStep, StepBase, PrimitiveSte
 from d3m.primitive_interfaces.base import PrimitiveBaseMeta
 
 # Define separate extended pipe step enum, because Python cannot extend Enum
+
+
 class ExtendedPipelineStep(utils.Enum):
     TEMPLATE = 1
 
-class SemanticType(utils.Enum):
-    """
-    Semantic type of template nodes.
-    """
-    # Need to map this to primitives in dsbox.planner.common.ontology.D3mOntology
-    UNDEFINED = 1
-    ENCODER = 2
-    IMPUTER = 3
-    FEATURER_GENERATOR = 4
-    FEATURER_SELECTOR = 5
-    CLASSIFIER = 6
-    REGRESSOR = 7
 
 HYPERPARAMETER_DIRECTIVE: str = 'dsbox_hyperparameter_directive'
+
+
 class HyperparamDirective(utils.Enum):
     """
     Specify how to choose hyperparameters
@@ -37,7 +29,9 @@ class HyperparamDirective(utils.Enum):
     DEFAULT = 1
     RANDOM = 2
 
+
 TS = typing.TypeVar('TS', bound='TemplateStep')
+
 
 class TemplateStep(PlaceholderStep):
     """
@@ -60,7 +54,7 @@ class TemplateStep(PlaceholderStep):
         Arguments the template step is expecting
     """
 
-    def __init__(self, name: str, semantic_type: SemanticType, resolver: Resolver = None) -> None:
+    def __init__(self, name: str, semantic_type: str, resolver: Resolver = None) -> None:
         super().__init__(resolver=resolver)
         self.name = name
         self.semantic_type = semantic_type
@@ -102,12 +96,15 @@ class TemplateStep(PlaceholderStep):
 
         return step_description
 
+
 TP = typing.TypeVar('TP', bound='TemplatePipeline')
+
 
 class TemplatePipeline(Pipeline):
     """
     Pipeline with template steps
     """
+
     def __init__(self, pipeline_id: str = None, *, context: typing.Any, created: datetime.datetime = None,
                  source: typing.Dict = None, name: str = None, description: str = None) -> None:
         super().__init__(pipeline_id, context=context, created=created, source=source, name=name, description=description)
@@ -125,7 +122,7 @@ class TemplatePipeline(Pipeline):
         """
         Convenience method for generating PrimitiveStep from primitive id
         """
-        step = PrimitiveStep(metadata, resolver = resolver)
+        step = PrimitiveStep(metadata, resolver=resolver)
 
         # Set hyperparameters
         if HYPERPARAMETER_DIRECTIVE in metadata:
@@ -140,8 +137,8 @@ class TemplatePipeline(Pipeline):
                     else:
                         raise ValueError('TemplatePipeline.to_step(): Need to add case for type: {}'.format(type(value)))
                     hyperparams[key] = {
-                        'type' : argument_type,
-                        'data' : value
+                        'type': argument_type,
+                        'data': value
                     }
                 step.hyperparams = hyperparams
 
@@ -267,12 +264,13 @@ class TemplatePipeline(Pipeline):
         else:
             return super()._get_step_class(step_type)
 
+
 def to_digraph(pipeline: Pipeline) -> nx.DiGraph:
     """
     Convert pipeline to directed graph.
     """
     graph = nx.DiGraph()
-    names =[]
+    names = []
     for step in pipeline.steps:
         if isinstance(step, PrimitiveStep):
             names.append(str(step.primitive).split('.')[-1])
@@ -298,4 +296,3 @@ def to_digraph(pipeline: Pipeline) -> nx.DiGraph:
         else:
             graph.add_edge(origin, names[i])
     return graph
-
