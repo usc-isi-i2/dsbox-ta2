@@ -12,7 +12,7 @@ from d3m.exceptions import NotSupportedError, InvalidArgumentValueError
 
 from dsbox.template.library import TemplateLibrary, TemplateDescription, SemanticTypeDict
 from dsbox.template.search import TemplateDimensionalRandomHyperparameterSearch, TemplateDimensionalSearch, ConfigurationSpace, SimpleConfigurationSpace, PythonPath, DimensionName
-from dsbox.template.template import TemplatePipeline
+from dsbox.template.template import TemplatePipeline,to_digraph
 from dsbox.pipeline.fitted_pipeline import FittedPipeline
 
 __all__ = ['Status', 'Controller']
@@ -84,7 +84,39 @@ class Controller:
             self.task_type, self.task_subtype)
 
     def write_training_results(self):
-        pass
+        # load trained pipelines
+        d = os.path.expanduser(self.config['saving_folder_loc'] + '/pipelines')
+        # for now, the program will automatically load the newest created file in the folder
+        files = [os.path.join(d, f) for f in os.listdir(d)]
+        exec_pipelines = []
+        for f in files:
+            fname = f.split('/')[-1].split('.')[0]
+            pipeline_load = FittedPipeline.load(folder_loc=self.config['saving_folder_loc'],
+                                                pipeline_id=fname,
+                                                dataset=self.dataset)
+            exec_pipelines.append(pipeline_load)
+
+
+        print("[INFO] wtr:",exec_pipelines)
+        # sort the pipelins
+        # TODO add the sorter method
+        # self.exec_pipelines = self.get_pipeline_sorter().sort_pipelines(self.exec_pipelines)
+
+        # write the results
+        pipelinesfile = open("somefile.ext",'W+') # TODO check this address
+        print("Found total %d successfully executing pipeline(s)..." % len(exec_pipelines))
+        pipelinesfile.write("# Pipelines ranked by (adjusted) metrics (%s)\n" % self.problem.metrics)
+        for pipe in exec_pipelines:
+            metric_values = []
+            for metric in pipe.planner_result.metric_values.keys():
+                metric_value = pipe.planner_result.metric_values[metric]
+                metric_values.append("%s = %2.4f" % (metric, metric_value))
+
+            pipelinesfile.write("%s ( %s ) : %s\n" % (pipeline.id, pipe, metric_values))
+
+        pipelinesfile.flush()
+        pipelinesfile.close()
+
 
     def train(self) -> Status:
         """
@@ -112,6 +144,7 @@ class Controller:
             print("????")
             print(candidate.data)
             print(candidate, value)
+            print("###", value)
 
             # save the pipeline
             pipeline = FittedPipeline.create(configuration = candidate, dataset = self.dataset)
