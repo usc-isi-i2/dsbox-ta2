@@ -76,7 +76,7 @@ class TemplateLibrary:
         self.templates.append(self._generate_simple_regressor_template_new())
 
     def _generate_simple_classifer_template_new(self)-> TemplateDescription:
-        template = TemplatePipeline(context='PRETRAINING')
+        template = TemplatePipeline(context='PRETRAINING', name='dsbox_classifer')
 
         denormalize_step = PrimitiveStep(self.primitive['d3m.primitives.datasets.Denormalize'].metadata.query())
         to_DataFrame_step = PrimitiveStep(self.primitive['d3m.primitives.datasets.DatasetToDataFrame'].metadata.query())
@@ -145,7 +145,7 @@ class TemplateLibrary:
         """
         Default regression template
         """
-        template = TemplatePipeline(context='PRETRAINING')
+        template = TemplatePipeline(context='PRETRAINING', name='dsbox_regressor')
 
         denormalize_step = PrimitiveStep(self.primitive['d3m.primitives.datasets.Denormalize'].metadata.query())
         to_DataFrame_step = PrimitiveStep(self.primitive['d3m.primitives.datasets.DatasetToDataFrame'].metadata.query())
