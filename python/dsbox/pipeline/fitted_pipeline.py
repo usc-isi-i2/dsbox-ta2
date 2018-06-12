@@ -3,6 +3,8 @@ from d3m.container.dataset import Dataset
 from d3m.metadata.pipeline import Pipeline
 from d3m.runtime import Runtime
 from dsbox.template.search import ConfigurationSpace, ConfigurationPoint
+from dsbox.template.template import to_digraph
+from networkx import nx
 import pickle
 import json 
 
@@ -53,6 +55,9 @@ class FittedPipeline:
         print("The pipeline files will be stored in:")
         print(self.folder_loc)
 
+        print("Writing:",self)
+
+
         # save the pipeline with json format
         json_loc = self.folder_loc + '/pipelines/' + self.id + '.json'
         with open(json_loc, 'w') as f:
@@ -75,6 +80,12 @@ class FittedPipeline:
             with open(file_loc, "wb") as f:
                 pickle.dump(each_step, f)
 
+    def __str__(self):
+        dag_pipe = to_digraph(self.pipeline)
+        dag_order = list(nx.topological_sort(dag_pipe))
+        # print("Sorted:", dag_order)
+        return str(dag_order)
+
     @classmethod
     def load(cls:typing.Type[TP], folder_loc: str, pipeline_id: str, dataset: Dataset) -> TP:
         '''
@@ -89,6 +100,7 @@ class FittedPipeline:
 
         # load detail fitted parameters from pkl files
         run = Runtime(pipeline_to_load)
+
         pkl_loc = folder_loc + '/excutables/' + pipeline_id
         for i in range(0, len(run.execution_order)):
             print("Now loading step_", i)
