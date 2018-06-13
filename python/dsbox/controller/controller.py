@@ -85,13 +85,13 @@ class Controller:
 
     def write_training_results(self):
         # load trained pipelines
-        d = os.path.expanduser(self.config['saving_folder_loc'] + '/pipelines')
+        d = os.path.expanduser(self.config['executables_root'] + '/pipelines')
         # for now, the program will automatically load the newest created file in the folder
         files = [os.path.join(d, f) for f in os.listdir(d)]
         exec_pipelines = []
         for f in files:
             fname = f.split('/')[-1].split('.')[0]
-            pipeline_load = FittedPipeline.load(folder_loc=self.config['saving_folder_loc'],
+            pipeline_load = FittedPipeline.load(folder_loc=self.config['executables_root'],
                                                 pipeline_id=fname,
                                                 dataset=self.dataset)
             exec_pipelines.append(pipeline_load)
@@ -148,7 +148,7 @@ class Controller:
 
             # save the pipeline
             pipeline = FittedPipeline.create(configuration = candidate, dataset = self.dataset)
-            pipeline.save(self.config['saving_folder_loc'])
+            pipeline.save(self.config['executables_root'])
 
             return Status.OK
 
@@ -159,14 +159,14 @@ class Controller:
         print("=====~~~~~~~~~~~  new pipeline loading function test  ~~~~~~~~~~~=====")
 
 
-        d = os.path.expanduser(self.config['saving_folder_loc'] + '/pipelines') 
+        d = os.path.expanduser(self.config['executables_root'] + '/pipelines') 
         # for now, the program will automatically load the newest created file in the folder
         files = [os.path.join(d, f) for f in os.listdir(d)]
         files.sort(key=lambda f: os.stat(f).st_mtime)
         lastmodified = files[-1]
         read_pipeline_id = lastmodified.split('/')[-1].split('.')[0]
         
-        pipeline_load = FittedPipeline.load(folder_loc = self.config['saving_folder_loc'], pipeline_id = read_pipeline_id, dataset = self.dataset)
+        pipeline_load = FittedPipeline.load(folder_loc = self.config['executables_root'], pipeline_id = read_pipeline_id, dataset = self.dataset)
 
         print("=====~~~~~~~~~~~  new pipeline loading function finished  ~~~~~~~~~~~=====")
         
