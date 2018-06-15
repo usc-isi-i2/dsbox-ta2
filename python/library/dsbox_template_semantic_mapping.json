@@ -1,4 +1,4 @@
 {
-	"dsbox-classifiers":["d3m.primitives.common_primitives.RandomForestClassifier", "d3m.primitives.sklearn_wrap.SKSGDClassifier"],
-	"dsbox-regressions":["d3m.primitives.common_primitives.LinearRegression", "d3m.primitives.sklearn_wrap.SKSGDRegressor","d3m.primitives.sklearn_wrap.SKRandomForestRegressor"]
+	"dsbox-classifiers":["d3m.primitives.sklearn_wrap.SKRandomForestClassifier", "d3m.primitives.sklearn_wrap.SKSGDClassifier"],
+	"dsbox-regressions":["d3m.primitives.sklearn_wrap.SKSGDRegressor","d3m.primitives.sklearn_wrap.SKRandomForestRegressor"]
 }

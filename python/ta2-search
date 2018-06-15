@@ -49,9 +49,6 @@ config = {'cpus': '10',
           }
 
 
-controller.initialize_from_config(config)
-status = controller.train()
-
 # from dsbox.planner.controller import Controller, Feature
 # from dsbox.planner.event_handler import PlannerEventHandler
 
@@ -124,9 +121,11 @@ def main(args):
     print('Using configuation:')
     pprint(config)
 
-    controller.initialize_from_config(config)
+    # controller.initialize_from_config(config)
+    controller.initialize_from_config_train_test(config)
 
-    status = controller.test()
+    status = controller.train()
+
     return status.value
 
 
