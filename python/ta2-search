@@ -5,8 +5,6 @@ Command Line Interface for running the DSBox TA2 Search
 """
 
 from dsbox_dev_setup import path_setup
-path_setup()
-
 import argparse
 import json
 import os
@@ -48,9 +46,8 @@ config = {'cpus': '10',
           'training_data_root': '/Users/minazuki/Desktop/studies/master/2018Summer/DSBOX/data/38_sick/38_sick_dataset',
           }
 
+
 '''
-controller.initialize_from_config(config)
-status = controller.train()
 
 # from dsbox.planner.controller import Controller, Feature
 # from dsbox.planner.event_handler import PlannerEventHandler
@@ -124,9 +121,11 @@ def main(args):
     print('Using configuation:')
     pprint(config)
 
-    controller.initialize_from_config(config)
+    # controller.initialize_from_config(config)
+    controller.initialize_from_config_train_test(config)
 
-    status = controller.test()
+    status = controller.train()
+
     return status.value
 
 

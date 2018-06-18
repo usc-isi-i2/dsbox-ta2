@@ -1,12 +1,14 @@
 import enum
+import json
 import os
 import random
 import typing
 
 import d3m
+import d3m.runtime as runtime
 
 from d3m.container.dataset import Dataset, D3MDatasetLoader
-from d3m.metadata.base import ALL_ELEMENTS
+from d3m.metadata.base import ALL_ELEMENTS, Metadata
 from d3m.metadata.problem import parse_problem_description, TaskType, TaskSubtype
 from d3m.exceptions import NotSupportedError, InvalidArgumentValueError
 
@@ -17,11 +19,53 @@ from dsbox.pipeline.fitted_pipeline import FittedPipeline
 
 __all__ = ['Status', 'Controller']
 
+import copy
+import pprint
+from sklearn.model_selection import StratifiedShuffleSplit
+def split_dataset(dataset, problem):
+    for i in range(len(problem['inputs'])):
+        if 'targets' in problem['inputs']:
+            break
+    res_id = problem['inputs'][i]['targets'][0]['resource_id']
+    target_index = problem['inputs'][i]['targets'][0]['column_index']
+    sss = StratifiedShuffleSplit(n_splits=1, test_size=0.2, random_state=42)
+    sss.get_n_splits(dataset[res_id], dataset[res_id].iloc[:,30])
+    for train_index, test_index in sss.split(dataset[res_id], dataset[res_id].iloc[:,30]):
+        print('train', train_index)
+        print('test', test_index)
+        train = dataset[res_id].iloc[train_index,:]
+        test = dataset[res_id].iloc[test_index,:]
+
+    # Generate training dataset
+    train_dataset = copy.copy(dataset)
+    train_dataset[res_id] = train
+    meta = dict(train_dataset.metadata.query((res_id,)))
+    dimension = dict(meta['dimension'])
+    meta['dimension'] = dimension
+    dimension['length'] = train.shape[0]
+    print(meta)
+    train_dataset.metadata = train_dataset.metadata.update((res_id,), meta)
+    pprint.pprint(dict(train_dataset.metadata.query((res_id,))))
+    
+    # Generate testing dataset
+    test_dataset = copy.copy(dataset)
+    test_dataset[res_id] = test
+    meta = dict(test_dataset.metadata.query((res_id,)))
+    dimension = dict(meta['dimension'])
+    meta['dimension'] = dimension
+    dimension['length'] = test.shape[0]
+    print(meta)
+    test_dataset.metadata = test_dataset.metadata.update((res_id,), meta)
+    pprint.pprint(dict(test_dataset.metadata.query((res_id,))))
+    
+
+    return (train_dataset, test_dataset)
+
+    
 
 class Status(enum.Enum):
     OK = 0
     PROBLEM_NOT_IMPLEMENT = 148
-
 
 class Controller:
     TIMEOUT = 59  # in minutes
@@ -39,6 +83,7 @@ class Controller:
 
         # Dataset
         self.dataset: Dataset = None
+        self.test_dataset: Dataset = None
 
         # Resource limits
         self.num_cpus: int = 0
@@ -67,6 +112,62 @@ class Controller:
             os.path.abspath(config['dataset_schema']))
         self.dataset = loader.load(dataset_uri=dataset_uri)
 
+        # Resource limits
+        self.num_cpus = int(config.get('cpus', 0))
+        self.ram = config.get('ram', 0)
+        self.timeout = (config.get('timeout', self.TIMEOUT)) * 60
+
+        # Templates
+        self.load_templates(
+            self.problem['problem']['task_type'], self.problem['problem']['task_subtype'])
+
+    def initialize_from_config_train_test(self, config: typing.Dict) -> None:
+        self.config = config
+
+        # Problem
+        self.problem = parse_problem_description(config['problem_schema'])
+
+        # Dataset
+        loader = D3MDatasetLoader()
+        json_file = os.path.abspath(config['dataset_schema'])
+        all_dataset_uri = 'file://{}'.format(json_file)
+        self.all_dataset = loader.load(dataset_uri=all_dataset_uri)
+
+        self.dataset, self.test_dataset = split_dataset(self.all_dataset, self.problem)
+
+        # path, _ = os.path.split(original_path)
+        # data_root, _ =  os.path.split(path)
+        # train_json_file = os.path.join(data_root, 'TRAIN', 'dataset_TRAIN', 'datasetDoc.json')
+        # test_json_file = os.path.join(data_root, 'TEST', 'dataset_TEST', 'datasetDoc.json')
+        # if not os.path.exists(train_json_file):
+        #     raise ValueError('Training data sets not found: {}'.format(train_json_file))
+        # if not os.path.exists(train_json_file):
+        #     raise ValueError('Training data sets not found: {}'.format(train_json_file))
+
+        # train_dataset_uri = 'file://{}'.format(train_json_file)
+        # test_dataset_uri = 'file://{}'.format(test_json_file)
+        # print('train dataset uri:', train_dataset_uri)
+        # print('test dataset uri:', test_dataset_uri)
+
+        # self.dataset = loader.load(dataset_uri=train_dataset_uri)
+        # self.test_dataset = loader.load(dataset_uri=test_dataset_uri)
+
+        # print('Train dataset ='*20)
+        # self.dataset.metadata.pretty_print()
+
+        problem_doc_metadata = runtime.load_problem_doc(os.path.abspath(config['problem_schema']))
+        self.test_dataset = runtime.add_target_columns_metadata(self.test_dataset, problem_doc_metadata)
+
+        # print('Test dataset ='*20)
+        # self.test_dataset.metadata.pretty_print()
+
+        # for index in range(self.test_dataset.metadata.query(())['dimension']['length']):
+        #     resource = str(index)
+        #     if ('https://metadata.datadrivendiscovery.org/types/DatasetEntryPoint' in self.test_dataset.metadata.query((str(index),))['semantic_types']
+        #         and self.test_dataset.metadata.query((str(index),))['structural_type'] == 'pandas.core.frame.DataFrame'):
+        #         for col in reversed(range(self.test_dataset.metadata.query((str(index), ALL_ELEMENTS))['length'])):
+        #             if 'https://metadata.datadrivendiscovery.org/types/SuggestedTarget' in self.test_dataset.metadata.query((str(index), ALL_ELEMENTS, col))['semantic_types']:
+                        
         # Resource limits
         self.num_cpus = int(config.get('cpus', 0))
         self.ram = config.get('ram', 0)
@@ -136,15 +237,20 @@ class Controller:
         metrics = self.problem['problem']['performance_metrics']
 
         # search = TemplateDimensionalSearch(template, space, d3m.index.search(), self.dataset, self.dataset, metrics)
-        search = TemplateDimensionalSearch(template, space, d3m.index.search(), self.dataset, self.dataset, metrics)
+        if self.test_dataset is None:
+            search = TemplateDimensionalSearch(template, space, d3m.index.search(), self.dataset, self.dataset, metrics)
+        else:
+            search = TemplateDimensionalSearch(template, space, d3m.index.search(), self.dataset, self.test_dataset, metrics)
+
         candidate, value = search.search_one_iter()
         if candidate is None:
             return Status.PROBLEM_NOT_IMPLEMENT
         else:
-            print("????")
             print(candidate.data)
             print(candidate, value)
-            print("###", value)
+            print('Training {} = {}'.format(candidate.data['training_metrics'][0]['metric'].name, candidate.data['training_metrics'][0]['value']))
+            print('Testing  {} = {}'.format(candidate.data['validation_metrics'][0]['metric'].name, candidate.data['validation_metrics'][0]['value']))
+
 
             # save the pipeline
             pipeline = FittedPipeline.create(configuration = candidate, dataset = self.dataset)

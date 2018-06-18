@@ -1,12 +1,15 @@
+import os
+import json 
+import pickle
 import typing
+
+from networkx import nx
+
 from d3m.container.dataset import Dataset
 from d3m.metadata.pipeline import Pipeline
 from d3m.runtime import Runtime
 from dsbox.template.search import ConfigurationSpace, ConfigurationPoint
 from dsbox.template.template import to_digraph
-from networkx import nx
-import pickle
-import json 
 
 # python path of primitive, i.e. 'd3m.primitives.common_primitives.RandomForestClassifier'
 PythonPath = typing.NewType('PythonPath', str)
@@ -52,21 +55,25 @@ class FittedPipeline:
         Save the given fitted pipeline from TemplateDimensionalSearch
         '''
         self.folder_loc = folder_loc
-        print("The pipeline files will be stored in:")
-        print(self.folder_loc)
+        # print("The pipeline files will be stored in:")
+        # print(self.folder_loc)
 
-        print("Writing:",self)
+        pipeline_dir = os.path.join(self.folder_loc, 'pipelines')
+        executable_dir = os.path.join(self.folder_loc, 'executables')
+        os.makedirs(pipeline_dir, exist_ok=True)
+        os.makedirs(executable_dir, exist_ok=True)
+
+        # print("Writing:",self)
 
 
         # save the pipeline with json format
-        json_loc = self.folder_loc + '/pipelines/' + self.id + '.json'
+        json_loc = os.path.join(pipeline_dir, self.id + '.json')
         with open(json_loc, 'w') as f:
             self.pipeline.to_json_content(f)
 
         # save the pickle files of each primitive step
-        pkl_loc = self.folder_loc + '/excutables/' + self.id
         for i in range(0, len(self.runtime.execution_order)):
-            print("Now saving step_", i)
+            # print("Now saving step_", i)
             n_step = self.runtime.execution_order[i]
             each_step = self.runtime.pipeline[n_step]
             '''
@@ -76,7 +83,7 @@ class FittedPipeline:
             print(each_primitive.get_params())
             print(each_step.hyperparams)
             '''
-            file_loc = pkl_loc + "_step_" + str(i) + ".pkl"
+            file_loc = os.path.join(executable_dir, self.id + "_step_" + str(i) + ".pkl")
             with open(file_loc, "wb") as f:
                 pickle.dump(each_step, f)
 
@@ -92,7 +99,10 @@ class FittedPipeline:
         Load the pipeline with given pipeline id and folder location
         '''
         # load pipeline from json
-        json_loc = folder_loc + '/pipelines/' + pipeline_id + '.json'
+        pipeline_dir = os.path.join(self.folder_loc, 'pipelines')
+        executable_dir = os.path.join(self.folder_loc, 'executables')
+
+        json_loc = os.path.join(pipeline_dir, pipeline_id + '.json')
         print("The following pipeline files will be loaded:")
         print(json_loc)
         with open(json_loc, 'r') as f:
@@ -101,11 +111,10 @@ class FittedPipeline:
         # load detail fitted parameters from pkl files
         run = Runtime(pipeline_to_load)
 
-        pkl_loc = folder_loc + '/excutables/' + pipeline_id
         for i in range(0, len(run.execution_order)):
-            print("Now loading step_", i)
+            print("Now loading step", i)
             n_step = run.execution_order[i]
-            file_loc = pkl_loc + "_step_" + str(i) + ".pkl"
+            file_loc = os.path.join(executable_dir, pipeline_id + "_step_" + str(i) + ".pkl")
             with open(file_loc, "rb") as f:
                 each_step = pickle.load(f)
                 run.pipeline[n_step] = each_step
