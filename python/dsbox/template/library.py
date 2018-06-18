@@ -12,7 +12,7 @@ from d3m.container.dataset import Dataset
 from d3m.metadata.pipeline import PrimitiveStep, ArgumentType
 from d3m.metadata.problem import TaskType, TaskSubtype
 
-from dsbox.template.template import TemplatePipeline, TemplateStep
+from dsbox.template.template import TemplatePipeline, TemplateStep, DSBoxTemplate
 
 
 class TemplateDescription:
@@ -242,3 +242,79 @@ class SemanticTypeDict(object):
 
         # return SimpleConfigurationSpace(definition)
         return definition
+
+class DefaultClassificationTemplate(DSBoxTemplate):
+    def __init__(self):
+        DSBoxTemplate.__init__(self)
+        self.template = {
+            "name": "my template",
+            "taskType": "",
+            "inputType": "",
+            "steps": [
+
+                {
+                    "name": "denormalize_step",
+                    "primitives": ["d3m.primitives.datasets.Denormalize"],
+                    "inputs": ["template_input"]
+                },
+                {
+                    "name": "to_dataframe_step",
+                    "primitives": ["d3m.primitives.datasets.DatasetToDataFrame"],
+                    "inputs": ["denormalize_step"]
+                },
+                {
+                    "name": "my_step3",
+                    "primitives": ["d3m.primitives.datasets.Denormalize", "d3m.primitives.datasets.DatasetToDataFrame", "d3m.primitives.data.ColumnParser", "d3m.primitives.data.ExtractAttributes",
+                                   "d3m.primitives.data.CastToType", "d3m.primitives.sklearn_wrap.SKImputer", "d3m.primitives.data.ExtractTargets", "d3m.primitives.common_primitives.RandomForestClassifier"],
+                    "inputs": ["to_dataframe_step"]
+                },
+
+                {
+                    "name": "my_step4",
+                    "primitives": ["d3m.primitives.datasets.Denormalize", "d3m.primitives.datasets.DatasetToDataFrame", "d3m.primitives.data.ColumnParser", "d3m.primitives.data.ExtractAttributes",
+                                   "d3m.primitives.data.CastToType", "d3m.primitives.sklearn_wrap.SKImputer", "d3m.primitives.data.ExtractTargets", "d3m.primitives.common_primitives.RandomForestClassifier"],
+                    "inputs": ["my_step3"]
+                },
+                {
+                    "name": "my_step5",
+                    "primitives": ["d3m.primitives.datasets.Denormalize", "d3m.primitives.datasets.DatasetToDataFrame", "d3m.primitives.data.ColumnParser", "d3m.primitives.data.ExtractAttributes",
+                                   "d3m.primitives.data.CastToType", "d3m.primitives.sklearn_wrap.SKImputer", "d3m.primitives.data.ExtractTargets", "d3m.primitives.common_primitives.RandomForestClassifier"],
+                    "inputs": ["my_step4"]
+                },
+
+                {
+                    "name": "my_step6",
+                    "primitives": ["d3m.primitives.datasets.Denormalize", "d3m.primitives.datasets.DatasetToDataFrame", "d3m.primitives.data.ColumnParser", "d3m.primitives.data.ExtractAttributes",
+                                   "d3m.primitives.data.CastToType", "d3m.primitives.sklearn_wrap.SKImputer", "d3m.primitives.data.ExtractTargets", "d3m.primitives.common_primitives.RandomForestClassifier"],
+                    "inputs": ["my_step5"]
+                },
+                {
+                    "name": "my_step7",
+                    "primitives": ["d3m.primitives.datasets.Denormalize", "d3m.primitives.datasets.DatasetToDataFrame", "d3m.primitives.data.ColumnParser", "d3m.primitives.data.ExtractAttributes",
+                                   "d3m.primitives.data.CastToType", "d3m.primitives.sklearn_wrap.SKImputer", "d3m.primitives.data.ExtractTargets", "d3m.primitives.common_primitives.RandomForestClassifier"],
+                    "inputs": ["my_step6"]
+                },
+                {
+                    "name": "my_step8",
+                    "primitives": ["d3m.primitives.datasets.Denormalize", "d3m.primitives.datasets.DatasetToDataFrame", "d3m.primitives.data.ColumnParser", "d3m.primitives.data.ExtractAttributes",
+                                   "d3m.primitives.data.CastToType", "d3m.primitives.sklearn_wrap.SKImputer", "d3m.primitives.data.ExtractTargets", "d3m.primitives.common_primitives.RandomForestClassifier"],
+                    "inputs": ["my_step7"]
+                },
+                {
+                    "name": "my_step9",
+                    "primitives": ["d3m.primitives.datasets.Denormalize", "d3m.primitives.datasets.DatasetToDataFrame", "d3m.primitives.data.ColumnParser", "d3m.primitives.data.ExtractAttributes",
+                                   "d3m.primitives.data.CastToType", "d3m.primitives.sklearn_wrap.SKImputer", "d3m.primitives.data.ExtractTargets", "d3m.primitives.common_primitives.RandomForestClassifier"],
+                    "inputs": ["my_step6", "my_step8"]
+                }
+            ]
+        }
+
+    # @override
+    def importance(datset, problem_description):
+        return 7
+
+
+
+
+class DefaultRegressionTemplate(DSBoxTemplate):
+    pass
