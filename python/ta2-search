@@ -23,7 +23,7 @@ from dsbox.controller.controller import Controller
 
 controller = Controller('/', development_mode=True)
 
-'''
+
 config = {'cpus': '10',
           'dataset_schema': '/nas/home/kyao/dsbox/data/datadrivendiscovery.org/data/seed_datasets_current/38_sick/38_sick_dataset/datasetDoc.json',
           'executables_root': '/nas/home/kyao/dsbox/runs/output/38_sick/executables',
@@ -48,7 +48,7 @@ config = {'cpus': '10',
           'training_data_root': '/Users/minazuki/Desktop/studies/master/2018Summer/DSBOX/data/38_sick/38_sick_dataset',
           }
 
-
+'''
 controller.initialize_from_config(config)
 status = controller.train()
 
