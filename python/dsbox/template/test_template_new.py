@@ -3,7 +3,8 @@ import os
 import glob
 import sys
 import typing
-os.sys.path.append("/nfs1/dsbox-repo/muxin/dsbox-ta2/python")
+# os.sys.path.append("/nfs1/dsbox-repo/muxin/dsbox-ta2/python")
+os.sys.path.insert(0, "/nfs1/dsbox-repo/muxin/dsbox-ta2/python")
 from dsbox.template.library import DefaultClassificationTemplate, DefaultRegressionTemplate
 from enum import Enum
 
@@ -12,6 +13,9 @@ from d3m.container.dataset import Dataset
 from d3m.metadata.pipeline import PrimitiveStep, ArgumentType
 from d3m.metadata.problem import TaskType, TaskSubtype
 from dsbox.template.template import TemplatePipeline, TemplateStep, DSBoxTemplate
+from dsbox.template.configuration_space import ConfigurationSpace, SimpleConfigurationSpace
+# import dsbox.template.search as search
+# import dsbox.template.template as template
 
 
 def printpipeline(pipeline):
@@ -123,4 +127,15 @@ def defaultregressoryaml():
         p.to_yaml_content(y)
 
 
-defaultregressoryaml()
+# defaultregressoryaml()
+t = DefaultClassificationTemplate()
+c = t.generate_configuration_space()
+point = c.get_point_using_first_value()
+print(point.space)
+print(point.data)
+# pipeline = t.to_pipeline(point)
+
+l = DefaultRegressionTemplate()
+cc = l.generate_configuration_space()
+print(c._dimension_ordering, cc._dimension_ordering)
+print(c._dimension_values, cc._dimension_values)

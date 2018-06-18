@@ -11,7 +11,8 @@ from d3m import exceptions, utils, index
 from d3m.metadata.base import PrimitiveMetadata
 from d3m.metadata.pipeline import Pipeline, PipelineStep, StepBase, PrimitiveStep, PlaceholderStep, SubpipelineStep, ArgumentType, PlaceholderStep, Resolver, PIPELINE_SCHEMA_VALIDATOR
 from d3m.primitive_interfaces.base import PrimitiveBaseMeta
-
+from .configuration_space import DimensionName, ConfigurationSpace, SimpleConfigurationSpace
+# from dsbox.template.search import TemplateDimensionalRandomHyperparameterSearch, TemplateDimensionalSearch, ConfigurationSpace, SimpleConfigurationSpace, PythonPath, DimensionName
 # Define separate extended pipe step enum, because Python cannot extend Enum
 
 
@@ -389,3 +390,13 @@ class DSBoxTemplate():
         general_output = outputs[self.template["steps"][-1]["name"]]
         pipeline.add_output(general_output, "predictions of input dataset")
         return pipeline
+
+    def generate_configuration_space(self) -> SimpleConfigurationSpace:
+        steps = self.template["steps"]
+        conf_space = {}
+        for s in steps:
+            name = s["name"]
+            methods = s["primitives"]
+            if len(methods) != 1:
+                conf_space[name] = methods
+        return SimpleConfigurationSpace(conf_space)

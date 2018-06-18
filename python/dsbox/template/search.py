@@ -17,106 +17,13 @@ from d3m.runtime import Runtime
 
 from dsbox.schema.problem import optimization_type, OptimizationType
 
-from .template import TemplatePipeline, HYPERPARAMETER_DIRECTIVE, HyperparamDirective
+from .template import HYPERPARAMETER_DIRECTIVE, HyperparamDirective, DSBoxTemplate
 from .library import TemplateDescription
 
-T = typing.TypeVar('T')
-DimensionName = typing.NewType('DimensionName', str)
+from .configuration_space import DimensionName, ConfigurationSpace, SimpleConfigurationSpace
 
+T = typing.TypeVar("T")
 
-class ConfigurationSpace(typing.Generic[T]):
-    """
-    Defines search space, i.e. possible values for each search dimension, and weight for each value
-    """
-
-    @abc.abstractmethod
-    def get_dimensions(self) -> typing.List[DimensionName]:
-        """
-        Returns the dimension names of the configuration space
-        """
-        pass
-
-    @abc.abstractmethod
-    def get_values(self, dimension: DimensionName) -> typing.List[T]:
-        """
-        Returns the values associated with a dimension
-        """
-        pass
-
-    @abc.abstractmethod
-    def get_weight(self, dimension: DimensionName, value: T) -> float:
-        """
-        Returns the wieght associated with each dimension value
-        """
-        pass
-
-    @abc.abstractmethod
-    def get_dimension_search_ordering(self) -> typing.List[DimensionName]:
-        """
-        Returns the dimension names in order of search preference
-        """
-        pass
-
-    def get_point(self, values: typing.Dict[DimensionName, T]):
-        """
-        Returns the point asscoiate with values.
-        """
-        return ConfigurationPoint(self, values)
-
-
-class ConfigurationPoint(typing.Dict[DimensionName, T]):
-    def __init__(self, space: ConfigurationSpace[T], values: typing.Dict[DimensionName, T]) -> None:
-        super().__init__(values)
-        self.space = space
-        self.data: typing.Dict = {}
-
-
-# TODO: SimpleConfigurationSpace should manage and reuse ConfigurationPoints
-class SimpleConfigurationSpace(ConfigurationSpace[T]):
-    def __init__(self, dimension_values: typing.Dict[DimensionName, typing.List[T]], *,
-                 dimension_ordering: typing.List[DimensionName] = None, value_weights: typing.Dict[DimensionName, typing.List[float]] = None) -> None:
-
-        if dimension_ordering is not None and set(dimension_values.keys()) == set(dimension_ordering):
-            raise exceptions.InvalidArgumentValueError(
-                'The keys of dimension_values and dimesion_ordering must be the same')
-
-        if value_weights is not None and not set(dimension_values.keys()) == set(value_weights.keys()):
-            raise exceptions.InvalidArgumentValueError(
-                'The set of keys of dimension_values and value_weights must be the same')
-
-            for key in dimension_values.keys():
-                if not len(dimension_values[key]) == len(value_weights[key]):
-                    raise exceptions.InvalidArgumentValueError(
-                        'The length of dimension_values[{}] and values_weights[{}] must be the same'.format(key, key))
-
-        if value_weights is None:
-            value_weights = {}
-            for key in dimension_values.keys():
-                value_weights[key] = [1.0] * len(dimension_values[key])
-
-        if dimension_ordering is None:
-            dimension_ordering = list(dimension_values.keys())
-
-        self._dimension_values: typing.Dict[DimensionName, typing.List[T]] = dimension_values
-        self._value_weights: typing.Dict[DimensionName, typing.List[float]] = value_weights
-        self._dimension_ordering = dimension_ordering
-
-    def get_dimensions(self):
-        return list(self._dimension_values.keys())
-
-    def get_values(self, dimension: DimensionName) -> typing.List[T]:
-        return self._dimension_values[dimension]
-
-    def get_weight(self, dimension: DimensionName, value: T) -> float:
-        return self._value_weights[dimension][self.get_values(dimension).index(value)]
-
-    def get_dimension_search_ordering(self) -> typing.List[DimensionName]:
-        return self._dimension_ordering
-
-    def get_point(self, values: typing.Dict[DimensionName, T]):
-        # TODO: SimpleConfigurationSpace should manage and reuse ConfigurationPoints
-        return ConfigurationPoint(self, values)
-        
 
 class DimensionalSearch(typing.Generic[T]):
     """
@@ -132,7 +39,7 @@ class DimensionalSearch(typing.Generic[T]):
         If True, minimize the value returned by `evaluate` function
     """
 
-    def __init__(self, evaluate: typing.Callable[[ConfigurationPoint[T]], typing.Tuple[float, dict]], 
+    def __init__(self, evaluate: typing.Callable[[ConfigurationPoint[T]], typing.Tuple[float, dict]],
                  configuration_space: ConfigurationSpace[T], minimize: bool) -> None:
         self.evaluate = evaluate
         self.configuration_space = configuration_space
@@ -149,6 +56,21 @@ class DimensionalSearch(typing.Generic[T]):
                 self.configuration_space.get_values(dimension))
         return assignment
 
+    def first_assignment(self) -> typing.Dict[DimensionName, T]:
+        '''
+        Assign the first value for each dimension
+        '''
+        assignment: typing.Dict[DimensionName, T] = {}
+        for dimension in self.dimension_ordering:
+            assignment[dimension] = self.configuration_space.get_values(dimension)[0]
+        return assignment
+
+    def get_dimension_length(self, kw: str) -> int:
+        '''
+        Return the length of the list a configuration point 
+        '''
+        return len(self.configuration_space.get_values(kw))
+
     def search_one_iter(self, candidate: ConfigurationPoint[T] = None, candidate_value: float = None, max_per_dimension=10):
         """
         Performs one iteration of dimensional search.
@@ -164,7 +86,20 @@ class DimensionalSearch(typing.Generic[T]):
         """
         if candidate is None:
             candidate = ConfigurationPoint(
-                self.configuration_space, self.random_assignment())
+                self.configuration_space, self.first_assignment())
+# first, then random, then another random
+        try:
+            print("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
+            result = self.evaluate(candidate)
+        except:
+            print("************************************")
+            print("Pipeline failed", candidate)
+            candidate = ConfigurationPoint(self.configuration_space, self.random_assignment())
+            try:
+                result = self.evaluate(candidate)
+            except:
+                print("Pipeline failed", candidate)
+                candidate = ConfigurationPoint(self.configuration_space, self.random_assignment())
 
         for dimension in self.dimension_ordering:
             choices: typing.List[T] = self.configuration_space.get_values(dimension)
@@ -195,7 +130,7 @@ class DimensionalSearch(typing.Generic[T]):
                     traceback.print_exc()
 
             # All primitives failed
-            if len(values)==0:
+            if len(values) == 0:
                 return (None, None)
 
             best_index = values.index(min(values))
@@ -279,7 +214,7 @@ class TemplateDimensionalSearch(DimensionalSearch[PythonPath]):
             key: self.primitive_index[python_path].metadata.query() for key, python_path in configuration.items()}
 
         value, new_data = self._evaluate(metadata_configuration)
-        configuration.data.update(new_data)        
+        configuration.data.update(new_data)
         return value, configuration.data
 
     def _evaluate(self, metadata_configuration: typing.Dict) -> typing.Tuple[float, dict]:
@@ -307,7 +242,7 @@ class TemplateDimensionalSearch(DimensionalSearch[PythonPath]):
             training_metrics.append({
                 'metric': metric_description['metric'],
                 'value': metric(training_ground_truth, training_prediction)
-            })        
+            })
             validation_metrics.append({
                 'metric': metric_description['metric'],
                 'value': metric(validation_ground_truth, validation_prediction)
@@ -322,7 +257,9 @@ class TemplateDimensionalSearch(DimensionalSearch[PythonPath]):
         # Use first metric from validation
         return validation_metrics[0]['value'], data
 
+
 PythonPathWithHyperaram = typing.Tuple[PythonPath, int, HyperparamDirective]
+
 
 def generate_hyperparam_configuration_space(space: ConfigurationSpace[PythonPath]) -> ConfigurationSpace[PythonPathWithHyperaram]:
     new_space = {}
@@ -334,11 +271,13 @@ def generate_hyperparam_configuration_space(space: ConfigurationSpace[PythonPath
         new_space[name] = values
     return SimpleConfigurationSpace(new_space)
 
-# Not used            
+# Not used
+
+
 class HyperparameterResolver(Resolver):
     def __init__(self, strict_resolving: bool = False) -> None:
         super().__init__(strict_resolving)
-        
+
     def get_primitive(self, primitive_description: typing.Dict) -> typing.Optional[PrimitiveBase]:
         primitive = super().get_primitive(primitive_description)
         if primitive is not None and HYPERPARAMETER_DIRECTIVE in primitive_description:
@@ -347,15 +286,17 @@ class HyperparameterResolver(Resolver):
                 primitive.hyperparams(hyperparams_class.sample())
 
         return primitive
-                                                                
+
+
 class TemplateDimensionalRandomHyperparameterSearch(DimensionalSearch[PythonPathWithHyperaram]):
     """
     Use dimensional search with random hyperparameters to find best pipeline.
     """
+
     def __init__(self, template_description: TemplateDescription,
                  configuration_space: ConfigurationSpace[PythonPath],
                  primitive_index: typing.Dict[PythonPath, PrimitiveBaseMeta],
-                 train_dataset : Dataset, validation_dataset : Dataset, 
+                 train_dataset: Dataset, validation_dataset: Dataset,
                  performance_metrics: typing.List[typing.Dict],
                  resolver: Resolver = None) -> None:
         # Use first metric from validation
@@ -386,9 +327,8 @@ class TemplateDimensionalRandomHyperparameterSearch(DimensionalSearch[PythonPath
             metadata_configuration[key][HYPERPARAMETER_DIRECTIVE] = directive
 
         value, new_data = self._evaluate(metadata_configuration)
-        configuration.data.update(new_data)        
+        configuration.data.update(new_data)
         return value, configuration.data
-        
 
     def _evaluate(self, metadata_configuration: typing.Dict) -> typing.Tuple[float, dict]:
 
