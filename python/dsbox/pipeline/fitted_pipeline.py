@@ -7,7 +7,8 @@ from networkx import nx
 
 from d3m.container.dataset import Dataset
 from d3m.metadata.pipeline import Pipeline
-from d3m.runtime import Runtime
+
+from dsbox.template.runtime import Runtime
 from dsbox.template.search import ConfigurationSpace, ConfigurationPoint
 from dsbox.template.template import to_digraph
 

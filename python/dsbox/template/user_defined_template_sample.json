@@ -1,0 +1,35 @@
+{
+	"mystep_1":{
+		"primitive":"d3m.primitives.datasets.Denormalize",
+		"hyperparameters":{}
+		},
+	"mystep_2":{
+		"primitive":"d3m.primitives.datasets.DatasetToDataFrame",
+		"hyperparameters":{}
+		},
+	"mystep_3":{
+		"primitive":"d3m.primitives.data.ColumnParser",
+		"hyperparameters":{}
+		},
+	"mystep_4":{
+		"primitive":"d3m.primitives.data.ExtractAttributes",
+		"hyperparameters":{}
+		},
+	"mystep_5":{
+		"primitive":"d3m.primitives.data.CastToType",
+		"hyperparameters":{}
+		},
+	"mystep_6":{
+		"primitive":"d3m.primitives.sklearn_wrap.SKImputer",
+		"hyperparameters":{}
+		},
+	"mystep_7":{
+		"primitive":"d3m.primitives.data.ExtractTargets",
+		"hyperparameters":{}
+		},
+	"mystep_8":{
+		"primitive":"d3m.primitives.common_primitives.RandomForestClassifier",
+		"hyperparameters":{}
+		}
+
+}

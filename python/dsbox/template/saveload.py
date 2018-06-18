@@ -11,7 +11,7 @@ from d3m import utils
 from d3m.container.dataset import Dataset
 from d3m.metadata.base import PrimitiveMetadata
 from d3m.primitive_interfaces.base import PrimitiveBaseMeta
-from d3m.runtime import Runtime
+from dsbox.template.runtime import Runtime
 from d3m.metadata.pipeline import Pipeline
 from dsbox.schema.problem import optimization_type, OptimizationType
 from dsbox.template.search import ConfigurationSpace, ConfigurationPoint

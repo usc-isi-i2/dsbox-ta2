@@ -8,11 +8,11 @@ import typing
 from enum import Enum
 
 from d3m import utils, index
-from d3m.container.dataset import Dataset
+from d3m.container.dataset import Dataset, SEMANTIC_TYPES
 from d3m.metadata.pipeline import PrimitiveStep, ArgumentType
 from d3m.metadata.problem import TaskType, TaskSubtype
 
-from dsbox.template.template import TemplatePipeline, TemplateStep
+from dsbox.template.template import TemplatePipeline, TemplateStep, DSBoxTemplate
 
 
 class TemplateDescription:
@@ -46,7 +46,7 @@ class TemplateLibrary:
     """
 
     def __init__(self, library_dir: str = None) -> None:
-        self.templates: typing.List[TemplateDescription] = []
+        self.templates: typing.List[typing.Type[DSBoxTemplate]] = []
         self.primitive: typing.Dict = index.search()
 
         self.library_dir = library_dir
@@ -55,11 +55,12 @@ class TemplateLibrary:
 
         self._load_inline_templates()
 
-    def get_templates(self, task: TaskType, subtype: TaskSubtype) -> typing.List[TemplateDescription]:
+    def get_templates(self, task: TaskType, subtype: TaskSubtype) -> typing.List[DSBoxTemplate]:
         results = []
-        for desc in self.templates:
-            if desc.task == task:
-                results.append(desc)
+        for template_class in self.templates:
+            template = template_class()
+            if template.template['taskType'] == task.name:
+                results.append(template)
         return results
 
     def _load_library(self):
@@ -72,8 +73,8 @@ class TemplateLibrary:
         # self.templates.append(self._generate_simple_regressor_template())
 
         # added new inline_templates muxin
-        self.templates.append(self._generate_simple_classifer_template_new())
-        self.templates.append(self._generate_simple_regressor_template_new())
+        self.templates.append(DefaultRegressionTemplate)
+        self.templates.append(DefaultClassificationTemplate)
 
     def _generate_simple_classifer_template_new(self)-> TemplateDescription:
         template = TemplatePipeline(context='PRETRAINING', name='dsbox_classifer')
@@ -242,3 +243,132 @@ class SemanticTypeDict(object):
 
         # return SimpleConfigurationSpace(definition)
         return definition
+
+
+class DefaultClassificationTemplate(DSBoxTemplate):
+    def __init__(self):
+        DSBoxTemplate.__init__(self)
+        self.template = {
+            "name": "Default_classification_template",
+            "taskType": TaskType.CLASSIFICATION.name,  # See TaskType, range include 'CLASSIFICATION', 'CLUSTERING', 'COLLABORATIVE_FILTERING', 'COMMUNITY_DETECTION', 'GRAPH_CLUSTERING', 'GRAPH_MATCHING', 'LINK_PREDICTION', 'REGRESSION', 'TIME_SERIES_FORECASTING', 'VERTEX_NOMINATION'
+            "inputType": "table",  # See SEMANTIC_TYPES.keys() for range of values 
+            "output" : "model_step",  # Name of the final step generating the prediction
+            "target" : "extract_target_step",  # Name of the step generating the ground truth
+            "steps": [
+
+                {
+                    "name": "denormalize_step",
+                    "primitives": ["d3m.primitives.datasets.Denormalize"],
+                    "inputs": ["template_input"]
+                },
+                {
+                    "name": "to_dataframe_step",
+                    "primitives": ["d3m.primitives.datasets.DatasetToDataFrame"],
+                    "inputs": ["denormalize_step"]
+                },
+                {
+                    "name": "column_parser_step",
+                    "primitives": ["d3m.primitives.data.ColumnParser"],
+                    "inputs": ["to_dataframe_step"]
+                },
+
+                {
+                    "name": "extract_attribute_step",
+                    "primitives": ["d3m.primitives.data.ExtractAttributes"],
+                    "inputs": ["column_parser_step"]
+                },
+                {
+                    "name": "cast_1_step",
+                    "primitives": ["d3m.primitives.data.CastToType"],
+                    "inputs": ["extract_attribute_step"]
+                },
+
+                {
+                    "name": "impute_step",
+                    "primitives": ["d3m.primitives.sklearn_wrap.SKImputer"],
+                    "inputs": ["cast_1_step"]
+                },
+                {
+                    "name": "extract_target_step",
+                    "primitives": ["d3m.primitives.data.ExtractTargets"],
+                    "inputs": ["column_parser_step"]
+                },
+                {
+                    "name": "cast_2_step",
+                    "primitives": ["d3m.primitives.data.CastToType"],
+                    "inputs": ["extract_target_step"]
+                },
+                {
+                    "name": "model_step",
+                    "primitives": ["d3m.primitives.sklearn_wrap.SKGradientBoostingClassifier", "d3m.primitives.sklearn_wrap.SKSGDClassifier"],
+                    "inputs": ["impute_step", "cast_2_step"]
+                }
+            ]
+        }
+
+    # @override
+    def importance(datset, problem_description):
+        return 7
+
+
+class DefaultRegressionTemplate(DSBoxTemplate):
+    def __init__(self):
+        DSBoxTemplate.__init__(self)
+        self.template = {
+            "name": "default_regression_template",
+            "taskType": TaskType.REGRESSION.name, # See TaskType, range include 'CLASSIFICATION', 'CLUSTERING', 'COLLABORATIVE_FILTERING', 'COMMUNITY_DETECTION', 'GRAPH_CLUSTERING', 'GRAPH_MATCHING', 'LINK_PREDICTION', 'REGRESSION', 'TIME_SERIES_FORECASTING', 'VERTEX_NOMINATION'
+            "inputType": "table",  # See SEMANTIC_TYPES.keys() for range of values 
+            "output" : "model_step",  # Name of the final step generating the prediction
+            "target" : "extract_target_step",  # Name of the step generating the ground truth
+            "steps": [
+
+                {
+                    "name": "denormalize_step",
+                    "primitives": ["d3m.primitives.datasets.Denormalize"],
+                    "inputs": ["template_input"]
+                },
+                {
+                    "name": "to_dataframe_step",
+                    "primitives": ["d3m.primitives.datasets.DatasetToDataFrame"],
+                    "inputs": ["denormalize_step"]
+                },
+                {
+                    "name": "column_parser_step",
+                    "primitives": ["d3m.primitives.data.ColumnParser"],
+                    "inputs": ["to_dataframe_step"]
+                },
+
+                {
+                    "name": "extract_attribute_step",
+                    "primitives": ["d3m.primitives.data.ExtractAttributes"],
+                    "inputs": ["column_parser_step"]
+                },
+                {
+                    "name": "cast_1_step",
+                    "primitives": ["d3m.primitives.data.CastToType"],
+                    "inputs": ["extract_attribute_step"]
+                },
+
+                {
+                    "name": "impute_step",
+                    "primitives": ["d3m.primitives.sklearn_wrap.SKImputer"],
+                    "inputs": ["cast_1_step"]
+                },
+                {
+                    "name": "extract_target_step",
+                    "primitives": ["d3m.primitives.data.ExtractTargets"],
+                    "inputs": ["column_parser_step"]
+                },
+                {
+                    "name": "model_step",
+                    "primitives": ["d3m.primitives.sklearn_wrap.SKARDRegression", 
+                                   "d3m.primitives.sklearn_wrap.SKSGDRegressor", 
+                                   "d3m.primitives.sklearn_wrap.SKGradientBoostingRegressor"],
+                    "inputs": ["impute_step", "extract_target_step"]
+                }
+            ]
+        }
+
+    # @override
+    def importance(datset, problem_description):
+        return 7
