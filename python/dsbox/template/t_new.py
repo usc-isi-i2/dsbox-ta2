@@ -7,7 +7,7 @@ import dateparser  # type: ignore
 import jsonpath_ng  # type: ignore
 
 from networkx import nx  # type: ignore
-from d3m import exceptions, utils, index, runtime
+from d3m import exceptions, utils, index
 from d3m.metadata.base import PrimitiveMetadata
 from d3m.metadata.pipeline import Pipeline, PipelineStep, StepBase, PrimitiveStep, PlaceholderStep, SubpipelineStep, ArgumentType, PlaceholderStep, Resolver, PIPELINE_SCHEMA_VALIDATOR
 from d3m.primitive_interfaces.base import PrimitiveBaseMeta

@@ -1,4 +1,4 @@
-from d3m import exceptions, utils, index, runtime
+from d3m import exceptions, utils, index
 import numpy as np
 import typing
 primitives = index.search()

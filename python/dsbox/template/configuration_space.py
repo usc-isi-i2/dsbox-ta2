@@ -1,6 +1,8 @@
 import abc
 import typing
 
+import d3m.exceptions as exceptions
+
 T = typing.TypeVar('T')
 DimensionName = typing.NewType('DimensionName', str)
 

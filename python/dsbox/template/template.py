@@ -11,7 +11,7 @@ from d3m import exceptions, utils, index
 from d3m.metadata.base import PrimitiveMetadata
 from d3m.metadata.pipeline import Pipeline, PipelineStep, StepBase, PrimitiveStep, PlaceholderStep, SubpipelineStep, ArgumentType, PlaceholderStep, Resolver, PIPELINE_SCHEMA_VALIDATOR
 from d3m.primitive_interfaces.base import PrimitiveBaseMeta
-from .configuration_space import DimensionName, ConfigurationSpace, SimpleConfigurationSpace
+from .configuration_space import DimensionName, ConfigurationSpace, SimpleConfigurationSpace, ConfigurationPoint
 # from dsbox.template.search import TemplateDimensionalRandomHyperparameterSearch, TemplateDimensionalSearch, ConfigurationSpace, SimpleConfigurationSpace, PythonPath, DimensionName
 # Define separate extended pipe step enum, because Python cannot extend Enum
 
@@ -309,7 +309,12 @@ class DSBoxTemplate():
             "primitive": ArgumentType.PRIMITIVE
         }
 
-    def to_pipeline(self, configuration_point: typing.Dict[str, dict]) -> Pipeline:
+        self.step_number = {}
+
+        # Need to be set by subclass inheriting DSBoxTemplate
+        # self.template = ""
+
+    def to_pipeline(self, configuration_point: ConfigurationPoint) -> Pipeline:
 
         # configuration_point =
         # {
@@ -329,9 +334,24 @@ class DSBoxTemplate():
         # binding = ....
         binding = {}
         for step in self.template["steps"]:
-            tmp = []
-            tmp.append(configuration_point[step["name"]])
-            binding[step["name"]] = tmp
+            sub_steps = []
+            if len(step['primitives']) == 1:
+                if isinstance(step['primitives'][0], str):
+                    sub_step = {
+                        'primitive' : step['primitives'][0],
+                        'hyperparameters': {}
+                    }
+                else:
+                    # is dict
+                    sub_step = {
+                        'primitive' : step['primitives'][0]['primitive'],
+                        'hyperparameters' : step['primitives'][0]['hyperpameters']
+                    }
+                    
+                sub_steps.append(sub_step)
+            else:
+                sub_steps.append(configuration_point[step["name"]])
+            binding[step["name"]] = sub_steps
         return self._to_pipeline(binding)
 
     def _to_pipeline(self, binding) -> Pipeline:
@@ -362,8 +382,9 @@ class DSBoxTemplate():
         pipeline = Pipeline(name="Helloworld", context='PRETRAINING')  # generate empty pipeline with i/o/s/u =[]
         templateinput = pipeline.add_input("input dataset")
         outputs = {}  # save temporary output for another step to take as input
-        for k in self.template["steps"]:
+        for index, k in enumerate(self.template["steps"]):
             name = k["name"]
+            self.step_number[name] = index
             for v in binding[name]:
                 primitiveStep = PrimitiveStep(self.primitive[v["primitive"]].metadata.query())
                 pipeline.add_step(primitiveStep)
@@ -371,9 +392,9 @@ class DSBoxTemplate():
                 if v["hyperparameters"] != {}:
                     hyper = v["hyperparameters"]
                     for n in hyper.keys():
-                        print(n, ArgumentType.VALUE, hyper[n]["value"])
+                        # print(n, ArgumentType.VALUE, hyper[n]["value"])
                         primitiveStep.add_hyperparameter(n, self.argmentsmapper[hyper[n]["type"]], hyper[n]["value"])
-                        print(primitiveStep.hyperparams)
+                        # print(primitiveStep.hyperparams)
                     # pass
                 if len(k["inputs"]) == 1:
                     for i in k["inputs"]:
@@ -396,7 +417,26 @@ class DSBoxTemplate():
         conf_space = {}
         for s in steps:
             name = s["name"]
-            methods = s["primitives"]
-            if len(methods) != 1:
-                conf_space[name] = methods
+            values = []
+            for description in s["primitives"]:
+                if isinstance(description, str):
+                    value = {
+                        "primitive" : description,
+                        "hyperparameters" : {}
+                    }
+                else:
+                    # value is a dict = {"primitive": "dsbox.a.b", "hyperparameters": {}"
+                    value = {
+                        "primitive" : description["primitive"],
+                        "hyperparameters" : description["hyperparameters"],
+                        }
+                values.append(value)
+            if len(values) > 1:
+                conf_space[name] = values
         return SimpleConfigurationSpace(conf_space)
+
+    def get_target_step_number(self):
+        return self.step_number[self.template['target']]
+
+    def get_output_step_number(self):
+        return self.step_number[self.template['output']]

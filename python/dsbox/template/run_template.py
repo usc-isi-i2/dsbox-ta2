@@ -1,4 +1,3 @@
-from d3m import runtime
 import datetime
 import typing
 import uuid
@@ -8,14 +7,15 @@ import dateparser  # type: ignore
 import jsonpath_ng  # type: ignore
 
 from networkx import nx  # type: ignore
-from d3m import exceptions, utils, index, runtime
+from d3m import exceptions, utils, index
 from d3m.metadata.base import PrimitiveMetadata
 from d3m.metadata.pipeline import Pipeline, PipelineStep, StepBase, PrimitiveStep, PlaceholderStep, SubpipelineStep, ArgumentType, PlaceholderStep, Resolver, PIPELINE_SCHEMA_VALIDATOR
 from d3m.primitive_interfaces.base import PrimitiveBaseMeta
 
-
 from d3m.metadata.pipeline import Pipeline
 from d3m.container.dataset import Dataset
+
+import dsbox.template.runtime as runtime
 
 myfile = open("temp.yaml", "r")
 mytemplate = Pipeline.from_yaml_content(myfile)

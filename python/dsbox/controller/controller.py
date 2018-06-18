@@ -5,7 +5,7 @@ import random
 import typing
 
 import d3m
-import d3m.runtime as runtime
+import dsbox.template.runtime as runtime
 
 from d3m.container.dataset import Dataset, D3MDatasetLoader
 from d3m.metadata.base import ALL_ELEMENTS, Metadata
@@ -13,7 +13,8 @@ from d3m.metadata.problem import parse_problem_description, TaskType, TaskSubtyp
 from d3m.exceptions import NotSupportedError, InvalidArgumentValueError
 
 from dsbox.template.library import TemplateLibrary, TemplateDescription, SemanticTypeDict
-from dsbox.template.search import TemplateDimensionalRandomHyperparameterSearch, TemplateDimensionalSearch, ConfigurationSpace, SimpleConfigurationSpace, PythonPath, DimensionName
+# from dsbox.template.search import TemplateDimensionalRandomHyperparameterSearch, TemplateDimensionalSearch, ConfigurationSpace, SimpleConfigurationSpace, PythonPath, DimensionName
+from dsbox.template.search import TemplateDimensionalSearch, ConfigurationSpace, SimpleConfigurationSpace, PythonPath, DimensionName
 from dsbox.template.template import TemplatePipeline,to_digraph
 from dsbox.pipeline.fitted_pipeline import FittedPipeline
 
@@ -29,8 +30,8 @@ def split_dataset(dataset, problem):
     res_id = problem['inputs'][i]['targets'][0]['resource_id']
     target_index = problem['inputs'][i]['targets'][0]['column_index']
     sss = StratifiedShuffleSplit(n_splits=1, test_size=0.2, random_state=42)
-    sss.get_n_splits(dataset[res_id], dataset[res_id].iloc[:,30])
-    for train_index, test_index in sss.split(dataset[res_id], dataset[res_id].iloc[:,30]):
+    sss.get_n_splits(dataset[res_id], dataset[res_id].iloc[:, target_index])
+    for train_index, test_index in sss.split(dataset[res_id], dataset[res_id].iloc[:, target_index]):
         print('train', train_index)
         print('test', test_index)
         train = dataset[res_id].iloc[train_index,:]
@@ -92,7 +93,7 @@ class Controller:
 
         # Templates
         self.template_library = TemplateLibrary()
-        self.template_description: typing.List[TemplateDescription] = []
+        self.template: typing.List[DSBoxTemplate] = []
 
         # Primitives
         self.primitive: typing.Dict = d3m.index.search()
@@ -181,8 +182,7 @@ class Controller:
         self.task_type = task_type
         self.task_subtype = task_subtype
 
-        self.template_description = self.template_library.get_templates(
-            self.task_type, self.task_subtype)
+        self.template = self.template_library.get_templates(self.task_type, self.task_subtype)
 
     def write_training_results(self):
         # load trained pipelines
@@ -223,16 +223,15 @@ class Controller:
         """
         Generate and train pipelines.
         """
-        if not self.template_description:
+        if not self.template:
             return Status.PROBLEM_NOT_IMPLEMENT
 
         self._check_and_set_dataset_metadata()
 
         # For now just use the first template
-        template = self.template_description[0]
+        template = self.template[0]
 
-        space = self.generate_configuration_space(
-            template, self.problem, self.dataset)
+        space = template.generate_configuration_space()
 
         metrics = self.problem['problem']['performance_metrics']
 
