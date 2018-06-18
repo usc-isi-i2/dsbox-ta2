@@ -1,0 +1,118 @@
+context: PRETRAINING
+created: '2018-06-18T15:38:05.209005Z'
+id: 9c18ab38-07e0-4446-a917-68a01388e0fa
+inputs:
+- name: input dataset
+name: Helloworld
+outputs:
+- data: steps.7.produce
+  name: predictions of input dataset
+schema: https://metadata.datadrivendiscovery.org/schemas/v0/pipeline.json
+steps:
+- arguments:
+    inputs:
+      data: inputs.0
+      type: CONTAINER
+  outputs:
+  - id: produce
+  primitive:
+    digest: 10ae3f2acf08c984a8f3dea5ff2145dfd8a93fe75aadb67310bbdc673e8511ce
+    id: f31f8c1f-d1c5-43e5-a4b2-2ae4a761ef2e
+    name: Denormalize datasets
+    python_path: d3m.primitives.datasets.Denormalize
+    version: 0.2.0
+  type: PRIMITIVE
+- arguments:
+    inputs:
+      data: steps.0.produce
+      type: CONTAINER
+  outputs:
+  - id: produce
+  primitive:
+    digest: 10ae3f2acf08c984a8f3dea5ff2145dfd8a93fe75aadb67310bbdc673e8511ce
+    id: 4b42ce1e-9b98-4a25-b68e-fad13311eb65
+    name: Dataset to DataFrame converter
+    python_path: d3m.primitives.datasets.DatasetToDataFrame
+    version: 0.2.0
+  type: PRIMITIVE
+- arguments:
+    inputs:
+      data: steps.1.produce
+      type: CONTAINER
+  outputs:
+  - id: produce
+  primitive:
+    digest: 10ae3f2acf08c984a8f3dea5ff2145dfd8a93fe75aadb67310bbdc673e8511ce
+    id: d510cb7a-1782-4f51-b44c-58f0236e47c7
+    name: Parses strings into their types
+    python_path: d3m.primitives.data.ColumnParser
+    version: 0.2.0
+  type: PRIMITIVE
+- arguments:
+    inputs:
+      data: steps.2.produce
+      type: CONTAINER
+  outputs:
+  - id: produce
+  primitive:
+    digest: 10ae3f2acf08c984a8f3dea5ff2145dfd8a93fe75aadb67310bbdc673e8511ce
+    id: 91fe0a56-f400-483a-8641-4e26d005c621
+    name: Extracts attribute columns
+    python_path: d3m.primitives.data.ExtractAttributes
+    version: 0.2.0
+  type: PRIMITIVE
+- arguments:
+    inputs:
+      data: steps.3.produce
+      type: CONTAINER
+  outputs:
+  - id: produce
+  primitive:
+    digest: 10ae3f2acf08c984a8f3dea5ff2145dfd8a93fe75aadb67310bbdc673e8511ce
+    id: eb5fe752-f22a-4090-948b-aafcef203bf5
+    name: Casts DataFrame
+    python_path: d3m.primitives.data.CastToType
+    version: 0.2.0
+  type: PRIMITIVE
+- arguments:
+    inputs:
+      data: steps.4.produce
+      type: CONTAINER
+  outputs:
+  - id: produce
+  primitive:
+    digest: 11d1a5d9e17f9e5be91c39f6f7a9641a4991a2d2a666e407467a7eae99e1774f
+    id: d016df89-de62-3c53-87ed-c06bb6a23cde
+    name: sklearn.preprocessing.imputation.Imputer
+    python_path: d3m.primitives.sklearn_wrap.SKImputer
+    version: 0.1.0
+  type: PRIMITIVE
+- arguments:
+    inputs:
+      data: steps.2.produce
+      type: CONTAINER
+  outputs:
+  - id: produce
+  primitive:
+    digest: 10ae3f2acf08c984a8f3dea5ff2145dfd8a93fe75aadb67310bbdc673e8511ce
+    id: a7feadd5-997f-4302-bd5d-caa86e7bbd4f
+    name: Extracts target columns
+    python_path: d3m.primitives.data.ExtractTargets
+    version: 0.2.0
+  type: PRIMITIVE
+- arguments:
+    inputs:
+      data: steps.5.produce
+      type: CONTAINER
+    outputs:
+      data: steps.6.produce
+      type: CONTAINER
+  outputs:
+  - id: produce
+  primitive:
+    digest: 11d1a5d9e17f9e5be91c39f6f7a9641a4991a2d2a666e407467a7eae99e1774f
+    id: db3a7669-72e1-3c95-91c1-0c2a3f137d78
+    name: sklearn.linear_model.stochastic_gradient.SGDRegressor
+    python_path: d3m.primitives.sklearn_wrap.SKSGDRegressor
+    version: 0.1.0
+  type: PRIMITIVE

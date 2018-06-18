@@ -7,7 +7,7 @@ import jsonpath_ng  # type: ignore
 
 from networkx import nx  # type: ignore
 
-from d3m import exceptions, utils
+from d3m import exceptions, utils, index
 from d3m.metadata.base import PrimitiveMetadata
 from d3m.metadata.pipeline import Pipeline, PipelineStep, StepBase, PrimitiveStep, PlaceholderStep, SubpipelineStep, ArgumentType, PlaceholderStep, Resolver, PIPELINE_SCHEMA_VALIDATOR
 from d3m.primitive_interfaces.base import PrimitiveBaseMeta
@@ -296,3 +296,96 @@ def to_digraph(pipeline: Pipeline) -> nx.DiGraph:
         else:
             graph.add_edge(origin, names[i])
     return graph
+
+
+class DSBoxTemplate():
+    def __init__(self):
+        self.primitive = index.search()
+        self.argmentsmapper = {
+            "container": ArgumentType.CONTAINER,
+            "data": ArgumentType.DATA,
+            "value": ArgumentType.VALUE,
+            "primitive": ArgumentType.PRIMITIVE
+        }
+
+    def to_pipeline(self, configuration_point: typing.Dict[str, dict]) -> Pipeline:
+
+        # configuration_point =
+        # {
+        #     "my_step1" : {
+        #         "primitive": "dsbox.a.b",
+        #         "hyperparameters": {
+        #             "x": 1
+        #         }
+        #     },
+        #     "my_step2" : {
+        #         "primitive": "sklearn.a.b",
+        #         "hyperparameters": {}
+        #     }
+        # }
+
+        # do reasoning
+        # binding = ....
+        binding = {}
+        for step in self.template["steps"]:
+            tmp = []
+            tmp.append(configuration_point[step["name"]])
+            binding[step["name"]] = tmp
+        return self._to_pipeline(binding)
+
+    def _to_pipeline(self, binding) -> Pipeline:
+        # binding =
+        # {
+        #     "my_step1" : [
+        #         {
+        #             "primitive": "dsbox.c.d",
+        #             "hyperparameters": {
+        #                 "y": 3
+        #             }
+        #         },
+        #         {
+        #             "primitive": "dsbox.a.b",
+        #             "hyperparameters": {
+        #                 "x": 1
+        #             }
+        #         }
+        #     ]
+        #     ,
+        #     "my_step2" : [
+        #         {
+        #             "primitive": "sklearn.a.b",
+        #             "hyperparameters": {}
+        #         }
+        #     ]
+        # }
+        pipeline = Pipeline(name="Helloworld", context='PRETRAINING')  # generate empty pipeline with i/o/s/u =[]
+        templateinput = pipeline.add_input("input dataset")
+        outputs = {}  # save temporary output for another step to take as input
+        for k in self.template["steps"]:
+            name = k["name"]
+            for v in binding[name]:
+                primitiveStep = PrimitiveStep(self.primitive[v["primitive"]].metadata.query())
+                pipeline.add_step(primitiveStep)
+                outputs[name] = primitiveStep.add_output("produce")
+                if v["hyperparameters"] != {}:
+                    hyper = v["hyperparameters"]
+                    for n in hyper.keys():
+                        print(n, ArgumentType.VALUE, hyper[n]["value"])
+                        primitiveStep.add_hyperparameter(n, self.argmentsmapper[hyper[n]["type"]], hyper[n]["value"])
+                        print(primitiveStep.hyperparams)
+                    # pass
+                if len(k["inputs"]) == 1:
+                    for i in k["inputs"]:
+                        if i == "template_input":
+                            primitiveStep.add_argument("inputs", ArgumentType.CONTAINER, templateinput)
+                        else:
+                            primitiveStep.add_argument("inputs", ArgumentType.CONTAINER, outputs[i])
+                elif len(k["inputs"]) == 2:
+                    primitiveStep.add_argument("inputs", ArgumentType.CONTAINER, outputs[k["inputs"][0]])
+                    primitiveStep.add_argument("outputs", ArgumentType.CONTAINER, outputs[k["inputs"][1]])
+                else:
+                    raise exceptions.InvalidArgumentValueError("Should be less than 3 arguments!")
+
+        general_output = outputs[self.template["steps"][-1]["name"]]
+        pipeline.add_output(general_output, "predictions of input dataset")
+        return pipeline
