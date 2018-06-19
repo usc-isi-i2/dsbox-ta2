@@ -286,6 +286,13 @@ class DefaultClassificationTemplate(DSBoxTemplate):
                 {
                     "name": "impute_step",
                     "primitives": ["d3m.primitives.sklearn_wrap.SKImputer"],
+                    "hyperparameter":
+                        [
+                            {
+                                "strategy":
+                                    ["mean", "median", "most_frequent"],
+                            },
+                        ],
                     "inputs": ["cast_1_step"]
                 },
                 {
@@ -300,7 +307,19 @@ class DefaultClassificationTemplate(DSBoxTemplate):
                 },
                 {
                     "name": "model_step",
-                    "primitives": ["d3m.primitives.sklearn_wrap.SKGradientBoostingClassifier", "d3m.primitives.sklearn_wrap.SKSGDClassifier"],
+                    "primitives":
+                        ["d3m.primitives.sklearn_wrap.SKGradientBoostingClassifier",
+                        "d3m.primitives.sklearn_wrap.SKSGDClassifier"],
+                    # TODO: make sure the lists are materialized
+                    "hyperparameter":
+                        [
+                            {
+                                "n_estimators": [2**i for i in range(1,6)]
+                            },
+                            {},
+                        ],
+                    # attributes (output of impute_step) and target (output
+                    # of casting method)
                     "inputs": ["impute_step", "cast_2_step"]
                 }
             ]

@@ -15,6 +15,8 @@ from .configuration_space import DimensionName, ConfigurationSpace, SimpleConfig
 # from dsbox.template.search import TemplateDimensionalRandomHyperparameterSearch, TemplateDimensionalSearch, ConfigurationSpace, SimpleConfigurationSpace, PythonPath, DimensionName
 # Define separate extended pipe step enum, because Python cannot extend Enum
 
+from itertools import zip_longest, product
+
 
 class ExtendedPipelineStep(utils.Enum):
     TEMPLATE = 1
@@ -412,27 +414,65 @@ class DSBoxTemplate():
         pipeline.add_output(general_output, "predictions of input dataset")
         return pipeline
 
+    @staticmethod
+    def _product_dict(**kwargs):
+        keys = kwargs.keys()
+        vals = kwargs.values()
+        for instance in itertools.product(*vals):
+            yield dict(zip(keys, instance))
+
     def generate_configuration_space(self) -> SimpleConfigurationSpace:
         steps = self.template["steps"]
         conf_space = {}
         for s in steps:
             name = s["name"]
             values = []
+
+            # description: typing.Dict
             for description in s["primitives"]:
                 if isinstance(description, str):
-                    value = {
-                        "primitive" : description,
-                        "hyperparameters" : {}
-                    }
+                    value = [{
+                        "primitive": description,
+                        "hyperparameters": {}
+                    }]
+                elif isinstance(description, list):
+                    # list of primitives with default hypers
+                    value = []
+                    for prim in description:
+                        value.append(
+                            {
+                                "primitive": prim,
+                                "hyperparameters": {}
+                            }
+                        )
+
                 else:
-                    # value is a dict = {"primitive": "dsbox.a.b", "hyperparameters": {}"
-                    value = {
-                        "primitive" : description["primitive"],
-                        "hyperparameters" : description["hyperparameters"],
-                        }
-                values.append(value)
+
+                    if isinstance(description, dict):
+                        description = [description]
+
+                    # print("description:", description )
+
+                    # value is a list of dicts = [{"primitive": sth,
+                    #                    "hyperparameters": {}}]"
+                    # iterate through all options for hypP of the primitive
+                    value = []
+                    for desc in description:
+                        if "hyperparameters" not in desc:
+                            desc["hyperparameters"] = {}
+
+                        for hyper in _product_dict(desc["hyperparameters"]):
+                            value.append({
+                                "primitive": desc["primitive"],
+                                "hyperparameters": hyper,
+                            })
+
+                # END
+                values += value
+            # END FOR
             if len(values) > 1:
                 conf_space[name] = values
+        # END FOR
         return SimpleConfigurationSpace(conf_space)
 
     def get_target_step_number(self):
