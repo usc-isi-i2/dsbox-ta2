@@ -415,10 +415,10 @@ class DSBoxTemplate():
         return pipeline
 
     @staticmethod
-    def _product_dict(**kwargs):
-        keys = kwargs.keys()
-        vals = kwargs.values()
-        for instance in itertools.product(*vals):
+    def _product_dict(dct):
+        keys = dct.keys()
+        vals = dct.values()
+        for instance in product(*vals):
             yield dict(zip(keys, instance))
 
     def generate_configuration_space(self) -> SimpleConfigurationSpace:
