@@ -263,8 +263,10 @@ class Controller:
 
         candidate, value = search.search_one_iter()
         if candidate is None:
+            print("[ERROR] not candidate!")
             return Status.PROBLEM_NOT_IMPLEMENT
         else:
+            print("******************\n[INFO] Writing results")
             print(candidate.data)
             print(candidate, value)
             print('Training {} = {}'.format(candidate.data['training_metrics'][0]['metric'].name, candidate.data['training_metrics'][0]['value']))

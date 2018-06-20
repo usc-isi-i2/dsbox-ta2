@@ -72,6 +72,10 @@ class DimensionalSearch(typing.Generic[T]):
         '''
         return len(self.configuration_space.get_values(kw))
 
+    def generate_pipeline(self, configuration_space: ConfigurationSpace[T],
+                          dimension: typing.List[DimensionName]):
+        pass
+
     def search_one_iter(self, candidate: ConfigurationPoint[T] = None, candidate_value: float = None, max_per_dimension=10):
         """
         Performs one iteration of dimensional search. During dimesional
@@ -109,13 +113,21 @@ class DimensionalSearch(typing.Generic[T]):
                 print("Pipeline failed", candidate)
                 candidate = ConfigurationPoint(self.configuration_space, self.random_assignment())
 
+        # generate an executable pipeline with random steps from conf. space.
 
-        print("[INFO] self.dimension_ordering:", self.dimension_ordering)
         # The actual searching process starts here.
         for dimension in self.dimension_ordering:
             # get all possible choices for the step, as specified in
             # configuration space
-            choices: typing.List[T] = self.configuration_space.get_values(dimension)
+            choices: typing.List[T] = self.configuration_space\
+                                          .get_values(dimension)
+
+            # TODO this is just a hack
+            if len(choices) == 1:
+                continue;
+
+            assert 0 < len(choices), \
+                f'Step {dimension} has not primitive choices!'
 
             # the weights are assigned by template designer
             weights = [self.configuration_space.get_weight(
@@ -133,8 +145,7 @@ class DimensionalSearch(typing.Generic[T]):
                 new = dict(candidate)
                 new[dimension] = value
                 new_candidates.append(self.configuration_space.get_point(new))
-            print("[INFO] Search: \ndim:{};\ncandidates:{}"
-                  "\n###################".format(dimension,new_candidates))
+
             values = []
             sucessful_candidates = []
             for x in new_candidates:
@@ -142,12 +153,16 @@ class DimensionalSearch(typing.Generic[T]):
                     result = self.evaluate(x)
                     values.append(result[0])
                     sucessful_candidates.append(x)
+                    # print("[INFO] Results:")
+                    # pprint(result)
+                    # pprint(result[0])
                 except:
                     print('Pipeline failed: ', x)
                     traceback.print_exc()
 
-            # All primitives failed
+            # All candidates failed!
             if len(values) == 0:
+                print("[INFO] No Candidate worked!:",values)
                 return (None, None)
 
             best_index = values.index(min(values))
@@ -158,6 +173,7 @@ class DimensionalSearch(typing.Generic[T]):
                 candidate = sucessful_candidates[best_index]
                 candidate_value = values[best_index]
         # here we can get the details of pipelines from "candidate.data"
+
         return (candidate, candidate_value)
 
     def search(self, candidate: ConfigurationPoint[T] = None, candidate_value: float = None, num_iter=3, max_per_dimension=10):
@@ -232,7 +248,8 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
         #     key: self.primitive_index[python_path].metadata.query() for key, python_path in configuration.items()}
 
         # value, new_data = self._evaluate(metadata_configuration)
-        
+        # print("[INFO] evaluate_pipeline")
+        # pprint(configuration)
         value, new_data = self._evaluate(configuration)
         configuration.data.update(new_data)
         return value, configuration.data

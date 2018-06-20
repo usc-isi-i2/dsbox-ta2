@@ -317,6 +317,19 @@ class DSBoxTemplate():
         # self.template = ""
 
     def to_pipeline(self, configuration_point: ConfigurationPoint) -> Pipeline:
+        """
+        converts the configuration point to the executable pipeline based on
+        ta2 competitions format
+        Args:
+            configuration_point (ConfigurationPoint):
+
+        Returns:
+            The executable pipeline with full hyperparameter settings
+        """
+        # print("[INFO] to_pipeline:")
+        # pprint(configuration_point)
+        return self._to_pipeline(configuration_point)
+
 
         # configuration_point =
         # {
@@ -331,31 +344,31 @@ class DSBoxTemplate():
         #         "hyperparameters": {}
         #     }
         # }
-        print("to_pipeline:",configuration_point)
+
         # do reasoning
         # binding = ....
-        binding = {}
-        for step in self.template["steps"]:
-            sub_steps = []
-            if len(step['primitives']) == 1:
-                if isinstance(step['primitives'][0], str):
-                    sub_step = {
-                        'primitive' : step['primitives'][0],
-                        'hyperparameters': {}
-                    }
-                else:
-                    # is dict
-                    sub_step = {
-                        'primitive' : step['primitives'][0]['primitive'],
-                        'hyperparameters' : step['primitives'][0][
-                            'hyperparameters']
-                    }
-                    
-                sub_steps.append(sub_step)
-            else:
-                sub_steps.append(configuration_point[step["name"]])
-            binding[step["name"]] = sub_steps
-        return self._to_pipeline(binding)
+        # binding = {}
+        # for step in self.template["steps"]:
+        #     sub_steps = []
+        #     if len(step['primitives']) == 1:
+        #         if isinstance(step['primitives'][0], str):
+        #             sub_step = {
+        #                 'primitive' : step['primitives'][0],
+        #                 'hyperparameters': {}
+        #             }
+        #         else:
+        #             # is dict
+        #             sub_step = {
+        #                 'primitive' : step['primitives'][0]['primitive'],
+        #                 'hyperparameters' : step['primitives'][0][
+        #                     'hyperparameters']
+        #             }
+        #
+        #         sub_steps.append(sub_step)
+        #     else:
+        #         sub_steps.append(configuration_point[step["name"]])
+        #     binding[step["name"]] = sub_steps
+        # return self._to_pipeline(binding)
 
     def _to_pipeline(self, binding) -> Pipeline:
         # binding =
@@ -382,43 +395,99 @@ class DSBoxTemplate():
         #         }
         #     ]
         # }
-        pipeline = Pipeline(name="Helloworld", context='PRETRAINING')  # generate empty pipeline with i/o/s/u =[]
-        templateinput = pipeline.add_input("input dataset")
-        outputs = {}  # save temporary output for another step to take as input
-        for index, k in enumerate(self.template["steps"]):
-            name = k["name"]
-            self.step_number[name] = index
-            for v in binding[name]:
-                primitiveStep = PrimitiveStep(self.primitive[v["primitive"]].metadata.query())
-                pipeline.add_step(primitiveStep)
-                outputs[name] = primitiveStep.add_output("produce")
-                if v["hyperparameters"] != {}:
-                    hyper = v["hyperparameters"]
-                    for n in hyper.keys():
-                        # print(n, ArgumentType.VALUE, hyper[n]["value"])
-                        primitiveStep.add_hyperparameter(n, self.argmentsmapper[hyper[n]["type"]], hyper[n]["value"])
-                        # print(primitiveStep.hyperparams)
-                    # pass
-                if len(k["inputs"]) == 1:
-                    for i in k["inputs"]:
-                        if i == "template_input":
-                            primitiveStep.add_argument("inputs", ArgumentType.CONTAINER, templateinput)
-                        else:
-                            primitiveStep.add_argument("inputs", ArgumentType.CONTAINER, outputs[i])
-                elif len(k["inputs"]) == 2:
-                    primitiveStep.add_argument("inputs", ArgumentType.CONTAINER, outputs[k["inputs"][0]])
-                    primitiveStep.add_argument("outputs", ArgumentType.CONTAINER, outputs[k["inputs"][1]])
-                else:
-                    raise exceptions.InvalidArgumentValueError("Should be less than 3 arguments!")
 
+        # define an empty pipeline with the general dataset input primitive
+        # generate empty pipeline with i/o/s/u =[]
+        pipeline = Pipeline(name="Helloworld", context='PRETRAINING')
+        templateinput = pipeline.add_input("input dataset")
+
+        # save temporary output for another step to take as input
+        outputs = {}
+        outputs["template_input"] = templateinput
+
+        # iterate through steps in the given binding and add each step to the
+        #  pipeline. The IO and hyperparameter are also handled here.
+        for index, (name,prmtv) in enumerate(binding.items()):
+
+            self.step_number[name] = index
+
+            primitiveStep = PrimitiveStep(
+                self.primitive[prmtv["primitive"]]
+                    .metadata.query())
+
+
+            pipeline.add_step(primitiveStep)
+            outputs[name] = primitiveStep.add_output("produce")
+
+            # setting the hyperparameters
+            if prmtv["hyperparameters"] != {}:
+                hyper = prmtv["hyperparameters"]
+                for hyperName in hyper:
+                    # TODO add support for types
+                    primitiveStep.add_hyperparameter(
+                        name=hyperName, argument_type=type(hyper[hyperName]),
+                        data=hyper[hyperName])
+
+            # setting IO
+            templateIO = self.template["steps"][index]["inputs"]
+            if len(templateIO) == 1:
+                primitiveStep.add_argument(
+                    name="inputs",
+                    argument_type=ArgumentType.CONTAINER,
+                    data_reference=outputs[templateIO[0]])
+            elif len(templateIO) == 2:
+                primitiveStep.add_argument("inputs", ArgumentType.CONTAINER,
+                                           outputs[templateIO[0]])
+                primitiveStep.add_argument("outputs", ArgumentType.CONTAINER,
+                                           outputs[templateIO[1]])
+            else:
+                raise exceptions.InvalidArgumentValueError(
+                    "Should be less than 3 arguments!")
+
+        # END FOR
+
+        # Add final output as the prediction of target attribute
         general_output = outputs[self.template["steps"][-1]["name"]]
-        pipeline.add_output(general_output, "predictions of input dataset")
+        pipeline.add_output(data_reference=general_output,
+                            name="predictions of input dataset")
+
+
         return pipeline
 
 
+        # outputs = {}  # save temporary output for another step to take as input
+        # for index, k in enumerate(self.template["steps"]):
+        #     name = k["name"]
+        #     self.step_number[name] = index
+        #     for v in binding[name]:
+        #         primitiveStep = PrimitiveStep(self.primitive[v["primitive"]].metadata.query())
+        #         pipeline.add_step(primitiveStep)
+        #         outputs[name] = primitiveStep.add_output("produce")
+        #         if v["hyperparameters"] != {}:
+        #             hyper = v["hyperparameters"]
+        #             for n in hyper.keys():
+        #                 # print(n, ArgumentType.VALUE, hyper[n]["value"])
+        #                 primitiveStep.add_hyperparameter(n, self.argmentsmapper[hyper[n]["type"]], hyper[n]["value"])
+        #                 # print(primitiveStep.hyperparams)
+        #             # pass
+        #         if len(k["inputs"]) == 1:
+        #             for i in k["inputs"]:
+        #                 if i == "template_input":
+        #                     primitiveStep.add_argument("inputs", ArgumentType.CONTAINER, templateinput)
+        #                 else:
+        #                     primitiveStep.add_argument("inputs", ArgumentType.CONTAINER, outputs[i])
+        #         elif len(k["inputs"]) == 2:
+        #             primitiveStep.add_argument("inputs", ArgumentType.CONTAINER, outputs[k["inputs"][0]])
+        #             primitiveStep.add_argument("outputs", ArgumentType.CONTAINER, outputs[k["inputs"][1]])
+        #         else:
+        #             raise exceptions.InvalidArgumentValueError("Should be less than 3 arguments!")
+        #
+        # general_output = outputs[self.template["steps"][-1]["name"]]
+        # pipeline.add_output(general_output, "predictions of input dataset")
+        # return pipeline
+
+
     def generate_configuration_space(self) -> SimpleConfigurationSpace:
-        # print("[INFO] template:")
-        # pprint(self.template)
         steps = self.template["steps"]
         conf_space = {}
         for s in steps:
@@ -463,12 +532,9 @@ class DSBoxTemplate():
                 # END
                 values += value
             # END FOR
-            if len(values) > 1:
+            if len(values) >= 1:
                 conf_space[name] = values
         # END FOR
-        # print("[INFO] configuration_space:")
-        # pprint(conf_space)
-        # exit(1)
         return SimpleConfigurationSpace(conf_space)
 
     def get_target_step_number(self):

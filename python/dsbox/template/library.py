@@ -13,7 +13,7 @@ from d3m.metadata.problem import TaskType, TaskSubtype
 
 from dsbox.template.template import TemplatePipeline, TemplateStep, \
     DSBoxTemplate
-
+import random
 
 class TemplateDescription:
     """
@@ -26,7 +26,8 @@ class TemplateDescription:
     template: TemplatePipeline
         The actual template
     target_step: int
-        The step of the template that extract the ground truth target from the dataset
+        The step of the template that extract the ground truth target from
+        the dataset
     predicted_target_step: int
         The step of the template generates the predictions
     """
@@ -36,7 +37,8 @@ class TemplateDescription:
         self.task = task
         self.template = template
 
-        # Instead of having these attributes here, probably should attach attributes to the template steps
+        # Instead of having these attributes here, probably should attach
+        # attributes to the template steps
         self.target_step = target_step
         self.predicted_target_step = predicted_target_step
 
@@ -57,7 +59,7 @@ class TemplateLibrary:
         self._load_inline_templates()
 
     def get_templates(self, task: TaskType, subtype: TaskSubtype) -> \
-    typing.List[DSBoxTemplate]:
+            typing.List[DSBoxTemplate]:
         results = []
         for template_class in self.templates:
             template = template_class()
@@ -156,7 +158,8 @@ class TemplateLibrary:
         model_produce = model_step.add_output('produce')
 
         template_output = template.add_output(model_produce,
-                                              'predictions from the input dataset')
+                                              'predictions from the input '
+                                              'dataset')
 
         description = TemplateDescription(TaskType.CLASSIFICATION, template,
                                           template.steps.index(
@@ -185,7 +188,8 @@ class TemplateLibrary:
                                         'd3m.primitives.sklearn_wrap.SKImputer'].metadata.query())
         extract_target_step = PrimitiveStep(self.primitive[
                                                 'd3m.primitives.data.ExtractTargets'].metadata.query())
-        # cast_2_step = PrimitiveStep(self.primitive['d3m.primitives.data.CastToType'].metadata.query())
+        # cast_2_step = PrimitiveStep(self.primitive[
+        # 'd3m.primitives.data.CastToType'].metadata.query())
 
         # model_step = TemplateStep('modeller', "dsbox-regressions")
         model_step = TemplateStep('regressors', "dsbox-regressions")
@@ -231,7 +235,8 @@ class TemplateLibrary:
                                          column_parser_produce)
         extract_target_produce = extract_target_step.add_output('produce')
 
-        # cast_2_step.add_argument('inputs', ArgumentType.CONTAINER, extract_target_produce)
+        # cast_2_step.add_argument('inputs', ArgumentType.CONTAINER,
+        # extract_target_produce)
         # cast_2_produce = cast_2_step.add_output('produce')
 
         model_step.add_expected_argument('inputs', ArgumentType.CONTAINER)
@@ -242,7 +247,8 @@ class TemplateLibrary:
         model_produce = model_step.add_output('produce')
 
         template_output = template.add_output(model_produce,
-                                              'predictions from the input dataset')
+                                              'predictions from the input '
+                                              'dataset')
 
         description = TemplateDescription(TaskType.REGRESSION, template,
                                           template.steps.index(
@@ -294,13 +300,16 @@ class DefaultClassificationTemplate(DSBoxTemplate):
         self.template = {
             "name": "Default_classification_template",
             "taskType": TaskType.CLASSIFICATION.name,
-        # See TaskType, range include 'CLASSIFICATION', 'CLUSTERING', 'COLLABORATIVE_FILTERING', 'COMMUNITY_DETECTION', 'GRAPH_CLUSTERING', 'GRAPH_MATCHING', 'LINK_PREDICTION', 'REGRESSION', 'TIME_SERIES_FORECASTING', 'VERTEX_NOMINATION'
+            # See TaskType, range include 'CLASSIFICATION', 'CLUSTERING',
+            # 'COLLABORATIVE_FILTERING', 'COMMUNITY_DETECTION',
+            # 'GRAPH_CLUSTERING', 'GRAPH_MATCHING', 'LINK_PREDICTION',
+            # 'REGRESSION', 'TIME_SERIES_FORECASTING', 'VERTEX_NOMINATION'
             "inputType": "table",
-        # See SEMANTIC_TYPES.keys() for range of values
+            # See SEMANTIC_TYPES.keys() for range of values
             "output": "model_step",
-        # Name of the final step generating the prediction
+            # Name of the final step generating the prediction
             "target": "extract_target_step",
-        # Name of the step generating the ground truth
+            # Name of the step generating the ground truth
             "steps": [
 
                 {
@@ -336,9 +345,9 @@ class DefaultClassificationTemplate(DSBoxTemplate):
                     "primitives": [
                         {
                             "primitive":
-                            "d3m.primitives.sklearn_wrap.SKImputer",
+                                "d3m.primitives.sklearn_wrap.SKImputer",
                             "hyperparameters": {
-                            "strategy": ["mean", "median", "most_frequent"],
+                                "strategy": ["mean", "median", "most_frequent"],
                             },
                         },
                     ],
@@ -359,15 +368,17 @@ class DefaultClassificationTemplate(DSBoxTemplate):
                     "primitives": [
                         {
                             "primitive":
-                            "d3m.primitives.sklearn_wrap."+
-                            "SKGradientBoostingClassifier",
+                                "d3m.primitives.sklearn_wrap." +
+                                "SKGradientBoostingClassifier",
                             "hyperparameters": {
-                            "n_estimators": [(2 ** i) for i in range(1, 6)],
+                                "n_estimators": [int(
+                                                random.uniform(50, 100)) for
+                                                 _ in range(2)],
                             },
                         },
                         {
                             "primitive":
-                            "d3m.primitives.sklearn_wrap.SKSGDClassifier",
+                                "d3m.primitives.sklearn_wrap.SKSGDClassifier",
                             "hyperparameters": {}
                         },
                     ],
@@ -389,13 +400,16 @@ class DefaultRegressionTemplate(DSBoxTemplate):
         self.template = {
             "name": "default_regression_template",
             "taskType": TaskType.REGRESSION.name,
-        # See TaskType, range include 'CLASSIFICATION', 'CLUSTERING', 'COLLABORATIVE_FILTERING', 'COMMUNITY_DETECTION', 'GRAPH_CLUSTERING', 'GRAPH_MATCHING', 'LINK_PREDICTION', 'REGRESSION', 'TIME_SERIES_FORECASTING', 'VERTEX_NOMINATION'
+            # See TaskType, range include 'CLASSIFICATION', 'CLUSTERING',
+            # 'COLLABORATIVE_FILTERING', 'COMMUNITY_DETECTION',
+            # 'GRAPH_CLUSTERING', 'GRAPH_MATCHING', 'LINK_PREDICTION',
+            # 'REGRESSION', 'TIME_SERIES_FORECASTING', 'VERTEX_NOMINATION'
             "inputType": "table",
-        # See SEMANTIC_TYPES.keys() for range of values
+            # See SEMANTIC_TYPES.keys() for range of values
             "output": "model_step",
-        # Name of the final step generating the prediction
+            # Name of the final step generating the prediction
             "target": "extract_target_step",
-        # Name of the step generating the ground truth
+            # Name of the step generating the ground truth
             "steps": [
 
                 {
