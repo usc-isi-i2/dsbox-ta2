@@ -18,7 +18,7 @@ from importlib import reload
 import dsbox.controller.controller
 reload(dsbox.controller.controller)
 from dsbox.controller.controller import Controller
-
+import os
 controller = Controller('/', development_mode=True)
 
 
@@ -118,6 +118,7 @@ def main(args):
                 suffix = config[key].split('/output/', 1)[1]
                 config[key] = os.path.join(args.output_prefix, suffix)
 
+    os.system('clear')
     print('Using configuation:')
     pprint(config)
 

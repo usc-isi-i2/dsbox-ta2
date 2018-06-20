@@ -21,6 +21,8 @@ from .template import HYPERPARAMETER_DIRECTIVE, HyperparamDirective, DSBoxTempla
 
 from .configuration_space import DimensionName, ConfigurationSpace, SimpleConfigurationSpace, ConfigurationPoint
 
+from pprint import pprint
+
 T = typing.TypeVar("T")
 
 
@@ -72,7 +74,10 @@ class DimensionalSearch(typing.Generic[T]):
 
     def search_one_iter(self, candidate: ConfigurationPoint[T] = None, candidate_value: float = None, max_per_dimension=10):
         """
-        Performs one iteration of dimensional search.
+        Performs one iteration of dimensional search. During dimesional
+        search our algorithm iterates through all 8 steps of pipeline as
+        indicated in our configuration space and greedily optimizes the
+        pipeline one step at a time.
 
         Parameters
         ----------
@@ -83,10 +88,15 @@ class DimensionalSearch(typing.Generic[T]):
         max_per_dimension: int
             Maximunum number of values to search per dimension
         """
+        # we first need the baseline for searching the conf_space. For this
+        # purpose we initially use first configuration and evaluate it on the
+        #  dataset. In case that failed we repeat the sampling process one
+        # more time to guarantee robustness on error reporting
         if candidate is None:
             candidate = ConfigurationPoint(
                 self.configuration_space, self.first_assignment())
-# first, then random, then another random
+        # first, then random, then another random
+
         try:
             result = self.evaluate(candidate)
         except:
@@ -99,10 +109,18 @@ class DimensionalSearch(typing.Generic[T]):
                 print("Pipeline failed", candidate)
                 candidate = ConfigurationPoint(self.configuration_space, self.random_assignment())
 
+
+        print("[INFO] self.dimension_ordering:", self.dimension_ordering)
+        # The actual searching process starts here.
         for dimension in self.dimension_ordering:
+            # get all possible choices for the step, as specified in
+            # configuration space
             choices: typing.List[T] = self.configuration_space.get_values(dimension)
+
+            # the weights are assigned by template designer
             weights = [self.configuration_space.get_weight(
                 dimension, x) for x in choices]
+
             selected = random_choices_without_replacement(
                 choices, weights, max_per_dimension)
 
@@ -115,6 +133,8 @@ class DimensionalSearch(typing.Generic[T]):
                 new = dict(candidate)
                 new[dimension] = value
                 new_candidates.append(self.configuration_space.get_point(new))
+            print("[INFO] Search: \ndim:{};\ncandidates:{}"
+                  "\n###################".format(dimension,new_candidates))
             values = []
             sucessful_candidates = []
             for x in new_candidates:
