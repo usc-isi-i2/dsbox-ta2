@@ -11,6 +11,7 @@ from d3m.metadata.pipeline import Pipeline
 from dsbox.template.runtime import Runtime
 from dsbox.template.search import ConfigurationSpace, ConfigurationPoint
 from dsbox.template.template import to_digraph
+import pprint
 
 # python path of primitive, i.e. 'd3m.primitives.common_primitives.RandomForestClassifier'
 PythonPath = typing.NewType('PythonPath', str)
@@ -89,10 +90,11 @@ class FittedPipeline:
                 pickle.dump(each_step, f)
 
     def __str__(self):
-        dag_pipe = to_digraph(self.pipeline)
-        dag_order = list(nx.topological_sort(dag_pipe))
+        desc = list(map(lambda s: (s.primitive, s.hyperparams),
+                        self.pipeline.steps))
+        return pprint.pformat(desc)
         # print("Sorted:", dag_order)
-        return str(dag_order)
+        # return str(dag_order)
 
     @classmethod
     def load(cls:typing.Type[TP], folder_loc: str, pipeline_id: str, dataset: Dataset) -> TP:

@@ -22,6 +22,7 @@ from .template import HYPERPARAMETER_DIRECTIVE, HyperparamDirective, DSBoxTempla
 from .configuration_space import DimensionName, ConfigurationSpace, SimpleConfigurationSpace, ConfigurationPoint
 
 from pprint import pprint
+from .pipeline_utilities import pipe2str
 
 T = typing.TypeVar("T")
 
@@ -288,6 +289,7 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
         training_ground_truth = run.fit_outputs[self.template.get_target_step_number()]
         training_prediction = run.fit_outputs[self.template.get_output_step_number()]
 
+        print('*'*100)
         results = run.produce(inputs=[self.validation_dataset])
         validation_ground_truth = run.produce_outputs[self.template.get_target_step_number()]
         # results == validation_prediction
@@ -314,6 +316,8 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
             'validation_metrics': validation_metrics
         }
         # Use first metric from validation
+        print(pipe2str(pipeline))
+        pprint(data)
         return validation_metrics[0]['value'], data
 
 

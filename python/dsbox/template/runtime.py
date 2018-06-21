@@ -160,8 +160,8 @@ class Runtime:
 
         model = primitive(hyperparams=primitive_hyperparams(
                     primitive_hyperparams.defaults(), **custom_hyperparams))
-        print('-'*100)
-        print('step', n_step, 'primitive', primitive)
+        # print('-'*100)
+        # print('step', n_step, 'primitive', primitive)
         # print('training_arguments', training_arguments)
         model.set_training_data(**training_arguments)
         model.fit()
@@ -209,8 +209,8 @@ class Runtime:
                         continue
             if isinstance(self.pipeline_description.steps[n_step], PrimitiveStep):
                 if n_step in self.produce_order:
-                    print('-'*100)
-                    print('step', n_step, 'primitive', primitive)
+                    # print('-'*100)
+                    # print('step', n_step, 'primitive', primitive)
                     steps_outputs[n_step] = self.pipeline[n_step].produce(**produce_arguments).value
                 else:
                     steps_outputs[n_step] = None
