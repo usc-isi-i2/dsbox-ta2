@@ -4,8 +4,8 @@ import glob
 import sys
 import typing
 # os.sys.path.append("/nfs1/dsbox-repo/muxin/dsbox-ta2/python")
-# os.sys.path.insert(0, "/nfs1/dsbox-repo/muxin/dsbox-ta2/python")
-os.sys.path.insert(0, "/opt/kyao-repo/dsbox2/dsbox-ta2/python")
+os.sys.path.insert(0, "/nfs1/dsbox-repo/muxin/dsbox-ta2/python")
+#os.sys.path.insert(0, "/opt/kyao-repo/dsbox2/dsbox-ta2/python")
 from enum import Enum
 
 from d3m import utils, index
@@ -22,11 +22,13 @@ reload(dsbox.template.template)
 reload(dsbox.template.library)
 reload(dsbox.template.search)
 from dsbox.template.template import TemplatePipeline, TemplateStep, DSBoxTemplate
-from dsbox.template.library import DefaultClassificationTemplate, DefaultRegressionTemplate
+from dsbox.template.library import DefaultClassificationTemplate, DefaultRegressionTemplate, DoesNotMatchTemplate1, DoesNotMatchTemplate2
 from dsbox.template.configuration_space import ConfigurationSpace, SimpleConfigurationSpace
 import dsbox.template.search as search
-
+import pdb
 # import dsbox.template.template as template
+# print(dir(DSBoxTemplate))
+# pdb.set_trace()
 
 
 def printpipeline(pipeline):
@@ -139,14 +141,21 @@ def defaultregressoryaml():
 
 
 # defaultregressoryaml()
-t = DefaultClassificationTemplate()
+t = DoesNotMatchTemplate2()
+# t = DefaultClassificationTemplate()
+
 c = t.generate_configuration_space()
 point = c.get_point_using_first_value()
-print(point.space)
-print(point.data)
+# print(point.space)
+# print(point.data)
+# pdb.set_trace()
 pipeline = t.to_pipeline(point)
+pipeline.check()
+# with open("notmatch.yaml", "w") as y:
+#     pipeline.to_yaml_content(y)
 
-path = '/nas/home/kyao/dsbox/data/datadrivendiscovery.org/data/seed_datasets_current/38_sick/38_sick_dataset/datasetDoc.json'
+# npath = '/nas/home/kyao/dsbox/data/datadrivendiscovery.org/data/seed_datasets_current/38_sick/38_sick_dataset/datasetDoc.json'
+path = '/nas/home/kyao/dsbox/data/datadrivendiscovery.org/data/seed_datasets_current_old/1491_one_hundred_plants_margin/1491_one_hundred_plants_margin_dataset/datasetDoc.json'
 path = 'file://{path_schema}'.format(path_schema=os.path.abspath(path))
 dataset = D3MDatasetLoader()
 dataset = dataset.load(dataset_uri=path)
@@ -155,39 +164,37 @@ semantic_types = ["https://metadata.datadrivendiscovery.org/types/CategoricalDat
                   "https://metadata.datadrivendiscovery.org/types/SuggestedTarget",
                   "https://metadata.datadrivendiscovery.org/types/Target",
                   "https://metadata.datadrivendiscovery.org/types/TrueTarget"]
-dataset.metadata = dataset.metadata.update(('0', metadata_base.ALL_ELEMENTS, 30), {'semantic_types': semantic_types})
+dataset.metadata = dataset.metadata.update(('0', metadata_base.ALL_ELEMENTS, 65), {'semantic_types': semantic_types})
 
-problem = parse_problem_description('/nas/home/kyao/dsbox/data/datadrivendiscovery.org/data/seed_datasets_current/38_sick/38_sick_problem/problemDoc.json')
+problem = parse_problem_description('/nas/home/kyao/dsbox/data/datadrivendiscovery.org/data/seed_datasets_current_old/1491_one_hundred_plants_margin/1491_one_hundred_plants_margin_problem/problemDoc.json')
 metrics = problem['problem']['performance_metrics']
 
 s = search.TemplateDimensionalSearch(t, c, index.search(), dataset, dataset, metrics)
+pdb.set_trace()
 point, value = s.search_one_iter()
 
 print('====classification', point, value)
 
-rpath = '/nfs1/dsbox-repo/data/datasets/seed_datasets_current/196_autoMpg/196_autoMpg_dataset/datasetDoc.json'
-rpath = 'file://{path_schema}'.format(path_schema=os.path.abspath(rpath))
-rdataset = D3MDatasetLoader()
-rdataset = rdataset.load(dataset_uri=rpath)
+# rpath = '/nfs1/dsbox-repo/data/datasets/seed_datasets_current/196_autoMpg/196_autoMpg_dataset/datasetDoc.json'
+# rpath = 'file://{path_schema}'.format(path_schema=os.path.abspath(rpath))
+# rdataset = D3MDatasetLoader()
+# rdataset = rdataset.load(dataset_uri=rpath)
 
 
-semantic_types = ["http://schema.org/Float",
-                  "https://metadata.datadrivendiscovery.org/types/SuggestedTarget",
-                  "https://metadata.datadrivendiscovery.org/types/Target",
-                  "https://metadata.datadrivendiscovery.org/types/TrueTarget"]
-rdataset.metadata = rdataset.metadata.update(('0', metadata_base.ALL_ELEMENTS, 8), {'semantic_types': semantic_types})
+# semantic_types = ["http://schema.org/Float",
+#                   "https://metadata.datadrivendiscovery.org/types/SuggestedTarget",
+#                   "https://metadata.datadrivendiscovery.org/types/Target",
+#                   "https://metadata.datadrivendiscovery.org/types/TrueTarget"]
+# rdataset.metadata = rdataset.metadata.update(('0', metadata_base.ALL_ELEMENTS, 8), {'semantic_types': semantic_types})
 
-rproblem = parse_problem_description('/nas/home/kyao/dsbox/data/datadrivendiscovery.org/data/seed_datasets_current/196_autoMpg/196_autoMpg_problem/problemDoc.json')
-rmetrics = rproblem['problem']['performance_metrics']
+# rproblem = parse_problem_description('/nas/home/kyao/dsbox/data/datadrivendiscovery.org/data/seed_datasets_current/196_autoMpg/196_autoMpg_problem/problemDoc.json')
+# rmetrics = rproblem['problem']['performance_metrics']
 
-r = DefaultRegressionTemplate()
-rc = r.generate_configuration_space()
-rpoint = rc.get_point_using_first_value()
-rpipeline = r.to_pipeline(rpoint)
-rs = search.TemplateDimensionalSearch(r, rc, index.search(), rdataset, rdataset, rmetrics)
-rpoint, rvalue = rs.search_one_iter()
+# r = DefaultRegressionTemplate()
+# rc = r.generate_configuration_space()
+# rpoint = rc.get_point_using_first_value()
+# rpipeline = r.to_pipeline(rpoint)
+# rs = search.TemplateDimensionalSearch(r, rc, index.search(), rdataset, rdataset, rmetrics)
+# rpoint, rvalue = rs.search_one_iter()
 
-print('====regression', rpoint, rvalue)
-
-# print(c._dimension_ordering, cc._dimension_ordering)
-# print(c._dimension_values, cc._dimension_values)
+# print('====regression', rpoint, rvalue)
