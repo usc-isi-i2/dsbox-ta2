@@ -15,27 +15,46 @@ from d3m.exceptions import NotSupportedError, InvalidArgumentValueError
 from dsbox.template.library import TemplateLibrary, TemplateDescription, SemanticTypeDict
 # from dsbox.template.search import TemplateDimensionalRandomHyperparameterSearch, TemplateDimensionalSearch, ConfigurationSpace, SimpleConfigurationSpace, PythonPath, DimensionName
 from dsbox.template.search import TemplateDimensionalSearch, ConfigurationSpace, SimpleConfigurationSpace, PythonPath, DimensionName
-from dsbox.template.template import TemplatePipeline,to_digraph
+from dsbox.template.template import TemplatePipeline, to_digraph, DSBoxTemplate
 from dsbox.pipeline.fitted_pipeline import FittedPipeline
 
 __all__ = ['Status', 'Controller']
 
 import copy
 import pprint
-from sklearn.model_selection import StratifiedShuffleSplit
-def split_dataset(dataset, problem):
+from sklearn.model_selection import StratifiedShuffleSplit, ShuffleSplit
+
+def split_dataset(dataset, problem, *, randome_state=42, test_size=0.2):
+    '''
+    Split dataset into training and test
+    '''
+
+    task_type : TaskType = problem['problem']['task_type']  # 'classification' 'regression'
+
+    
     for i in range(len(problem['inputs'])):
-        if 'targets' in problem['inputs']:
+        if 'targets' in problem['inputs'][i]:
             break
+
     res_id = problem['inputs'][i]['targets'][0]['resource_id']
     target_index = problem['inputs'][i]['targets'][0]['column_index']
-    sss = StratifiedShuffleSplit(n_splits=1, test_size=0.2, random_state=42)
-    sss.get_n_splits(dataset[res_id], dataset[res_id].iloc[:, target_index])
-    for train_index, test_index in sss.split(dataset[res_id], dataset[res_id].iloc[:, target_index]):
-        print('train', train_index)
-        print('test', test_index)
-        train = dataset[res_id].iloc[train_index,:]
-        test = dataset[res_id].iloc[test_index,:]
+
+    if task_type == TaskType.CLASSIFICATION:
+        # Use stratified sample to split the dataset
+        sss = StratifiedShuffleSplit(n_splits=1, test_size=test_size, random_state=randome_state)
+        sss.get_n_splits(dataset[res_id], dataset[res_id].iloc[:, target_index])
+        for train_index, test_index in sss.split(dataset[res_id], dataset[res_id].iloc[:, target_index]):
+            train = dataset[res_id].iloc[train_index,:]
+            test = dataset[res_id].iloc[test_index,:]
+    else:
+        # Use random split
+        if not task_type == TaskType.REGRESSION:
+            print('USING Random Split to split task type: {}'.format(task_type))
+        ss = ShuffleSplit(n_splits=1, test_size=test_size, random_state=randome_state)
+        ss.get_n_splits(dataset[res_id])
+        for train_index, test_index in ss.split(dataset[res_id]):
+            train = dataset[res_id].iloc[train_index,:]
+            test = dataset[res_id].iloc[test_index,:]
 
     # Generate training dataset
     train_dataset = copy.copy(dataset)
@@ -229,6 +248,7 @@ class Controller:
         self._check_and_set_dataset_metadata()
 
         # For now just use the first template
+        # TODO: sample based on DSBoxTemplate.importance()
         template = self.template[0]
 
         space = template.generate_configuration_space()
