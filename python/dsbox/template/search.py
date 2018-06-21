@@ -76,7 +76,8 @@ class DimensionalSearch(typing.Generic[T]):
                           dimension: typing.List[DimensionName]):
         pass
 
-    def search_one_iter(self, candidate: ConfigurationPoint[T] = None, candidate_value: float = None, max_per_dimension=10):
+    def search_one_iter(self, candidate_in: ConfigurationPoint[T] = None,
+                        candidate_value: float = None, max_per_dimension=10):
         """
         Performs one iteration of dimensional search. During dimesional
         search our algorithm iterates through all 8 steps of pipeline as
@@ -85,7 +86,7 @@ class DimensionalSearch(typing.Generic[T]):
 
         Parameters
         ----------
-        candidate: ConfigurationPoint[T]
+        candidate_in: ConfigurationPoint[T]
             Current best candidate
         candidate_value: float
             The valude for the current best candidate
@@ -96,22 +97,7 @@ class DimensionalSearch(typing.Generic[T]):
         # purpose we initially use first configuration and evaluate it on the
         #  dataset. In case that failed we repeat the sampling process one
         # more time to guarantee robustness on error reporting
-        if candidate is None:
-            candidate = ConfigurationPoint(
-                self.configuration_space, self.first_assignment())
-        # first, then random, then another random
-
-        try:
-            result = self.evaluate(candidate)
-        except:
-            print("***************")
-            print("Pipeline failed", candidate)
-            candidate = ConfigurationPoint(self.configuration_space, self.random_assignment())
-            try:
-                result = self.evaluate(candidate)
-            except:
-                print("Pipeline failed", candidate)
-                candidate = ConfigurationPoint(self.configuration_space, self.random_assignment())
+        candidate = self.setup_initial_candidate(candidate_in)
 
         # generate an executable pipeline with random steps from conf. space.
 
@@ -175,6 +161,43 @@ class DimensionalSearch(typing.Generic[T]):
         # here we can get the details of pipelines from "candidate.data"
 
         return (candidate, candidate_value)
+
+
+
+    def setup_initial_candidate(self, candidate: ConfigurationPoint[T]) -> \
+            ConfigurationPoint[T]:
+        """
+        we first need the baseline for searching the conf_space. For this
+        purpose we initially use first configuration and evaluate it on the
+        dataset. In case that failed we repeat the sampling process one more
+        time to guarantee robustness on error reporting
+
+        Args:
+            candidate: ConfigurationPoint[T]
+
+        Returns:
+            candidate : ConfigurationPoint[T]
+        """
+        if candidate is None:
+            candidate = ConfigurationPoint(
+                self.configuration_space, self.first_assignment())
+        # first, then random, then another random
+        try:
+            result = self.evaluate(candidate)
+        except:
+            print("***************")
+            print("Pipeline failed", candidate)
+            candidate = ConfigurationPoint(self.configuration_space,
+                                           self.random_assignment())
+            try:
+                result = self.evaluate(candidate)
+            except:
+                print("Pipeline failed", candidate)
+                candidate = ConfigurationPoint(self.configuration_space,
+                                               self.random_assignment())
+        return candidate
+
+
 
     def search(self, candidate: ConfigurationPoint[T] = None, candidate_value: float = None, num_iter=3, max_per_dimension=10):
         for i in range(num_iter):
