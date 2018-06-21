@@ -80,7 +80,7 @@ class FittedPipeline:
             each_step = self.runtime.pipeline[n_step]
             '''
             NOTICE:
-            runing both of get_params and hyperparams will cause the error of 
+            running both of get_params and hyperparams will cause the error of 
             "AttributeError: 'RandomForestClassifier' object has no attribute 'oob_score_'"
             print(each_primitive.get_params())
             print(each_step.hyperparams)

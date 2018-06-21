@@ -257,9 +257,13 @@ class Controller:
 
         # search = TemplateDimensionalSearch(template, space, d3m.index.search(), self.dataset, self.dataset, metrics)
         if self.test_dataset is None:
-            search = TemplateDimensionalSearch(template, space, d3m.index.search(), self.dataset, self.dataset, metrics)
+            search = TemplateDimensionalSearch(
+                template, space, d3m.index.search(), self.dataset,
+                self.dataset, metrics)
         else:
-            search = TemplateDimensionalSearch(template, space, d3m.index.search(), self.dataset, self.test_dataset, metrics)
+            search = TemplateDimensionalSearch(
+                template, space, d3m.index.search(), self.dataset,
+                self.test_dataset, metrics)
 
         candidate, value = search.search_one_iter()
         if candidate is None:
@@ -269,13 +273,21 @@ class Controller:
             print("******************\n[INFO] Writing results")
             print(candidate.data)
             print(candidate, value)
-            print('Training {} = {}'.format(candidate.data['training_metrics'][0]['metric'].name, candidate.data['training_metrics'][0]['value']))
-            print('Testing  {} = {}'.format(candidate.data['validation_metrics'][0]['metric'].name, candidate.data['validation_metrics'][0]['value']))
+            print('Training {} = {}'.format(
+                candidate.data['training_metrics'][0]['metric'].name,
+                candidate.data['training_metrics'][0]['value']))
+            print('Testing  {} = {}'.format(
+                candidate.data['validation_metrics'][0]['metric'].name,
+                candidate.data['validation_metrics'][0]['value']))
 
-
+            print("******************\n[INFO] Saving Best Pipeline")
             # save the pipeline
-            pipeline = FittedPipeline.create(configuration = candidate, dataset = self.dataset)
-            pipeline.save(self.config['executables_root'])
+            try:
+                pipeline = FittedPipeline.create(configuration=candidate,
+                                             dataset=self.dataset)
+                pipeline.save(self.config['executables_root'])
+            except:
+                print("[ERROR] Save Failed!")
 
             return Status.OK
 
