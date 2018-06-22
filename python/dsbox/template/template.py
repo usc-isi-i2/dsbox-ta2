@@ -507,17 +507,17 @@ class DSBoxTemplate():
         templateinput = pipeline.add_input("input dataset")
 
         # save temporary output for another step to take as input
-        outputs = {}  
+        outputs = {}
         stepcount = 0
 
         # iterate through steps in the given binding and add each step to the
         #  pipeline. The IO and hyperparameter are also handled here.
         for index, original_step in enumerate(self.template["steps"]):
-        # for index, (name, prmtv) in enumerate(binding.items()):
+            # for index, (name, prmtv) in enumerate(binding.items()):
             name = original_step['name']
             prmtv = binding[name]
 
-            if len(binding[name]) == 1:
+            if len(prmtv) == 1:
 
                 self.step_number[name] = stepcount
                 primitiveStep = PrimitiveStep(self.primitive[binding[name][0]["primitive"]].metadata.query())
@@ -525,8 +525,8 @@ class DSBoxTemplate():
                 outputs[name] = primitiveStep.add_output("produce")
 
                 # setting the hyperparameters
-                if prmtv["hyperparameters"] != {}:
-                    hyper = prmtv["hyperparameters"]
+                if prmtv[0]["hyperparameters"] != {}:
+                    hyper = prmtv[0]["hyperparameters"]
                     for hyperName in hyper:
                         # TODO add support for types
                         primitiveStep.add_hyperparameter(
@@ -599,7 +599,6 @@ class DSBoxTemplate():
                     primitiveStep.add_argument("outputs", ArgumentType.CONTAINER, outputs[tmpkey2])
                 else:
                     print("cannot process more than 2 arguments")
-
 
         # END FOR
 
