@@ -94,30 +94,11 @@ class DimensionalSearch(typing.Generic[T]):
         max_per_dimension: int
             Maximunum number of values to search per dimension
         """
-<<<<<<< HEAD
         # we first need the baseline for searching the conf_space. For this
         # purpose we initially use first configuration and evaluate it on the
         #  dataset. In case that failed we repeat the sampling process one
         # more time to guarantee robustness on error reporting
-        candidate = self.setup_initial_candidate(candidate_in)
-=======
-        if candidate is None:
-            candidate = ConfigurationPoint(
-                self.configuration_space, self.first_assignment())
-# first, then random, then another random
-        try:
-            result = self.evaluate(candidate)
-        except:
-            print("***************")
-            print("Pipeline failed", candidate)
-            candidate = ConfigurationPoint(self.configuration_space, self.random_assignment())
-            try:
-                result = self.evaluate(candidate)
-            except:
-                print("Pipeline failed", candidate)
-                candidate = ConfigurationPoint(self.configuration_space, self.random_assignment())
-        candidate_value = result[0]
->>>>>>> newtemp
+        candidate, candidate_value = self.setup_initial_candidate(candidate_in)
 
         # generate an executable pipeline with random steps from conf. space.
 
@@ -185,7 +166,7 @@ class DimensionalSearch(typing.Generic[T]):
 
 
     def setup_initial_candidate(self, candidate: ConfigurationPoint[T]) -> \
-            ConfigurationPoint[T]:
+            typing.Tuple[ConfigurationPoint[T], float]:
         """
         we first need the baseline for searching the conf_space. For this
         purpose we initially use first configuration and evaluate it on the
@@ -196,7 +177,7 @@ class DimensionalSearch(typing.Generic[T]):
             candidate: ConfigurationPoint[T]
 
         Returns:
-            candidate : ConfigurationPoint[T]
+            candidate, evaluate_value : ConfigurationPoint[T], float
         """
         if candidate is None:
             candidate = ConfigurationPoint(
@@ -215,7 +196,8 @@ class DimensionalSearch(typing.Generic[T]):
                 print("Pipeline failed", candidate)
                 candidate = ConfigurationPoint(self.configuration_space,
                                                self.random_assignment())
-        return candidate
+                result = self.evaluate(candidate)
+        return (candidate, result[0])
 
 
 

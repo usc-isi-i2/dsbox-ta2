@@ -514,7 +514,6 @@ class DefaultRegressionTemplate(DSBoxTemplate):
         DSBoxTemplate.__init__(self)
         self.template = {
             "name": "default_regression_template",
-<<<<<<< HEAD
             "taskType": TaskType.REGRESSION.name,
             # See TaskType, range include 'CLASSIFICATION', 'CLUSTERING',
             # 'COLLABORATIVE_FILTERING', 'COMMUNITY_DETECTION',
@@ -526,12 +525,6 @@ class DefaultRegressionTemplate(DSBoxTemplate):
             # Name of the final step generating the prediction
             "target": "extract_target_step",
             # Name of the step generating the ground truth
-=======
-            "taskType": TaskType.REGRESSION.name,  # See TaskType, range include 'CLASSIFICATION', 'CLUSTERING', 'COLLABORATIVE_FILTERING', 'COMMUNITY_DETECTION', 'GRAPH_CLUSTERING', 'GRAPH_MATCHING', 'LINK_PREDICTION', 'REGRESSION', 'TIME_SERIES_FORECASTING', 'VERTEX_NOMINATION'
-            "inputType": "table",  # See SEMANTIC_TYPES.keys() for range of values
-            "output": "model_step",  # Name of the final step generating the prediction
-            "target": "extract_target_step",  # Name of the step generating the ground truth
->>>>>>> newtemp
             "steps": [
 
                 {
