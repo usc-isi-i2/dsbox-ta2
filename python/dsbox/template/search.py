@@ -94,11 +94,30 @@ class DimensionalSearch(typing.Generic[T]):
         max_per_dimension: int
             Maximunum number of values to search per dimension
         """
+<<<<<<< HEAD
         # we first need the baseline for searching the conf_space. For this
         # purpose we initially use first configuration and evaluate it on the
         #  dataset. In case that failed we repeat the sampling process one
         # more time to guarantee robustness on error reporting
         candidate = self.setup_initial_candidate(candidate_in)
+=======
+        if candidate is None:
+            candidate = ConfigurationPoint(
+                self.configuration_space, self.first_assignment())
+# first, then random, then another random
+        try:
+            result = self.evaluate(candidate)
+        except:
+            print("***************")
+            print("Pipeline failed", candidate)
+            candidate = ConfigurationPoint(self.configuration_space, self.random_assignment())
+            try:
+                result = self.evaluate(candidate)
+            except:
+                print("Pipeline failed", candidate)
+                candidate = ConfigurationPoint(self.configuration_space, self.random_assignment())
+        candidate_value = result[0]
+>>>>>>> newtemp
 
         # generate an executable pipeline with random steps from conf. space.
 
@@ -214,6 +233,7 @@ PythonPath = typing.NewType('PythonPath', str)
 
 PrimitiveDescription = typing.NewType('PrimitiveDescription', dict)
 
+
 class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
     """
     Use dimensional search to find best pipeline.
@@ -239,7 +259,7 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
     def __init__(self, template: DSBoxTemplate,
                  configuration_space: ConfigurationSpace[PrimitiveDescription],
                  primitive_index: typing.Dict[PrimitiveDescription, PrimitiveBaseMeta],
-                 train_dataset: Dataset, 
+                 train_dataset: Dataset,
                  validation_dataset: Dataset,
                  performance_metrics: typing.List[typing.Dict],
                  resolver: Resolver = None) -> None:
@@ -251,7 +271,7 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
 
         self.template: DSBoxTemplate = template
         # self.configuration_space = configuration_space
-        self.primitive_index : typing.Dict[PrimitiveDescription, PrimitiveBaseMeta] = primitive_index
+        self.primitive_index: typing.Dict[PrimitiveDescription, PrimitiveBaseMeta] = primitive_index
         self.train_dataset = train_dataset
         self.validation_dataset = validation_dataset
         self.performance_metrics = performance_metrics
@@ -272,8 +292,7 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
         #     key: self.primitive_index[python_path].metadata.query() for key, python_path in configuration.items()}
 
         # value, new_data = self._evaluate(metadata_configuration)
-        # print("[INFO] evaluate_pipeline")
-        # pprint(configuration)
+
         value, new_data = self._evaluate(configuration)
         configuration.data.update(new_data)
         return value, configuration.data

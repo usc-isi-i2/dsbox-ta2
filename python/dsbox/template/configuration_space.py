@@ -107,11 +107,11 @@ class SimpleConfigurationSpace(ConfigurationSpace[T]):
         '''
         Assign the first value for each dimension
         '''
-        print(self._dimension_ordering)
+        # print(self._dimension_ordering)
         assignment: typing.Dict[DimensionName, T] = {}
         for dimension in self._dimension_ordering:
             assignment[dimension] = self.get_values(dimension)[0]
-            print(dimension, self.get_values(dimension)[0])
+            # print(dimension, self.get_values(dimension)[0])
         return ConfigurationPoint(self, assignment)
 
     def __str__(self):
