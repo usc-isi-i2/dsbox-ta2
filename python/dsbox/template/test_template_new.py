@@ -141,8 +141,8 @@ def defaultregressoryaml():
 
 
 # defaultregressoryaml()
-t = DoesNotMatchTemplate2()
-# t = DefaultClassificationTemplate()
+# t = DoesNotMatchTemplate2()
+t = DefaultClassificationTemplate()
 
 c = t.generate_configuration_space()
 point = c.get_point_using_first_value()
@@ -170,7 +170,7 @@ problem = parse_problem_description('/nas/home/kyao/dsbox/data/datadrivendiscove
 metrics = problem['problem']['performance_metrics']
 
 s = search.TemplateDimensionalSearch(t, c, index.search(), dataset, dataset, metrics)
-pdb.set_trace()
+# pdb.set_trace()
 point, value = s.search_one_iter()
 
 print('====classification', point, value)

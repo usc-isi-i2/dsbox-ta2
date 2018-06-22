@@ -15,6 +15,7 @@ from dsbox.template.template import TemplatePipeline, TemplateStep, \
     DSBoxTemplate
 import random
 
+
 class TemplateDescription:
     """
     Description of templates in the template library.
@@ -85,19 +86,19 @@ class TemplateLibrary:
                                     name='dsbox_classifer')
 
         denormalize_step = PrimitiveStep(self.primitive[
-                                             'd3m.primitives.datasets.Denormalize'].metadata.query())
+            'd3m.primitives.datasets.Denormalize'].metadata.query())
         to_DataFrame_step = PrimitiveStep(self.primitive[
-                                              'd3m.primitives.datasets.DatasetToDataFrame'].metadata.query())
+            'd3m.primitives.datasets.DatasetToDataFrame'].metadata.query())
         column_parser_step = PrimitiveStep(
             self.primitive['d3m.primitives.data.ColumnParser'].metadata.query())
         extract_attribute_step = PrimitiveStep(self.primitive[
-                                                   'd3m.primitives.data.ExtractAttributes'].metadata.query())
+            'd3m.primitives.data.ExtractAttributes'].metadata.query())
         cast_1_step = PrimitiveStep(
             self.primitive['d3m.primitives.data.CastToType'].metadata.query())
         impute_step = PrimitiveStep(self.primitive[
-                                        'd3m.primitives.sklearn_wrap.SKImputer'].metadata.query())
+            'd3m.primitives.sklearn_wrap.SKImputer'].metadata.query())
         extract_target_step = PrimitiveStep(self.primitive[
-                                                'd3m.primitives.data.ExtractTargets'].metadata.query())
+            'd3m.primitives.data.ExtractTargets'].metadata.query())
         cast_2_step = PrimitiveStep(
             self.primitive['d3m.primitives.data.CastToType'].metadata.query())
 
@@ -175,19 +176,19 @@ class TemplateLibrary:
                                     name='dsbox_regressor')
 
         denormalize_step = PrimitiveStep(self.primitive[
-                                             'd3m.primitives.datasets.Denormalize'].metadata.query())
+            'd3m.primitives.datasets.Denormalize'].metadata.query())
         to_DataFrame_step = PrimitiveStep(self.primitive[
-                                              'd3m.primitives.datasets.DatasetToDataFrame'].metadata.query())
+            'd3m.primitives.datasets.DatasetToDataFrame'].metadata.query())
         column_parser_step = PrimitiveStep(
             self.primitive['d3m.primitives.data.ColumnParser'].metadata.query())
         extract_attribute_step = PrimitiveStep(self.primitive[
-                                                   'd3m.primitives.data.ExtractAttributes'].metadata.query())
+            'd3m.primitives.data.ExtractAttributes'].metadata.query())
         cast_1_step = PrimitiveStep(
             self.primitive['d3m.primitives.data.CastToType'].metadata.query())
         impute_step = PrimitiveStep(self.primitive[
-                                        'd3m.primitives.sklearn_wrap.SKImputer'].metadata.query())
+            'd3m.primitives.sklearn_wrap.SKImputer'].metadata.query())
         extract_target_step = PrimitiveStep(self.primitive[
-                                                'd3m.primitives.data.ExtractTargets'].metadata.query())
+            'd3m.primitives.data.ExtractTargets'].metadata.query())
         # cast_2_step = PrimitiveStep(self.primitive[
         # 'd3m.primitives.data.CastToType'].metadata.query())
 
@@ -484,12 +485,12 @@ class DefaultClassificationTemplate(DSBoxTemplate):
                         {
                             "primitive":
                                 "d3m.primitives.sklearn_wrap." +
-                                "SKGradientBoostingClassifier",
+                                 "SKGradientBoostingClassifier",
                             "hyperparameters": {
                                 "n_estimators": [int(
-                                                random.uniform(50, 100)) for
-                                                 _ in range(2)],
-                            },
+                                    random.uniform(50, 100)) for
+                                    _ in range(2)],
+                                    },
                         },
                         {
                             "primitive":

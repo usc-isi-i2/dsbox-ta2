@@ -18,6 +18,7 @@ from .configuration_space import DimensionName, ConfigurationSpace, SimpleConfig
 from itertools import zip_longest, product
 from pprint import pprint
 
+
 class ExtendedPipelineStep(utils.Enum):
     TEMPLATE = 1
 
@@ -349,8 +350,7 @@ class DSBoxTemplate():
         """
         # print("[INFO] to_pipeline:")
         # pprint(configuration_point)
-        return self._to_pipeline(configuration_point)
-
+        # return self._to_pipeline(configuration_point)
 
         # configuration_point =
         # {
@@ -379,9 +379,11 @@ class DSBoxTemplate():
                     }
                 else:
                     # is dict
+                    print(step, "is dict")
                     sub_step = {
                         'primitive': step['primitives'][0]['primitive'],
-                        'hyperparameters': step['primitives'][0]['hyperpameters']
+                        # 'hyperparameters': step['primitives'][0]['hyperparameters']
+                        "hyperparameters": {}
                     }
 
                 sub_steps.append(sub_step)
@@ -564,8 +566,11 @@ class DSBoxTemplate():
                 stepcount += 1
                 outputs[name] = primitiveStep.add_output("produce")
                 if laststep["hyperparameters"] != {}:
-                    for key in laststep["hyperparameters"].keys():
-                        primitiveStep.add_hyperparameter(key, self.argmentsmapper[laststep["hyperparameters"][key]["type"]], step["hyperparameters"][key]["value"])
+                    try:
+                        for key in laststep["hyperparameters"].keys():
+                            primitiveStep.add_hyperparameter(key, self.argmentsmapper[laststep["hyperparameters"][key]["type"]], step["hyperparameters"][key]["value"])
+                    except:
+                        raise Exception('Hypermaters formats not supported!')
                 if len(inputs) == 1:
                     tmpkey = inputs[0] + ".pipeline0" + ".step" + str(len(inputs) - 1)
                     primitiveStep.add_argument("inputs", ArgumentType.CONTAINER, outputs[tmpkey])
@@ -580,38 +585,37 @@ class DSBoxTemplate():
 
                     # print(self.primitive[v["primitive"]])
 
-            primitiveStep = PrimitiveStep(
-                self.primitive[prmtv["primitive"]]
-                    .metadata.query())
+            # primitiveStep = PrimitiveStep(
+            #     self.primitive[prmtv["primitive"]]
+            #         .metadata.query())
 
+            # pipeline.add_step(primitiveStep)
+            # outputs[name] = primitiveStep.add_output("produce")
 
-            pipeline.add_step(primitiveStep)
-            outputs[name] = primitiveStep.add_output("produce")
+            # # setting the hyperparameters
+            # if prmtv["hyperparameters"] != {}:
+            #     hyper = prmtv["hyperparameters"]
+            #     for hyperName in hyper:
+            #         # TODO add support for types
+            #         primitiveStep.add_hyperparameter(
+            #             name=hyperName, argument_type=type(hyper[hyperName]),
+            #             data=hyper[hyperName])
 
-            # setting the hyperparameters
-            if prmtv["hyperparameters"] != {}:
-                hyper = prmtv["hyperparameters"]
-                for hyperName in hyper:
-                    # TODO add support for types
-                    primitiveStep.add_hyperparameter(
-                        name=hyperName, argument_type=type(hyper[hyperName]),
-                        data=hyper[hyperName])
-
-            # setting IO
-            templateIO = self.template["steps"][index]["inputs"]
-            if len(templateIO) == 1:
-                primitiveStep.add_argument(
-                    name="inputs",
-                    argument_type=ArgumentType.CONTAINER,
-                    data_reference=outputs[templateIO[0]])
-            elif len(templateIO) == 2:
-                primitiveStep.add_argument("inputs", ArgumentType.CONTAINER,
-                                           outputs[templateIO[0]])
-                primitiveStep.add_argument("outputs", ArgumentType.CONTAINER,
-                                           outputs[templateIO[1]])
-            else:
-                raise exceptions.InvalidArgumentValueError(
-                    "Should be less than 3 arguments!")
+            # # setting IO
+            # templateIO = self.template["steps"][index]["inputs"]
+            # if len(templateIO) == 1:
+            #     primitiveStep.add_argument(
+            #         name="inputs",
+            #         argument_type=ArgumentType.CONTAINER,
+            #         data_reference=outputs[templateIO[0]])
+            # elif len(templateIO) == 2:
+            #     primitiveStep.add_argument("inputs", ArgumentType.CONTAINER,
+            #                                outputs[templateIO[0]])
+            #     primitiveStep.add_argument("outputs", ArgumentType.CONTAINER,
+            #                                outputs[templateIO[1]])
+            # else:
+            #     raise exceptions.InvalidArgumentValueError(
+            #         "Should be less than 3 arguments!")
 
         # END FOR
 
@@ -621,7 +625,6 @@ class DSBoxTemplate():
         pipeline.add_output(general_output, "predictions of input dataset")
 
         return pipeline
-
 
         # outputs = {}  # save temporary output for another step to take as input
         # for index, k in enumerate(self.template["steps"]):
@@ -653,7 +656,6 @@ class DSBoxTemplate():
         # general_output = outputs[self.template["steps"][-1]["name"]]
         # pipeline.add_output(general_output, "predictions of input dataset")
         # return pipeline
-
 
     def generate_configuration_space(self) -> SimpleConfigurationSpace:
         steps = self.template["steps"]
@@ -687,8 +689,8 @@ class DSBoxTemplate():
     def get_output_step_number(self):
         return self.step_number[self.template['output']]
 
-def _product_dict(dct):
-    keys = dct.keys()
-    vals = dct.values()
-    for instance in product(*vals):
-        yield dict(zip(keys, instance))
+# def _product_dict(dct):
+#     keys = dct.keys()
+#     vals = dct.values()
+#     for instance in product(*vals):
+#         yield dict(zip(keys, instance))
