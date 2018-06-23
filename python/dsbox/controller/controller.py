@@ -18,6 +18,8 @@ from dsbox.template.search import TemplateDimensionalSearch, ConfigurationSpace,
 from dsbox.template.template import TemplatePipeline, to_digraph, DSBoxTemplate
 from dsbox.pipeline.fitted_pipeline import FittedPipeline
 
+from pathlib import Path
+
 __all__ = ['Status', 'Controller']
 
 import copy
@@ -276,9 +278,23 @@ class Controller:
             print('Training {} = {}'.format(
                 candidate.data['training_metrics'][0]['metric'].name,
                 candidate.data['training_metrics'][0]['value']))
-            print('Testing  {} = {}'.format(
+            print('Validation {} = {}'.format(
                 candidate.data['validation_metrics'][0]['metric'].name,
                 candidate.data['validation_metrics'][0]['value']))
+
+            # FIXME: code used for doing experiments, want to make optionals
+            pipeline = FittedPipeline.create(configuration=candidate,
+                                        dataset=self.dataset)
+                                                                           
+            dataset_name = self.config['executables_root'].rsplit("/", 2)[1]
+            save_location = str(Path.home()) + "/outputs/" + dataset_name + ".txt"
+
+            print("******************\n[INFO] Saving training results in", save_location)
+            f = open(save_location, "w+")
+            f.write(str(candidate.data['training_metrics'][0]['value']))
+            f.write("\n")
+            f.write(str(candidate.data['validation_metrics'][0]['value']))
+            f.close()
 
             print("******************\n[INFO] Saving Best Pipeline")
             # save the pipeline

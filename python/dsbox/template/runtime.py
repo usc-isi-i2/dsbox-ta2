@@ -169,7 +169,7 @@ class Runtime:
             model = primitive(hyperparams=primitive_hyperparams(
                         primitive_hyperparams.defaults(), **custom_hyperparams))
         except:
-            print("Hyperparameters unsuccesfully set - using defaults")
+            print("******************\n[ERROR]Hyperparameters unsuccesfully set - using defaults")
             model = primitive(hyperparams=primitive_hyperparams(primitive_hyperparams.defaults()))
 
         #print('-'*100)
