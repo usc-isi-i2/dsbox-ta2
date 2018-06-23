@@ -291,9 +291,8 @@ class Controller:
 
             print("******************\n[INFO] Saving training results in", save_location)
             f = open(save_location, "w+")
-            f.write(str(candidate.data['training_metrics'][0]['value']))
-            f.write("\n")
-            f.write(str(candidate.data['validation_metrics'][0]['value']))
+            f.write(str(candidate.data['training_metrics'][0]['value']) + "\n")
+            f.write(str(candidate.data['validation_metrics'][0]['value']) + "\n")
             f.close()
 
             print("******************\n[INFO] Saving Best Pipeline")
