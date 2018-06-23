@@ -135,10 +135,13 @@ class Runtime:
             Arguments for set_training_data, fit, produce of the primitive for this step.
 
         """
+
         primitive = step.primitive
 
         primitive_hyperparams = primitive.metadata.query()['primitive_code']['class_type_arguments']['Hyperparams']
         custom_hyperparams = dict()
+
+        print("primitive hyperparams:", primitive_hyperparams)
 
         if bool(step.hyperparams):
             for hyperparam, value in step.hyperparams.items():
@@ -146,6 +149,8 @@ class Runtime:
                     custom_hyperparams[hyperparam] = value['data']
                 else:
                     custom_hyperparams[hyperparam] = value
+
+        print("custom hyperparams:", custom_hyperparams)
 
         training_arguments_primitive = self._primitive_arguments(primitive, 'set_training_data')
         training_arguments = {}
@@ -158,9 +163,16 @@ class Runtime:
             if param in training_arguments_primitive:
                 training_arguments[param] = value
 
-        model = primitive(hyperparams=primitive_hyperparams(
-                    primitive_hyperparams.defaults(), **custom_hyperparams))
-        # print('-'*100)
+        #FIXME: once hyperparameters work, simplify code below
+        model = primitive(hyperparams=primitive_hyperparams(primitive_hyperparams.defaults()))
+        try:
+            model = primitive(hyperparams=primitive_hyperparams(
+                        primitive_hyperparams.defaults(), **custom_hyperparams))
+        except:
+            print("Hyperparameters unsuccesfully set - using defaults")
+            model = primitive(hyperparams=primitive_hyperparams(primitive_hyperparams.defaults()))
+
+        #print('-'*100)
         # print('step', n_step, 'primitive', primitive)
         # print('training_arguments', training_arguments)
         model.set_training_data(**training_arguments)
