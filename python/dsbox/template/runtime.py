@@ -141,7 +141,7 @@ class Runtime:
         primitive_hyperparams = primitive.metadata.query()['primitive_code']['class_type_arguments']['Hyperparams']
         custom_hyperparams = dict()
 
-        print("primitive hyperparams:", primitive_hyperparams)
+        # print("primitive hyperparams:", primitive_hyperparams)
 
         if bool(step.hyperparams):
             for hyperparam, value in step.hyperparams.items():
@@ -150,7 +150,7 @@ class Runtime:
                 else:
                     custom_hyperparams[hyperparam] = value
 
-        print("custom hyperparams:", custom_hyperparams)
+        # print("custom hyperparams:", custom_hyperparams)
 
         training_arguments_primitive = self._primitive_arguments(primitive, 'set_training_data')
         training_arguments = {}
