@@ -8,7 +8,7 @@ import pprint
 from networkx import nx  # type: ignore
 import copy
 
-from d3m import exceptions, utils, index
+from d3m import exceptions, utils, index as d3m_index
 from d3m.metadata.base import PrimitiveMetadata
 from d3m.metadata.pipeline import Pipeline, PipelineStep, StepBase, PrimitiveStep, PlaceholderStep, SubpipelineStep, ArgumentType, PlaceholderStep, Resolver, PIPELINE_SCHEMA_VALIDATOR
 from d3m.primitive_interfaces.base import PrimitiveBaseMeta
@@ -305,7 +305,7 @@ def to_digraph(pipeline: Pipeline) -> nx.DiGraph:
 
 class DSBoxTemplate():
     def __init__(self):
-        self.primitive = index.search()
+        self.primitive = d3m_index.search()
         self.argmentsmapper = {
             "container": ArgumentType.CONTAINER,
             "data": ArgumentType.DATA,
@@ -422,7 +422,7 @@ class DSBoxTemplate():
             name = step["name"]
             for in_arg in inputs:
                 in_primitive_value = \
-                    self.primitive[binding[name]["primitive"]].metadata.query()[
+                    d3m_index.get_primitive(binding[name]["primitive"]).metadata.query()[
                         "primitive_code"]["class_type_arguments"]["Inputs"]
                 if in_arg == "template_input":
                     continue
@@ -434,7 +434,7 @@ class DSBoxTemplate():
 
                 # get information of the producer of the input
                 out_primitive_value = \
-                    self.primitive[binding[in_arg]["primitive"]].metadata.query()[
+                    d3m_index.get_primitive(binding[in_arg]["primitive"]).metadata.query()[
                         "primitive_code"]["class_type_arguments"]["Outputs"]
                 if not self.iocompare(in_primitive_value,
                                       out_primitive_value):
@@ -526,9 +526,15 @@ class DSBoxTemplate():
         #  pipeline. The IO and hyperparameter are also handled here.
         for i, step in enumerate(sequence):
             self.step_number[step] = i
-            primitive_step = PrimitiveStep(self.primitive[binding[step]["primitive"]].metadata.query())
-            pipeline.add_step(primitive_step)
-            outputs[step] = primitive_step.add_output("produce")
+            #primitive_step = PrimitiveStep(self.primitive[binding[step]["primitive"]].metadata.query())
+            print("Now adding primitives:")
+            print(binding[step]["primitive"])
+            if v["primitive"] in self.primitive:
+                primitiveStep = PrimitiveStep(d3m_index.get_primitive(binding[step]["primitive"]).metadata.query())
+            else:
+                raise exceptions.InvalidArgumentValueError("error, can't find the primitive")
+
+
             if binding[step]["hyperparameters"] != {}:
                 hyper = binding[step]["hyperparameters"]
                 for hyperName in hyper:
@@ -544,7 +550,8 @@ class DSBoxTemplate():
             # print(outputs)
             self.bind_primitive_IO(primitive_step,
                                    *map(lambda io: outputs[io], templateIO))
-
+            pipeline.add_step(primitive_step)
+            outputs[step] = primitive_step.add_output("produce")
         # END FOR
 
         # Add final output as the prediction of target attribute

@@ -556,7 +556,7 @@ class DefaultClassificationTemplate(DSBoxTemplate):
 
                 {
                     "name": "extract_attribute_step",
-                    "primitives": ["d3m.primitives.data.ExtractAttributes"],
+                    "primitives": ["d3m.primitives.data.wocaonima"],
                     "inputs": ["column_parser_step"]
                 },
                 {
