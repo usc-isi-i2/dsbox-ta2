@@ -152,7 +152,12 @@ class DimensionalSearch(typing.Generic[T]):
                 print("[INFO] No Candidate worked!:",values)
                 return (None, None)
 
-            best_index = values.index(min(values))
+            # Find best candidate
+            if self.minimize:
+                best_index = values.index(min(values))
+            else:
+                best_index = values.index(max(values))
+                
             if candidate_value is None:
                 candidate = sucessful_candidates[best_index]
                 candidate_value = values[best_index]
