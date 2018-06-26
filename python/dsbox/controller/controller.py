@@ -29,7 +29,7 @@ from sklearn.model_selection import StratifiedShuffleSplit, ShuffleSplit
 # FIXME: we only need this for testing
 import pandas as pd
 
-def split_dataset(dataset, problem, problem_loc=None, *, randome_state=42, test_size=0.2):
+def split_dataset(dataset, problem, problem_loc=None, *, random_state=42, test_size=0.2):
     '''
     Split dataset into training and test
     '''
@@ -61,7 +61,7 @@ def split_dataset(dataset, problem, problem_loc=None, *, randome_state=42, test_
     except:
         if task_type == TaskType.CLASSIFICATION:
             # Use stratified sample to split the dataset
-            sss = StratifiedShuffleSplit(n_splits=1, test_size=test_size, random_state=randome_state)
+            sss = StratifiedShuffleSplit(n_splits=1, test_size=test_size, random_state=random_state)
             sss.get_n_splits(dataset[res_id], dataset[res_id].iloc[:, target_index])
             for train_index, test_index in sss.split(dataset[res_id], dataset[res_id].iloc[:, target_index]):
                 train = dataset[res_id].iloc[train_index,:]
@@ -70,7 +70,7 @@ def split_dataset(dataset, problem, problem_loc=None, *, randome_state=42, test_
             # Use random split
             if not task_type == TaskType.REGRESSION:
                 print('USING Random Split to split task type: {}'.format(task_type))
-            ss = ShuffleSplit(n_splits=1, test_size=test_size, random_state=randome_state)
+            ss = ShuffleSplit(n_splits=1, test_size=test_size, random_state=random_state)
             ss.get_n_splits(dataset[res_id])
             for train_index, test_index in ss.split(dataset[res_id]):
                 train = dataset[res_id].iloc[train_index,:]
@@ -307,6 +307,11 @@ class Controller:
                                         dataset=self.dataset)
                                                                            
             dataset_name = self.config['executables_root'].rsplit("/", 2)[1]
+            folder = os.path.exists(str(Path.home()) + "/outputs")
+            if not folder:
+                print("[INFO]: The folder not found! Will create a new one.")
+                os.makedirs(str(Path.home()) + "/outputs")
+
             save_location = str(Path.home()) + "/outputs/" + dataset_name + ".txt"
 
             print("******************\n[INFO] Saving training results in", save_location)

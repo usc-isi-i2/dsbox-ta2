@@ -192,8 +192,8 @@ class TemplatePipeline(Pipeline):
 
         for i, template_step in enumerate(self.steps):
             if isinstance(template_step, TemplateStep):
-                #print('Hyperparam binding for template step {} ({}) : {}'.format(
-                #    template_step.name, template_step.semantic_type, binding[template_step.name].hyperparams))
+                print('Hyperparam binding for template step {} ({}) : {}'.format(
+                    template_step.name, template_step.semantic_type, binding[template_step.name].hyperparams))
                 result.add_step(binding[template_step.name])
             elif isinstance(template_step, PrimitiveStep):
                 result.add_step(PrimitiveStep(template_step.primitive_description))
@@ -373,7 +373,6 @@ class DSBoxTemplate():
 
         # add inputs to the configuration point
         ioconf = self.add_inputs_to_confPonit(configuration_point)
-        # pprint(ioconf)
 
         # binding = configuration_point
         binding, sequence = self.add_intermediate_type_casting(ioconf)
@@ -510,8 +509,8 @@ class DSBoxTemplate():
 
         # define an empty pipeline with the general dataset input primitive
         # generate empty pipeline with i/o/s/u =[]
-        #pprint(binding)
-        #print(sequence)
+        pprint(binding)
+        print(sequence)
         pipeline = Pipeline(name="dsbox_" + str(id(binding)),
                             context='PRETRAINING')
         templateinput = pipeline.add_input("input dataset")

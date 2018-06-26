@@ -223,10 +223,10 @@ class Runtime:
                         continue
             if isinstance(self.pipeline_description.steps[n_step], PrimitiveStep):
                 if n_step in self.produce_order:
-                    print('-'*100)
-                    print('step', n_step, 'primitive', primitive)
-                    import pdb
-                    pdb.set_trace()
+                    #print('-'*100)
+                    #print('step', n_step, 'primitive', primitive)
+                    #import pdb
+                    #pdb.set_trace()
                     steps_outputs[n_step] = self.pipeline[n_step].produce(**produce_arguments).value
                 else:
                     steps_outputs[n_step] = None
