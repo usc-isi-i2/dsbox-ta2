@@ -117,6 +117,8 @@ class Runtime:
 
             if isinstance(self.pipeline_description.steps[n_step], PrimitiveStep):
                 primitives_outputs[n_step] = self._primitive_step_fit(n_step, self.pipeline_description.steps[n_step], primitive_arguments)
+                #print("output of no",n_step," is:::")
+                #print(primitives_outputs[n_step])
 
         # kyao!!!!
         self.fit_outputs = primitives_outputs
@@ -221,8 +223,10 @@ class Runtime:
                         continue
             if isinstance(self.pipeline_description.steps[n_step], PrimitiveStep):
                 if n_step in self.produce_order:
-                    # print('-'*100)
-                    # print('step', n_step, 'primitive', primitive)
+                    print('-'*100)
+                    print('step', n_step, 'primitive', primitive)
+                    import pdb
+                    pdb.set_trace()
                     steps_outputs[n_step] = self.pipeline[n_step].produce(**produce_arguments).value
                 else:
                     steps_outputs[n_step] = None

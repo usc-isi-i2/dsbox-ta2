@@ -192,8 +192,8 @@ class TemplatePipeline(Pipeline):
 
         for i, template_step in enumerate(self.steps):
             if isinstance(template_step, TemplateStep):
-                print('Hyperparam binding for template step {} ({}) : {}'.format(
-                    template_step.name, template_step.semantic_type, binding[template_step.name].hyperparams))
+                #print('Hyperparam binding for template step {} ({}) : {}'.format(
+                #    template_step.name, template_step.semantic_type, binding[template_step.name].hyperparams))
                 result.add_step(binding[template_step.name])
             elif isinstance(template_step, PrimitiveStep):
                 result.add_step(PrimitiveStep(template_step.primitive_description))
@@ -381,13 +381,11 @@ class DSBoxTemplate():
         # pprint(binding)
         return self._to_pipeline(binding, sequence)
 
-    def add_inputs_to_confPonit(
-            self, configuration_point: ConfigurationPoint) \
-            -> ConfigurationPoint:
+    def add_inputs_to_confPonit(self, configuration_point: ConfigurationPoint) -> ConfigurationPoint:
+
         io_conf = copy.deepcopy(configuration_point)
         for step in self.template['steps']:
             io_conf[step['name']]['inputs'] = step['inputs']
-
         return io_conf
 
     def add_intermediate_type_casting(
@@ -488,7 +486,7 @@ class DSBoxTemplate():
         return False
 
     def bind_primitive_IO(self, primitive, *templateIO):
-        print(templateIO)
+        #print(templateIO)
         if len(templateIO) > 0:
             primitive.add_argument(
                 name="inputs",
@@ -512,8 +510,8 @@ class DSBoxTemplate():
 
         # define an empty pipeline with the general dataset input primitive
         # generate empty pipeline with i/o/s/u =[]
-        pprint(binding)
-        print(sequence)
+        #pprint(binding)
+        #print(sequence)
         pipeline = Pipeline(name="dsbox_" + str(id(binding)),
                             context='PRETRAINING')
         templateinput = pipeline.add_input("input dataset")
@@ -527,19 +525,18 @@ class DSBoxTemplate():
         for i, step in enumerate(sequence):
             self.step_number[step] = i
             #primitive_step = PrimitiveStep(self.primitive[binding[step]["primitive"]].metadata.query())
-            print("Now adding primitives:")
-            print(binding[step]["primitive"])
-            if v["primitive"] in self.primitive:
-                primitiveStep = PrimitiveStep(d3m_index.get_primitive(binding[step]["primitive"]).metadata.query())
+            primitive_name = binding[step]["primitive"]
+            if primitive_name in self.primitive:
+                primitive_step = PrimitiveStep(d3m_index.get_primitive(primitive_name).metadata.query())
             else:
                 raise exceptions.InvalidArgumentValueError("error, can't find the primitive")
-
 
             if binding[step]["hyperparameters"] != {}:
                 hyper = binding[step]["hyperparameters"]
                 for hyperName in hyper:
                     primitive_step.add_hyperparameter(
-                        name=hyperName, argument_type=type(hyper[hyperName]),
+                        # argument_type should be fixed type not the type of the data!!
+                        name=hyperName, argument_type=self.argmentsmapper["value"],
                         data=hyper[hyperName])
             templateIO = binding[step]["inputs"]
 
@@ -564,12 +561,13 @@ class DSBoxTemplate():
     def generate_configuration_space(self) -> SimpleConfigurationSpace:
         steps = self.template["steps"]
         conf_space = {}
-        for s in steps:
-            name = s["name"]
+        for each_step in steps:
+            name = each_step["name"]
             values = []
 
             # description: typing.Dict
-            for description in s["primitives"]:
+            for description in each_step["primitives"]:
+                # if it is a string, means it only contain a primitive and not hyperparameters
                 if isinstance(description, str):
                     value = [{
                         "primitive": description,
@@ -583,26 +581,21 @@ class DSBoxTemplate():
                             "primitive": prim,
                             "hyperparameters": {}
                         })
-                else:
-                    if isinstance(description, dict):
-                        description = [description]
-
-                        # print("description:", description )
-
-                        # value is a list of dicts = [{"primitive": sth,
-                        #                    "hyperparameters": {}}]"
-                        # iterate through all options for hypP of the primitive
+                elif isinstance(description, dict):
+                    # if the desciption is an dictionary: it maybe a primitive with hyperparaters
                     value = []
-                    for desc in description:
-                        if "hyperparameters" not in desc:
-                            desc["hyperparameters"] = {}
-
-                        for hyper in _product_dict(desc["hyperparameters"]):
-                            value.append({
-                                "primitive": desc["primitive"],
-                                "hyperparameters": hyper,
-                            })
-
+                    if "primitive" not in description:
+                        raise exceptions.InvalidArgumentValueError("Wrong format of the configuration space data: No primitive name found!")
+                    else:
+                        if "hyperparameters" not in description:
+                            description["hyperparameters"] : {}
+                        value.append({
+                            "primitive": description["primitive"],
+                            "hyperparameters":description["hyperparameters"]
+                        })
+                else:
+                    # other data format, not supported, raise error
+                    raise exceptions.InvalidArgumentValueError("Wrong format of the configuration space data: Unsupported data format found!")
                 # END
                 values += value
             # END FOR
@@ -616,10 +609,3 @@ class DSBoxTemplate():
 
     def get_output_step_number(self):
         return self.step_number[self.template['output']]
-
-
-def _product_dict(dct):
-    keys = dct.keys()
-    vals = dct.values()
-    for instance in product(*vals):
-        yield dict(zip(keys, instance))

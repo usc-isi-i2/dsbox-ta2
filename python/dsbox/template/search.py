@@ -188,14 +188,14 @@ class DimensionalSearch(typing.Generic[T]):
             candidate = ConfigurationPoint(
                 self.configuration_space, self.first_assignment())
         # first, then random, then another random
-        for i in range(2):
-            try:
-                result = self.evaluate(candidate)
-                return (candidate, result[0])
-            except:
-                print("Pipeline failed")
-                candidate = ConfigurationPoint(self.configuration_space,
-                                               self.random_assignment())
+        # for i in range(2):
+        #     try:
+        #         result = self.evaluate(candidate)
+        #         return (candidate, result[0])
+        #     except:
+        #         print("Pipeline failed")
+        #         candidate = ConfigurationPoint(self.configuration_space,
+        #                                        self.random_assignment())
         result = self.evaluate(candidate)
         # try:
         #     result = self.evaluate(candidate)

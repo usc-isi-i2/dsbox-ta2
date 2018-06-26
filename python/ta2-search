@@ -118,12 +118,12 @@ def main(args):
                 suffix = config[key].split('/output/', 1)[1]
                 config[key] = os.path.join(args.output_prefix, suffix)
 
-    os.system('clear')
+    #os.system('clear')
     print('Using configuation:')
     pprint(config)
 
-    # controller.initialize_from_config(config)
-    controller.initialize_from_config_train_test(config)
+    controller.initialize_from_config(config)
+    #controller.initialize_from_config_train_test(config)
 
     status = controller.train()
 

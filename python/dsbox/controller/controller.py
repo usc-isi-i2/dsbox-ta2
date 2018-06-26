@@ -55,7 +55,7 @@ def split_dataset(dataset, problem, problem_loc=None, *, randome_state=42, test_
         train = dataset[res_id].iloc[train_indices]
         test = dataset[res_id].iloc[test_indices]
 
-        use_test_splits = False
+        use_test_splits = False / 0
 
         print("[INFO] Succesfully parsed test data")
     except:
@@ -146,7 +146,7 @@ class Controller:
         self.config = config
 
         # Problem
-        self.problem = parse_problem_description(config['problem_root'])
+        self.problem = parse_problem_description(config['problem_schema'])
 
         # Dataset
         loader = D3MDatasetLoader()
@@ -267,7 +267,7 @@ class Controller:
         if not self.template:
             return Status.PROBLEM_NOT_IMPLEMENT
 
-        self._check_and_set_dataset_metadata()
+        #self._check_and_set_dataset_metadata()
 
         # For now just use the first template
         # TODO: sample based on DSBoxTemplate.importance()
