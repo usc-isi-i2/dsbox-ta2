@@ -67,11 +67,10 @@ class FittedPipeline:
 
         # print("Writing:",self)
 
-
         # save the pipeline with json format
         json_loc = os.path.join(pipeline_dir, self.id + '.json')
         with open(json_loc, 'w') as f:
-            self.pipeline.to_json_content(f)
+            self.pipeline.to_json(f)
 
         # save the pickle files of each primitive step
         for i in range(0, len(self.runtime.execution_order)):
@@ -97,7 +96,7 @@ class FittedPipeline:
         # return str(dag_order)
 
     @classmethod
-    def load(cls:typing.Type[TP], folder_loc: str, pipeline_id: str, dataset: Dataset) -> TP:
+    def load(cls:typing.Type[TP], folder_loc: str, pipeline_id: str, dataset: Dataset = None) -> TP:
         '''
         Load the pipeline with given pipeline id and folder location
         '''
@@ -106,10 +105,10 @@ class FittedPipeline:
         executable_dir = os.path.join(self.folder_loc, 'executables')
 
         json_loc = os.path.join(pipeline_dir, pipeline_id + '.json')
-        print("The following pipeline files will be loaded:")
+        print("The following pipeline file will be loaded:")
         print(json_loc)
         with open(json_loc, 'r') as f:
-            pipeline_to_load = Pipeline.from_json_content(f)
+            pipeline_to_load = Pipeline.from_json(f)
 
         # load detail fitted parameters from pkl files
         run = Runtime(pipeline_to_load)
@@ -123,5 +122,5 @@ class FittedPipeline:
                 run.pipeline[n_step] = each_step
 
         fitted_pipeline_loaded = cls(pipeline_to_load, run, dataset)
-        return fitted_pipeline_loaded
+        return fitted_pipeline_loaded, run
 
