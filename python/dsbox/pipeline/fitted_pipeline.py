@@ -1,5 +1,5 @@
 import os
-import json 
+import json
 import pickle
 import typing
 
@@ -79,7 +79,7 @@ class FittedPipeline:
             each_step = self.runtime.pipeline[n_step]
             '''
             NOTICE:
-            running both of get_params and hyperparams will cause the error of 
+            running both of get_params and hyperparams will cause the error of
             "AttributeError: 'RandomForestClassifier' object has no attribute 'oob_score_'"
             print(each_primitive.get_params())
             print(each_step.hyperparams)
@@ -101,8 +101,8 @@ class FittedPipeline:
         Load the pipeline with given pipeline id and folder location
         '''
         # load pipeline from json
-        pipeline_dir = os.path.join(self.folder_loc, 'pipelines')
-        executable_dir = os.path.join(self.folder_loc, 'executables')
+        pipeline_dir = os.path.join(folder_loc, 'pipelines')
+        executable_dir = os.path.join(folder_loc, 'executables')
 
         json_loc = os.path.join(pipeline_dir, pipeline_id + '.json')
         print("The following pipeline file will be loaded:")
@@ -123,4 +123,3 @@ class FittedPipeline:
 
         fitted_pipeline_loaded = cls(pipeline_to_load, run, dataset)
         return fitted_pipeline_loaded, run
-
