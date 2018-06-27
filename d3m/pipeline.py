@@ -1360,7 +1360,7 @@ class Pipeline:
         return pipeline
 
     def _context_to_json_structure(self) -> typing.Any:
-        return self.context.name
+        return self.context
 
     def _inputs_to_json_structure(self) -> typing.Sequence[typing.Dict]:
         return self.inputs

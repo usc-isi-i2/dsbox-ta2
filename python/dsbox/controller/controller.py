@@ -307,12 +307,13 @@ class Controller:
                                         dataset=self.dataset)
                                                                            
             dataset_name = self.config['executables_root'].rsplit("/", 2)[1]
-            folder = os.path.exists(str(Path.home()) + "/outputs")
+            outputs_loc = str(Path.home()) + "/outputs"
+            folder = os.path.exists(outputs_loc)
             if not folder:
                 print("[INFO]: The folder not found! Will create a new one.")
-                os.makedirs(str(Path.home()) + "/outputs")
+                os.makedirs(outputs_loc)
 
-            save_location = str(Path.home()) + "/outputs/" + dataset_name + ".txt"
+            save_location = outputs_loc + dataset_name + ".txt"
 
             print("******************\n[INFO] Saving training results in", save_location)
             f = open(save_location, "w+")
@@ -324,9 +325,8 @@ class Controller:
             print("******************\n[INFO] Saving Best Pipeline")
             # save the pipeline
             try:
-                pipeline = FittedPipeline.create(configuration=candidate,
-                                             dataset=self.dataset)
-                pipeline.save(self.config['executables_root'])
+                pipeline = FittedPipeline.create(configuration=candidate,dataset=self.dataset)
+                pipeline.save(outputs_loc)
             except:
                 print("[ERROR] Save Failed!")
 
@@ -338,18 +338,22 @@ class Controller:
         """
         print("=====~~~~~~~~~~~  new pipeline loading function test  ~~~~~~~~~~~=====")
 
-
-        d = os.path.expanduser(self.config['executables_root'] + '/pipelines') 
+        output_loc_var_name = 'outputs_loc'
+        d = os.path.expanduser(self.config[output_loc_var_name] + '/pipelines') 
         # for now, the program will automatically load the newest created file in the folder
         files = [os.path.join(d, f) for f in os.listdir(d)]
         files.sort(key=lambda f: os.stat(f).st_mtime)
         lastmodified = files[-1]
         read_pipeline_id = lastmodified.split('/')[-1].split('.')[0]
         
-        pipeline_load = FittedPipeline.load(folder_loc = self.config['executables_root'], pipeline_id = read_pipeline_id, dataset = self.dataset)
+        pipeline_load, pipeline_load_runtime = FittedPipeline.load(folder_loc = self.config[output_loc_var_name], pipeline_id = read_pipeline_id)
 
         print("=====~~~~~~~~~~~  new pipeline loading function finished  ~~~~~~~~~~~=====")
-        
+        import pdb
+        pdb.set_trace()
+        pipeline_load_runtime.produce()
+        results = pipeline_load_runtime.produce(inputs=[self.validation_dataset])
+        validation_prediction = pipeline_load_runtime.produce_outputs[self.template.get_output_step_number()]
         return Status.OK
 
     # def generate_configuration_space(self, template_desc: TemplateDescription, problem: typing.Dict, dataset: typing.Optional[Dataset]) -> ConfigurationSpace:
