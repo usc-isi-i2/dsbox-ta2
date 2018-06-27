@@ -82,8 +82,8 @@ class TemplateLibrary:
         # self.templates.append(DefaultClassificationTemplate)
 
         # FIXME - testing purposes
-        #self.templates.append(DefaultClassificationTemplate)
-        self.templates.append(DefaultTimeseriesCollectionTemplate)
+        self.templates.append(DefaultClassificationTemplate)
+        #self.templates.append(DefaultTimeseriesCollectionTemplate)
 
 
     def _generate_simple_classifer_template_new(self) -> TemplateDescription:
@@ -601,7 +601,7 @@ class DefaultClassificationTemplate(DSBoxTemplate):
                     #         "hyperparameters":{}
                     #     }
                     # ],
-                    "primitives":["d3m.primitives.sklearn_wrap.SKSGDClassifier"],
+                    "primitives":["d3m.primitives.sklearn_wrap.SKRandomForestClassifier"],
                     "inputs": ["impute_step", "cast_2_step"]
                 }
             ]

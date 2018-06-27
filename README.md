@@ -4,7 +4,7 @@ The DSBox TA2 component
 Current version for new api:
 1.	Update d3m module to "master" branch version
 2.	Update common-primitives to "master" branch version
-3.	Update sklearn-wrap to "dev-dist" branch version
+3.	Update sklearn-wrap to "dist" branch version
 4.	Update dsbox-ta2 to "template-2018-june" branch version
 * You may need to run "pip install -e ." for each module after update
 

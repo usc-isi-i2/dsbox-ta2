@@ -317,11 +317,11 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
             params: typing.Dict = metric_description['params']
             training_metrics.append({
                 'metric': metric_description['metric'],
-                'value': metric(training_ground_truth, training_prediction)
+                'value': metric(validation_ground_truth.iloc[:, -1].astype(str), validation_prediction.iloc[:, -1].astype(str))
             })
             validation_metrics.append({
                 'metric': metric_description['metric'],
-                'value': metric(validation_ground_truth, validation_prediction)
+                'value': metric(validation_ground_truth.iloc[:, -1].astype(str), validation_prediction.iloc[:, -1].astype(str))
             })
 
         data = {

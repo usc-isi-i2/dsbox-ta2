@@ -316,9 +316,9 @@ class DSBoxTemplate():
 
         self.step_number = {}
         self.addstep_mapper = {
-            ("<class 'd3m.container.pandas.DataFrame'>", "<class 'd3m.container.numpy.ndarray'>"): "d3m.primitives.datasets.DataFrameToNDArray",
+            ("<class 'd3m.container.pandas.DataFrame'>", "<class 'd3m.container.numpy.ndarray'>"): "d3m.primitives.data.DataFrameToNDArray",
             # ("<class 'd3m.container.pandas.DataFrame'>", "<class 'd3m.container.numpy.ndarray'>"): "d3m.primitives.sklearn_wrap.SKImputer",
-            ("<class 'd3m.container.numpy.ndarray'>", "<class 'd3m.container.pandas.DataFrame'>"): "d3m.primitives.datasets.NDArrayToDataFrame"
+            ("<class 'd3m.container.numpy.ndarray'>", "<class 'd3m.container.pandas.DataFrame'>"): "d3m.primitives.data.NDArrayToDataFrame"
         }
 
         # Need to be set by subclass inheriting DSBoxTemplate
@@ -528,7 +528,7 @@ class DSBoxTemplate():
             if primitive_name in self.primitive:
                 primitive_step = PrimitiveStep(d3m_index.get_primitive(primitive_name).metadata.query())
             else:
-                raise exceptions.InvalidArgumentValueError("error, can't find the primitive")
+                raise exceptions.InvalidArgumentValueError("Error, can't find the primitive : ", primitive_name)
 
             if binding[step]["hyperparameters"] != {}:
                 hyper = binding[step]["hyperparameters"]

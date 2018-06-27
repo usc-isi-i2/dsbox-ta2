@@ -93,7 +93,7 @@ class Runtime:
         self.produce_order = set(self.execution_order)
         self.fit_outputs = []
         self.produce_outputs = []
-
+    
     def fit(self, **arguments) -> None:
         """
         Train all steps in the pipeline.
@@ -114,8 +114,10 @@ class Runtime:
                     primitive_arguments[argument] = primitives_outputs[value['source']]
                 else:
                     primitive_arguments[argument] = arguments[argument][value['source']]
-
+            import pdb
             if isinstance(self.pipeline_description.steps[n_step], PrimitiveStep):
+                
+                #pdb.set_trace()
                 primitives_outputs[n_step] = self._primitive_step_fit(n_step, self.pipeline_description.steps[n_step], primitive_arguments)
                 #print("output of no",n_step," is:::")
                 #print(primitives_outputs[n_step])
