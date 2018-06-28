@@ -65,6 +65,7 @@ class TemplateLibrary:
             template = template_class()
             #import pdb
             #pdb.set_trace()
+
             if task.name in template.template['taskType'] and subtype.name in template.template['taskSubtype']:
                 # if there is only one task source type which is table, we don't need to check other things
                 if taskSourceType == {"table"} and template.template['inputType'] == "table":
@@ -84,7 +85,7 @@ class TemplateLibrary:
             print("[INFO] Template choices:")
         # otherwise print the template list we added
             for each_template in results:
-                print("Template '", template.template["name"], "' has been added to template base.")
+                print("Template '", each_template.template["name"], "' has been added to template base.")
         return results
 
     def _load_library(self):
@@ -101,6 +102,7 @@ class TemplateLibrary:
         self.templates.append(DefaultClassificationTemplate)
         self.templates.append(DefaultTimeseriesCollectionTemplate)
         self.templates.append(DefaultImageProcessingRegressionTemplate)
+        self.templates.append(DefaultGraphMatchingTemplate)
         #self.templates.append(DoesNotMatchTemplate2)
 
     def _generate_simple_classifer_template_new(self) -> TemplateDescription:
@@ -552,18 +554,18 @@ class SerbansClassificationTemplate(DSBoxTemplate):
     # @override
     def importance(datset, problem_description):
         return 7
+
 class DefaultClassificationTemplate(DSBoxTemplate):
     def __init__(self):
         DSBoxTemplate.__init__(self)
         self.template = {
             "name": "Default_classification_template",
-            "taskType": TaskType.CLASSIFICATION.name,  # See TaskType, range include 'CLASSIFICATION', 'CLUSTERING', 'COLLABORATIVE_FILTERING', 'COMMUNITY_DETECTION', 'GRAPH_CLUSTERING', 'GRAPH_MATCHING', 'LINK_PREDICTION', 'REGRESSION', 'TIME_SERIES_FORECASTING', 'VERTEX_NOMINATION'
             "taskSubtype" : {TaskSubtype.BINARY.name,TaskSubtype.MULTICLASS.name},
-            "inputType": "table",  # See SEMANTIC_TYPES.keys() for range of values 
-            "output" : "model_step",  # Name of the final step generating the prediction
-            "target" : "extract_target_step",  # Name of the step generating the ground truth
+            "taskType": TaskType.CLASSIFICATION.name,  # See TaskType, range include 'CLASSIFICATION', 'CLUSTERING', 'COLLABORATIVE_FILTERING', 'COMMUNITY_DETECTION', 'GRAPH_CLUSTERING', 'GRAPH_MATCHING', 'LINK_PREDICTION', 'REGRESSION', 'TIME_SERIES_FORECASTING', 'VERTEX_NOMINATION'
+            "inputType": "table",  # See SEMANTIC_TYPES.keys() for range of values
+            "output": "model_step",  # Name of the final step generating the prediction
+            "target": "extract_target_step",  # Name of the step generating the ground truth
             "steps": [
-
                 {
                     "name": "denormalize_step",
                     "primitives": ["d3m.primitives.datasets.Denormalize"],
@@ -575,30 +577,28 @@ class DefaultClassificationTemplate(DSBoxTemplate):
                     "inputs": ["denormalize_step"]
                 },
                 {
-                    "name": "column_parser_step",
-                    "primitives": ["d3m.primitives.data.ColumnParser"],
-                    "inputs": ["to_dataframe_step"]
-                },
-
-                {
                     "name": "extract_attribute_step",
                     "primitives": [{
-                        "primitive":"d3m.primitives.data.ExtractColumnsBySemanticTypes",
+                        "primitive": "d3m.primitives.data.ExtractColumnsBySemanticTypes",
                         "hyperparameters":
                             {
-                                'semantic_types': ('https://metadata.datadrivendiscovery.org/types/Attribute',), 
-                                'use_columns': (), 
+                                'semantic_types': ('https://metadata.datadrivendiscovery.org/types/Attribute',),
+                                'use_columns': (),
                                 'exclude_columns': ()
                             }
                     }],
-                    "inputs": ["column_parser_step"]
+                    "inputs": ["to_dataframe_step"]
+                },
+                {
+                    "name": "column_parser_step",
+                    "primitives": ["d3m.primitives.data.ColumnParser"],
+                    "inputs": ["extract_attribute_step"]
                 },
                 {
                     "name": "cast_1_step",
                     "primitives": ["d3m.primitives.data.CastToType"],
-                    "inputs": ["extract_attribute_step"]
+                    "inputs": ["column_parser_step"]
                 },
-
                 {
                     "name": "impute_step",
                     "primitives": ["d3m.primitives.sklearn_wrap.SKImputer"],
@@ -607,23 +607,18 @@ class DefaultClassificationTemplate(DSBoxTemplate):
                 {
                     "name": "extract_target_step",
                     "primitives": [{
-                        "primitive":"d3m.primitives.data.ExtractColumnsBySemanticTypes",
+                        "primitive": "d3m.primitives.data.ExtractColumnsBySemanticTypes",
                         "hyperparameters":
-                            {'semantic_types': ('https://metadata.datadrivendiscovery.org/types/Target','https://metadata.datadrivendiscovery.org/types/SuggestedTarget',), 
-                            'use_columns': (), 
-                            'exclude_columns': ()
-                            }
-                        }],
-                    "inputs": ["column_parser_step"]
-                },
-                {
-                    "name": "cast_2_step",
-                    "primitives": ["d3m.primitives.data.CastToType"],
-                    "inputs": ["extract_target_step"]
+                            {'semantic_types': ('https://metadata.datadrivendiscovery.org/types/Target', 'https://metadata.datadrivendiscovery.org/types/SuggestedTarget',),
+                             'use_columns': (),
+                             'exclude_columns': ()
+                             }
+                    }],
+                    "inputs": ["to_dataframe_step"]
                 },
                 {
                     "name": "model_step",
-                    # "primitives": 
+                    # "primitives":
                     # [
                     #     {
                     #         "primitive":"d3m.primitives.sklearn_wrap.SKGradientBoostingClassifier",
@@ -634,17 +629,14 @@ class DefaultClassificationTemplate(DSBoxTemplate):
                     #         "hyperparameters":{}
                     #     }
                     # ],
-                    "primitives":["d3m.primitives.sklearn_wrap.SKRandomForestClassifier"],
-                    "inputs": ["impute_step", "cast_2_step"]
+                    "primitives": ["d3m.primitives.sklearn_wrap.SKRandomForestClassifier"],
+                    "inputs": ["impute_step", "extract_target_step"]
                 }
             ]
         }
-
     # @override
     def importance(datset, problem_description):
         return 7
-
-
 
 class DefaultRegressionTemplate(DSBoxTemplate):
     def __init__(self):
@@ -851,3 +843,23 @@ class DefaultImageProcessingRegressionTemplate(DSBoxTemplate):
     def importance(datset, problem_description):
         return 7
 
+
+class DefaultGraphMatchingTemplate(DSBoxTemplate):
+    def __init__(self):
+        DSBoxTemplate.__init__(self)
+        self.template = {
+            "name": "Default_GraphMatching_Template",
+            "taskType": TaskType.GRAPH_MATCHING.name,
+            "taskSubtype" : "NONE",
+            "inputType": "graph",
+            "output": "model_step",
+            "steps": [
+                {
+                    "name": "model_step",
+                    "primitives": ["d3m.primitives.sri.psl.GraphMatchingLinkPrediction"],
+                    "inputs":["template_input"]
+                }
+            ]
+        }
+    def importance(dataset, problem_description):
+        return 7

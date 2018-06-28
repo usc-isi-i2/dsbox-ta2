@@ -121,7 +121,8 @@ class Controller:
         self.problem: typing.Dict = {}
         self.task_type: TaskType = None
         self.task_subtype: TaskSubtype = None
-        
+        self.problem_doc_metadata: Metadata = None
+
         # Dataset
         self.dataset: Dataset = None
         self.test_dataset: Dataset = None
@@ -147,6 +148,7 @@ class Controller:
 
         # Problem
         self.problem = parse_problem_description(config['problem_schema'])
+        self.problem_doc_metadata = runtime.load_problem_doc(os.path.abspath(config['problem_schema']))
 
         # Dataset
         loader = D3MDatasetLoader()
@@ -166,9 +168,10 @@ class Controller:
 
         # Problem
         self.problem = parse_problem_description(config['problem_schema'])
-
+        self.problem_doc_metadata = runtime.load_problem_doc(os.path.abspath(config['problem_schema']))
         # Dataset
         loader = D3MDatasetLoader()
+        
         json_file = os.path.abspath(config['dataset_schema'])
         all_dataset_uri = 'file://{}'.format(json_file)
         self.all_dataset = loader.load(dataset_uri=all_dataset_uri)
@@ -195,8 +198,7 @@ class Controller:
         # print('Train dataset ='*20)
         # self.dataset.metadata.pretty_print()
 
-        problem_doc_metadata = runtime.load_problem_doc(os.path.abspath(config['problem_schema']))
-        self.test_dataset = runtime.add_target_columns_metadata(self.test_dataset, problem_doc_metadata)
+        self.test_dataset = runtime.add_target_columns_metadata(self.test_dataset, self.problem_doc_metadata)
 
         # print('Test dataset ='*20)
         # self.test_dataset.metadata.pretty_print()
@@ -282,7 +284,7 @@ class Controller:
         # search = TemplateDimensionalSearch(template, space, d3m.index.search(), self.dataset, self.dataset, metrics)
         if self.test_dataset is None:
             search = TemplateDimensionalSearch(
-                template, space, d3m.index.search(), self.dataset,
+                template, space, d3m.index.search(), self.problem_doc_metadata, self.dataset,
                 self.dataset, metrics)
         else:
             search = TemplateDimensionalSearch(

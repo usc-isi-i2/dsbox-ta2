@@ -9,7 +9,7 @@ import d3m.exceptions as exceptions
 
 from d3m import utils
 from d3m.container.dataset import Dataset
-from d3m.metadata.base import PrimitiveMetadata
+from d3m.metadata.base import PrimitiveMetadata, Metadata, ALL_ELEMENTS
 from d3m.metadata.hyperparams import Hyperparams
 from d3m.metadata.pipeline import Resolver
 from d3m.primitive_interfaces.base import PrimitiveBaseMeta, PrimitiveBase
@@ -25,6 +25,23 @@ from pprint import pprint
 from .pipeline_utilities import pipe2str
 
 T = typing.TypeVar("T")
+
+def get_target_columns(dataset: 'Dataset', problem_doc_metadata: 'Metadata'):
+    problem = problem_doc_metadata.query(())["inputs"]["data"]
+    datameta = dataset.metadata
+    target = problem[0]["targets"]
+    resID = target[0]["resID"]
+    colIndex = target[0]["colIndex"]
+    datalength = datameta.query((resID, ALL_ELEMENTS,))["dimension"]['length']
+    targetlist = []
+    for v in range(datalength):
+        types = datameta.query((resID, ALL_ELEMENTS, v))["semantic_types"]
+        for t in types:
+            if t == 'https://metadata.datadrivendiscovery.org/types/PrimaryKey':
+                targetlist.append(v)
+    targetlist.append(colIndex)
+    targetcol = dataset[resID].iloc[:, targetlist]
+    return targetcol
 
 
 class DimensionalSearch(typing.Generic[T]):
@@ -111,7 +128,7 @@ class DimensionalSearch(typing.Generic[T]):
 
             # TODO this is just a hack
             if len(choices) == 1:
-                continue;
+                continue
 
             assert 0 < len(choices), \
                 f'Step {dimension} has not primitive choices!'
@@ -255,6 +272,7 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
     def __init__(self, template: DSBoxTemplate,
                  configuration_space: ConfigurationSpace[PrimitiveDescription],
                  primitive_index: typing.Dict[PrimitiveDescription, PrimitiveBaseMeta],
+                 problem: Metadata,
                  train_dataset: Dataset,
                  validation_dataset: Dataset,
                  performance_metrics: typing.List[typing.Dict],
@@ -268,6 +286,7 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
         self.template: DSBoxTemplate = template
         # self.configuration_space = configuration_space
         self.primitive_index: typing.Dict[PrimitiveDescription, PrimitiveBaseMeta] = primitive_index
+        self.problem = problem
         self.train_dataset = train_dataset
         self.validation_dataset = validation_dataset
         self.performance_metrics = performance_metrics
@@ -301,12 +320,12 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
         run = Runtime(pipeline)
 
         run.fit(inputs=[self.train_dataset])
-        training_ground_truth = run.fit_outputs[self.template.get_target_step_number()]
+        training_ground_truth = get_target_columns(self.train_dataset, self.problem)
         training_prediction = run.fit_outputs[self.template.get_output_step_number()]
 
         print('*'*100)
         results = run.produce(inputs=[self.validation_dataset])
-        validation_ground_truth = run.produce_outputs[self.template.get_target_step_number()]
+        validation_ground_truth = get_target_columns(self.validation_dataset, self.problem)
         # results == validation_prediction
         validation_prediction = run.produce_outputs[self.template.get_output_step_number()]
 
@@ -317,7 +336,7 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
             params: typing.Dict = metric_description['params']
             training_metrics.append({
                 'metric': metric_description['metric'],
-                'value': metric(validation_ground_truth.iloc[:, -1].astype(str), validation_prediction.iloc[:, -1].astype(str))
+                'value': metric(training_ground_truth.iloc[:, -1].astype(str), training_prediction.iloc[:, -1].astype(str))
             })
             validation_metrics.append({
                 'metric': metric_description['metric'],
