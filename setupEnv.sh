@@ -1,5 +1,32 @@
 #!/usr/bin/env bash
 
+# Update d3m module to "master" branch version
+cd ../d3m
+git checkout master
+git pull
+pip install -e .
+cd -
+
+# Update common-primitives to "master" branch version
+cd ../common-primitives
+git checkout master
+git pull
+pip install -e .
+cd -
+
+# Update sklearn-wrap to "dist" branch version
+cd ../sklearn-wrap
+git checkout dist
+git pull
+pip install -e .
+cd -
+
+# Update dsbox-ta2 to "template-2018-june" branch version
+
+# I kind of assume you do it first to get this file anyway
+
+#########################################################
+
 # 1. Replace the "base.py" and "pipeline.py" part at d3m/metadata
 cp d3m/base.py ../d3m/metadata
 cp d3m/pipeline.py ../d3m/metadata
