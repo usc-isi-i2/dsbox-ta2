@@ -7,11 +7,10 @@ import typing
 import d3m
 import dsbox.template.runtime as runtime
 
-from d3m.container.dataset import Dataset, D3MDatasetLoader
+from d3m.container.dataset import Dataset, D3MDatasetLoader, SEMANTIC_TYPES, get_d3m_dataset_digest
 from d3m.metadata.base import ALL_ELEMENTS, Metadata
 from d3m.metadata.problem import parse_problem_description, TaskType, TaskSubtype
 from d3m.exceptions import NotSupportedError, InvalidArgumentValueError
-
 from dsbox.template.library import TemplateLibrary, TemplateDescription, SemanticTypeDict
 # from dsbox.template.search import TemplateDimensionalRandomHyperparameterSearch, TemplateDimensionalSearch, ConfigurationSpace, SimpleConfigurationSpace, PythonPath, DimensionName
 from dsbox.template.search import TemplateDimensionalSearch, ConfigurationSpace, SimpleConfigurationSpace, PythonPath, DimensionName
@@ -122,10 +121,11 @@ class Controller:
         self.problem: typing.Dict = {}
         self.task_type: TaskType = None
         self.task_subtype: TaskSubtype = None
-
+        
         # Dataset
         self.dataset: Dataset = None
         self.test_dataset: Dataset = None
+        self.taskSourceType: SEMANTIC_TYPES  = None
 
         # Resource limits
         self.num_cpus: int = 0
@@ -150,8 +150,7 @@ class Controller:
 
         # Dataset
         loader = D3MDatasetLoader()
-        dataset_uri = 'file://{}'.format(
-            os.path.abspath(config['dataset_schema']))
+        dataset_uri = 'file://{}'.format(os.path.abspath(config['dataset_schema']))
         self.dataset = loader.load(dataset_uri=dataset_uri)
 
         # Resource limits
@@ -160,8 +159,7 @@ class Controller:
         self.timeout = (config.get('timeout', self.TIMEOUT)) * 60
 
         # Templates
-        self.load_templates(
-            self.problem['problem']['task_type'], self.problem['problem']['task_subtype'])
+        self.load_templates()
 
     def initialize_from_config_train_test(self, config: typing.Dict) -> None:
         self.config = config
@@ -216,14 +214,18 @@ class Controller:
         self.timeout = (config.get('timeout', self.TIMEOUT)) * 60
 
         # Templates
-        self.load_templates(
-            self.problem['problem']['task_type'], self.problem['problem']['task_subtype'])
+        self.load_templates(self)
 
-    def load_templates(self, task_type: TaskType, task_subtype: TaskSubtype) -> None:
-        self.task_type = task_type
-        self.task_subtype = task_subtype
-
-        self.template = self.template_library.get_templates(self.task_type, self.task_subtype)
+    def load_templates(self) -> None:
+        self.task_type = self.problem['problem']['task_type']
+        self.task_subtype = self.problem['problem']['task_subtype']
+        # find the data resources type
+        self.taskSourceType = set() # set the type to be set so that we can ignore the repeat elements
+        with open(self.config['dataset_schema'],'r') as dataset_description_file:
+            dataset_description = json.load(dataset_description_file)
+            for each_type in dataset_description["dataResources"]:
+                self.taskSourceType.add(each_type["resType"])
+        self.template = self.template_library.get_templates(self.task_type, self.task_subtype, self.taskSourceType)
 
     def write_training_results(self):
         # load trained pipelines
@@ -349,11 +351,11 @@ class Controller:
         pipeline_load, pipeline_load_runtime = FittedPipeline.load(folder_loc = self.config[output_loc_var_name], pipeline_id = read_pipeline_id)
 
         print("=====~~~~~~~~~~~  new pipeline loading function finished  ~~~~~~~~~~~=====")
-        import pdb
-        pdb.set_trace()
-        pipeline_load_runtime.produce()
-        results = pipeline_load_runtime.produce(inputs=[self.validation_dataset])
-        validation_prediction = pipeline_load_runtime.produce_outputs[self.template.get_output_step_number()]
+        #import pdb
+        #pdb.set_trace()
+        #pipeline_load_runtime.produce()
+        #results = pipeline_load_runtime.produce(inputs=[self.validation_dataset])
+        #validation_prediction = pipeline_load_runtime.produce_outputs[self.template.get_output_step_number()]
         return Status.OK
 
     # def generate_configuration_space(self, template_desc: TemplateDescription, problem: typing.Dict, dataset: typing.Optional[Dataset]) -> ConfigurationSpace:

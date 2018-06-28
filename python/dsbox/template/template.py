@@ -566,42 +566,45 @@ class DSBoxTemplate():
 
             # description: typing.Dict
             for description in each_step["primitives"]:
-                # if it is a string, means it only contain a primitive and not hyperparameters
+                value = []
+                # primitive with no hyperparameters
                 if isinstance(description, str):
-                    value = [{
+                    value.append({
                         "primitive": description,
                         "hyperparameters": {}
-                    }]
-                elif isinstance(description, list):
-                    # list of primitives with default hypers
-                    value = []
-                    for prim in description:
-                        value.append({
-                            "primitive": prim,
-                            "hyperparameters": {}
-                        })
+                    })
+                # one primitive with hyperparamters
                 elif isinstance(description, dict):
-                    # if the desciption is an dictionary: it maybe a primitive with hyperparaters
-                    value = []
-                    if "primitive" not in description:
-                        raise exceptions.InvalidArgumentValueError("Wrong format of the configuration space data: No primitive name found!")
-                    else:
-                        if "hyperparameters" not in description:
-                            description["hyperparameters"] : {}
-                        value.append({
-                            "primitive": description["primitive"],
-                            "hyperparameters":description["hyperparameters"]
-                        })
+                    value.append(self.description_to_configuration(description))
+                # list of primitives
+                elif isinstance(description, list):
+                    for prim in description:
+                        value.append(self.description_to_configuration(description))
                 else:
                     # other data format, not supported, raise error
-                    raise exceptions.InvalidArgumentValueError("Wrong format of the configuration space data: Unsupported data format found!")
-                # END
+                    print("Error: Wrong format of the description: Unsupported data format found : ",type(description))
+                    
                 values += value
             # END FOR
             if len(values) > 0:
                 conf_space[name] = values
         # END FOR
         return SimpleConfigurationSpace(conf_space)
+    
+    def description_to_configuration(self, description):
+        value = None
+        # if the desciption is an dictionary: it maybe a primitive with hyperparaters
+        if "primitive" not in description:
+            print("Error: Wrong format of the configuration space data: No primitive name found!")
+        else:
+            if "hyperparameters" not in description:
+                description["hyperparameters"] : {}
+            value = {
+                "primitive": description["primitive"],
+                "hyperparameters":description["hyperparameters"]
+            }
+
+        return value
 
     def get_target_step_number(self):
         return self.step_number[self.template['target']]
