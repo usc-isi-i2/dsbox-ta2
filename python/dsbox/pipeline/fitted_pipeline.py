@@ -61,7 +61,7 @@ class FittedPipeline:
         # print(self.folder_loc)
 
         pipeline_dir = os.path.join(self.folder_loc, 'pipelines')
-        executable_dir = os.path.join(self.folder_loc, 'executables')
+        executable_dir = os.path.join(self.folder_loc, 'executables', self.id)
         os.makedirs(pipeline_dir, exist_ok=True)
         os.makedirs(executable_dir, exist_ok=True)
 
@@ -74,17 +74,10 @@ class FittedPipeline:
 
         # save the pickle files of each primitive step
         for i in range(0, len(self.runtime.execution_order)):
-            # print("Now saving step_", i)
-            n_step = self.runtime.execution_order[i]
-            each_step = self.runtime.pipeline[n_step]
-            '''
-            NOTICE:
-            running both of get_params and hyperparams will cause the error of
-            "AttributeError: 'RandomForestClassifier' object has no attribute 'oob_score_'"
-            print(each_primitive.get_params())
-            print(each_step.hyperparams)
-            '''
-            file_loc = os.path.join(executable_dir, self.id + "_step_" + str(i) + ".pkl")
+            print("Now saving step_", i)
+            #n_step = self.runtime.execution_order[i]
+            each_step = self.runtime.pipeline[i]
+            file_loc = os.path.join(executable_dir, "step_" + str(i) + ".pkl")
             with open(file_loc, "wb") as f:
                 pickle.dump(each_step, f)
 
@@ -102,7 +95,7 @@ class FittedPipeline:
         '''
         # load pipeline from json
         pipeline_dir = os.path.join(folder_loc, 'pipelines')
-        executable_dir = os.path.join(folder_loc, 'executables')
+        executable_dir = os.path.join(folder_loc, 'executables', pipeline_id)
 
         json_loc = os.path.join(pipeline_dir, pipeline_id + '.json')
         print("The following pipeline file will be loaded:")
@@ -115,11 +108,10 @@ class FittedPipeline:
 
         for i in range(0, len(run.execution_order)):
             print("Now loading step", i)
-            n_step = run.execution_order[i]
-            file_loc = os.path.join(executable_dir, pipeline_id + "_step_" + str(i) + ".pkl")
+            file_loc = os.path.join(executable_dir, "step_" + str(i) + ".pkl")
             with open(file_loc, "rb") as f:
                 each_step = pickle.load(f)
-                run.pipeline[n_step] = each_step
+                run.pipeline[i] = each_step
 
         fitted_pipeline_loaded = cls(pipeline_to_load, run, dataset)
-        return fitted_pipeline_loaded, run
+        return fitted_pipeline_loaded

@@ -607,7 +607,8 @@ class DSBoxTemplate():
         return value
 
     def get_target_step_number(self):
-        return self.step_number[self.template['target']]
+        #self.template[0].template['output']
+        return self.step_number[self.template['output']]
 
     def get_output_step_number(self):
         return self.step_number[self.template['output']]

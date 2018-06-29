@@ -94,6 +94,7 @@ class TemplateLibrary:
         pass
 
     def _load_inline_templates(self):
+        # These 2 are in old version style, do not load them!
         # self.templates.append(self._generate_simple_classifer_template())
         # self.templates.append(self._generate_simple_regressor_template())
 
@@ -734,11 +735,6 @@ class DefaultTimeseriesCollectionTemplate(DSBoxTemplate):
                 },
                 # read Y value
                 {
-                    "name": "column_parser_step",
-                    "primitives": ["d3m.primitives.data.ColumnParser"],
-                    "inputs": ["to_dataframe_step"]
-                },
-                {
                     "name": "extract_target_step",
                     "primitives": [{
                         "primitive":"d3m.primitives.data.ExtractColumnsBySemanticTypes",
@@ -748,8 +744,14 @@ class DefaultTimeseriesCollectionTemplate(DSBoxTemplate):
                             'exclude_columns': ()
                             }
                         }],
-                    "inputs": ["column_parser_step"]
+                    "inputs": ["to_dataframe_step"]
                 },
+                # {
+                #     "name": "column_parser_step",
+                #     "primitives": ["d3m.primitives.data.ColumnParser"],
+                #     "inputs": ["extract_target_step"]
+                # },
+
                 # read X value
                 {
                     "name": "timeseries_to_list_step",
@@ -800,11 +802,6 @@ class DefaultImageProcessingRegressionTemplate(DSBoxTemplate):
                 },
                 # read Y value
                 {
-                    "name": "column_parser_step",
-                    "primitives": ["d3m.primitives.data.ColumnParser"],
-                    "inputs": ["to_dataframe_step"]
-                },
-                {
                     "name": "extract_target_step",
                     "primitives": [{
                         "primitive":"d3m.primitives.data.ExtractColumnsBySemanticTypes",
@@ -814,8 +811,13 @@ class DefaultImageProcessingRegressionTemplate(DSBoxTemplate):
                             'exclude_columns': ()
                             }
                         }],
-                    "inputs": ["column_parser_step"]
+                    "inputs": ["to_dataframe_step"]
                 },
+                # {
+                #     "name": "column_parser_step",
+                #     "primitives": ["d3m.primitives.data.ColumnParser"],
+                #     "inputs": ["to_dataframe_step"]
+                # },
                 # read X value
                 {
                     "name": "dataframe_to_tensor",
@@ -825,6 +827,7 @@ class DefaultImageProcessingRegressionTemplate(DSBoxTemplate):
                 {
                     "name": "feature_extraction",
                     "primitives": ["d3m.primitives.dsbox.ResNet50ImageFeature"],
+                    # or "primitives": ["d3m.primitives.dsbox.Vgg16ImageFeature"],
                     "inputs": ["dataframe_to_tensor"]
                 },
                 {
@@ -835,7 +838,7 @@ class DefaultImageProcessingRegressionTemplate(DSBoxTemplate):
 
                 {
                     "name": "regressor_step",
-                    "primitives": ["d3m.primitives.sklearn_wrap.SKSGDRegressor","d3m.primitives.sklearn_wrap.SKRandomForestRegressor"],
+                    "primitives": ["d3m.primitives.sklearn_wrap.SKRandomForestRegressor"],
                     "inputs": ["PCA_step", "extract_target_step"]
                 },
             ]
@@ -850,6 +853,7 @@ class DefaultGraphMatchingTemplate(DSBoxTemplate):
         self.template = {
             "name": "Default_GraphMatching_Template",
             "taskType": TaskType.GRAPH_MATCHING.name,
+             # for some special condition, the taskSubtype can be "NONE" which indicate no taskSubtype given
             "taskSubtype" : "NONE",
             "inputType": "graph",
             "output": "model_step",
