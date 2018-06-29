@@ -336,7 +336,6 @@ class Controller:
                 raise NotSupportedError(
                     '[ERROR] Save Failed!')
                 # print("[ERROR] Save Failed!")
-            pipeline.save(outputs_loc)
             return Status.OK
 
     def test(self) -> Status:
