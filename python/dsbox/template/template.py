@@ -10,7 +10,9 @@ import copy
 
 from d3m import exceptions, utils, index as d3m_index
 from d3m.metadata.base import PrimitiveMetadata
-from d3m.metadata.pipeline import Pipeline, PipelineStep, StepBase, PrimitiveStep, PlaceholderStep, SubpipelineStep, ArgumentType, PlaceholderStep, Resolver, PIPELINE_SCHEMA_VALIDATOR
+from d3m.metadata.pipeline import Pipeline, PipelineStep, StepBase, \
+    PrimitiveStep, PlaceholderStep, SubpipelineStep, ArgumentType, \
+    PlaceholderStep, Resolver, PIPELINE_SCHEMA_VALIDATOR, PipelineContext
 from d3m.primitive_interfaces.base import PrimitiveBaseMeta
 from .configuration_space import DimensionName, ConfigurationSpace, SimpleConfigurationSpace, ConfigurationPoint
 # from dsbox.template.search import TemplateDimensionalRandomHyperparameterSearch, TemplateDimensionalSearch, ConfigurationSpace, SimpleConfigurationSpace, PythonPath, DimensionName
@@ -510,7 +512,8 @@ class DSBoxTemplate():
         # define an empty pipeline with the general dataset input primitive
         # generate empty pipeline with i/o/s/u =[]
         pprint(binding)
-        print(sequence)
+        # print(sequence)
+        # print("[INFO] list:",list(map(str, PipelineContext)))
         pipeline = Pipeline(name="dsbox_" + str(id(binding)),
                             context='PRETRAINING')
         templateinput = pipeline.add_input("input dataset")

@@ -24,6 +24,8 @@ from .configuration_space import DimensionName, ConfigurationSpace, SimpleConfig
 from pprint import pprint
 from .pipeline_utilities import pipe2str
 
+from multiprocessing import Pool
+
 T = typing.TypeVar("T")
 
 def get_target_columns(dataset: 'Dataset', problem_doc_metadata: 'Metadata'):
@@ -152,17 +154,29 @@ class DimensionalSearch(typing.Generic[T]):
 
             values = []
             sucessful_candidates = []
-            for x in new_candidates:
-                try:
-                    result = self.evaluate(x)
-                    values.append(result[0])
+
+            try:
+                with Pool(5) as p:
+                    results = p.map(self.evaluate, new_candidates)
+
+                for res, x in zip(results,new_candidates):
+                    values.append(res[0])
                     sucessful_candidates.append(x)
-                    # print("[INFO] Results:")
-                    # pprint(result)
-                    # pprint(result[0])
-                except:
-                    # print('Pipeline failed: ', x)
-                    traceback.print_exc()
+            except:
+            # print('Pipeline failed: ', x)
+                traceback.print_exc()
+
+            # for x in new_candidates:
+            #     try:
+            #         result = self.evaluate(x)
+            #         values.append(result[0])
+            #         sucessful_candidates.append(x)
+            #         # print("[INFO] Results:")
+            #         # pprint(result)
+            #         # pprint(result[0])
+            #     except:
+            #         # print('Pipeline failed: ', x)
+            #         traceback.print_exc()
 
             # All candidates failed!
             if len(values) == 0:

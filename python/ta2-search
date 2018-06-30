@@ -93,7 +93,8 @@ def main(args):
     controller.initialize_from_config(config)
     #controller.initialize_from_config_train_test(config)
 
-    #status = controller.train()
+    status = controller.train()
+    print("*"*100)
     status = controller.test()
     return status.value
 

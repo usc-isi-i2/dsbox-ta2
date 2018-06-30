@@ -4,13 +4,13 @@ The DSBox TA2 component
 New updates:
 1. Now you can run the controller.test() function after running train and saved pipeline successfully.
 2. To properly save the trained pipeline and run the TRAIN and TEST dataset correctly on the system, some modifications have been made on the config file loaded to ta2-search.
-
 3. After each run of train(), the system would generate a json file which describe the pipelines you just run with its pipeline id.
 4. After each run of train(), the system would generate an  folder with a folder named with pipeline id in the given directory's "excutatable" folder, these are the pickled primitives files.
 5. After each run of test(), the system would generate a csv file which is the predictions results of the test dataset. For this test() function, the system will trying to find the given
 6. Now the ta2-search will run Controller.train() and Controller.test() one time each, you can block one if you want.
 7. The test function only tested with current template in "library.py" with dataset No.38, 22(this dataset's dataset_schema has some problem, at least for 3.0.0 version), 1491, 66 and 49.
 8. Further addede template may not be able to save(depending on the format of the output of the pipeline), please let me know (may at slack @Jun Liu) if something can't work.
+9. Now the validation Accurancy will always be 0 because we no longer have the true results for test data.
 
 Here is one example new config input file.
 {

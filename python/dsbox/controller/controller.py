@@ -334,13 +334,13 @@ class Controller:
 
             print("******************\n[INFO] Saving Best Pipeline")
             # save the pipeline
-            try:
-                pipeline = FittedPipeline.create(configuration=candidate,dataset=self.dataset)
-                pipeline.save(outputs_loc)
-            except:
-                print("[ERROR] Save Failed!")
-            # import pdb
-            # pdb.set_trace()
+            #try:
+            pipeline = FittedPipeline.create(configuration=candidate,
+                                             dataset=self.dataset)
+            pipeline.save(outputs_loc)
+            #except:
+            #    print("[ERROR] Save Failed!")
+
             return Status.OK
 
     def test(self) -> Status:
