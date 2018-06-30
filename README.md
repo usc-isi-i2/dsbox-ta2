@@ -1,5 +1,6 @@
 # dsbox-ta2
 The DSBox TA2 component
+
 ---------------------------------------------2018.6.29---------------------------------------------
 New updates:
 1. Now you can run the controller.test() function after running train and saved pipeline successfully.
@@ -13,6 +14,7 @@ New updates:
 9. Now the validation Accurancy will always be 0 because we no longer have the true results for test data.
 
 Here is one example new config input file.
+
 {
 "cpus": "10",
 "dataset_schema": "/Users/minazuki/Desktop/studies/master/2018Summer/data/datasets/seed_datasets_current/38_sick/38_sick_dataset/datasetDoc.json",
