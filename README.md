@@ -2,6 +2,7 @@
 The DSBox TA2 component
 
 ---------------------------------------------2018.6.29---------------------------------------------
+
 New updates:
 1. Now you can run the controller.test() function after running train and saved pipeline successfully.
 2. To properly save the trained pipeline and run the TRAIN and TEST dataset correctly on the system, some modifications have been made on the config file loaded to ta2-search.
