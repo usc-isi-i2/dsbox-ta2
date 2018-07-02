@@ -409,7 +409,7 @@ class DSBoxTemplate():
         checked_binding = {}
         sequence = []
         # for step in self.template["steps"]:
-        for step in self.template["steps"]:
+        for step_num, step in enumerate(self.template["steps"]):
             # First element in the inputs array is always the input of the
             # step in configuration point. In order to check the need for
             # adding intermediate step we first extract metadata information
@@ -428,7 +428,9 @@ class DSBoxTemplate():
 
                 # Check if the input name is valid and available in template
                 if in_arg not in binding:
-                    print("[ERROR] step {i} is not available!")
+                    print("[ERROR] step {} input {} is not available!".format(step_num, in_arg))
+                    print("binding: ")
+                    pprint(binding)
                     return 1
 
                 # get information of the producer of the input
@@ -462,7 +464,8 @@ class DSBoxTemplate():
                     except:
                         print("Warning!", name,
                               "'s primitive",
-                              conf_step[-1]["primitive"],
+                              # Fixme:
+                              # conf_step[-1]["primitive"],
                               "'s inputs does not match",
                               binding[in_arg][-1]["primitive"],
                               "and there is no converter found")
@@ -486,16 +489,21 @@ class DSBoxTemplate():
                 return True
         return False
 
-    def bind_primitive_IO(self, primitive, *templateIO):
+    def bind_primitive_IO(self, primitive: PrimitiveStep, *templateIO):
         #print(templateIO)
         if len(templateIO) > 0:
             primitive.add_argument(
                 name="inputs",
                 argument_type=ArgumentType.CONTAINER,
                 data_reference=templateIO[0])
+
         if len(templateIO) > 1:
-            primitive.add_argument("outputs", ArgumentType.CONTAINER,
-                                   templateIO[1])
+            arguments = primitive.primitive.metadata.query()['primitive_code']['instance_methods']['set_training_data']['arguments']
+            if "outputs" in arguments:
+                # Some primitives (e.g. GreedyImputer) require "outputs", while others do
+                # not (e.g. MeanImputer)
+                primitive.add_argument("outputs", ArgumentType.CONTAINER,
+                                       templateIO[1])
         if len(templateIO) > 2:
             raise exceptions.InvalidArgumentValueError(
                 "Should be less than 3 arguments!")
@@ -586,14 +594,14 @@ class DSBoxTemplate():
                 else:
                     # other data format, not supported, raise error
                     print("Error: Wrong format of the description: Unsupported data format found : ",type(description))
-                    
+
                 values += value
             # END FOR
             if len(values) > 0:
                 conf_space[name] = values
         # END FOR
         return SimpleConfigurationSpace(conf_space)
-    
+
     def description_to_configuration(self, description):
         value = None
         # if the desciption is an dictionary: it maybe a primitive with hyperparaters
