@@ -1,15 +1,18 @@
 # dsbox-ta2
 The DSBox TA2 component
+
 ---------------------------------------------2018.7.2---------------------------------------------
 New updates:
 Now no need to replace modified files to d3m module.
 If you used to run 2018.6.26 versions with changed d3m files, please reset and pull the latest version by running
 
 $ git reset --hard
+
 $ git pull
 
 While the new version of "Denormalize" are still officially unavailable so we still need to modify the file "entry_points.ini" in common-primitives.
-Just remove the "#" mark at the denormalize line are reinstall(pip install -e .).
+Just remove the "#" mark at the denormalize line and reinstall(pip install -e .)
+
 ---------------------------------------------2018.6.29---------------------------------------------
 
 New updates:
