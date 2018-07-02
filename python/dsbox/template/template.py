@@ -515,7 +515,7 @@ class DSBoxTemplate():
         # print(sequence)
         # print("[INFO] list:",list(map(str, PipelineContext)))
         pipeline = Pipeline(name="dsbox_" + str(id(binding)),
-                            context='PRETRAINING')
+                            context=PipelineContext.PRETRAINING) #'PRETRAINING'
         templateinput = pipeline.add_input("input dataset")
 
         # save temporary output for another step to take as input
