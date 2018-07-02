@@ -90,7 +90,6 @@ class FittedPipeline:
             self.pipeline.to_json(f)
 
         # save the pickle files of each primitive step
-<<<<<<< HEAD
         for i in range(0, len(self.exec_order)):
             # print("Now saving step_", i)
             n_step = self.exec_order[i]
@@ -103,13 +102,7 @@ class FittedPipeline:
             print(each_step.hyperparams)
             '''
             file_loc = os.path.join(executable_dir, self.id + "_step_" + str(i) + ".pkl")
-=======
-        for i in range(0, len(self.runtime.execution_order)):
-            print("Now saving step_", i)
-            #n_step = self.runtime.execution_order[i]
-            each_step = self.runtime.pipeline[i]
-            file_loc = os.path.join(executable_dir, "step_" + str(i) + ".pkl")
->>>>>>> 306ad6a0fdf4047cced106d32988905b71df04ef
+
             with open(file_loc, "wb") as f:
                 pickle.dump(each_step, f)
 
