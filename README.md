@@ -2,6 +2,7 @@
 The DSBox TA2 component
 
 ---------------------------------------------2018.7.2---------------------------------------------
+
 New updates:
 Now no need to replace modified files to d3m module.
 If you used to run 2018.6.26 versions with changed d3m files, please reset and pull the latest version by running
