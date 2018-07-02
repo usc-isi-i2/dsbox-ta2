@@ -337,7 +337,6 @@ class Controller:
 
             print("******************\n[INFO] Saving Best Pipeline")
             # save the pipeline
-<<<<<<< HEAD
 
             try:
                 pipeline = FittedPipeline.create(configuration=candidate,
@@ -347,15 +346,6 @@ class Controller:
                 raise NotSupportedError(
                     '[ERROR] Save Failed!')
                 # print("[ERROR] Save Failed!")
-=======
-            #try:
-            pipeline = FittedPipeline.create(configuration=candidate,
-                                             dataset=self.dataset)
-            pipeline.save(outputs_loc)
-            #except:
-            #    print("[ERROR] Save Failed!")
-
->>>>>>> 306ad6a0fdf4047cced106d32988905b71df04ef
             return Status.OK
 
     def test(self) -> Status:
