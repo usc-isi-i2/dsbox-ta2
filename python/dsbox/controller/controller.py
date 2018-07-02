@@ -13,7 +13,7 @@ from d3m.metadata.problem import parse_problem_description, TaskType, TaskSubtyp
 from d3m.exceptions import NotSupportedError, InvalidArgumentValueError
 from dsbox.template.library import TemplateLibrary, TemplateDescription, SemanticTypeDict
 # from dsbox.template.search import TemplateDimensionalRandomHyperparameterSearch, TemplateDimensionalSearch, ConfigurationSpace, SimpleConfigurationSpace, PythonPath, DimensionName
-from dsbox.template.search import TemplateDimensionalSearch, ConfigurationSpace, SimpleConfigurationSpace, PythonPath, DimensionName
+from dsbox.template.search import TemplateDimensionalSearch, ConfigurationSpace, SimpleConfigurationSpace, PythonPath, DimensionName, get_target_columns
 from dsbox.template.template import TemplatePipeline, to_digraph, DSBoxTemplate
 from dsbox.pipeline.fitted_pipeline import FittedPipeline
 
@@ -152,9 +152,14 @@ class Controller:
 
         # Dataset
         loader = D3MDatasetLoader()
-        dataset_uri = 'file://{}'.format(os.path.abspath(config['dataset_schema']))
-        self.dataset = loader.load(dataset_uri=dataset_uri)
-
+        #dataset_uri = 'file://{}'.format(os.path.abspath(config['dataset_schema']))
+        #self.dataset = loader.load(dataset_uri=dataset_uri)
+        # train dataset
+        train_dataset_uri = 'file://{}'.format(os.path.abspath(config['train_data_schema']))
+        self.dataset = loader.load(dataset_uri=train_dataset_uri)
+        # test dataset
+        test_dataset_uri = 'file://{}'.format(os.path.abspath(config['test_data_schema']))
+        self.test_dataset = loader.load(dataset_uri=test_dataset_uri)
         # Resource limits
         self.num_cpus = int(config.get('cpus', 0))
         self.ram = config.get('ram', 0)
@@ -288,7 +293,7 @@ class Controller:
                 self.dataset, metrics)
         else:
             search = TemplateDimensionalSearch(
-                template, space, d3m.index.search(), self.dataset,
+                template, space, d3m.index.search(), self.problem_doc_metadata, self.dataset,
                 self.test_dataset, metrics)
 
         candidate, value = search.search_one_iter()
@@ -314,7 +319,8 @@ class Controller:
             #                             dataset=self.dataset)
                                                                            
             dataset_name = self.config['executables_root'].rsplit("/", 2)[1]
-            outputs_loc = str(Path.home()) + "/outputs"
+            outputs_loc = self.config['saving_folder_loc']
+            #outputs_loc = str(Path.home()) + "/outputs"
             folder = os.path.exists(outputs_loc)
             if not folder:
                 print("[INFO]: The folder not found! Will create a new one.")
@@ -331,6 +337,7 @@ class Controller:
 
             print("******************\n[INFO] Saving Best Pipeline")
             # save the pipeline
+<<<<<<< HEAD
 
             try:
                 pipeline = FittedPipeline.create(configuration=candidate,
@@ -340,30 +347,76 @@ class Controller:
                 raise NotSupportedError(
                     '[ERROR] Save Failed!')
                 # print("[ERROR] Save Failed!")
+=======
+            #try:
+            pipeline = FittedPipeline.create(configuration=candidate,
+                                             dataset=self.dataset)
+            pipeline.save(outputs_loc)
+            #except:
+            #    print("[ERROR] Save Failed!")
+
+>>>>>>> 306ad6a0fdf4047cced106d32988905b71df04ef
             return Status.OK
 
     def test(self) -> Status:
         """
         First read the fitted pipeline and then run trained pipeline on test data.
         """
-        print("=====~~~~~~~~~~~  new pipeline loading function test  ~~~~~~~~~~~=====")
+        print("[INFO] Start test function")
+        outputs_loc = self.config['saving_folder_loc']
+        #outputs_loc = str(Path.home()) + "/outputs"
 
-        output_loc_var_name = 'outputs_loc'
-        d = os.path.expanduser(self.config[output_loc_var_name] + '/pipelines') 
-        # for now, the program will automatically load the newest created file in the folder
-        files = [os.path.join(d, f) for f in os.listdir(d)]
-        files.sort(key=lambda f: os.stat(f).st_mtime)
-        lastmodified = files[-1]
-        read_pipeline_id = lastmodified.split('/')[-1].split('.')[0]
+        d = os.path.expanduser(outputs_loc + '/pipelines') 
+
+        read_pipeline_id = self.config['saved_pipeline_ID']
+        if read_pipeline_id == "":
+            print("[INFO] No specified pipeline ID found, will load the latest crated pipeline.")
+            # if no pipeline ID given, load the newest created file in the folder
+            files = [os.path.join(d, f) for f in os.listdir(d)]
+            files.sort(key=lambda f: os.stat(f).st_mtime)
+            lastmodified = files[-1]
+            read_pipeline_id = lastmodified.split('/')[-1].split('.')[0]
         
-        pipeline_load, pipeline_load_runtime = FittedPipeline.load(folder_loc = self.config[output_loc_var_name], pipeline_id = read_pipeline_id)
+        pipeline_load = FittedPipeline.load(folder_loc = outputs_loc, pipeline_id = read_pipeline_id)
 
-        print("=====~~~~~~~~~~~  new pipeline loading function finished  ~~~~~~~~~~~=====")
+        print("[INFO] Pipeline load finished")
         #import pdb
         #pdb.set_trace()
-        #pipeline_load_runtime.produce()
-        #results = pipeline_load_runtime.produce(inputs=[self.validation_dataset])
-        #validation_prediction = pipeline_load_runtime.produce_outputs[self.template.get_output_step_number()]
+        pipeline_load.runtime.produce(inputs=[self.test_dataset])
+        try:
+            step_number_output = int(pipeline_load.pipeline.outputs[0]['data'].split('.')[1])
+        except:
+            print("Warning: searching the output step number failed! Will use the last step's output of the pipeline.")
+            step_number_output = len(pipeline_load.runtime.produce_outputs) - 1
+
+        # get the target column name
+        try:
+            with open(self.config['dataset_schema'],'r') as dataset_description_file:
+                dataset_description = json.load(dataset_description_file)
+                for each_resource in dataset_description["dataResources"]:
+                    if "columns" in each_resource:
+                        for each_column in each_resource["columns"]:
+                            if "suggestedTarget" in each_column["role"] or "target" in each_column["role"]:
+                                prediction_class_name = each_column["colName"]
+        except:
+            print("[Warning] Can't find the prediction class name, will use default name.")
+            prediction_class_name = "prediction"
+        d3m_index = get_target_columns(self.test_dataset, self.problem_doc_metadata)["d3mIndex"]
+        prediction = pipeline_load.runtime.produce_outputs[step_number_output]
+
+        # if the prediction results do not have d3m_index column
+        if 'd3mIndex' not in prediction.columns:
+            prediction_col_name = prediction.columns[0]
+            prediction['d3mIndex'] = d3m_index
+            prediction = prediction[['d3mIndex',prediction_col_name]]
+            prediction = prediction.rename(columns={prediction_col_name:prediction_class_name})
+        prediction_folder_loc = outputs_loc + "/predictions/" + read_pipeline_id
+        folder = os.path.exists(prediction_folder_loc)
+        if not folder:
+            os.makedirs(prediction_folder_loc)
+        prediction.to_csv(prediction_folder_loc + "/predictions.csv", index = False)
+        print("[INFO] Finished: prediction results saving finished")
+        print("[INFO] The prediction results is stored at: ", prediction_folder_loc)
         return Status.OK
 
     # def generate_configuration_space(self, template_desc: TemplateDescription, problem: typing.Dict, dataset: typing.Optional[Dataset]) -> ConfigurationSpace:

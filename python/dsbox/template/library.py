@@ -1,19 +1,12 @@
 import json
-import os
 import glob
-import sys
 import typing
 
-from enum import Enum
-
-from d3m import utils, index
-from d3m.container.dataset import Dataset, SEMANTIC_TYPES
-from d3m.metadata.pipeline import PrimitiveStep, ArgumentType
+from d3m import index
+from d3m.container.dataset import SEMANTIC_TYPES
 from d3m.metadata.problem import TaskType, TaskSubtype
 
-from dsbox.template.template import TemplatePipeline, TemplateStep, \
-    DSBoxTemplate
-import random
+from dsbox.template.template import TemplatePipeline, DSBoxTemplate
 
 
 class TemplateDescription:
@@ -94,6 +87,7 @@ class TemplateLibrary:
         pass
 
     def _load_inline_templates(self):
+        # These 2 are in old version style, do not load them!
         # self.templates.append(self._generate_simple_classifer_template())
         # self.templates.append(self._generate_simple_regressor_template())
 
@@ -104,183 +98,6 @@ class TemplateLibrary:
         self.templates.append(DefaultImageProcessingRegressionTemplate)
         self.templates.append(DefaultGraphMatchingTemplate)
         #self.templates.append(DoesNotMatchTemplate2)
-
-    def _generate_simple_classifer_template_new(self) -> TemplateDescription:
-        template = TemplatePipeline(context='PRETRAINING',
-                                    name='dsbox_classifer')
-
-        denormalize_step = PrimitiveStep(self.primitive[
-            'd3m.primitives.datasets.Denormalize'].metadata.query())
-        to_DataFrame_step = PrimitiveStep(self.primitive[
-            'd3m.primitives.datasets.DatasetToDataFrame'].metadata.query())
-        column_parser_step = PrimitiveStep(
-            self.primitive['d3m.primitives.data.ColumnParser'].metadata.query())
-        extract_attribute_step = PrimitiveStep(self.primitive[
-            'd3m.primitives.data.ExtractAttributes'].metadata.query())
-        cast_1_step = PrimitiveStep(
-            self.primitive['d3m.primitives.data.CastToType'].metadata.query())
-        impute_step = PrimitiveStep(self.primitive[
-            'd3m.primitives.sklearn_wrap.SKImputer'].metadata.query())
-        extract_target_step = PrimitiveStep(self.primitive[
-            'd3m.primitives.data.ExtractTargets'].metadata.query())
-        cast_2_step = PrimitiveStep(
-            self.primitive['d3m.primitives.data.CastToType'].metadata.query())
-
-        # model_step = TemplateStep("modeller", "dsbox-classifiers")
-        model_step = TemplateStep('classifiers', "dsbox-classifiers")
-
-        template_input = template.add_input('input dataset')
-
-        template.add_step(denormalize_step)
-        template.add_step(to_DataFrame_step)
-        template.add_step(column_parser_step)
-        template.add_step(extract_attribute_step)
-        template.add_step(cast_1_step)
-        template.add_step(impute_step)
-        template.add_step(extract_target_step)
-        template.add_step(cast_2_step)
-
-        template.add_step(model_step)
-        # template.add_step(prediction_step)
-
-        denormalize_step.add_argument('inputs', ArgumentType.CONTAINER,
-                                      template_input)
-        denormalize_step_produce = denormalize_step.add_output('produce')
-
-        to_DataFrame_step.add_argument('inputs', ArgumentType.CONTAINER,
-                                       denormalize_step_produce)
-        to_DataFrame_produce = to_DataFrame_step.add_output('produce')
-
-        column_parser_step.add_argument('inputs', ArgumentType.CONTAINER,
-                                        to_DataFrame_produce)
-        column_parser_produce = column_parser_step.add_output('produce')
-
-        extract_attribute_step.add_argument('inputs', ArgumentType.CONTAINER,
-                                            column_parser_produce)
-        extract_attribute_produce = extract_attribute_step.add_output('produce')
-
-        cast_1_step.add_argument('inputs', ArgumentType.CONTAINER,
-                                 extract_attribute_produce)
-        cast_1_produce = cast_1_step.add_output('produce')
-
-        impute_step.add_argument('inputs', ArgumentType.CONTAINER,
-                                 cast_1_produce)
-        impute_produce = impute_step.add_output('produce')
-
-        extract_target_step.add_argument('inputs', ArgumentType.CONTAINER,
-                                         column_parser_produce)
-        extract_target_produce = extract_target_step.add_output('produce')
-
-        # Is this step needed?
-        cast_2_step.add_argument('inputs', ArgumentType.CONTAINER,
-                                 extract_target_produce)
-        cast_2_produce = cast_2_step.add_output('produce')
-
-        model_step.add_expected_argument('inputs', ArgumentType.CONTAINER)
-        model_step.add_expected_argument('outputs', ArgumentType.CONTAINER)
-        model_step.add_input(impute_produce)
-        model_step.add_input(cast_2_produce)
-        model_produce = model_step.add_output('produce')
-
-        template_output = template.add_output(model_produce,
-                                              'predictions from the input '
-                                              'dataset')
-
-        description = TemplateDescription(TaskType.CLASSIFICATION, template,
-                                          template.steps.index(
-                                              extract_target_step),
-                                          template.steps.index(model_step))
-        return description
-
-    def _generate_simple_regressor_template_new(self) -> TemplateDescription:
-        """
-        Default regression template
-        """
-        template = TemplatePipeline(context='PRETRAINING',
-                                    name='dsbox_regressor')
-
-        denormalize_step = PrimitiveStep(self.primitive[
-            'd3m.primitives.datasets.Denormalize'].metadata.query())
-        to_DataFrame_step = PrimitiveStep(self.primitive[
-            'd3m.primitives.datasets.DatasetToDataFrame'].metadata.query())
-        column_parser_step = PrimitiveStep(
-            self.primitive['d3m.primitives.data.ColumnParser'].metadata.query())
-        extract_attribute_step = PrimitiveStep(self.primitive[
-            'd3m.primitives.data.ExtractAttributes'].metadata.query())
-        cast_1_step = PrimitiveStep(
-            self.primitive['d3m.primitives.data.CastToType'].metadata.query())
-        impute_step = PrimitiveStep(self.primitive[
-            'd3m.primitives.sklearn_wrap.SKImputer'].metadata.query())
-        extract_target_step = PrimitiveStep(self.primitive[
-            'd3m.primitives.data.ExtractTargets'].metadata.query())
-        # cast_2_step = PrimitiveStep(self.primitive[
-        # 'd3m.primitives.data.CastToType'].metadata.query())
-
-        # model_step = TemplateStep('modeller', "dsbox-regressions")
-        model_step = TemplateStep('regressors', "dsbox-regressions")
-
-        template_input = template.add_input('input dataset')
-
-        template.add_step(denormalize_step)
-        template.add_step(to_DataFrame_step)
-        template.add_step(column_parser_step)
-        template.add_step(extract_attribute_step)
-        template.add_step(cast_1_step)
-        template.add_step(impute_step)
-        template.add_step(extract_target_step)
-        # template.add_step(cast_2_step)
-        template.add_step(model_step)
-        # template.add_step(prediction_step)
-
-        denormalize_step.add_argument('inputs', ArgumentType.CONTAINER,
-                                      template_input)
-        denormalize_step_produce = denormalize_step.add_output('produce')
-
-        to_DataFrame_step.add_argument('inputs', ArgumentType.CONTAINER,
-                                       denormalize_step_produce)
-        to_DataFrame_produce = to_DataFrame_step.add_output('produce')
-
-        column_parser_step.add_argument('inputs', ArgumentType.CONTAINER,
-                                        to_DataFrame_produce)
-        column_parser_produce = column_parser_step.add_output('produce')
-
-        extract_attribute_step.add_argument('inputs', ArgumentType.CONTAINER,
-                                            column_parser_produce)
-        extract_attribute_produce = extract_attribute_step.add_output('produce')
-
-        cast_1_step.add_argument('inputs', ArgumentType.CONTAINER,
-                                 extract_attribute_produce)
-        cast_1_produce = cast_1_step.add_output('produce')
-
-        impute_step.add_argument('inputs', ArgumentType.CONTAINER,
-                                 cast_1_produce)
-        impute_produce = impute_step.add_output('produce')
-
-        extract_target_step.add_argument('inputs', ArgumentType.CONTAINER,
-                                         column_parser_produce)
-        extract_target_produce = extract_target_step.add_output('produce')
-
-        # cast_2_step.add_argument('inputs', ArgumentType.CONTAINER,
-        # extract_target_produce)
-        # cast_2_produce = cast_2_step.add_output('produce')
-
-        model_step.add_expected_argument('inputs', ArgumentType.CONTAINER)
-        model_step.add_expected_argument('outputs', ArgumentType.CONTAINER)
-        model_step.add_input(impute_produce)
-        # model_step.add_input(cast_2_produce)
-        model_step.add_input(extract_target_produce)
-        model_produce = model_step.add_output('produce')
-
-        template_output = template.add_output(model_produce,
-                                              'predictions from the input '
-                                              'dataset')
-
-        description = TemplateDescription(TaskType.REGRESSION, template,
-                                          template.steps.index(
-                                              extract_target_step),
-                                          template.steps.index(model_step))
-        return description
-
 
 class SemanticTypeDict(object):
     def __init__(self, libdir):
@@ -713,7 +530,7 @@ class DefaultTimeseriesCollectionTemplate(DSBoxTemplate):
             "name": "default_timeseries_collection_template",
             "taskType": TaskType.CLASSIFICATION.name, # See TaskType, range include 'CLASSIFICATION', 'CLUSTERING', 'COLLABORATIVE_FILTERING', 'COMMUNITY_DETECTION', 'GRAPH_CLUSTERING', 'GRAPH_MATCHING', 'LINK_PREDICTION', 'REGRESSION', 'TIME_SERIES_FORECASTING', 'VERTEX_NOMINATION'
             "taskSubtype" : {TaskSubtype.BINARY.name,TaskSubtype.MULTICLASS.name},
-            "inputType": "timeseries",  # See SEMANTIC_TYPES.keys() for range of values 
+            "inputType": "timeseries",  # See SEMANTIC_TYPES.keys() for range of values
             "output" : "random_forest_step",  # Name of the final step generating the prediction
             "target" : "extract_target_step",  # Name of the step generating the ground truth
             "steps": [
@@ -730,22 +547,23 @@ class DefaultTimeseriesCollectionTemplate(DSBoxTemplate):
                 },
                 # read Y value
                 {
-                    "name": "column_parser_step",
-                    "primitives": ["d3m.primitives.data.ColumnParser"],
-                    "inputs": ["to_dataframe_step"]
-                },
-                {
                     "name": "extract_target_step",
                     "primitives": [{
                         "primitive":"d3m.primitives.data.ExtractColumnsBySemanticTypes",
                         "hyperparameters":
-                            {'semantic_types': ('https://metadata.datadrivendiscovery.org/types/Target','https://metadata.datadrivendiscovery.org/types/SuggestedTarget',), 
-                            'use_columns': (), 
+                            {'semantic_types': ('https://metadata.datadrivendiscovery.org/types/Target','https://metadata.datadrivendiscovery.org/types/SuggestedTarget',),
+                            'use_columns': (),
                             'exclude_columns': ()
                             }
                         }],
-                    "inputs": ["column_parser_step"]
+                    "inputs": ["to_dataframe_step"]
                 },
+                # {
+                #     "name": "column_parser_step",
+                #     "primitives": ["d3m.primitives.data.ColumnParser"],
+                #     "inputs": ["extract_target_step"]
+                # },
+
                 # read X value
                 {
                     "name": "timeseries_to_list_step",
@@ -779,7 +597,7 @@ class DefaultImageProcessingRegressionTemplate(DSBoxTemplate):
             "name": "default_image_processing_regression_template",
             "taskType": TaskType.REGRESSION.name, # See TaskType, range include 'CLASSIFICATION', 'CLUSTERING', 'COLLABORATIVE_FILTERING', 'COMMUNITY_DETECTION', 'GRAPH_CLUSTERING', 'GRAPH_MATCHING', 'LINK_PREDICTION', 'REGRESSION', 'TIME_SERIES_FORECASTING', 'VERTEX_NOMINATION'
             "taskSubtype" : {TaskSubtype.UNIVARIATE.name,TaskSubtype.MULTIVARIATE.name},
-            "inputType": "image",  # See SEMANTIC_TYPES.keys() for range of values 
+            "inputType": "image",  # See SEMANTIC_TYPES.keys() for range of values
             "output" : "regressor_step",  # Name of the final step generating the prediction
             "target" : "extract_target_step",  # Name of the step generating the ground truth
             "steps": [
@@ -796,22 +614,22 @@ class DefaultImageProcessingRegressionTemplate(DSBoxTemplate):
                 },
                 # read Y value
                 {
-                    "name": "column_parser_step",
-                    "primitives": ["d3m.primitives.data.ColumnParser"],
-                    "inputs": ["to_dataframe_step"]
-                },
-                {
                     "name": "extract_target_step",
                     "primitives": [{
                         "primitive":"d3m.primitives.data.ExtractColumnsBySemanticTypes",
                         "hyperparameters":
-                            {'semantic_types': ('https://metadata.datadrivendiscovery.org/types/Target','https://metadata.datadrivendiscovery.org/types/SuggestedTarget',), 
-                            'use_columns': (), 
+                            {'semantic_types': ('https://metadata.datadrivendiscovery.org/types/Target','https://metadata.datadrivendiscovery.org/types/SuggestedTarget',),
+                            'use_columns': (),
                             'exclude_columns': ()
                             }
                         }],
-                    "inputs": ["column_parser_step"]
+                    "inputs": ["to_dataframe_step"]
                 },
+                # {
+                #     "name": "column_parser_step",
+                #     "primitives": ["d3m.primitives.data.ColumnParser"],
+                #     "inputs": ["to_dataframe_step"]
+                # },
                 # read X value
                 {
                     "name": "dataframe_to_tensor",
@@ -821,6 +639,7 @@ class DefaultImageProcessingRegressionTemplate(DSBoxTemplate):
                 {
                     "name": "feature_extraction",
                     "primitives": ["d3m.primitives.dsbox.ResNet50ImageFeature"],
+                    # or "primitives": ["d3m.primitives.dsbox.Vgg16ImageFeature"],
                     "inputs": ["dataframe_to_tensor"]
                 },
                 {
@@ -831,7 +650,7 @@ class DefaultImageProcessingRegressionTemplate(DSBoxTemplate):
 
                 {
                     "name": "regressor_step",
-                    "primitives": ["d3m.primitives.sklearn_wrap.SKSGDRegressor","d3m.primitives.sklearn_wrap.SKRandomForestRegressor"],
+                    "primitives": ["d3m.primitives.sklearn_wrap.SKRandomForestRegressor"],
                     "inputs": ["PCA_step", "extract_target_step"]
                 },
             ]
@@ -846,6 +665,7 @@ class DefaultGraphMatchingTemplate(DSBoxTemplate):
         self.template = {
             "name": "Default_GraphMatching_Template",
             "taskType": TaskType.GRAPH_MATCHING.name,
+             # for some special condition, the taskSubtype can be "NONE" which indicate no taskSubtype given
             "taskSubtype" : "NONE",
             "inputType": "graph",
             "output": "model_step",

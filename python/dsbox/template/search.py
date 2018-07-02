@@ -359,14 +359,32 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
             metricDesc = PerformanceMetric.parse(metric_description['metric'])
             metric: typing.Callable = metricDesc.get_function()
             params: typing.Dict = metric_description['params']
-            training_metrics.append({
-                'metric': metric_description['metric'],
-                'value': metric(training_ground_truth.iloc[:, -1].astype(str), training_prediction.iloc[:, -1].astype(str))
-            })
-            validation_metrics.append({
-                'metric': metric_description['metric'],
-                'value': metric(validation_ground_truth.iloc[:, -1].astype(str), validation_prediction.iloc[:, -1].astype(str))
-            })
+
+            try:
+                if 'regression' in self.problem.query(())['about']['taskType']:
+                    training_metrics.append({
+                        'metric': metric_description['metric'],
+                        'value': metric(training_ground_truth.iloc[:, -1].astype(float), training_prediction.iloc[:, -1].astype(float))
+                    })
+                    # if the validation_ground_truth do not have results
+                    if validation_ground_truth.iloc[0, -1] == '':
+                        validation_ground_truth.iloc[:, -1] = 0
+                    validation_metrics.append({
+                        'metric': metric_description['metric'],
+                        'value': metric(validation_ground_truth.iloc[:, -1].astype(float), validation_prediction.iloc[:, -1].astype(float))
+                    })
+                else:
+                    training_metrics.append({
+                        'metric': metric_description['metric'],
+                        'value': metric(training_ground_truth.iloc[:, -1].astype(str), training_prediction.iloc[:, -1].astype(str))
+                    })
+                    validation_metrics.append({
+                        'metric': metric_description['metric'],
+                        'value': metric(validation_ground_truth.iloc[:, -1].astype(str), validation_prediction.iloc[:, -1].astype(str))
+                    })
+            except:
+                import pdb
+                pdb.set_trace()
 
         data = {
             'exec_plan': run.execution_order,
