@@ -292,6 +292,9 @@ class Controller:
                 self.test_dataset, metrics)
 
         candidate, value = search.search_one_iter()
+
+        # assert "fitted_pipe" in candidate, "argument error!"
+
         if candidate is None:
             print("[ERROR] not candidate!")
             return Status.PROBLEM_NOT_IMPLEMENT
@@ -300,15 +303,15 @@ class Controller:
             print(candidate.data)
             print(candidate, value)
             print('Training {} = {}'.format(
-                candidate.data['training_metrics'][0]['metric'].name,
+                candidate.data['training_metrics'][0]['metric'],
                 candidate.data['training_metrics'][0]['value']))
             print('Validation {} = {}'.format(
-                candidate.data['validation_metrics'][0]['metric'].name,
+                candidate.data['validation_metrics'][0]['metric'],
                 candidate.data['validation_metrics'][0]['value']))
 
             # FIXME: code used for doing experiments, want to make optionals
-            pipeline = FittedPipeline.create(configuration=candidate,
-                                        dataset=self.dataset)
+            # pipeline = FittedPipeline.create(configuration=candidate,
+            #                             dataset=self.dataset)
                                                                            
             dataset_name = self.config['executables_root'].rsplit("/", 2)[1]
             outputs_loc = str(Path.home()) + "/outputs"
@@ -328,6 +331,7 @@ class Controller:
 
             print("******************\n[INFO] Saving Best Pipeline")
             # save the pipeline
+
             try:
                 pipeline = FittedPipeline.create(configuration=candidate,
                                                  dataset=self.dataset)

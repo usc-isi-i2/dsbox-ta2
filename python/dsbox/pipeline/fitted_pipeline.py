@@ -10,9 +10,10 @@ from d3m.metadata.pipeline import Pipeline
 
 from dsbox.template.runtime import Runtime
 from dsbox.template.search import ConfigurationSpace, ConfigurationPoint
-from dsbox.template.template import to_digraph
+from dsbox.template.template import to_digraph, DSBoxTemplate
 import pprint
 
+import typing
 # python path of primitive, i.e. 'd3m.primitives.common_primitives.RandomForestClassifier'
 PythonPath = typing.NewType('PythonPath', str)
 TP = typing.TypeVar('TP', bound='FittedPipeline')
@@ -34,21 +35,37 @@ class FittedPipeline:
         the location of the files of pipeline
     """
 
-    def __init__(self, pipeline = None, runtime = None, dataset = None):
+    def __init__(self,exec_order=None,
+                 pipeline=None,
+                 fitted_pipe=None, dataset=None):
         self.dataset = dataset
-        self.runtime = runtime
+
+        self.fitted_pipe = fitted_pipe
+        self.exec_order = exec_order
+
         self.pipeline = pipeline
+
         self.id = self.pipeline.id
         self.folder_loc = ''
 
     @classmethod
-    def create(cls:typing.Type[TP], configuration: ConfigurationPoint[PythonPath], dataset: Dataset) -> TP:
+    def create(cls: typing.Type[TP],
+               configuration:ConfigurationPoint,
+               dataset: Dataset) -> TP:
         '''
         Initialize the FittedPipeline with the configurations
         '''
-        pipeline_to_load = configuration.data['pipeline']
-        run = configuration.data['runtime']
-        fitted_pipeline_loaded = cls(pipeline_to_load, run, dataset)
+        # pipeline_to_load = template.to_pipeline(configuration)
+        # run = []#configuration.data['runtime']
+        fitted_pipe = configuration.data['fitted_pipe']
+        pipeline = configuration.data['pipeline']
+        exec_order  = configuration.data['exec_plan']
+
+
+        fitted_pipeline_loaded = cls(fitted_pipe=fitted_pipe,
+                                     pipeline=pipeline,
+                                     exec_order =exec_order,
+                                     dataset=dataset)
         return fitted_pipeline_loaded
 
 
@@ -73,10 +90,10 @@ class FittedPipeline:
             self.pipeline.to_json(f)
 
         # save the pickle files of each primitive step
-        for i in range(0, len(self.runtime.execution_order)):
+        for i in range(0, len(self.exec_order)):
             # print("Now saving step_", i)
-            n_step = self.runtime.execution_order[i]
-            each_step = self.runtime.pipeline[n_step]
+            n_step = self.exec_order[i]
+            each_step = self.fitted_pipe[n_step]
             '''
             NOTICE:
             running both of get_params and hyperparams will cause the error of
@@ -90,7 +107,7 @@ class FittedPipeline:
 
     def __str__(self):
         desc = list(map(lambda s: (s.primitive, s.hyperparams),
-                        self.pipeline.steps))
+                        self.fitted_pipe.steps))
         return pprint.pformat(desc)
         # print("Sorted:", dag_order)
         # return str(dag_order)

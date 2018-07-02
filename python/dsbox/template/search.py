@@ -17,6 +17,8 @@ from dsbox.template.runtime import Runtime
 
 from dsbox.schema.problem import optimization_type, OptimizationType
 
+from d3m.metadata.problem import PerformanceMetric
+
 from .template import HYPERPARAMETER_DIRECTIVE, HyperparamDirective, DSBoxTemplate
 
 from .configuration_space import DimensionName, ConfigurationSpace, SimpleConfigurationSpace, ConfigurationPoint
@@ -24,7 +26,7 @@ from .configuration_space import DimensionName, ConfigurationSpace, SimpleConfig
 from pprint import pprint
 from .pipeline_utilities import pipe2str
 
-from multiprocessing import Pool
+from multiprocessing import Pool, current_process
 
 T = typing.TypeVar("T")
 
@@ -97,7 +99,7 @@ class DimensionalSearch(typing.Generic[T]):
         pass
 
     def search_one_iter(self, candidate_in: ConfigurationPoint[T] = None,
-                        candidate_value: float = None, max_per_dimension=10):
+                        candidate_value: float = None, max_per_dimension=50):
         """
         Performs one iteration of dimensional search. During dimesional
         search our algorithm iterates through all 8 steps of pipeline as
@@ -131,8 +133,8 @@ class DimensionalSearch(typing.Generic[T]):
             # TODO this is just a hack
             if len(choices) == 1:
                 continue
-
-            assert 0 < len(choices), \
+            # print("[INFO] choices:", choices, ", in step:", dimension)
+            assert 1 < len(choices), \
                 f'Step {dimension} has not primitive choices!'
 
             # the weights are assigned by template designer
@@ -150,20 +152,26 @@ class DimensionalSearch(typing.Generic[T]):
             for value in selected:
                 new = dict(candidate)
                 new[dimension] = value
-                new_candidates.append(self.configuration_space.get_point(new))
+                candidate_ = self.configuration_space.get_point(new)
+                new_candidates.append(candidate_)
 
             values = []
             sucessful_candidates = []
-
+            print('*' * 100)
+            print("[INFO] Running Pool:", len(new_candidates))
             try:
-                with Pool(5) as p:
+                with Pool(max_per_dimension) as p:
                     results = p.map(self.evaluate, new_candidates)
 
-                for res, x in zip(results,new_candidates):
-                    values.append(res[0])
+                for res, x in zip(results, new_candidates):
+                    values.append(
+                        res['validation_metrics'][0]['value'])
+                    pipeline = self.template.to_pipeline(x)
+                    res['pipeline'] = pipeline
+                    x.data.update(res)
                     sucessful_candidates.append(x)
+                    assert "fitted_pipe" in x.data, "parameters not added!"
             except:
-            # print('Pipeline failed: ', x)
                 traceback.print_exc()
 
             # for x in new_candidates:
@@ -180,7 +188,7 @@ class DimensionalSearch(typing.Generic[T]):
 
             # All candidates failed!
             if len(values) == 0:
-                print("[INFO] No Candidate worked!:",values)
+                print("[INFO] No Candidate worked!:", values)
                 return (None, None)
 
             # Find best candidate
@@ -188,15 +196,18 @@ class DimensionalSearch(typing.Generic[T]):
                 best_index = values.index(min(values))
             else:
                 best_index = values.index(max(values))
-                
+            print("[INFO] Best index:", best_index)
+            pprint(values)
             if candidate_value is None:
                 candidate = sucessful_candidates[best_index]
                 candidate_value = values[best_index]
             elif (self.minimize and values[best_index] < candidate_value) or (not self.minimize and values[best_index] > candidate_value):
                 candidate = sucessful_candidates[best_index]
                 candidate_value = values[best_index]
-        # here we can get the details of pipelines from "candidate.data"
+            # assert "fitted_pipe" in candidate.data, "parameters not added! loop"
 
+        # here we can get the details of pipelines from "candidate.data"
+        assert "fitted_pipe" in candidate.data, "parameters not added! last"
         return (candidate, candidate_value)
 
 
@@ -228,6 +239,7 @@ class DimensionalSearch(typing.Generic[T]):
         #         candidate = ConfigurationPoint(self.configuration_space,
         #                                        self.random_assignment())
         result = self.evaluate(candidate)
+        candidate.data.update(result)
         # try:
         #     result = self.evaluate(candidate)
         # except:
@@ -242,7 +254,7 @@ class DimensionalSearch(typing.Generic[T]):
         #         candidate = ConfigurationPoint(self.configuration_space,
         #                                        self.random_assignment())
         #         result = self.evaluate(candidate)
-        return (candidate, result[0])
+        return (candidate, result['validation_metrics'][0]['value'])
 
 
 
@@ -303,7 +315,11 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
         self.problem = problem
         self.train_dataset = train_dataset
         self.validation_dataset = validation_dataset
-        self.performance_metrics = performance_metrics
+
+        self.performance_metrics = list(map(
+            lambda d: {'metric': d['metric'].unparse(), 'params': d['params']},
+            performance_metrics
+        ))
         self.resolver = resolver
 
         # if not set(self.template.template_nodes.keys()) <= set(configuration_space.get_dimensions()):
@@ -316,15 +332,10 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
         Note: This methods will modify the configuration point, by updating its data field.
         """
 
-        # convert PrimitiveDescription to primitive metadata
-        # metadata_configuration: typing.Dict[DimensionName, PrimitiveMetadata] = {
-        #     key: self.primitive_index[python_path].metadata.query() for key, python_path in configuration.items()}
-
-        # value, new_data = self._evaluate(metadata_configuration)
-
-        value, new_data = self._evaluate(configuration)
-        configuration.data.update(new_data)
-        return value, configuration.data
+        print("[INFO] Worker started, id:", current_process())
+        evaluation_result = self._evaluate(configuration)
+        # configuration.data.update(new_data)
+        return evaluation_result
 
     def _evaluate(self, configuration: ConfigurationPoint) -> typing.Tuple[float, dict]:
 
@@ -337,7 +348,6 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
         training_ground_truth = get_target_columns(self.train_dataset, self.problem)
         training_prediction = run.fit_outputs[self.template.get_output_step_number()]
 
-        print('*'*100)
         results = run.produce(inputs=[self.validation_dataset])
         validation_ground_truth = get_target_columns(self.validation_dataset, self.problem)
         # results == validation_prediction
@@ -346,7 +356,8 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
         training_metrics = []
         validation_metrics = []
         for metric_description in self.performance_metrics:
-            metric: typing.Callable = metric_description['metric'].get_function()
+            metricDesc = PerformanceMetric.parse(metric_description['metric'])
+            metric: typing.Callable = metricDesc.get_function()
             params: typing.Dict = metric_description['params']
             training_metrics.append({
                 'metric': metric_description['metric'],
@@ -358,15 +369,15 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
             })
 
         data = {
-            'runtime': run,
-            'pipeline': pipeline,
+            'exec_plan': run.execution_order,
+            'fitted_pipe': run.pipeline,
+            # 'pipeline': pipeline,
             'training_metrics': training_metrics,
             'validation_metrics': validation_metrics
         }
         # Use first metric from validation
-        print(pipe2str(pipeline))
-        pprint(data)
-        return validation_metrics[0]['value'], data
+        # return validation_metrics[0]['value'], data
+        return data
 
 
 PythonPathWithHyperaram = typing.Tuple[PythonPath, int, HyperparamDirective]

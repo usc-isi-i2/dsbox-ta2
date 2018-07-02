@@ -368,7 +368,7 @@ class DSBoxTemplate():
             dstemp = DSBoxTemplate(...)
             dstemp.to_pipeline(configuration_point)
         """
-        print("*" * 20)
+        # print("*" * 20)
         # print("[INFO] to_pipeline:")
         # pprint(configuration_point)
         # return self._to_pipeline(configuration_point)
@@ -378,7 +378,7 @@ class DSBoxTemplate():
 
         # binding = configuration_point
         binding, sequence = self.add_intermediate_type_casting(ioconf)
-        print("[INFO] Binding:")
+        # print("[INFO] Binding:")
         # pprint(binding)
         return self._to_pipeline(binding, sequence)
 
@@ -511,7 +511,7 @@ class DSBoxTemplate():
 
         # define an empty pipeline with the general dataset input primitive
         # generate empty pipeline with i/o/s/u =[]
-        pprint(binding)
+        # pprint(binding)
         # print(sequence)
         # print("[INFO] list:",list(map(str, PipelineContext)))
         pipeline = Pipeline(name="dsbox_" + str(id(binding)),
@@ -569,25 +569,26 @@ class DSBoxTemplate():
 
             # description: typing.Dict
             for description in each_step["primitives"]:
-                value = []
+                value_step = []
                 # primitive with no hyperparameters
                 if isinstance(description, str):
-                    value.append({
+                    value_step.append({
                         "primitive": description,
                         "hyperparameters": {}
                     })
                 # one primitive with hyperparamters
                 elif isinstance(description, dict):
-                    value.append(self.description_to_configuration(description))
+                    value_step += self.description_to_configuration(description)
                 # list of primitives
                 elif isinstance(description, list):
                     for prim in description:
-                        value.append(self.description_to_configuration(description))
+                        value_step += self.description_to_configuration(prim)
                 else:
                     # other data format, not supported, raise error
-                    print("Error: Wrong format of the description: Unsupported data format found : ",type(description))
+                    print("Error: Wrong format of the description: "
+                          "Unsupported data format found : ",type(description))
                     
-                values += value
+                values += value_step
             # END FOR
             if len(values) > 0:
                 conf_space[name] = values
@@ -595,18 +596,35 @@ class DSBoxTemplate():
         return SimpleConfigurationSpace(conf_space)
     
     def description_to_configuration(self, description):
-        value = None
-        # if the desciption is an dictionary: it maybe a primitive with hyperparaters
+        value = []
+        # if the desciption is an dictionary:
+        # it maybe a primitive with hyperparameters
         if "primitive" not in description:
-            print("Error: Wrong format of the configuration space data: No primitive name found!")
+            print("Error: Wrong format of the configuration space data: "
+                  "No primitive name found!")
         else:
             if "hyperparameters" not in description:
                 description["hyperparameters"] : {}
-            value = {
-                "primitive": description["primitive"],
-                "hyperparameters":description["hyperparameters"]
-            }
 
+            # go through the hypers and if anyone has empty value just remove it
+            hyperDict = dict(filter(lambda kv: len(kv[1]) > 0,
+                                    description["hyperparameters"].items()))
+
+            # go through the hyper values for single tuples and convert them
+            # to a list with single tuple element
+            hyperDict = dict(map(
+                lambda kv:
+                (kv[0], [kv[1]]) if isinstance(kv[1],tuple) else (kv[0], kv[1]),
+                hyperDict.items()
+            ))
+
+            # iterate through all combinations of the hyperparamters and add
+            # each as a separate configuration point to the space
+            for hyper in _product_dict(hyperDict):
+                value.append({
+                    "primitive": description["primitive"],
+                    "hyperparameters": hyper,
+                })
         return value
 
     def get_target_step_number(self):
@@ -614,3 +632,10 @@ class DSBoxTemplate():
 
     def get_output_step_number(self):
         return self.step_number[self.template['output']]
+
+
+def _product_dict(dct):
+    keys = dct.keys()
+    vals = dct.values()
+    for instance in product(*vals):
+        yield dict(zip(keys, instance))
