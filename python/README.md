@@ -1,5 +1,16 @@
+## Dependencies
+[check here](environment.yml)
+
+if you have conda, simply do the following:
+
+```sh
+conda-env create .
+source activate ta2
+```
+---
 How to run the Planner
 =======
+
 ```
 python run.py -p [path to problem directory] -l [path to library directory] -o [output directory] 
 Example: python run.py -p ../data/o_38 -l library -o outputs/o_38
