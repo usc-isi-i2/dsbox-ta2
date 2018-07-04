@@ -50,7 +50,7 @@ def split_dataset(dataset, problem, problem_loc=None, *, random_state=42, test_s
         train_test = df[df.columns[1]]
         train_indices = df[train_test == 'TRAIN'][df.columns[0]]
         test_indices = df[train_test == 'TEST'][df.columns[0]]
-        
+
         train = dataset[res_id].iloc[train_indices]
         test = dataset[res_id].iloc[test_indices]
 
@@ -87,7 +87,7 @@ def split_dataset(dataset, problem, problem_loc=None, *, random_state=42, test_s
     print(meta)
     train_dataset.metadata = train_dataset.metadata.update((res_id,), meta)
     pprint.pprint(dict(train_dataset.metadata.query((res_id,))))
-    
+
     # Generate testing dataset
     test_dataset = copy.copy(dataset)
     test_dataset[res_id] = test
@@ -98,11 +98,11 @@ def split_dataset(dataset, problem, problem_loc=None, *, random_state=42, test_s
     print(meta)
     test_dataset.metadata = test_dataset.metadata.update((res_id,), meta)
     pprint.pprint(dict(test_dataset.metadata.query((res_id,))))
-    
+
 
     return (train_dataset, test_dataset)
 
-    
+
 
 class Status(enum.Enum):
     OK = 0
@@ -176,7 +176,7 @@ class Controller:
         self.problem_doc_metadata = runtime.load_problem_doc(os.path.abspath(config['problem_schema']))
         # Dataset
         loader = D3MDatasetLoader()
-        
+
         json_file = os.path.abspath(config['dataset_schema'])
         all_dataset_uri = 'file://{}'.format(json_file)
         self.all_dataset = loader.load(dataset_uri=all_dataset_uri)
@@ -214,7 +214,7 @@ class Controller:
         #         and self.test_dataset.metadata.query((str(index),))['structural_type'] == 'pandas.core.frame.DataFrame'):
         #         for col in reversed(range(self.test_dataset.metadata.query((str(index), ALL_ELEMENTS))['length'])):
         #             if 'https://metadata.datadrivendiscovery.org/types/SuggestedTarget' in self.test_dataset.metadata.query((str(index), ALL_ELEMENTS, col))['semantic_types']:
-                        
+
         # Resource limits
         self.num_cpus = int(config.get('cpus', 0))
         self.ram = config.get('ram', 0)
@@ -244,7 +244,7 @@ class Controller:
             fname = f.split('/')[-1].split('.')[0]
             pipeline_load = FittedPipeline.load(folder_loc=self.config['executables_root'],
                                                 pipeline_id=fname,
-                                                dataset=self.dataset)
+                                                dataset=self.dataset.metadata.query(())['id'])
             exec_pipelines.append(pipeline_load)
 
 
@@ -313,8 +313,8 @@ class Controller:
 
             # FIXME: code used for doing experiments, want to make optionals
             pipeline = FittedPipeline.create(configuration=candidate,
-                                        dataset=self.dataset)
-                                                                           
+                                             dataset=self.dataset.metadata.query(())['id'])
+
             dataset_name = self.config['executables_root'].rsplit("/", 2)[1]
             outputs_loc = self.config['saving_folder_loc']
             #outputs_loc = str(Path.home()) + "/outputs"
@@ -336,7 +336,7 @@ class Controller:
             # save the pipeline
             #try:
             pipeline = FittedPipeline.create(configuration=candidate,
-                                             dataset=self.dataset)
+                                             dataset=self.dataset.metadata.query(())['id'])
             pipeline.save(outputs_loc)
             #except:
             #    print("[ERROR] Save Failed!")
@@ -351,7 +351,7 @@ class Controller:
         outputs_loc = self.config['saving_folder_loc']
         #outputs_loc = str(Path.home()) + "/outputs"
 
-        d = os.path.expanduser(outputs_loc + '/pipelines') 
+        d = os.path.expanduser(outputs_loc + '/pipelines')
 
         read_pipeline_id = self.config['saved_pipeline_ID']
         if read_pipeline_id == "":
@@ -361,7 +361,7 @@ class Controller:
             files.sort(key=lambda f: os.stat(f).st_mtime)
             lastmodified = files[-1]
             read_pipeline_id = lastmodified.split('/')[-1].split('.')[0]
-        
+
         pipeline_load = FittedPipeline.load(folder_loc = outputs_loc, pipeline_id = read_pipeline_id)
 
         print("[INFO] Pipeline load finished")
