@@ -4,7 +4,9 @@ The DSBox TA2 component
 ---------------------------------------------2018.7.4---------------------------------------------
 
 Fixed ta2-search logic: For those data that don't have system-split "TEST" and "TRAIN" data like "LL0" and “LL1”, you can leave the "test_data_schema"'s value to be blank or remove this key from config.
+
 In such condition, the system will run "controller.initialize_from_config_train_test" that will split the dataset into 2 parts by functions in Controller.py.
+
 Otherwise, if you speicfic the "test_data_schema" in the system, the system will still load the 2 dataset and run test/train separately.
 
 ---------------------------------------------2018.7.2---------------------------------------------
