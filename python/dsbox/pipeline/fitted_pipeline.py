@@ -5,7 +5,6 @@ import typing
 
 from networkx import nx
 
-from d3m.container.dataset import Dataset
 from d3m.metadata.pipeline import Pipeline
 
 from dsbox.template.runtime import Runtime
@@ -24,8 +23,8 @@ class FittedPipeline:
     ----------
     pipeline: Pipeline
         a pipeline
-    dataset: Dataset
-        identifier for a dataset
+    dataset_id: str
+        identifier for a dataset (to get dataset id, use dataset.metadata.query(())['id'])
     runtime: Runtime
         runtime containing fitted primitives
     id: str
@@ -34,21 +33,21 @@ class FittedPipeline:
         the location of the files of pipeline
     """
 
-    def __init__(self, pipeline = None, runtime = None, dataset = None):
-        self.dataset = dataset
+    def __init__(self, pipeline = None, runtime = None, dataset_id = None):
+        self.dataset_id = dataset_id
         self.runtime = runtime
         self.pipeline = pipeline
         self.id = self.pipeline.id
         self.folder_loc = ''
 
     @classmethod
-    def create(cls:typing.Type[TP], configuration: ConfigurationPoint[PythonPath], dataset: Dataset) -> TP:
+    def create(cls:typing.Type[TP], configuration: ConfigurationPoint[PythonPath], dataset_id: str) -> TP:
         '''
         Initialize the FittedPipeline with the configurations
         '''
         pipeline_to_load = configuration.data['pipeline']
         run = configuration.data['runtime']
-        fitted_pipeline_loaded = cls(pipeline_to_load, run, dataset)
+        fitted_pipeline_loaded = cls(pipeline_to_load, run, dataset_id)
         return fitted_pipeline_loaded
 
 
@@ -89,7 +88,7 @@ class FittedPipeline:
         # return str(dag_order)
 
     @classmethod
-    def load(cls:typing.Type[TP], folder_loc: str, pipeline_id: str, dataset: Dataset = None) -> TP:
+    def load(cls:typing.Type[TP], folder_loc: str, pipeline_id: str, dataset_id: str = None) -> TP:
         '''
         Load the pipeline with given pipeline id and folder location
         '''
@@ -113,5 +112,5 @@ class FittedPipeline:
                 each_step = pickle.load(f)
                 run.pipeline[i] = each_step
 
-        fitted_pipeline_loaded = cls(pipeline_to_load, run, dataset)
+        fitted_pipeline_loaded = cls(pipeline_to_load, run, dataset_id)
         return fitted_pipeline_loaded
