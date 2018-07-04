@@ -221,7 +221,7 @@ class Controller:
         self.timeout = (config.get('timeout', self.TIMEOUT)) * 60
 
         # Templates
-        self.load_templates(self)
+        self.load_templates()
 
     def load_templates(self) -> None:
         self.task_type = self.problem['problem']['task_type']
