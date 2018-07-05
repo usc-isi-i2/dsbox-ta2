@@ -59,7 +59,7 @@ class FittedPipeline:
         # run = []#configuration.data['runtime']
         fitted_pipe = configuration.data['fitted_pipe']
         pipeline = configuration.data['pipeline']
-        exec_order  = configuration.data['exec_plan']
+        exec_order = configuration.data['exec_plan']
 
 
         fitted_pipeline_loaded = cls(fitted_pipe=fitted_pipe,
@@ -101,7 +101,7 @@ class FittedPipeline:
             print(each_primitive.get_params())
             print(each_step.hyperparams)
             '''
-            file_loc = os.path.join(executable_dir, self.id + "_step_" + str(i) + ".pkl")
+            file_loc = os.path.join(executable_dir, "step_" + str(i) + ".pkl")
 
             with open(file_loc, "wb") as f:
                 pickle.dump(each_step, f)
@@ -132,11 +132,17 @@ class FittedPipeline:
         run = Runtime(pipeline_to_load)
 
         for i in range(0, len(run.execution_order)):
-            print("Now loading step", i)
+            n_step = run.execution_order[i]
+            # print("Now loading step", i)
             file_loc = os.path.join(executable_dir, "step_" + str(i) + ".pkl")
             with open(file_loc, "rb") as f:
                 each_step = pickle.load(f)
-                run.pipeline[i] = each_step
+                run.pipeline[n_step] = each_step
 
-        fitted_pipeline_loaded = cls(pipeline_to_load, run, dataset)
-        return fitted_pipeline_loaded
+        # fitted_pipeline_loaded = cls(pipeline_to_load, run, dataset)
+        fitted_pipeline_loaded = cls(fitted_pipe=run.pipeline,
+                                     pipeline=pipeline_to_load,
+                                     exec_order=run.execution_order,
+                                     dataset=dataset)
+
+        return (fitted_pipeline_loaded, run)

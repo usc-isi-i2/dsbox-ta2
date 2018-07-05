@@ -212,9 +212,11 @@ class Runtime:
         """
         steps_outputs = [None] * len(self.execution_order)
 
+        # print('-'*100)
         for i in range(0, len(self.execution_order)):
             n_step = self.execution_order[i]
             primitive = self.pipeline_description.steps[n_step].primitive
+            # primitive = self.pipeline[i]
             produce_arguments_primitive = self._primitive_arguments(primitive, 'produce')
             produce_arguments = {}
 
@@ -226,9 +228,10 @@ class Runtime:
                         produce_arguments[argument] = arguments[argument][value['source']]
                     if produce_arguments[argument] is None:
                         continue
+
+
             if isinstance(self.pipeline_description.steps[n_step], PrimitiveStep):
                 if n_step in self.produce_order:
-                    # print('-'*100)
                     # print('step', n_step, 'primitive', primitive)
                     #import pdb
                     #pdb.set_trace()
@@ -236,6 +239,7 @@ class Runtime:
                 else:
                     steps_outputs[n_step] = None
 
+        # print('-'*100)
         # kyao!!!!
         self.produce_outputs = steps_outputs
 

@@ -221,7 +221,7 @@ class Controller:
         self.timeout = (config.get('timeout', self.TIMEOUT)) * 60
 
         # Templates
-        self.load_templates(self)
+        self.load_templates()
 
     def load_templates(self) -> None:
         self.task_type = self.problem['problem']['task_type']
@@ -346,6 +346,8 @@ class Controller:
                 raise NotSupportedError(
                     '[ERROR] Save Failed!')
                 # print("[ERROR] Save Failed!")
+            ####################
+
             return Status.OK
 
     def test(self) -> Status:
@@ -353,31 +355,25 @@ class Controller:
         First read the fitted pipeline and then run trained pipeline on test data.
         """
         print("[INFO] Start test function")
-        outputs_loc = self.config['saving_folder_loc']
-        #outputs_loc = str(Path.home()) + "/outputs"
+        outputs_loc, pipeline_load, read_pipeline_id, run = \
+            self.load_pipe_runtime()
 
-        d = os.path.expanduser(outputs_loc + '/pipelines') 
 
-        read_pipeline_id = self.config['saved_pipeline_ID']
-        if read_pipeline_id == "":
-            print("[INFO] No specified pipeline ID found, will load the latest crated pipeline.")
-            # if no pipeline ID given, load the newest created file in the folder
-            files = [os.path.join(d, f) for f in os.listdir(d)]
-            files.sort(key=lambda f: os.stat(f).st_mtime)
-            lastmodified = files[-1]
-            read_pipeline_id = lastmodified.split('/')[-1].split('.')[0]
-        
-        pipeline_load = FittedPipeline.load(folder_loc = outputs_loc, pipeline_id = read_pipeline_id)
 
         print("[INFO] Pipeline load finished")
         #import pdb
         #pdb.set_trace()
-        pipeline_load.runtime.produce(inputs=[self.test_dataset])
+
+        print("[INFO] testing data:")
+        # pprint(self.test_dataset.head())
+        # pipeline_load.runtime.produce(inputs=[self.test_dataset])
+        run.produce(inputs=[self.test_dataset])
         try:
             step_number_output = int(pipeline_load.pipeline.outputs[0]['data'].split('.')[1])
         except:
             print("Warning: searching the output step number failed! Will use the last step's output of the pipeline.")
-            step_number_output = len(pipeline_load.runtime.produce_outputs) - 1
+            # step_number_output = len(pipeline_load.runtime.produce_outputs) - 1
+            step_number_output = len(run.produce_outputs) - 1
 
         # get the target column name
         try:
@@ -392,13 +388,13 @@ class Controller:
             print("[Warning] Can't find the prediction class name, will use default name.")
             prediction_class_name = "prediction"
         d3m_index = get_target_columns(self.test_dataset, self.problem_doc_metadata)["d3mIndex"]
-        prediction = pipeline_load.runtime.produce_outputs[step_number_output]
+        prediction = run.produce_outputs[step_number_output]
 
         # if the prediction results do not have d3m_index column
         if 'd3mIndex' not in prediction.columns:
             prediction_col_name = prediction.columns[0]
             prediction['d3mIndex'] = d3m_index
-            prediction = prediction[['d3mIndex',prediction_col_name]]
+            prediction = prediction[['d3mIndex', prediction_col_name]]
             prediction = prediction.rename(columns={prediction_col_name:prediction_class_name})
         prediction_folder_loc = outputs_loc + "/predictions/" + read_pipeline_id
         folder = os.path.exists(prediction_folder_loc)
@@ -408,6 +404,26 @@ class Controller:
         print("[INFO] Finished: prediction results saving finished")
         print("[INFO] The prediction results is stored at: ", prediction_folder_loc)
         return Status.OK
+
+    def load_pipe_runtime(self):
+        outputs_loc = self.config['saving_folder_loc']
+        # outputs_loc = str(Path.home()) + "/outputs"
+        d = os.path.expanduser(outputs_loc + '/pipelines')
+        read_pipeline_id = self.config['saved_pipeline_ID']
+        if read_pipeline_id == "":
+            print(
+                "[INFO] No specified pipeline ID found, will load the latest "
+                "crated pipeline.")
+            # if no pipeline ID given, load the newest created file in the
+            # folder
+            files = [os.path.join(d, f) for f in os.listdir(d)]
+            files.sort(key=lambda f: os.stat(f).st_mtime)
+            lastmodified = files[-1]
+            read_pipeline_id = lastmodified.split('/')[-1].split('.')[0]
+
+        pipeline_load, run = FittedPipeline.load(folder_loc=outputs_loc,
+                                                 pipeline_id=read_pipeline_id)
+        return outputs_loc, pipeline_load, read_pipeline_id, run
 
     # def generate_configuration_space(self, template_desc: TemplateDescription, problem: typing.Dict, dataset: typing.Optional[Dataset]) -> ConfigurationSpace:
     #     """
