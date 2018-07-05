@@ -1,23 +1,19 @@
-import abc
 import bisect
 import operator
 import random
 import traceback
 import typing
 
-import d3m.exceptions as exceptions
-
-from d3m import utils
 from d3m.container.dataset import Dataset
-from d3m.metadata.base import PrimitiveMetadata, Metadata, ALL_ELEMENTS
-from d3m.metadata.hyperparams import Hyperparams
-from d3m.metadata.pipeline import Resolver
-from d3m.primitive_interfaces.base import PrimitiveBaseMeta, PrimitiveBase
-from dsbox.template.runtime import Runtime
+from d3m.metadata.base import Metadata
+from d3m.metadata.base import ALL_ELEMENTS
+from d3m.primitive_interfaces.base import PrimitiveBaseMeta
+from dsbox.pipeline.fitted_pipeline import FittedPipeline
+
 
 from dsbox.schema.problem import optimization_type, OptimizationType
 
-from .template import HYPERPARAMETER_DIRECTIVE, HyperparamDirective, DSBoxTemplate
+from .template import HyperparamDirective, DSBoxTemplate
 
 from .configuration_space import DimensionName, ConfigurationSpace, SimpleConfigurationSpace, ConfigurationPoint
 
@@ -88,7 +84,7 @@ class DimensionalSearch(typing.Generic[T]):
 
     def get_dimension_length(self, kw: DimensionName) -> int:
         '''
-        Return the length of the list a configuration point 
+        Return the length of the list a configuration point
         '''
         return len(self.configuration_space.get_values(kw))
 
@@ -188,7 +184,7 @@ class DimensionalSearch(typing.Generic[T]):
                 best_index = values.index(min(values))
             else:
                 best_index = values.index(max(values))
-                
+
             if candidate_value is None:
                 candidate = sucessful_candidates[best_index]
                 candidate_value = values[best_index]
@@ -271,26 +267,20 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
         The template pipeline to be fill in
     configuration_space : ConfigurationSpace[PrimitiveDescription]
         Configuration space where values are primitive python paths
-    primitive_index : typing.Dict[PrimitiveDescription, PrimitiveBaseMeta]
-        Map from primitive python paths to primitive class from d3m.index.search()
     train_dataset : Dataset
         The dataset to train pipeline
     validation_dataset : Dataset
         The dataset to evaluate pipeline
     performance_metrics : typing.List[typing.Dict]
         Performance metrics from parse_problem_description()['problem']['performance_metrics']
-    resolver : typing.Optional[Resolver]
-        Resolve primitives
     """
 
     def __init__(self, template: DSBoxTemplate,
                  configuration_space: ConfigurationSpace[PrimitiveDescription],
-                 primitive_index: typing.Dict[PrimitiveDescription, PrimitiveBaseMeta],
                  problem: Metadata,
                  train_dataset: Dataset,
                  validation_dataset: Dataset,
-                 performance_metrics: typing.List[typing.Dict],
-                 resolver: Resolver = None) -> None:
+                 performance_metrics: typing.List[typing.Dict]) -> None:
 
         # Use first metric from validation
 
@@ -299,12 +289,10 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
 
         self.template: DSBoxTemplate = template
         # self.configuration_space = configuration_space
-        self.primitive_index: typing.Dict[PrimitiveDescription, PrimitiveBaseMeta] = primitive_index
         self.problem = problem
         self.train_dataset = train_dataset
         self.validation_dataset = validation_dataset
         self.performance_metrics = performance_metrics
-        self.resolver = resolver
 
         # if not set(self.template.template_nodes.keys()) <= set(configuration_space.get_dimensions()):
         #     raise exceptions.InvalidArgumentValueError(
@@ -331,17 +319,17 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
         pipeline = self.template.to_pipeline(configuration)
 
         # Todo: update ResourceManager to run pipeline:  ResourceManager.add_pipeline(pipeline)
-        run = Runtime(pipeline)
+        fitted_pipeline = FittedPipeline(pipeline, dataset_id=self.train_dataset.metadata.query(())['id'])
 
-        run.fit(inputs=[self.train_dataset])
+        fitted_pipeline.fit(inputs=[self.train_dataset])
         training_ground_truth = get_target_columns(self.train_dataset, self.problem)
-        training_prediction = run.fit_outputs[self.template.get_output_step_number()]
+        training_prediction = fitted_pipeline.get_fit_step_output(self.template.get_output_step_number())
 
         print('*'*100)
-        results = run.produce(inputs=[self.validation_dataset])
+        results = fitted_pipeline.produce(inputs=[self.validation_dataset])
         validation_ground_truth = get_target_columns(self.validation_dataset, self.problem)
-        # results == validation_prediction
-        validation_prediction = run.produce_outputs[self.template.get_output_step_number()]
+        # Note: results == validation_prediction
+        validation_prediction = fitted_pipeline.get_produce_step_output(self.template.get_output_step_number())
 
         training_metrics = []
         validation_metrics = []
@@ -376,8 +364,7 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
                 pdb.set_trace()
 
         data = {
-            'runtime': run,
-            'pipeline': pipeline,
+            'fitted_pipeline': fitted_pipeline,
             'training_metrics': training_metrics,
             'validation_metrics': validation_metrics
         }
@@ -400,106 +387,6 @@ def generate_hyperparam_configuration_space(space: ConfigurationSpace[PythonPath
         new_space[name] = values
     return SimpleConfigurationSpace(new_space)
 
-# Not used
-
-
-class HyperparameterResolver(Resolver):
-    def __init__(self, strict_resolving: bool = False) -> None:
-        super().__init__(strict_resolving)
-
-    def get_primitive(self, primitive_description: typing.Dict) -> typing.Optional[PrimitiveBase]:
-        primitive = super().get_primitive(primitive_description)
-        if primitive is not None and HYPERPARAMETER_DIRECTIVE in primitive_description:
-            if primitive_description[HYPERPARAMETER_DIRECTIVE] == HyperparamDirective.RANDOM:
-                hyperparams_class = primitive.metadata.query()['primitive_code']['class_type_arguments']['Hyperparams']
-                primitive.hyperparams(hyperparams_class.sample())
-
-        return primitive
-
-
-# class TemplateDimensionalRandomHyperparameterSearch(DimensionalSearch[PythonPathWithHyperaram]):
-#     """
-#     Use dimensional search with random hyperparameters to find best pipeline.
-#     """
-
-#     def __init__(self, template_description: DSBoxTemplate,
-#                  configuration_space: ConfigurationSpace[PythonPath],
-#                  primitive_index: typing.Dict[PythonPath, PrimitiveBaseMeta],
-#                  train_dataset: Dataset, validation_dataset: Dataset,
-#                  performance_metrics: typing.List[typing.Dict],
-#                  resolver: Resolver = None) -> None:
-#         # Use first metric from validation
-#         minimize = optimization_type(performance_metrics[0]['metric']) == OptimizationType.MINIMIZE
-#         # if resolver is None:
-#         #     resolver = HyperparameterResolver()
-#         if resolver is None:
-#             resolver = Resolver()
-#         hyperparam_configuration_space = generate_hyperparam_configuration_space(configuration_space)
-#         super().__init__(self.evaluate_pipeline, hyperparam_configuration_space, minimize)
-#         self.template_description = template_description
-#         self.template: TemplatePipeline = self.template_description.template
-#         self.primitive_index = primitive_index
-#         self.train_dataset = train_dataset
-#         self.validation_dataset = validation_dataset
-#         self.performance_metrics = performance_metrics
-#         self.resolver = resolver
-
-#     def evaluate_pipeline(self, point: ConfigurationPoint[PythonPathWithHyperaram]) -> typing.Tuple[float, dict]:
-#         """
-#         Evaluate at configuration point.
-#         Note: This methods will modify the configuration point, by updating its data field.
-#         """
-#         # convert PythonPath to primitive metadata
-#         metadata_configuration: typing.Dict[DimensionName, dict] = {}
-#         for key, (python_path, index, directive) in point.items():
-#             metadata_configuration[key] = dict(self.primitive_index[python_path].metadata.query())
-#             metadata_configuration[key][HYPERPARAMETER_DIRECTIVE] = directive
-
-#         value, new_data = self._evaluate(metadata_configuration)
-#         configuration.data.update(new_data)
-#         return value, configuration.data
-
-#     def _evaluate(self, metadata_configuration: typing.Dict) -> typing.Tuple[float, dict]:
-
-#         binding = self.template.to_steps(metadata_configuration, self.resolver)
-#         pipeline = self.template.get_pipeline(binding, None, context='PRETRAINING')
-
-#         # Todo: update ResourceManager to run pipeline:  ResourceManager.add_pipeline(pipeline)
-#         run = Runtime(pipeline)
-
-#         run.fit(inputs=[self.train_dataset])
-#         training_ground_truth = run.fit_outputs[self.template_description.target_step]
-#         training_prediction = run.fit_outputs[self.template_description.predicted_target_step]
-
-#         results = run.produce(inputs=[self.validation_dataset])
-#         validation_ground_truth = run.produce_outputs[self.template_description.target_step]
-#         # results == validation_prediction
-#         validation_prediction = run.produce_outputs[self.template_description.predicted_target_step]
-
-#         training_metrics = []
-#         validation_metrics = []
-#         for metric_description in self.performance_metrics:
-#             metric: typing.Callable = metric_description['metric'].get_function()
-#             params: typing.Dict = metric_description['params']
-#             training_metrics.append({
-#                 'metric': metric_description['metric'],
-#                 'value': metric(training_ground_truth, training_prediction)
-#             })
-#             validation_metrics.append({
-#                 'metric': metric_description['metric'],
-#                 'value': metric(validation_ground_truth, validation_prediction)
-#             })
-
-#         data = {
-#             'runtime': run,
-#             'pipeline': pipeline,
-#             'training_metrics': training_metrics,
-#             'validation_metrics': validation_metrics
-#         }
-#         # Use first metric from validation
-#         return validation_metrics[0]['value'], data
-
-
 def random_choices_without_replacement(population, weights, k=1):
     """
     Randomly sample multiple element based on weights witout replacement.
@@ -516,7 +403,6 @@ def random_choices_without_replacement(population, weights, k=1):
         result.append(population[i])
         weights[i] = 0
     return result
-
 
 def accumulate(iterable, func=operator.add):
     """

@@ -609,7 +609,7 @@ class DSBoxTemplate():
             print("Error: Wrong format of the configuration space data: No primitive name found!")
         else:
             if "hyperparameters" not in description:
-                description["hyperparameters"] : {}
+                description["hyperparameters"] = {}
             value = {
                 "primitive": description["primitive"],
                 "hyperparameters":description["hyperparameters"]

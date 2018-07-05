@@ -1,16 +1,14 @@
-import os
 import json
+import os
 import pickle
+import pprint
 import typing
-
-from networkx import nx
+import uuid
 
 from d3m.metadata.pipeline import Pipeline
 
 from dsbox.template.runtime import Runtime
-from dsbox.template.search import ConfigurationSpace, ConfigurationPoint
-from dsbox.template.template import to_digraph
-import pprint
+from dsbox.template.configuration_space import ConfigurationPoint
 
 # python path of primitive, i.e. 'd3m.primitives.common_primitives.RandomForestClassifier'
 PythonPath = typing.NewType('PythonPath', str)
@@ -29,16 +27,35 @@ class FittedPipeline:
         runtime containing fitted primitives
     id: str
         the id of the pipeline
-    folder_loc: str
-        the location of the files of pipeline
     """
 
-    def __init__(self, pipeline = None, runtime = None, dataset_id = None):
-        self.dataset_id = dataset_id
-        self.runtime = runtime
+    def __init__(self, pipeline:Pipeline, *, runtime:Runtime = None,
+                 dataset_id:str = None, id:str = None) -> None:
         self.pipeline = pipeline
-        self.id = self.pipeline.id
-        self.folder_loc = ''
+        self.dataset_id = dataset_id
+
+        if runtime is None:
+            self.runtime = Runtime(pipeline)
+        else:
+            self.runtime = runtime
+
+        if id is None:
+            # Create id distinct, since there may be several fitted pipelines using the same pipeline
+            self.id = str(uuid.uuid4())
+        else:
+            self.id = id
+
+    def fit(self, **arguments):
+        self.runtime.fit(**arguments)
+
+    def produce(self, **arguments):
+        self.runtime.produce(**arguments)
+
+    def get_fit_step_output(self, step_number: int):
+        return self.runtime.fit_outputs[step_number]
+
+    def get_produce_step_output(self, step_number: int):
+        return self.runtime.produce_outputs[step_number]
 
     @classmethod
     def create(cls:typing.Type[TP], configuration: ConfigurationPoint[PythonPath], dataset_id: str) -> TP:
@@ -47,7 +64,7 @@ class FittedPipeline:
         '''
         pipeline_to_load = configuration.data['pipeline']
         run = configuration.data['runtime']
-        fitted_pipeline_loaded = cls(pipeline_to_load, run, dataset_id)
+        fitted_pipeline_loaded = cls(pipeline_to_load, runtime=run, dataset_id=dataset_id)
         return fitted_pipeline_loaded
 
 
@@ -55,21 +72,29 @@ class FittedPipeline:
         '''
         Save the given fitted pipeline from TemplateDimensionalSearch
         '''
-        self.folder_loc = folder_loc
         # print("The pipeline files will be stored in:")
-        # print(self.folder_loc)
+        # print(folder_loc)
 
-        pipeline_dir = os.path.join(self.folder_loc, 'pipelines')
-        executable_dir = os.path.join(self.folder_loc, 'executables', self.id)
+        pipeline_dir = os.path.join(folder_loc, 'pipelines')
+        executable_dir = os.path.join(folder_loc, 'executables', self.id)
         os.makedirs(pipeline_dir, exist_ok=True)
         os.makedirs(executable_dir, exist_ok=True)
 
         # print("Writing:",self)
 
+        json_loc = os.path.join(pipeline_dir, self.id + '-1.json')
+        with open(json_loc, 'w') as out:
+            self.pipeline.to_json(out)
+
+        # store fitted_pipeline id
+        structure = self.pipeline.to_json_structure()
+        structure['fitted_pipeline_id'] = self.id
+        structure['dataset_id'] = self.dataset_id
+
         # save the pipeline with json format
         json_loc = os.path.join(pipeline_dir, self.id + '.json')
-        with open(json_loc, 'w') as f:
-            self.pipeline.to_json(f)
+        with open(json_loc, 'w') as out:
+            json.dump(structure, out)
 
         # save the pickle files of each primitive step
         for i in range(0, len(self.runtime.execution_order)):
@@ -100,7 +125,12 @@ class FittedPipeline:
         print("The following pipeline file will be loaded:")
         print(json_loc)
         with open(json_loc, 'r') as f:
-            pipeline_to_load = Pipeline.from_json(f)
+            structure = json.load(f)
+
+        fitted_pipeline_id = structure['fitted_pipeline_id']
+        dataset_id = structure['dataset_id']
+
+        pipeline_to_load = Pipeline.from_json_structure(structure)
 
         # load detail fitted parameters from pkl files
         run = Runtime(pipeline_to_load)
@@ -112,5 +142,6 @@ class FittedPipeline:
                 each_step = pickle.load(f)
                 run.pipeline[i] = each_step
 
-        fitted_pipeline_loaded = cls(pipeline_to_load, run, dataset_id)
+        fitted_pipeline_loaded = cls(pipeline=pipeline_to_load, runtime=run,
+                                     dataset_id=dataset_id, id=fitted_pipeline_id)
         return fitted_pipeline_loaded
