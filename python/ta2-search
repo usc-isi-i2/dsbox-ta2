@@ -90,8 +90,13 @@ def main(args):
     print('Using configuation:')
     pprint(config)
 
-    controller.initialize_from_config_train_test(config)
-    #controller.initialize_from_config_train_test(config)
+
+    if 'test_data_schema' in config and config['test_data_schema'] != '':
+        print("[INFO] Test data config found! Will use given test data.")
+        controller.initialize_from_config(config)
+    else:
+        print("[INFO] No test data config found! Will split the data.")
+        controller.initialize_from_config_train_test(config)
 
     status = controller.train()
     print("*+"*10)
