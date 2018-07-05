@@ -7,26 +7,33 @@ import typing
 import d3m
 import dsbox.template.runtime as runtime
 
-from d3m.container.dataset import Dataset, D3MDatasetLoader, SEMANTIC_TYPES, get_d3m_dataset_digest
-from d3m.metadata.base import ALL_ELEMENTS, Metadata
-from d3m.metadata.problem import parse_problem_description, TaskType, TaskSubtype
-from d3m.exceptions import NotSupportedError, InvalidArgumentValueError
-from dsbox.template.library import TemplateLibrary, TemplateDescription, SemanticTypeDict
-# from dsbox.template.search import TemplateDimensionalRandomHyperparameterSearch, TemplateDimensionalSearch, ConfigurationSpace, SimpleConfigurationSpace, PythonPath, DimensionName
-from dsbox.template.search import TemplateDimensionalSearch, ConfigurationSpace, SimpleConfigurationSpace, PythonPath, DimensionName, get_target_columns
-from dsbox.template.template import TemplatePipeline, to_digraph, DSBoxTemplate
+from d3m.container.dataset import Dataset
+from d3m.container.dataset import D3MDatasetLoader
+from d3m.container.dataset import SEMANTIC_TYPES
+from d3m.metadata.base import ALL_ELEMENTS
+from d3m.metadata.base import Metadata
+from d3m.metadata.problem import parse_problem_description
+from d3m.metadata.problem import TaskType
+from d3m.metadata.problem import TaskSubtype
+from d3m.exceptions import InvalidArgumentValueError
+from dsbox.template.library import TemplateLibrary
+from dsbox.template.library import TemplateDescription
+from dsbox.template.library import SemanticTypeDict
+from dsbox.template.search import TemplateDimensionalSearch
+from dsbox.template.search import ConfigurationSpace
+from dsbox.template.search import SimpleConfigurationSpace
+from dsbox.template.search import get_target_columns
+from dsbox.template.template import DSBoxTemplate
 from dsbox.pipeline.fitted_pipeline import FittedPipeline
-
-from pathlib import Path
 
 __all__ = ['Status', 'Controller']
 
 import copy
 import pprint
-from sklearn.model_selection import StratifiedShuffleSplit, ShuffleSplit
+from sklearn.model_selection import StratifiedShuffleSplit, ShuffleSplit  # type: ignore
 
 # FIXME: we only need this for testing
-import pandas as pd
+import pandas as pd  # type: ignore
 
 def split_dataset(dataset, problem, problem_loc=None, *, random_state=42, test_size=0.2):
     '''
@@ -126,7 +133,8 @@ class Controller:
         # Dataset
         self.dataset: Dataset = None
         self.test_dataset: Dataset = None
-        self.taskSourceType: SEMANTIC_TYPES  = None
+        # Set elements from SEMANTIC_TYPES.keys()
+        self.taskSourceType: typing.Set[str]  = None
 
         # Resource limits
         self.num_cpus: int = 0
@@ -289,11 +297,11 @@ class Controller:
         # search = TemplateDimensionalSearch(template, space, d3m.index.search(), self.dataset, self.dataset, metrics)
         if self.test_dataset is None:
             search = TemplateDimensionalSearch(
-                template, space, d3m.index.search(), self.problem_doc_metadata, self.dataset,
+                template, space, self.problem_doc_metadata, self.dataset,
                 self.dataset, metrics)
         else:
             search = TemplateDimensionalSearch(
-                template, space, d3m.index.search(), self.problem_doc_metadata, self.dataset,
+                template, space, self.problem_doc_metadata, self.dataset,
                 self.test_dataset, metrics)
 
         candidate, value = search.search_one_iter()
@@ -312,8 +320,7 @@ class Controller:
                 candidate.data['validation_metrics'][0]['value']))
 
             # FIXME: code used for doing experiments, want to make optionals
-            pipeline = FittedPipeline.create(configuration=candidate,
-                                             dataset=self.dataset.metadata.query(())['id'])
+            fitted_pipeline = candidate.data['fitted_pipeline']
 
             dataset_name = self.config['executables_root'].rsplit("/", 2)[1]
             outputs_loc = self.config['saving_folder_loc']
@@ -335,9 +342,7 @@ class Controller:
             print("******************\n[INFO] Saving Best Pipeline")
             # save the pipeline
             #try:
-            pipeline = FittedPipeline.create(configuration=candidate,
-                                             dataset=self.dataset.metadata.query(())['id'])
-            pipeline.save(outputs_loc)
+            fitted_pipeline.save(outputs_loc)
             #except:
             #    print("[ERROR] Save Failed!")
 

@@ -4,21 +4,16 @@
 Command Line Interface for running the DSBox TA2 Search
 """
 
-from dsbox_dev_setup import path_setup
 import argparse
 import json
 import os
 import signal
-import sys
 import traceback
 
 from pprint import pprint
 
-from importlib import reload
-import dsbox.controller.controller
-reload(dsbox.controller.controller)
 from dsbox.controller.controller import Controller
-import os
+
 controller = Controller('/', development_mode=True)
 
 def main(args):
