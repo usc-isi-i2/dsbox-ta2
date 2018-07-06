@@ -1,0 +1,14 @@
+{
+   "cpus": "10",
+   "dataset_schema": "/nfs1/dsbox-repo/data/datasets-v31/seed_datasets_current/38_sick/38_sick_dataset/datasetDoc.json",
+   "train_data_schema": "/nfs1/dsbox-repo/data/datasets-v31/seed_datasets_current/38_sick/TRAIN/dataset_TRAIN/datasetDoc.json",
+   "problem_root": "/nfs1/dsbox-repo/data/datasets-v31/seed_datasets_current/38_sick/TRAIN/problem_TRAIN",
+   "problem_schema": "/nfs1/dsbox-repo/data/datasets-v31/seed_datasets_current/38_sick/TRAIN/problem_TRAIN/problemDoc.json",
+   "ram": "10Gi",
+   "timeout": 49,
+   "temp_storage_root": "/nas/home/stan/dsbox/runs3/seed_datasets_current/38_sick/temp",
+   "saving_folder_loc": "/nas/home/stan/dsbox/runs3/seed_datasets_current/38_sick",
+   "executables_root": "/nas/home/stan/dsbox/runs3/seed_datasets_current/38_sick/executables",
+   "pipeline_logs_root": "/nas/home/stan/dsbox/runs3/seed_datasets_current/38_sick/logs",
+   "saved_pipeline_ID": ""
+}
