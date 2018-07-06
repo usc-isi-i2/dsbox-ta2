@@ -14,7 +14,7 @@ from d3m.metadata.hyperparams import Hyperparams
 from d3m.metadata.pipeline import Resolver
 from d3m.primitive_interfaces.base import PrimitiveBaseMeta, PrimitiveBase
 from dsbox.template.runtime import Runtime
-
+from dsbox.pipeline.fitted_pipeline import FittedPipeline
 from dsbox.schema.problem import optimization_type, OptimizationType
 
 from d3m.metadata.problem import PerformanceMetric
@@ -160,17 +160,18 @@ class DimensionalSearch(typing.Generic[T]):
             print('*' * 100)
             print("[INFO] Running Pool:", len(new_candidates))
             try:
-                with Pool(max_per_dimension) as p:
+                with Pool() as p:
                     results = p.map(self.evaluate, new_candidates)
+                # results = map(self.evaluate,new_candidates)
 
                 for res, x in zip(results, new_candidates):
                     values.append(
                         res['validation_metrics'][0]['value'])
-                    pipeline = self.template.to_pipeline(x)
-                    res['pipeline'] = pipeline
+                    # pipeline = self.template.to_pipeline(x)
+                    # res['pipeline'] = pipeline
+                    res['fitted_pipeline'] = res['fitted_pipeline']
                     x.data.update(res)
                     sucessful_candidates.append(x)
-                    assert "fitted_pipe" in x.data, "parameters not added!"
             except:
                 traceback.print_exc()
 
@@ -188,7 +189,7 @@ class DimensionalSearch(typing.Generic[T]):
 
             # All candidates failed!
             if len(values) == 0:
-                print("[INFO] No Candidate worked!:", values)
+                print("[ERROR] No Candidate worked!:", values)
                 return (None, None)
 
             # Find best candidate
@@ -207,7 +208,7 @@ class DimensionalSearch(typing.Generic[T]):
             # assert "fitted_pipe" in candidate.data, "parameters not added! loop"
 
         # here we can get the details of pipelines from "candidate.data"
-        assert "fitted_pipe" in candidate.data, "parameters not added! last"
+        assert "fitted_pipeline" in candidate.data, "parameters not added! last"
         return (candidate, candidate_value)
 
 
@@ -342,16 +343,21 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
         pipeline = self.template.to_pipeline(configuration)
 
         # Todo: update ResourceManager to run pipeline:  ResourceManager.add_pipeline(pipeline)
-        run = Runtime(pipeline)
+        fitted_pipeline = FittedPipeline(
+            pipeline, dataset_id=self.train_dataset.metadata.query(())['id'])
 
-        run.fit(inputs=[self.train_dataset])
-        training_ground_truth = get_target_columns(self.train_dataset, self.problem)
-        training_prediction = run.fit_outputs[self.template.get_output_step_number()]
+        fitted_pipeline.fit(inputs=[self.train_dataset])
+        training_ground_truth = get_target_columns(self.train_dataset,
+                                                   self.problem)
+        training_prediction = fitted_pipeline.get_fit_step_output(
+            self.template.get_output_step_number())
 
-        results = run.produce(inputs=[self.validation_dataset])
-        validation_ground_truth = get_target_columns(self.validation_dataset, self.problem)
-        # results == validation_prediction
-        validation_prediction = run.produce_outputs[self.template.get_output_step_number()]
+        results = fitted_pipeline.produce(inputs=[self.validation_dataset])
+        validation_ground_truth = get_target_columns(self.validation_dataset,
+                                                     self.problem)
+        # Note: results == validation_prediction
+        validation_prediction = fitted_pipeline.get_produce_step_output(
+            self.template.get_output_step_number())
 
         training_metrics = []
         validation_metrics = []
@@ -364,32 +370,46 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
                 if 'regression' in self.problem.query(())['about']['taskType']:
                     training_metrics.append({
                         'metric': metric_description['metric'],
-                        'value': metric(training_ground_truth.iloc[:, -1].astype(float), training_prediction.iloc[:, -1].astype(float))
+                        'value': metric(
+                            training_ground_truth.iloc[:, -1].astype(float),
+                            training_prediction.iloc[:, -1].astype(float),
+                            **params
+                        )
                     })
                     # if the validation_ground_truth do not have results
                     if validation_ground_truth.iloc[0, -1] == '':
                         validation_ground_truth.iloc[:, -1] = 0
                     validation_metrics.append({
                         'metric': metric_description['metric'],
-                        'value': metric(validation_ground_truth.iloc[:, -1].astype(float), validation_prediction.iloc[:, -1].astype(float))
+                        'value': metric(
+                            validation_ground_truth.iloc[:, -1].astype(float),
+                            validation_prediction.iloc[:, -1].astype(float),
+                            **params
+                        )
                     })
                 else:
                     training_metrics.append({
                         'metric': metric_description['metric'],
-                        'value': metric(training_ground_truth.iloc[:, -1].astype(str), training_prediction.iloc[:, -1].astype(str))
+                        'value': metric(
+                            training_ground_truth.iloc[:, -1].astype(str),
+                            training_prediction.iloc[:, -1].astype(str),
+                            **params
+                        )
                     })
                     validation_metrics.append({
                         'metric': metric_description['metric'],
-                        'value': metric(validation_ground_truth.iloc[:, -1].astype(str), validation_prediction.iloc[:, -1].astype(str))
+                        'value': metric(
+                            validation_ground_truth.iloc[:, -1].astype(str),
+                            validation_prediction.iloc[:, -1].astype(str),
+                            **params
+                        )
                     })
             except:
-                import pdb
-                pdb.set_trace()
+                raise NotSupportedError(
+                    '[ERROR] metric calculation failed')
 
         data = {
-            'exec_plan': run.execution_order,
-            'fitted_pipe': run.pipeline,
-            # 'pipeline': pipeline,
+            'fitted_pipeline': fitted_pipeline,
             'training_metrics': training_metrics,
             'validation_metrics': validation_metrics
         }

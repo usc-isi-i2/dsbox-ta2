@@ -437,10 +437,10 @@ class DefaultClassificationTemplate(DSBoxTemplate):
                     "name": "model_step",
                     "primitives": [{
                         "primitive":
-                            "d3m.primitives.sklearn_wrap.SKRandomForestClassifier",
+                            "d3m.primitives.sklearn_wrap.SKLinearSVC",
                         "hyperparameters":
                             {
-                            'n_estimators': [(10),(20),(30),(40)], #(10), #
+                            'C': [(1),(10),(100),(500)], #(10), #
                             }
                         }],
                     "inputs": ["impute_step", "extract_target_step"]

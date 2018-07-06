@@ -13,9 +13,9 @@ from d3m.metadata.problem import parse_problem_description, TaskType, TaskSubtyp
 from d3m.exceptions import NotSupportedError, InvalidArgumentValueError
 from dsbox.template.library import TemplateLibrary, TemplateDescription, SemanticTypeDict
 # from dsbox.template.search import TemplateDimensionalRandomHyperparameterSearch, TemplateDimensionalSearch, ConfigurationSpace, SimpleConfigurationSpace, PythonPath, DimensionName
+from dsbox.pipeline.fitted_pipeline import FittedPipeline
 from dsbox.template.search import TemplateDimensionalSearch, ConfigurationSpace, SimpleConfigurationSpace, PythonPath, DimensionName, get_target_columns
 from dsbox.template.template import TemplatePipeline, to_digraph, DSBoxTemplate
-from dsbox.pipeline.fitted_pipeline import FittedPipeline
 
 from pathlib import Path
 
@@ -236,6 +236,7 @@ class Controller:
 
     def write_training_results(self):
         # load trained pipelines
+        print("[WARN] write_training_results")
         d = os.path.expanduser(self.config['executables_root'] + '/pipelines')
         # for now, the program will automatically load the newest created file in the folder
         files = [os.path.join(d, f) for f in os.listdir(d)]
@@ -339,15 +340,14 @@ class Controller:
             # save the pipeline
 
             try:
-                pipeline = FittedPipeline.create(configuration=candidate,
-                                                 dataset=self.dataset)
-                pipeline.save(outputs_loc)
+                # pipeline = FittedPipeline.create(configuration=candidate,
+                #                                  dataset=self.dataset)
+                fitted_pipeline = candidate.data['fitted_pipeline']
+                fitted_pipeline.save(outputs_loc)
             except:
                 raise NotSupportedError(
                     '[ERROR] Save Failed!')
-                # print("[ERROR] Save Failed!")
             ####################
-
             return Status.OK
 
     def test(self) -> Status:
