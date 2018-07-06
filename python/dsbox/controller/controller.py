@@ -157,16 +157,13 @@ class Controller:
         random.seed(4676)
 
         # Output directories
-<<<<<<< HEAD
+
         self.output_directory: str = '/outputs/'
         self.output_pipelines_dir: str = ""
         self.output_executables_dir: str = ""
         self.output_supporting_files_dir: str = ""
         self.output_temp_dir: str = ""
         self.output_logs_dir: str = ""
-=======
-        self.output_directory = '/output/'
->>>>>>> f5343c65b9181c4f5dced54ad5b830ed19ea0cc6
 
     def initialize_from_config(self, config: typing.Dict) -> None:
 
