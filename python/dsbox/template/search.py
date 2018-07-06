@@ -3,6 +3,9 @@ import operator
 import random
 import traceback
 import typing
+from multiprocessing import Pool, current_process, Manager
+from itertools import zip_longest
+from pprint import pprint
 
 from d3m.exceptions import NotSupportedError
 from d3m.container.dataset import Dataset
@@ -23,10 +26,8 @@ from .configuration_space import ConfigurationPoint
 from .configuration_space import ConfigurationSpace
 from .configuration_space import SimpleConfigurationSpace
 
-from pprint import pprint
 from .pipeline_utilities import pipe2str
 
-from multiprocessing import Pool, current_process
 
 T = typing.TypeVar("T")
 
@@ -115,11 +116,18 @@ class DimensionalSearch(typing.Generic[T]):
         max_per_dimension: int
             Maximunum number of values to search per dimension
         """
+
+        # setup the output cache
+        manager = Manager()
+        cache = manager.dict()
+
+
         # we first need the baseline for searching the conf_space. For this
         # purpose we initially use first configuration and evaluate it on the
         #  dataset. In case that failed we repeat the sampling process one
         # more time to guarantee robustness on error reporting
-        candidate, candidate_value = self.setup_initial_candidate(candidate_in)
+        candidate, candidate_value = \
+            self.setup_initial_candidate(candidate_in, cache)
 
         # generate an executable pipeline with random steps from conf. space.
 
@@ -157,11 +165,16 @@ class DimensionalSearch(typing.Generic[T]):
 
             values = []
             sucessful_candidates = []
+            best_index = -1
             print('*' * 100)
             print("[INFO] Running Pool:", len(new_candidates))
             try:
-                with Pool() as p:
-                    results = p.map(self.evaluate, new_candidates)
+                with Pool(max_per_dimension) as p:
+                    results = p.map(
+                        self.evaluate,
+                        map(lambda c: (c, cache), new_candidates)
+                    )
+
                 # results = map(self.evaluate,new_candidates)
 
                 for res, x in zip(results, new_candidates):
@@ -197,15 +210,20 @@ class DimensionalSearch(typing.Generic[T]):
                 best_index = values.index(min(values))
             else:
                 best_index = values.index(max(values))
-            print("[INFO] Best index:", best_index)
+            print("[INFO] Best index:", best_index,"___", values[best_index])
             pprint(values)
             if candidate_value is None:
                 candidate = sucessful_candidates[best_index]
                 candidate_value = values[best_index]
-            elif (self.minimize and values[best_index] < candidate_value) or (not self.minimize and values[best_index] > candidate_value):
+            elif (self.minimize and values[best_index] < candidate_value) or \
+                (not self.minimize and values[best_index] > candidate_value):
                 candidate = sucessful_candidates[best_index]
                 candidate_value = values[best_index]
             # assert "fitted_pipe" in candidate.data, "parameters not added! loop"
+        # END FOR
+
+        # shutdown the cache manager
+        manager.shutdown()
 
         # here we can get the details of pipelines from "candidate.data"
         assert "fitted_pipeline" in candidate.data, "parameters not added! last"
@@ -213,7 +231,9 @@ class DimensionalSearch(typing.Generic[T]):
 
 
 
-    def setup_initial_candidate(self, candidate: ConfigurationPoint[T]) -> \
+    def setup_initial_candidate(self,
+                                candidate: ConfigurationPoint[T],
+                                cache: typing.Dict) -> \
             typing.Tuple[ConfigurationPoint[T], float]:
         """
         we first need the baseline for searching the conf_space. For this
@@ -239,7 +259,7 @@ class DimensionalSearch(typing.Generic[T]):
         #         print("Pipeline failed")
         #         candidate = ConfigurationPoint(self.configuration_space,
         #                                        self.random_assignment())
-        result = self.evaluate(candidate)
+        result = self.evaluate((candidate, cache))
         candidate.data.update(result)
         # try:
         #     result = self.evaluate(candidate)
@@ -326,18 +346,21 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
         #     raise exceptions.InvalidArgumentValueError(
         #         "Not all template steps are in configuration space: {}".format(self.template.template_nodes.keys()))
 
-    def evaluate_pipeline(self, configuration: ConfigurationPoint[PrimitiveDescription]) -> typing.Dict:
+    def evaluate_pipeline(self, args) -> typing.Dict:
         """
         Evaluate at configuration point.
         Note: This methods will modify the configuration point, by updating its data field.
         """
-
+        configuration: ConfigurationPoint[PrimitiveDescription] = args[0]
+        cache: typing.Dict = args[1]
         print("[INFO] Worker started, id:", current_process())
-        evaluation_result = self._evaluate(configuration)
+        evaluation_result = self._evaluate(configuration, cache)
         # configuration.data.update(new_data)
         return evaluation_result
 
-    def _evaluate(self, configuration: ConfigurationPoint) -> typing.Dict:
+    def _evaluate(self,
+                  configuration: ConfigurationPoint,
+                  cache: typing.Dict) -> typing.Dict:
 
         pipeline = self.template.to_pipeline(configuration)
 
@@ -345,7 +368,7 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
         fitted_pipeline = FittedPipeline(
             pipeline, self.train_dataset.metadata.query(())['id'])
 
-        fitted_pipeline.fit(inputs=[self.train_dataset])
+        fitted_pipeline.fit(cache=cache, inputs=[self.train_dataset])
         training_ground_truth = get_target_columns(self.train_dataset,
                                                    self.problem)
         training_prediction = fitted_pipeline.get_fit_step_output(

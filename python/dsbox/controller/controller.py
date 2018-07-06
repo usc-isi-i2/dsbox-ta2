@@ -118,6 +118,7 @@ class Status(enum.Enum):
     OK = 0
     PROBLEM_NOT_IMPLEMENT = 148
 
+
 class Controller:
     TIMEOUT = 59  # in minutes
 
@@ -229,7 +230,8 @@ class Controller:
 
     def write_training_results(self):
         # load trained pipelines
-        print("[WARN] write_training_results")
+        # print("[WARN] write_training_results")
+        return None
         d = os.path.expanduser(self.config['executables_root'] + '/pipelines')
         # for now, the program will automatically load the newest created file in the folder
         files = [os.path.join(d, f) for f in os.listdir(d)]
