@@ -100,20 +100,15 @@ class FittedPipeline:
         '''
         Save the given fitted pipeline from TemplateDimensionalSearch
         '''
-        self.folder_loc = folder_loc
-        # print("The pipeline files will be stored in:")
-        # print(self.folder_loc)
-
-        pipeline_dir = os.path.join(self.folder_loc, 'pipelines')
-        executable_dir = os.path.join(self.folder_loc, 'executables', self.id)
+        pipeline_dir = os.path.join(folder_loc, 'pipelines')
+        executable_dir = os.path.join(folder_loc, 'executables')
+        supporting_files_dir = os.path.join(folder_loc, 'supporting_files',
+                                            self.id)
         os.makedirs(pipeline_dir, exist_ok=True)
         os.makedirs(executable_dir, exist_ok=True)
+        os.makedirs(supporting_files_dir, exist_ok=True)
 
         # print("Writing:",self)
-        # # save the pipeline with json format
-        # json_loc = os.path.join(pipeline_dir, self.id + '.json')
-        # with open(json_loc, 'w') as f:
-        #     self.pipeline.to_json(f)
 
         # store fitted_pipeline id
         structure = self.pipeline.to_json_structure()
@@ -125,22 +120,18 @@ class FittedPipeline:
         with open(json_loc, 'w') as out:
             json.dump(structure, out)
 
-
+        # save the pipeline spec under executables to be a json file simply specifies the pipeline id.
+        json_loc = os.path.join(executable_dir, self.id + '.json')
+        with open(json_loc, 'w') as out:
+            json.dump({"fitted_pipeline_id": self.id}, out)
 
         # save the pickle files of each primitive step
         for i in range(0, len(self.runtime.execution_order)):
             # print("Now saving step_", i)
-            n_step = self.runtime.execution_order[i]
-            each_step = self.runtime.pipeline[n_step]
-            '''
-            NOTICE:
-            running both of get_params and hyperparams will cause the error of
-            "AttributeError: 'RandomForestClassifier' object has no attribute 'oob_score_'"
-            print(each_primitive.get_params())
-            print(each_step.hyperparams)
-            '''
-            file_loc = os.path.join(executable_dir, "step_" + str(i) + ".pkl")
-
+            # n_step = self.runtime.execution_order[i]
+            each_step = self.runtime.pipeline[i]
+            file_loc = os.path.join(supporting_files_dir,
+                                    "step_" + str(i) + ".pkl")
             with open(file_loc, "wb") as f:
                 pickle.dump(each_step, f)
 
@@ -159,34 +150,39 @@ class FittedPipeline:
         '''
         # load pipeline from json
         pipeline_dir = os.path.join(folder_loc, 'pipelines')
-        executable_dir = os.path.join(folder_loc, 'executables', pipeline_id)
+        executable_dir = os.path.join(folder_loc, 'executables')
 
-        # json_loc = os.path.join(pipeline_dir, pipeline_id + '.json')
-        # print("The following pipeline file will be loaded:")
-        # print(json_loc)
-        # with open(json_loc, 'r') as f:
-        #     pipeline_to_load = Pipeline.from_json(f)
+        pipeline_spec_loc = os.path.join(executable_dir, pipeline_id + '.json')
 
-        json_loc = os.path.join(pipeline_dir, pipeline_id + '.json')
+        with open(pipeline_spec_loc, 'r') as f:
+            fitted_pipeline_id = json.load(f).get('fitted_pipeline_id')
+
+        pipeline_definition_loc = os.path.join(pipeline_dir,
+                                               fitted_pipeline_id + '.json')
         print("The following pipeline file will be loaded:")
-        print(json_loc)
-        with open(json_loc, 'r') as f:
+        print(pipeline_definition_loc)
+
+        with open(pipeline_definition_loc, 'r') as f:
             structure = json.load(f)
 
-        fitted_pipeline_id = structure['fitted_pipeline_id']
-        dataset_id = structure['dataset_id']
+        dataset_id = structure.get('dataset_id')
 
         pipeline_to_load = Pipeline.from_json_structure(structure)
 
-        # load detail fitted parameters from pkl files
+        # load detail fitted parameters from pkl files in
+        # supporting_files/<fitted_pipeline_id>
+        supporting_files_dir = os.path.join(folder_loc, 'supporting_files',
+                                            fitted_pipeline_id)
+
         run = Runtime(pipeline_to_load)
 
         for i in range(0, len(run.execution_order)):
-            n_step = run.execution_order[i]
-            file_loc = os.path.join(executable_dir, "step_" + str(i) + ".pkl")
+            # print("Now loading step", i)
+            file_loc = os.path.join(supporting_files_dir,
+                                    "step_" + str(i) + ".pkl")
             with open(file_loc, "rb") as f:
                 each_step = pickle.load(f)
-                run.pipeline[n_step] = each_step
+                run.pipeline[i] = each_step
 
 
         # fitted_pipeline_loaded = cls(pipeline_to_load, run, dataset)

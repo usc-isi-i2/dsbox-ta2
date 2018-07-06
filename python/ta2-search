@@ -100,7 +100,7 @@ def main(args):
 
     status = controller.train()
     print("*+"*10)
-    # status = controller.test()
+    status = controller.test()
     print("[INFO] Testing Done")
     return status.value
 
