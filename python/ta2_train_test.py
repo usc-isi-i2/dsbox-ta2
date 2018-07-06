@@ -20,10 +20,12 @@ import dsbox.controller.controller
 reload(dsbox.controller.controller)
 from dsbox.controller.controller import Controller
 import os
+
+import getpass
+
 controller = Controller('/', development_mode=True)
 
 def main(args):
-
     library_directory = os.path.dirname(
         os.path.realpath(__file__)) + "/library"
     timeout = 0
@@ -34,6 +36,24 @@ def main(args):
 
     with open(configuration_file) as data:
         config = json.load(data)
+
+    if 'saving_folder_loc' not in config:
+        output_location = "/nfs1/dsbox-repo/" + getpass.getuser() + "/dsbox-ta2/python/output/" + config['dataset_schema'].rsplit("/", 3)[-3]
+        config["temp_storage_root"] = output_location + "/temp"
+        config["saving_folder_loc"] = output_location
+        config["executables_root"] = output_location + "/executables"
+        config["pipeline_logs_root"] = output_location + "/logs"
+        config["saved_pipeline_ID"] = ""
+
+        if not os.path.exists(config["temp_storage_root"]):
+            os.makedirs(config["temp_storage_root"])
+        if not os.path.exists(config["executables_root"]):
+            os.makedirs(config["executables_root"])
+        if not os.path.exists(config["pipeline_logs_root"]):
+            os.makedirs(config["pipeline_logs_root"])
+
+    # pprint(config)
+    # return True
 
     # Define signal handler to exit gracefully
     # Either on an interrupt or after a certain time
@@ -123,11 +143,12 @@ if __name__ == "__main__":
 
     home = str(Path.home())
 
-    for conf in os.listdir(home + "/dsbox/runs2/config-seed/"):
-        print("Working for", conf)
+    for conf in os.listdir(home + "/dsbox/runs2/config-ll0/"):
+        print("Working on", conf)
 
-        args.configuration_file = "/nas/home/stan/dsbox/runs2/config-seed/" + conf
+        args.configuration_file = "/nas/home/stan/dsbox/runs2/config-ll0/" + conf
 
+        # result = main(args)
         try:
             result = main(args)
             print("[INFO] Run succesfull")
@@ -135,6 +156,8 @@ if __name__ == "__main__":
             print("[ERROR] Failed dataset", conf)
 
         print("\n" * 10)
+
+        # break
 
     #result = main(args)
     #os._exit(result)

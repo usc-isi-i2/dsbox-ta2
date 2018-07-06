@@ -321,7 +321,7 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
                  train_dataset: Dataset,
                  validation_dataset: Dataset,
                  performance_metrics: typing.List[typing.Dict],
-                 output_directory: None) -> None:
+                 output_directory: str) -> None:
 
         # Use first metric from validation
 

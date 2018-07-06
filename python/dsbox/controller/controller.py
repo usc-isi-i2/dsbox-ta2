@@ -1,5 +1,6 @@
 import enum
 import json
+import logging
 import os
 import random
 import typing
@@ -27,8 +28,6 @@ from dsbox.template.search import TemplateDimensionalSearch
 from dsbox.template.search import get_target_columns
 from dsbox.template.template import DSBoxTemplate
 
-from pathlib import Path
-
 __all__ = ['Status', 'Controller']
 
 import copy
@@ -37,6 +36,9 @@ from sklearn.model_selection import StratifiedShuffleSplit, ShuffleSplit
 
 # FIXME: we only need this for testing
 import pandas as pd
+
+logging.basicConfig(level=logging.DEBUG, format='%(asctime)s [%(levelname)s] %(name)s -- %(message)s')
+_logger = logging.getLogger(__name__)
 
 def split_dataset(dataset, problem, problem_loc=None, *, random_state=42, test_size=0.2):
     '''
@@ -126,7 +128,7 @@ class Controller:
         self.library_dir: str = os.path.abspath(library_dir)
         self.development_mode: bool = development_mode
 
-        self.config: typing.Dict = {}
+        # self.config: typing.Dict = {}
 
         # Problem
         self.problem: typing.Dict = {}
@@ -135,9 +137,10 @@ class Controller:
         self.problem_doc_metadata: Metadata = None
 
         # Dataset
+        self.dataset_schema_file: str = ""
         self.dataset: Dataset = None
         self.test_dataset: Dataset = None
-        self.taskSourceType: typing.Set[str]  = None  # str from SEMANTIC_TYPES
+        self.taskSourceType: typing.Set[str]  = set()  # str from SEMANTIC_TYPES
 
         # Resource limits
         self.num_cpus: int = 0
@@ -155,74 +158,121 @@ class Controller:
         random.seed(4676)
 
         # Output directories
-        self.output_directory = str(Path.home()) + '/outputs/'
+        self.output_directory: str = '/outputs/'
+        self.output_pipelines_dir: str = ""
+        self.output_executables_dir: str = ""
+        self.output_supporting_files_dir: str = ""
+        self.output_temp_dir: str = ""
+        self.output_logs_dir: str = ""
 
     def initialize_from_config(self, config: typing.Dict) -> None:
-        self.config = config
 
-        # Problem
-        self.problem = parse_problem_description(config['problem_schema'])
-        self.problem_doc_metadata = runtime.load_problem_doc(os.path.abspath(config['problem_schema']))
+        self._load_schema(config)
+        self._create_output_directory(config)
 
         # Dataset
         loader = D3MDatasetLoader()
-        #dataset_uri = 'file://{}'.format(os.path.abspath(config['dataset_schema']))
+
+        #dataset_uri = 'file://{}'.format(os.path.abspath(self.dataset_schema_file))
         #self.dataset = loader.load(dataset_uri=dataset_uri)
+
         # train dataset
         train_dataset_uri = 'file://{}'.format(os.path.abspath(config['train_data_schema']))
         self.dataset = loader.load(dataset_uri=train_dataset_uri)
+
         # test dataset
         test_dataset_uri = 'file://{}'.format(os.path.abspath(config['test_data_schema']))
         self.test_dataset = loader.load(dataset_uri=test_dataset_uri)
-        # Resource limits
-        self.num_cpus = int(config.get('cpus', 0))
-        self.ram = config.get('ram', 0)
-        self.timeout = (config.get('timeout', self.TIMEOUT)) * 60
-
-        # Top output directory
-        if 'saving_folder_loc' in config:
-            self.output_directory = self.config['saving_folder_loc']
 
         # Templates
         self.load_templates()
 
     def initialize_from_config_train_test(self, config: typing.Dict) -> None:
-        self.config = config
 
-        # Problem
-        self.problem = parse_problem_description(config['problem_schema'])
-        self.problem_doc_metadata = runtime.load_problem_doc(os.path.abspath(config['problem_schema']))
+        self._load_schema(config)
+        self._create_output_directory(config)
+
         # Dataset
         loader = D3MDatasetLoader()
 
-        json_file = os.path.abspath(config['dataset_schema'])
+        json_file = os.path.abspath(self.dataset_schema_file)
         all_dataset_uri = 'file://{}'.format(json_file)
         self.all_dataset = loader.load(dataset_uri=all_dataset_uri)
 
         self.dataset, self.test_dataset = split_dataset(self.all_dataset, self.problem, config['problem_schema'])
 
-
         self.test_dataset = runtime.add_target_columns_metadata(self.test_dataset, self.problem_doc_metadata)
 
+        # Templates
+        self.load_templates()
+
+    def _load_schema(self, config):
+        # Problem
+        self.problem = parse_problem_description(config['problem_schema'])
+        self.problem_doc_metadata = runtime.load_problem_doc(os.path.abspath(config['problem_schema']))
+
+        # Dataset
+        self.dataset_schema_file = config['dataset_schema']
 
         # Resource limits
         self.num_cpus = int(config.get('cpus', 0))
         self.ram = config.get('ram', 0)
         self.timeout = (config.get('timeout', self.TIMEOUT)) * 60
 
-        # Top output directory
-        if 'saving_folder_loc' in config:
-            self.output_directory = self.config['saving_folder_loc']
+        self.saved_pipeline_id = config['saved_pipeline_ID']
 
-        # Templates
-        self.load_templates()
+    def _create_output_directory(self, config):
+        '''
+        Create output sub-directories based on Summer 2018 evaluation layout.
+
+        For the Summer 2018 evaluation the top-level output dir is '/output'
+        '''
+        if 'saving_folder_loc' in config:
+            self.output_directory = os.path.abspath(config['saving_folder_loc'])
+
+        _logger.info('Top level output directory: %s' % self.output_directory)
+
+        if 'pipelines_root' in config:
+            self.output_pipelines_dir = os.path.abspath(config['pipelines_root'])
+        else:
+            self.output_pipelines_dir = os.path.join(self.output_directory, 'pipelines')
+
+        if 'executables_root' in config:
+            self.output_executables_dir = os.path.abspath(config['executables_root'])
+        else:
+            self.output_executables_dir = os.path.join(self.output_directory, 'executables')
+
+        if 'supporting_files_root' in config:
+            self.output_supporting_files_dir = os.path.abspath(config['supporting_files_root'])
+        else:
+            self.output_supporting_files_dir = os.path.join(self.output_directory, 'supporting_files')
+
+        if 'temp_storage_root' in config:
+            self.output_temp_dir = os.path.abspath(config['temp_storage_root'])
+        else:
+            self.output_temp_dir = os.path.join(self.output_directory, 'temp')
+
+        if 'pipeline_logs_root' in config:
+            self.output_logs_dir = os.path.abspath(config['pipeline_logs_root'])
+        else:
+            self.output_logs_dir = os.path.join(self.output_directory, 'logs')
+
+        # Make directories if they do not exist
+        if not os.path.exists(self.output_directory):
+            os.makedirs(self.output_directory)
+
+        for path in [self.output_pipelines_dir, self.output_executables_dir, self.output_supporting_files_dir,
+                     self.output_temp_dir, self.output_logs_dir]:
+            if not os.path.exists(path):
+                os.makedirs(path)
+
 
     def load_templates(self) -> None:
         self.task_type = self.problem['problem']['task_type']
         self.task_subtype = self.problem['problem']['task_subtype']
         # find the data resources type
         self.taskSourceType = set() # set the type to be set so that we can ignore the repeat elements
-        with open(self.config['dataset_schema'],'r') as dataset_description_file:
+        with open(self.dataset_schema_file,'r') as dataset_description_file:
             dataset_description = json.load(dataset_description_file)
             for each_type in dataset_description["dataResources"]:
                 self.taskSourceType.add(each_type["resType"])
@@ -230,15 +280,15 @@ class Controller:
 
     def write_training_results(self):
         # load trained pipelines
-        # print("[WARN] write_training_results")
+        print("[WARN] write_training_results")
         return None
-        d = os.path.expanduser(self.config['executables_root'] + '/pipelines')
+        d = self.output_pipelines_dir
         # for now, the program will automatically load the newest created file in the folder
         files = [os.path.join(d, f) for f in os.listdir(d)]
         exec_pipelines = []
         for f in files:
             fname = f.split('/')[-1].split('.')[0]
-            pipeline_load = FittedPipeline.load(folder_loc=self.config['executables_root'],
+            pipeline_load = FittedPipeline.load(folder_loc=self.output_executables_dir,
                                                 pipeline_id=fname,
                                                 dataset=self.dataset)
             exec_pipelines.append(pipeline_load)
@@ -314,14 +364,8 @@ class Controller:
             # pipeline = FittedPipeline.create(configuration=candidate,
             #                             dataset=self.dataset)
 
-            dataset_name = self.config['executables_root'].rsplit("/", 2)[1]
-
-            folder = os.path.exists(self.output_directory)
-            if not folder:
-                print("[INFO]: The folder not found! Will create a new one.")
-                os.makedirs(self.output_directory)
-
-            save_location = self.output_directory + dataset_name + ".txt"
+            dataset_name = self.output_executables_dir.rsplit("/", 2)[1]
+            save_location = os.path.join(self.output_logs_dir, dataset_name + ".txt")
 
             print("******************\n[INFO] Saving training results in", save_location)
             f = open(save_location, "w+")
@@ -345,9 +389,6 @@ class Controller:
             return Status.OK
 
     def test(self) -> Status:
-        # print("Testing takes too long at the moment, remove when fixed")
-        # return Status.OK
-
         """
         First read the fitted pipeline and then run trained pipeline on test data.
         """
@@ -370,7 +411,7 @@ class Controller:
 
         # get the target column name
         try:
-            with open(self.config['dataset_schema'],'r') as dataset_description_file:
+            with open(self.dataset_schema_file,'r') as dataset_description_file:
                 dataset_description = json.load(dataset_description_file)
                 for each_resource in dataset_description["dataResources"]:
                     if "columns" in each_resource:
@@ -400,7 +441,7 @@ class Controller:
 
     def load_pipe_runtime(self):
         d = os.path.expanduser(self.output_directory + '/pipelines')
-        read_pipeline_id = self.config['saved_pipeline_ID']
+        read_pipeline_id = self.saved_pipeline_id
         if read_pipeline_id == "":
             print(
                 "[INFO] No specified pipeline ID found, will load the latest "
