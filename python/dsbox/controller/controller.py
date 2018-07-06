@@ -7,17 +7,25 @@ import typing
 import d3m
 import dsbox.template.runtime as runtime
 
-from d3m.container.dataset import Dataset, D3MDatasetLoader, SEMANTIC_TYPES, get_d3m_dataset_digest
-from d3m.metadata.base import ALL_ELEMENTS, Metadata
-from d3m.metadata.problem import parse_problem_description, TaskType, TaskSubtype
-from d3m.exceptions import NotSupportedError, InvalidArgumentValueError
-from dsbox.template.library import TemplateLibrary, TemplateDescription, SemanticTypeDict
-# from dsbox.template.search import TemplateDimensionalRandomHyperparameterSearch, TemplateDimensionalSearch, ConfigurationSpace, SimpleConfigurationSpace, PythonPath, DimensionName
-from dsbox.pipeline.fitted_pipeline import FittedPipeline
-from dsbox.template.search import TemplateDimensionalSearch, ConfigurationSpace, SimpleConfigurationSpace, PythonPath, DimensionName, get_target_columns
-from dsbox.template.template import TemplatePipeline, to_digraph, DSBoxTemplate
+from d3m.container.dataset import Dataset
+from d3m.container.dataset import D3MDatasetLoader
+from d3m.exceptions import NotSupportedError
+from d3m.exceptions import InvalidArgumentValueError
+from d3m.metadata.base import ALL_ELEMENTS
+from d3m.metadata.base import Metadata
+from d3m.metadata.problem import TaskType
+from d3m.metadata.problem import TaskSubtype
+from d3m.metadata.problem import parse_problem_description
 
-from pathlib import Path
+from dsbox.pipeline.fitted_pipeline import FittedPipeline
+from dsbox.template.library import TemplateDescription
+from dsbox.template.library import TemplateLibrary
+from dsbox.template.library import SemanticTypeDict
+from dsbox.template.search import ConfigurationSpace
+from dsbox.template.search import SimpleConfigurationSpace
+from dsbox.template.search import TemplateDimensionalSearch
+from dsbox.template.search import get_target_columns
+from dsbox.template.template import DSBoxTemplate
 
 __all__ = ['Status', 'Controller']
 
@@ -50,7 +58,7 @@ def split_dataset(dataset, problem, problem_loc=None, *, random_state=42, test_s
         train_test = df[df.columns[1]]
         train_indices = df[train_test == 'TRAIN'][df.columns[0]]
         test_indices = df[train_test == 'TEST'][df.columns[0]]
-        
+
         train = dataset[res_id].iloc[train_indices]
         test = dataset[res_id].iloc[test_indices]
 
@@ -87,7 +95,7 @@ def split_dataset(dataset, problem, problem_loc=None, *, random_state=42, test_s
     print(meta)
     train_dataset.metadata = train_dataset.metadata.update((res_id,), meta)
     pprint.pprint(dict(train_dataset.metadata.query((res_id,))))
-    
+
     # Generate testing dataset
     test_dataset = copy.copy(dataset)
     test_dataset[res_id] = test
@@ -98,11 +106,11 @@ def split_dataset(dataset, problem, problem_loc=None, *, random_state=42, test_s
     print(meta)
     test_dataset.metadata = test_dataset.metadata.update((res_id,), meta)
     pprint.pprint(dict(test_dataset.metadata.query((res_id,))))
-    
+
 
     return (train_dataset, test_dataset)
 
-    
+
 
 class Status(enum.Enum):
     OK = 0
@@ -126,7 +134,7 @@ class Controller:
         # Dataset
         self.dataset: Dataset = None
         self.test_dataset: Dataset = None
-        self.taskSourceType: SEMANTIC_TYPES  = None
+        self.taskSourceType: typing.Set[str]  = None  # str from SEMANTIC_TYPES
 
         # Resource limits
         self.num_cpus: int = 0
@@ -142,6 +150,9 @@ class Controller:
 
         # set random seed
         random.seed(4676)
+
+        # Output directories
+        self.output_directory = '/output'
 
     def initialize_from_config(self, config: typing.Dict) -> None:
         self.config = config
@@ -165,6 +176,10 @@ class Controller:
         self.ram = config.get('ram', 0)
         self.timeout = (config.get('timeout', self.TIMEOUT)) * 60
 
+        # Top output directory
+        if 'saving_folder_loc' in config:
+            self.output_directory = self.config['saving_folder_loc']
+
         # Templates
         self.load_templates()
 
@@ -176,49 +191,25 @@ class Controller:
         self.problem_doc_metadata = runtime.load_problem_doc(os.path.abspath(config['problem_schema']))
         # Dataset
         loader = D3MDatasetLoader()
-        
+
         json_file = os.path.abspath(config['dataset_schema'])
         all_dataset_uri = 'file://{}'.format(json_file)
         self.all_dataset = loader.load(dataset_uri=all_dataset_uri)
 
         self.dataset, self.test_dataset = split_dataset(self.all_dataset, self.problem, config['problem_schema'])
 
-        # path, _ = os.path.split(original_path)
-        # data_root, _ =  os.path.split(path)
-        # train_json_file = os.path.join(data_root, 'TRAIN', 'dataset_TRAIN', 'datasetDoc.json')
-        # test_json_file = os.path.join(data_root, 'TEST', 'dataset_TEST', 'datasetDoc.json')
-        # if not os.path.exists(train_json_file):
-        #     raise ValueError('Training data sets not found: {}'.format(train_json_file))
-        # if not os.path.exists(train_json_file):
-        #     raise ValueError('Training data sets not found: {}'.format(train_json_file))
-
-        # train_dataset_uri = 'file://{}'.format(train_json_file)
-        # test_dataset_uri = 'file://{}'.format(test_json_file)
-        # print('train dataset uri:', train_dataset_uri)
-        # print('test dataset uri:', test_dataset_uri)
-
-        # self.dataset = loader.load(dataset_uri=train_dataset_uri)
-        # self.test_dataset = loader.load(dataset_uri=test_dataset_uri)
-
-        # print('Train dataset ='*20)
-        # self.dataset.metadata.pretty_print()
 
         self.test_dataset = runtime.add_target_columns_metadata(self.test_dataset, self.problem_doc_metadata)
 
-        # print('Test dataset ='*20)
-        # self.test_dataset.metadata.pretty_print()
 
-        # for index in range(self.test_dataset.metadata.query(())['dimension']['length']):
-        #     resource = str(index)
-        #     if ('https://metadata.datadrivendiscovery.org/types/DatasetEntryPoint' in self.test_dataset.metadata.query((str(index),))['semantic_types']
-        #         and self.test_dataset.metadata.query((str(index),))['structural_type'] == 'pandas.core.frame.DataFrame'):
-        #         for col in reversed(range(self.test_dataset.metadata.query((str(index), ALL_ELEMENTS))['length'])):
-        #             if 'https://metadata.datadrivendiscovery.org/types/SuggestedTarget' in self.test_dataset.metadata.query((str(index), ALL_ELEMENTS, col))['semantic_types']:
-                        
         # Resource limits
         self.num_cpus = int(config.get('cpus', 0))
         self.ram = config.get('ram', 0)
         self.timeout = (config.get('timeout', self.TIMEOUT)) * 60
+
+        # Top output directory
+        if 'saving_folder_loc' in config:
+            self.output_directory = self.config['saving_folder_loc']
 
         # Templates
         self.load_templates()
@@ -264,7 +255,7 @@ class Controller:
                 metric_value = pipe.planner_result.metric_values[metric]
                 metric_values.append("%s = %2.4f" % (metric, metric_value))
 
-            pipelinesfile.write("%s ( %s ) : %s\n" % (pipeline.id, pipe, metric_values))
+            pipelinesfile.write("%s ( %s ) : %s\n" % (pipe.id, pipe, metric_values))
 
         pipelinesfile.flush()
         pipelinesfile.close()
@@ -291,11 +282,11 @@ class Controller:
         if self.test_dataset is None:
             search = TemplateDimensionalSearch(
                 template, space, d3m.index.search(), self.problem_doc_metadata, self.dataset,
-                self.dataset, metrics)
+                self.dataset, metrics, output_directory=self.output_directory)
         else:
             search = TemplateDimensionalSearch(
                 template, space, d3m.index.search(), self.problem_doc_metadata, self.dataset,
-                self.test_dataset, metrics)
+                self.test_dataset, metrics, output_directory=self.output_directory)
 
         candidate, value = search.search_one_iter()
 
@@ -318,16 +309,15 @@ class Controller:
             # FIXME: code used for doing experiments, want to make optionals
             # pipeline = FittedPipeline.create(configuration=candidate,
             #                             dataset=self.dataset)
-                                                                           
+
             dataset_name = self.config['executables_root'].rsplit("/", 2)[1]
-            outputs_loc = self.config['saving_folder_loc']
-            #outputs_loc = str(Path.home()) + "/outputs"
-            folder = os.path.exists(outputs_loc)
+
+            folder = os.path.exists(self.output_directory)
             if not folder:
                 print("[INFO]: The folder not found! Will create a new one.")
-                os.makedirs(outputs_loc)
+                os.makedirs(self.output_directory)
 
-            save_location = outputs_loc + dataset_name + ".txt"
+            save_location = self.output_directory + dataset_name + ".txt"
 
             print("******************\n[INFO] Saving training results in", save_location)
             f = open(save_location, "w+")
@@ -343,7 +333,7 @@ class Controller:
                 # pipeline = FittedPipeline.create(configuration=candidate,
                 #                                  dataset=self.dataset)
                 fitted_pipeline = candidate.data['fitted_pipeline']
-                fitted_pipeline.save(outputs_loc)
+                fitted_pipeline.save(self.output_directory)
             except:
                 raise NotSupportedError(
                     '[ERROR] Save Failed!')
@@ -358,11 +348,7 @@ class Controller:
         outputs_loc, pipeline_load, read_pipeline_id, run = \
             self.load_pipe_runtime()
 
-
-
         print("[INFO] Pipeline load finished")
-        #import pdb
-        #pdb.set_trace()
 
         print("[INFO] testing data:")
         # pprint(self.test_dataset.head())
@@ -406,9 +392,7 @@ class Controller:
         return Status.OK
 
     def load_pipe_runtime(self):
-        outputs_loc = self.config['saving_folder_loc']
-        # outputs_loc = str(Path.home()) + "/outputs"
-        d = os.path.expanduser(outputs_loc + '/pipelines')
+        d = os.path.expanduser(self.output_directory + '/pipelines')
         read_pipeline_id = self.config['saved_pipeline_ID']
         if read_pipeline_id == "":
             print(
@@ -421,38 +405,10 @@ class Controller:
             lastmodified = files[-1]
             read_pipeline_id = lastmodified.split('/')[-1].split('.')[0]
 
-        pipeline_load, run = FittedPipeline.load(folder_loc=outputs_loc,
+        pipeline_load, run = FittedPipeline.load(folder_loc=self.output_directory,
                                                  pipeline_id=read_pipeline_id)
-        return outputs_loc, pipeline_load, read_pipeline_id, run
+        return self.output_directory, pipeline_load, read_pipeline_id, run
 
-    # def generate_configuration_space(self, template_desc: TemplateDescription, problem: typing.Dict, dataset: typing.Optional[Dataset]) -> ConfigurationSpace:
-    #     """
-    #     Generate search space
-    #     """
-
-    #     # TODO: Need to update dsbox.planner.common.ontology.D3MOntology and dsbox.planner.common.ontology.D3MPrimitiveLibrary, and integrate with them
-
-    #     values: typing.Dict[DimensionName, typing.List] = {}
-    #     for name, step in template_desc.template.template_nodes.items():
-    #         if step.semantic_type == SemanticType.CLASSIFIER:
-    #             values[DimensionName(name)] = ['d3m.primitives.common_primitives.RandomForestClassifier', 'd3m.primitives.sklearn_wrap.SKSGDClassifier']
-    #         elif step.semantic_type == SemanticType.REGRESSOR:
-    #             values[DimensionName(name)] = ['d3m.primitives.common_primitives.LinearRegression',
-    #                                            'd3m.primitives.sklearn_wrap.SKSGDRegressor',
-    #                                            'd3m.primitives.sklearn_wrap.SKRandomForestRegressor']
-    #         elif step.semantic_type == SemanticType.ENCODER:
-    #             raise NotSupportedError('Template semantic type not supported: {}'.format(step.semantic_type))
-    #         elif step.semantic_type == SemanticType.IMPUTER:
-    #             raise NotSupportedError('Template semantic type not supported: {}'.format(step.semantic_type))
-    #         elif step.semantic_type == SemanticType.FEATURER_GENERATOR:
-    #             raise NotSupportedError('Template semantic type not supported: {}'.format(step.semantic_type))
-    #         elif step.semantic_type == SemanticType.FEATURER_SELECTOR:
-    #             raise NotSupportedError('Template semantic type not supported: {}'.format(step.semantic_type))
-    #         elif step.semantic_type == SemanticType.UNDEFINED:
-    #             raise NotSupportedError('Template semantic type not supported: {}'.format(step.semantic_type))
-    #         else:
-    #             raise NotSupportedError('Template semantic type not supported: {}'.format(step.semantic_type))
-    #     return SimpleConfigurationSpace(values)
     def generate_configuration_space(self, template_desc: TemplateDescription, problem: typing.Dict, dataset: typing.Optional[Dataset]) -> ConfigurationSpace:
         """
         Generate search space

@@ -595,7 +595,7 @@ class DSBoxTemplate():
                     # other data format, not supported, raise error
                     print("Error: Wrong format of the description: "
                           "Unsupported data format found : ",type(description))
-                    
+
                 values += value_step
 
             # END FOR
@@ -613,7 +613,7 @@ class DSBoxTemplate():
                   "No primitive name found!")
         else:
             if "hyperparameters" not in description:
-                description["hyperparameters"] : {}
+                description["hyperparameters"] = {}
 
             # go through the hypers and if anyone has empty value just remove it
             hyperDict = dict(filter(lambda kv: len(kv[1]) > 0,

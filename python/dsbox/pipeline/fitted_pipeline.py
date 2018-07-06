@@ -1,22 +1,19 @@
 import os
 import json
 import pickle
+import pprint
+import sys
 import typing
 import uuid
 
-from networkx import nx
-
-from d3m.container.dataset import Dataset
-from d3m.metadata.pipeline import Pipeline, StepBase
+from d3m.metadata.pipeline import Pipeline
+from d3m.metadata.pipeline import StepBase
+from d3m.metadata.problem import PerformanceMetric
 
 from dsbox.template.runtime import Runtime
-# from dsbox.template.search import ConfigurationSpace, ConfigurationPoint
-from dsbox.template.template import to_digraph, DSBoxTemplate
-import pprint
 
-import typing
-# python path of primitive, i.e. 'd3m.primitives.common_primitives.RandomForestClassifier'
-PythonPath = typing.NewType('PythonPath', str)
+from .utils import larger_is_better
+
 TP = typing.TypeVar('TP', bound='FittedPipeline')
 
 class FittedPipeline:
@@ -36,14 +33,12 @@ class FittedPipeline:
         the location of the files of pipeline
     """
 
-    def __init__(self,
-                 pipeline: Pipeline,
-                 dataset_id: str = None, id: str = None) -> None:
+    def __init__(self, pipeline: Pipeline, dataset_id: str, *, id: str = None) -> None:
 
         # these two are mandatory
         # TODO add the check
-        self.dataset_id = dataset_id
-        self.pipeline = pipeline
+        self.dataset_id: str = dataset_id
+        self.pipeline: Pipeline = pipeline
 
         if id is None:
             # Create id distinct, since there may be several fitted pipelines
@@ -51,9 +46,10 @@ class FittedPipeline:
             self.id = str(uuid.uuid4())
         else:
             self.id = id
-        # self.folder_loc = ''
 
         self.runtime = Runtime(pipeline)
+
+        self.metric: typing.Dict = {}
 
     def _set_fitted(self, fitted_pipe: typing.List[StepBase]) -> None:
         self.runtime.pipeline = fitted_pipe
@@ -82,6 +78,9 @@ class FittedPipeline:
     #         dataset_id=dataset.metadata.query(())['id']
     #     )
     #     return fitted_pipeline_loaded
+
+    def set_metric(self, metric: typing.Dict):
+        self.metric = metric
 
     def fit(self, **arguments):
         self.runtime.fit(**arguments)
@@ -115,6 +114,21 @@ class FittedPipeline:
         structure['fitted_pipeline_id'] = self.id
         structure['dataset_id'] = self.dataset_id
 
+        # Save pipeline rank
+        if self.metric:
+            metric: str = self.metric['metric']
+            value: float = self.metric['value']
+            if larger_is_better(metric):
+                if value == 0.0:
+                    rank = sys.float_info.max
+                else:
+                    rank = 1/value
+            else:
+                rank = value
+        structure['pipeline_rank'] = rank
+        structure['metric'] = metric
+        structure['metric_value'] = value
+
         # save the pipeline with json format
         json_loc = os.path.join(pipeline_dir, self.id + '.json')
         with open(json_loc, 'w') as out:
@@ -144,7 +158,7 @@ class FittedPipeline:
 
     @classmethod
     def load(cls:typing.Type[TP], folder_loc: str,
-             pipeline_id: str, dataset_id: str = None) -> TP:
+             pipeline_id: str, dataset_id: str = None) -> typing.Tuple[TP, Runtime]:
         '''
         Load the pipeline with given pipeline id and folder location
         '''
