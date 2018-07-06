@@ -1,8 +1,10 @@
 import bisect
 import operator
+import os
 import random
 import traceback
 import typing
+
 from multiprocessing import Pool, current_process, Manager
 from itertools import zip_longest
 from pprint import pprint
@@ -169,7 +171,7 @@ class DimensionalSearch(typing.Generic[T]):
             print('*' * 100)
             print("[INFO] Running Pool:", len(new_candidates))
             try:
-                with Pool(max_per_dimension) as p:
+                with Pool(self.num_workers) as p:
                     results = p.map(
                         self.evaluate,
                         map(lambda c: (c, cache), new_candidates)
@@ -321,7 +323,8 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
                  train_dataset: Dataset,
                  validation_dataset: Dataset,
                  performance_metrics: typing.List[typing.Dict],
-                 output_directory: str) -> None:
+                 output_directory: str,
+                 num_workers: int = 0) -> None:
 
         # Use first metric from validation
 
@@ -341,6 +344,7 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
         ))
 
         self.output_directory = output_directory
+        self.num_workers = os.cpu_count() if num_workers==0 else num_workers
 
         # if not set(self.template.template_nodes.keys()) <= set(configuration_space.get_dimensions()):
         #     raise exceptions.InvalidArgumentValueError(

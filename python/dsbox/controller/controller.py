@@ -336,11 +336,11 @@ class Controller:
         if self.test_dataset is None:
             search = TemplateDimensionalSearch(
                 template, space, d3m.index.search(), self.problem_doc_metadata, self.dataset,
-                self.dataset, metrics, output_directory=self.output_directory)
+                self.dataset, metrics, output_directory=self.output_directory, num_workers=self.num_cpus)
         else:
             search = TemplateDimensionalSearch(
                 template, space, d3m.index.search(), self.problem_doc_metadata, self.dataset,
-                self.test_dataset, metrics, output_directory=self.output_directory)
+                self.test_dataset, metrics, output_directory=self.output_directory, num_workers=self.num_cpus)
 
         candidate, value = search.search_one_iter()
 
