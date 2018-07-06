@@ -27,8 +27,6 @@ from dsbox.template.search import TemplateDimensionalSearch
 from dsbox.template.search import get_target_columns
 from dsbox.template.template import DSBoxTemplate
 
-from pathlib import Path
-
 __all__ = ['Status', 'Controller']
 
 import copy
@@ -154,7 +152,7 @@ class Controller:
         random.seed(4676)
 
         # Output directories
-        self.output_directory = str(Path.home()) + '/outputs/'
+        self.output_directory = '/output/'
 
     def initialize_from_config(self, config: typing.Dict) -> None:
         self.config = config
@@ -343,9 +341,6 @@ class Controller:
             return Status.OK
 
     def test(self) -> Status:
-        # print("Testing takes too long at the moment, remove when fixed")
-        # return Status.OK
-
         """
         First read the fitted pipeline and then run trained pipeline on test data.
         """
