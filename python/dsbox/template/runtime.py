@@ -107,6 +107,10 @@ class Runtime:
         arguments
             Arguments required to train the Pipeline
         """
+        if 'cache' in arguments:
+            cache = arguments['cache']
+        else:
+            cache = {}
 
         primitives_outputs: typing.List[typing.Optional[base.CallResult]] = [None] * len(self.execution_order)
 
@@ -120,8 +124,45 @@ class Runtime:
                     primitive_arguments[argument] = arguments[argument][value['source']]
 
             if isinstance(self.pipeline_description.steps[n_step], PrimitiveStep):
-                primitive_step: PrimitiveStep = typing.cast(PrimitiveStep, self.pipeline_description.steps[n_step])
-                primitives_outputs[n_step] = self._primitive_step_fit(n_step, primitive_step, primitive_arguments)
+                # first we need to compute the key to query in cache. For the
+                #  key we use a hashed combination of the primitive name,
+                # its hyperparameters and its input dataset hash.
+                prim_name = str(self.pipeline_description
+                                .steps[n_step].primitive)
+                hyperparam_hash = hash(str(self.pipeline_description.steps[
+                                               n_step].hyperparams.items()))
+                dataset_hash = hash(str(primitive_arguments))
+
+                prim_hash = hash(str([hyperparam_hash, dataset_hash]))
+
+                if (prim_name, prim_hash) in cache:
+                    # primitives_outputs[n_step],model =
+                    # self._primitive_step_fit(n_step,
+                    # self.pipeline_description.steps[n_step],
+                    # primitive_arguments)
+                    primitives_outputs[n_step], model = cache[
+                        (prim_name, prim_hash)]
+                    self.pipeline[n_step] = model
+                    print("[INFO] Hit@cache:", (prim_name, prim_hash))
+
+                    # assert type()
+
+                else:
+                    print("[INFO] Push@cache:", (prim_name, prim_hash))
+                    primitive_step: PrimitiveStep = \
+                        typing.cast(PrimitiveStep,
+                                    self.pipeline_description.steps[n_step]
+                                    )
+
+                    primitives_outputs[n_step], model = \
+                        self._primitive_step_fit(n_step,
+                                                 primitive_step,
+                                                 primitive_arguments
+                                                 )
+
+                    # add the entry to cache:
+                    cache[(prim_name, prim_hash)] = (
+                    primitives_outputs[n_step].copy(), model)
         # kyao!!!!
         self.fit_outputs = primitives_outputs
 
@@ -169,7 +210,7 @@ class Runtime:
         model.set_training_data(**training_arguments)
         model.fit()
         self.pipeline[n_step] = model
-        return model.produce(**produce_params).value
+        return model.produce(**produce_params).value,model
 
     def _primitive_arguments(self, primitive: typing.Type[base.PrimitiveBase], method: str) -> set:
         """

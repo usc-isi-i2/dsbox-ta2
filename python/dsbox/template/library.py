@@ -437,10 +437,11 @@ class DefaultClassificationTemplate(DSBoxTemplate):
                     "name": "model_step",
                     "primitives": [{
                         "primitive":
-                            "d3m.primitives.sklearn_wrap.SKLinearSVC",
+                            "d3m.primitives.sklearn_wrap.SKSVC",
                         "hyperparameters":
                             {
-                            'C': [(1),(10),(100),(500)], #(10), #
+                            'C': [(1),(10),(100)], #(10), #
+                            'kernel':[('rbf'),('poly'),('sigmoid')]
                             }
                         }],
                     "inputs": ["impute_step", "extract_target_step"]
