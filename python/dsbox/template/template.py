@@ -474,6 +474,9 @@ class DSBoxTemplate():
                 "hyperparameters": binding[name]["hyperparameters"],
                 "inputs": fill_in
             }
+            if "runtime" in step:
+                mystep["runtime"] = step["runtime"]
+
             sequence.append(name)
             checked_binding[name] = mystep
 
@@ -537,7 +540,12 @@ class DSBoxTemplate():
             #primitive_step = PrimitiveStep(self.primitive[binding[step]["primitive"]].metadata.query())
             primitive_name = binding[step]["primitive"]
             if primitive_name in self.primitive:
-                primitive_step = PrimitiveStep(d3m_index.get_primitive(primitive_name).metadata.query())
+                primitive_desc = dict(d3m_index.get_primitive(primitive_name).metadata.query())
+
+                # Add information Runtime
+                if "runtime" in binding[step]:
+                    primitive_desc["runtime"] = binding[step]["runtime"]
+                primitive_step = PrimitiveStep(primitive_desc)
             else:
                 raise exceptions.InvalidArgumentValueError("Error, can't find the primitive : ", primitive_name)
 
