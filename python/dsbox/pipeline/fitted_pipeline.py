@@ -33,7 +33,7 @@ class FittedPipeline:
         the location of the files of pipeline
     """
 
-    def __init__(self, pipeline: Pipeline, dataset_id: str, *, id: str = None) -> None:
+    def __init__(self, pipeline: Pipeline, dataset_id: str, *, id: str = None, metric_descriptions: typing.List = []) -> None:
 
         # these two are mandatory
         # TODO add the check
@@ -48,6 +48,9 @@ class FittedPipeline:
             self.id = id
 
         self.runtime = Runtime(pipeline)
+
+        self.metric_descriptions = list(metric_descriptions)
+        self.runtime.set_metric_descriptions(self.metric_descriptions)
 
         self.metric: typing.Dict = {}
 
@@ -87,6 +90,9 @@ class FittedPipeline:
 
     def produce(self, **arguments):
         self.runtime.produce(**arguments)
+
+    def get_cross_validation_metrics(self) -> typing.List:
+        return self.runtime.cross_validation_result
 
     def get_fit_step_output(self, step_number: int):
         return self.runtime.fit_outputs[step_number]

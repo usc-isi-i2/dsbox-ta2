@@ -165,7 +165,8 @@ class DimensionalSearch(typing.Generic[T]):
                 candidate_ = self.configuration_space.get_point(new)
                 new_candidates.append(candidate_)
 
-            values = []
+            test_values = []
+            cross_validation_values =[]
             sucessful_candidates = []
             best_index = -1
             print('*' * 100)
@@ -180,8 +181,8 @@ class DimensionalSearch(typing.Generic[T]):
                 # results = map(self.evaluate,new_candidates)
 
                 for res, x in zip(results, new_candidates):
-                    values.append(
-                        res['validation_metrics'][0]['value'])
+                    test_values.append(res['test_metrics'][0]['value'])
+                    cross_validation_values.append(res['cross_validation_metrics'][0]['value'])
                     # pipeline = self.template.to_pipeline(x)
                     # res['pipeline'] = pipeline
                     res['fitted_pipeline'] = res['fitted_pipeline']
@@ -193,7 +194,7 @@ class DimensionalSearch(typing.Generic[T]):
             # for x in new_candidates:
             #     try:
             #         result = self.evaluate(x)
-            #         values.append(result[0])
+            #         test_values.append(result[0])
             #         sucessful_candidates.append(x)
             #         # print("[INFO] Results:")
             #         # pprint(result)
@@ -203,24 +204,30 @@ class DimensionalSearch(typing.Generic[T]):
             #         traceback.print_exc()
 
             # All candidates failed!
-            if len(values) == 0:
-                print("[ERROR] No Candidate worked!:", values)
+            if len(test_values) == 0:
+                print("[ERROR] No Candidate worked!:", test_values)
                 return (None, None)
 
             # Find best candidate
             if self.minimize:
-                best_index = values.index(min(values))
+                best_index = test_values.index(min(test_values))
+                best_cv_index = cross_validation_values.index(min(cross_validation_values))
             else:
-                best_index = values.index(max(values))
-            print("[INFO] Best index:", best_index,"___", values[best_index])
-            pprint(values)
+                best_index = test_values.index(max(test_values))
+                best_cv_index = cross_validation_values.index(max(cross_validation_values))
+            print("[INFO] Best index:", best_index, "___", test_values[best_index])
+            if best_index==best_cv_index:
+                print("[INFO] Best CV index:", best_cv_index, "___", cross_validation_values[best_cv_index])
+            else:
+                print("[WARN] Best CV index:", best_cv_index, "___", cross_validation_values[best_cv_index])
+                print("[WARN] CV detail values:", ['{:.4f}'.format(x) for x in results[best_cv_index]['cross_validation_metrics'][0]['values']])
             if candidate_value is None:
                 candidate = sucessful_candidates[best_index]
-                candidate_value = values[best_index]
-            elif (self.minimize and values[best_index] < candidate_value) or \
-                (not self.minimize and values[best_index] > candidate_value):
+                candidate_value = test_values[best_index]
+            elif (self.minimize and test_values[best_index] < candidate_value) or \
+                (not self.minimize and test_values[best_index] > candidate_value):
                 candidate = sucessful_candidates[best_index]
-                candidate_value = values[best_index]
+                candidate_value = test_values[best_index]
             # assert "fitted_pipe" in candidate.data, "parameters not added! loop"
         # END FOR
 
@@ -277,7 +284,7 @@ class DimensionalSearch(typing.Generic[T]):
         #         candidate = ConfigurationPoint(self.configuration_space,
         #                                        self.random_assignment())
         #         result = self.evaluate(candidate)
-        return (candidate, result['validation_metrics'][0]['value'])
+        return (candidate, result['test_metrics'][0]['value'])
 
 
 
@@ -310,7 +317,7 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
         List of primitive python paths from d3m.index.search()
     train_dataset : Dataset
         The dataset to train pipeline
-    validation_dataset : Dataset
+    test_dataset : Dataset
         The dataset to evaluate pipeline
     performance_metrics : typing.List[typing.Dict]
         Performance metrics from parse_problem_description()['problem']['performance_metrics']
@@ -321,12 +328,12 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
                  primitive_index: typing.List[str],
                  problem: Metadata,
                  train_dataset: Dataset,
-                 validation_dataset: Dataset,
+                 test_dataset: Dataset,
                  performance_metrics: typing.List[typing.Dict],
                  output_directory: str,
                  num_workers: int = 0) -> None:
 
-        # Use first metric from validation
+        # Use first metric from test
 
         minimize = optimization_type(performance_metrics[0]['metric']) == OptimizationType.MINIMIZE
         super().__init__(self.evaluate_pipeline, configuration_space, minimize)
@@ -336,7 +343,7 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
         self.primitive_index: typing.List[str] = primitive_index
         self.problem = problem
         self.train_dataset = train_dataset
-        self.validation_dataset = validation_dataset
+        self.test_dataset = test_dataset
 
         self.performance_metrics = list(map(
             lambda d: {'metric': d['metric'].unparse(), 'params': d['params']},
@@ -370,7 +377,7 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
 
         # Todo: update ResourceManager to run pipeline:  ResourceManager.add_pipeline(pipeline)
         fitted_pipeline = FittedPipeline(
-            pipeline, self.train_dataset.metadata.query(())['id'])
+            pipeline, self.train_dataset.metadata.query(())['id'], metric_descriptions=self.performance_metrics)
 
         fitted_pipeline.fit(cache=cache, inputs=[self.train_dataset])
         training_ground_truth = get_target_columns(self.train_dataset,
@@ -378,15 +385,15 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
         training_prediction = fitted_pipeline.get_fit_step_output(
             self.template.get_output_step_number())
 
-        results = fitted_pipeline.produce(inputs=[self.validation_dataset])
-        validation_ground_truth = get_target_columns(self.validation_dataset,
+        results = fitted_pipeline.produce(inputs=[self.test_dataset])
+        test_ground_truth = get_target_columns(self.test_dataset,
                                                      self.problem)
-        # Note: results == validation_prediction
-        validation_prediction = fitted_pipeline.get_produce_step_output(
+        # Note: results == test_prediction
+        test_prediction = fitted_pipeline.get_produce_step_output(
             self.template.get_output_step_number())
 
         training_metrics = []
-        validation_metrics = []
+        test_metrics = []
         for metric_description in self.performance_metrics:
             metricDesc = PerformanceMetric.parse(metric_description['metric'])
             metric: typing.Callable = metricDesc.get_function()
@@ -402,14 +409,14 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
                             **params
                         )
                     })
-                    # if the validation_ground_truth do not have results
-                    if validation_ground_truth.iloc[0, -1] == '':
-                        validation_ground_truth.iloc[:, -1] = 0
-                    validation_metrics.append({
+                    # if the test_ground_truth do not have results
+                    if test_ground_truth.iloc[0, -1] == '':
+                        test_ground_truth.iloc[:, -1] = 0
+                    test_metrics.append({
                         'metric': metric_description['metric'],
                         'value': metric(
-                            validation_ground_truth.iloc[:, -1].astype(float),
-                            validation_prediction.iloc[:, -1].astype(float),
+                            test_ground_truth.iloc[:, -1].astype(float),
+                            test_prediction.iloc[:, -1].astype(float),
                             **params
                         )
                     })
@@ -422,11 +429,11 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
                             **params
                         )
                     })
-                    validation_metrics.append({
+                    test_metrics.append({
                         'metric': metric_description['metric'],
                         'value': metric(
-                            validation_ground_truth.iloc[:, -1].astype(str),
-                            validation_prediction.iloc[:, -1].astype(str),
+                            test_ground_truth.iloc[:, -1].astype(str),
+                            test_prediction.iloc[:, -1].astype(str),
                             **params
                         )
                     })
@@ -434,8 +441,8 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
                 raise NotSupportedError(
                     '[ERROR] metric calculation failed')
 
-        if len(validation_metrics) > 0:
-            fitted_pipeline.set_metric(validation_metrics[0])
+        if len(test_metrics) > 0:
+            fitted_pipeline.set_metric(test_metrics[0])
 
         # Save results
         if self.output_directory is not None:
@@ -444,10 +451,10 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
         data = {
             'fitted_pipeline': fitted_pipeline,
             'training_metrics': training_metrics,
-            'validation_metrics': validation_metrics
+            'cross_validation_metrics': fitted_pipeline.get_cross_validation_metrics(),
+            'test_metrics': test_metrics
         }
-        # Use first metric from validation
-        # return validation_metrics[0]['value'], data
+
         return data
 
 
