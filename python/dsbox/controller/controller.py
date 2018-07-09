@@ -283,7 +283,9 @@ class Controller:
     def write_training_results(self):
         # load trained pipelines
         print("[WARN] write_training_results")
+
         return None
+
         d = self.output_pipelines_dir
         # for now, the program will automatically load the newest created file in the folder
         files = [os.path.join(d, f) for f in os.listdir(d)]
@@ -338,11 +340,12 @@ class Controller:
         if self.test_dataset is None:
             search = TemplateDimensionalSearch(
                 template, space, d3m.index.search(), self.problem_doc_metadata, self.dataset,
-                self.dataset, metrics, output_directory=self.output_directory)
+                self.dataset, metrics, output_directory=self.output_directory, num_workers=self.num_cpus)
         else:
             search = TemplateDimensionalSearch(
                 template, space, d3m.index.search(), self.problem_doc_metadata, self.dataset,
-                self.test_dataset, metrics, output_directory=self.output_directory)
+                self.test_dataset, metrics, output_directory=self.output_directory, num_workers=self.num_cpus)
+
 
         candidate, value = search.search_one_iter()
 
@@ -358,9 +361,12 @@ class Controller:
             print('Training {} = {}'.format(
                 candidate.data['training_metrics'][0]['metric'],
                 candidate.data['training_metrics'][0]['value']))
-            print('Validation {} = {}'.format(
-                candidate.data['validation_metrics'][0]['metric'],
-                candidate.data['validation_metrics'][0]['value']))
+            print('Training {} = {}'.format(
+                candidate.data['cross_validation_metrics'][0]['metric'],
+                candidate.data['cross_validation_metrics'][0]['value']))
+            print('Test {} = {}'.format(
+                candidate.data['test_metrics'][0]['metric'],
+                candidate.data['test_metrics'][0]['value']))
 
             # FIXME: code used for doing experiments, want to make optionals
             # pipeline = FittedPipeline.create(configuration=candidate,
@@ -373,7 +379,7 @@ class Controller:
             f = open(save_location, "w+")
             f.write(str(metrics) + "\n")
             f.write(str(candidate.data['training_metrics'][0]['value']) + "\n")
-            f.write(str(candidate.data['validation_metrics'][0]['value']) + "\n")
+            f.write(str(candidate.data['test_metrics'][0]['value']) + "\n")
             f.close()
 
             print("******************\n[INFO] Saving Best Pipeline")
