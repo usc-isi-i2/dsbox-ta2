@@ -218,8 +218,10 @@ class Controller:
         self.num_cpus = int(config.get('cpus', 0))
         self.ram = config.get('ram', 0)
         self.timeout = (config.get('timeout', self.TIMEOUT)) * 60
-
-        self.saved_pipeline_id = config['saved_pipeline_ID']
+        try:
+            self.saved_pipeline_id = config['saved_pipeline_ID']
+        except:
+            self.saved_pipeline_id = ""
 
     def _create_output_directory(self, config):
         '''
