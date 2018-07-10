@@ -181,8 +181,8 @@ class DimensionalSearch(typing.Generic[T]):
                 # results = map(self.evaluate,new_candidates)
 
                 for res, x in zip(results, new_candidates):
-                    if 'test_metrics' not in res:
-                        print('[ERROR] candidate failed:',x )
+                    if not res:
+                        print('[ERROR] candidate failed:', x)
                         continue
                     test_values.append(res['test_metrics'][0]['value'])
                     cross_validation_values.append(res['cross_validation_metrics'][0]['value'])
@@ -219,7 +219,7 @@ class DimensionalSearch(typing.Generic[T]):
                 best_index = test_values.index(max(test_values))
                 best_cv_index = cross_validation_values.index(max(cross_validation_values))
             print("[INFO] Best index:", best_index, "___", test_values[best_index])
-            if best_index==best_cv_index:
+            if best_index == best_cv_index:
                 print("[INFO] Best CV index:", best_cv_index, "___", cross_validation_values[best_cv_index])
             else:
                 print("[WARN] Best CV index:", best_cv_index, "___", cross_validation_values[best_cv_index])

@@ -24,8 +24,8 @@ from d3m.primitive_interfaces import base
 from multiprocessing import current_process
 
 TEMP_DIR = '/tmp' if platform.system() == 'Darwin' else tempfile.gettempdir()
-TEMP_DIR = os.path.join(TEMP_DIR, getpass.getuser())
-# TEMP_DIR = os.path.join(TEMP_DIR, 'qasemi')
+# TEMP_DIR = os.path.join(TEMP_DIR, getpass.getuser())
+TEMP_DIR = os.path.join(TEMP_DIR, 'qasemi')
 if not os.path.exists(TEMP_DIR):
     os.mkdir(TEMP_DIR)
 
