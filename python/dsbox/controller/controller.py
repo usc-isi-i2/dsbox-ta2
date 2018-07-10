@@ -39,6 +39,7 @@ import pandas as pd
 
 FORMATTER = "[%(levelname)s] - %(asctime)s - %(name)s - %(message)s"
 LOGGING_LEVER = logging.INFO
+LOG_FILENAME = 'dsbox.log'
 
 def split_dataset(dataset, problem, problem_loc=None, *, random_state=42, test_size=0.2):
     '''
@@ -276,7 +277,7 @@ class Controller:
             level=LOGGING_LEVER,
             format=FORMATTER,
             datefmt='%m-%d %H:%M',
-            filename=os.path.join(self.output_logs_dir, 'dsbox.log'),
+            filename=os.path.join(self.output_logs_dir, LOG_FILENAME),
             filemode='w'
         )
 
