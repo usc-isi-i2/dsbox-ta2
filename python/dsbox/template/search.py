@@ -385,7 +385,7 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
 
         # Todo: update ResourceManager to run pipeline:  ResourceManager.add_pipeline(pipeline)
         fitted_pipeline = FittedPipeline(
-            pipeline, self.train_dataset.metadata.query(())['id'], log_dir=self.log_dir, metric_descriptions=self.performance_metrics, )
+            pipeline, self.train_dataset.metadata.query(())['id'], log_dir=self.log_dir, metric_descriptions=self.performance_metrics)
 
         fitted_pipeline.fit(cache=cache, inputs=[self.train_dataset])
         training_ground_truth = get_target_columns(self.train_dataset,
