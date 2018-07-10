@@ -7,6 +7,8 @@ import typing
 
 import d3m
 import dsbox.template.runtime as runtime
+import platform
+import tempfile
 
 from d3m.container.dataset import Dataset
 from d3m.container.dataset import D3MDatasetLoader
@@ -27,6 +29,7 @@ from dsbox.template.search import SimpleConfigurationSpace
 from dsbox.template.search import TemplateDimensionalSearch
 from dsbox.template.search import get_target_columns
 from dsbox.template.template import DSBoxTemplate
+from dsbox.template.runtime import TEMP_DIR
 
 __all__ = ['Status', 'Controller']
 
@@ -37,8 +40,26 @@ from sklearn.model_selection import StratifiedShuffleSplit, ShuffleSplit
 # FIXME: we only need this for testing
 import pandas as pd
 
-logging.basicConfig(level=logging.DEBUG, format='%(asctime)s [%(levelname)s] %(name)s -- %(message)s')
+FORMATTER = "[%(levelname)s] - %(asctime)s - %(name)s - %(message)s"
+
+logging.basicConfig(
+                level=logging.INFO,
+                format=FORMATTER,
+                datefmt='%m-%d %H:%M',
+                filename=os.path.join(TEMP_DIR, 'dsbox.log'),
+                filemode='w'
+            )
+
 _logger = logging.getLogger(__name__)
+
+if _logger.getEffectiveLevel() == 10:
+    os.makedirs(os.path.join(TEMP_DIR, "dfs"), exist_ok=True)
+
+# ch = logging.StreamHandler()
+# ch.setFormatter(logging.Formatter(FORMATTER))
+# ch.setLevel(logging.INFO)
+# logger.addHandler(ch)
+
 
 def split_dataset(dataset, problem, problem_loc=None, *, random_state=42, test_size=0.2):
     '''
@@ -218,8 +239,10 @@ class Controller:
         self.num_cpus = int(config.get('cpus', 0))
         self.ram = config.get('ram', 0)
         self.timeout = (config.get('timeout', self.TIMEOUT)) * 60
-
-        self.saved_pipeline_id = config['saved_pipeline_ID']
+        try:
+            self.saved_pipeline_id = config['saved_pipeline_ID']
+        except:
+            self.saved_pipeline_id = ""
 
     def _create_output_directory(self, config):
         '''
@@ -281,7 +304,9 @@ class Controller:
     def write_training_results(self):
         # load trained pipelines
         print("[WARN] write_training_results")
+
         return None
+
         d = self.output_pipelines_dir
         # for now, the program will automatically load the newest created file in the folder
         files = [os.path.join(d, f) for f in os.listdir(d)]
@@ -336,11 +361,12 @@ class Controller:
         if self.test_dataset is None:
             search = TemplateDimensionalSearch(
                 template, space, d3m.index.search(), self.problem_doc_metadata, self.dataset,
-                self.dataset, metrics, output_directory=self.output_directory)
+                self.dataset, metrics, output_directory=self.output_directory, num_workers=self.num_cpus)
         else:
             search = TemplateDimensionalSearch(
                 template, space, d3m.index.search(), self.problem_doc_metadata, self.dataset,
-                self.test_dataset, metrics, output_directory=self.output_directory)
+                self.test_dataset, metrics, output_directory=self.output_directory, num_workers=self.num_cpus)
+
 
         candidate, value = search.search_one_iter()
 
@@ -356,9 +382,12 @@ class Controller:
             print('Training {} = {}'.format(
                 candidate.data['training_metrics'][0]['metric'],
                 candidate.data['training_metrics'][0]['value']))
-            print('Validation {} = {}'.format(
-                candidate.data['validation_metrics'][0]['metric'],
-                candidate.data['validation_metrics'][0]['value']))
+            print('Training {} = {}'.format(
+                candidate.data['cross_validation_metrics'][0]['metric'],
+                candidate.data['cross_validation_metrics'][0]['value']))
+            print('Test {} = {}'.format(
+                candidate.data['test_metrics'][0]['metric'],
+                candidate.data['test_metrics'][0]['value']))
 
             # FIXME: code used for doing experiments, want to make optionals
             # pipeline = FittedPipeline.create(configuration=candidate,
@@ -371,7 +400,7 @@ class Controller:
             f = open(save_location, "w+")
             f.write(str(metrics) + "\n")
             f.write(str(candidate.data['training_metrics'][0]['value']) + "\n")
-            f.write(str(candidate.data['validation_metrics'][0]['value']) + "\n")
+            f.write(str(candidate.data['test_metrics'][0]['value']) + "\n")
             f.close()
 
             print("******************\n[INFO] Saving Best Pipeline")
@@ -421,11 +450,13 @@ class Controller:
         except:
             print("[Warning] Can't find the prediction class name, will use default name.")
             prediction_class_name = "prediction"
-        d3m_index = get_target_columns(self.test_dataset, self.problem_doc_metadata)["d3mIndex"]
+
         prediction = run.produce_outputs[step_number_output]
 
         # if the prediction results do not have d3m_index column
         if 'd3mIndex' not in prediction.columns:
+            d3m_index = get_target_columns(self.test_dataset, self.problem_doc_metadata)["d3mIndex"]
+            d3m_index = d3m_index.reset_index().drop(columns=['index'])
             prediction_col_name = prediction.columns[0]
             prediction['d3mIndex'] = d3m_index
             prediction = prediction[['d3mIndex', prediction_col_name]]

@@ -435,6 +435,10 @@ class DefaultClassificationTemplate(DSBoxTemplate):
                 },
                 {
                     "name": "model_step",
+                    "runtime": {
+                        "cross_validation": 10,
+                        "stratified": True
+                    },
                     "primitives": [{
                         "primitive":
                             "d3m.primitives.sklearn_wrap.SKRandomForestClassifier",
@@ -556,6 +560,10 @@ class DefaultRegressionTemplate(DSBoxTemplate):
                             {
                             }
                     }],
+                    "runtime": {
+                        "cross_validation": 10,
+                        "stratified": False
+                    },
                     "inputs": ["impute_step", "extract_target_step"]
                 },
             ]

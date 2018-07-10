@@ -1,7 +1,19 @@
 import argparse
+import getpass
 import json
 import os
 import typing
+import platform
+
+import contextlib
+import logging
+import sys
+import tempfile
+from pandas import DataFrame
+from collections import defaultdict
+from sklearn.model_selection import KFold, StratifiedKFold  # type: ignore
+from d3m.metadata.problem import PerformanceMetric
+from d3m.metadata.hyperparams import Hyperparams
 
 import networkx  # type: ignore
 from d3m.container.dataset import D3MDatasetLoader, Dataset
@@ -9,6 +21,15 @@ from d3m.metadata import base as metadata_base
 from d3m.metadata.base import Metadata
 from d3m.metadata.pipeline import Pipeline, PrimitiveStep, Resolver
 from d3m.primitive_interfaces import base
+from multiprocessing import current_process
+
+# TEMP_DIR = '/tmp' if platform.system() == 'Darwin' else tempfile.gettempdir()
+TEMP_DIR = os.path.join(TEMP_DIR, getpass.getuser())
+TEMP_DIR = os.path.join(TEMP_DIR, 'qasemi')
+if not os.path.exists(TEMP_DIR):
+    os.mkdir(TEMP_DIR)
+
+_logger = logging.getLogger(__name__)
 
 
 class Runtime:
@@ -95,8 +116,13 @@ class Runtime:
                         current_step = step_source
         # kyao!!!!
         self.produce_order = set(self.execution_order)
-        self.fit_outputs = []
-        self.produce_outputs = []
+        self.fit_outputs: typing.List = []
+        self.produce_outputs: typing.List  = []
+        self.metric_descriptions: typing.List  = []
+        self.cross_validation_result: typing.List = []
+
+    def set_metric_descriptions(self, metric_descriptions):
+        self.metric_descriptions = metric_descriptions
 
     def fit(self, **arguments: typing.Any) -> None:
         """
@@ -135,6 +161,16 @@ class Runtime:
 
                 prim_hash = hash(str([hyperparam_hash, dataset_hash]))
 
+                _logger.info(
+                    "Primitive Fit. 'id': '%(primitive_id)s', '(name, hash)': ('%(name)s', '%(hash)s'), 'worker_id': '%(worker_id)s'.",
+                    {
+                        'primitive_id': self.pipeline_description.steps[n_step].primitive_description['id'],
+                        'name': prim_name,
+                        'hash': prim_hash,
+                        'worker_id': current_process()
+                    },
+                )
+
                 if (prim_name, prim_hash) in cache:
                     # primitives_outputs[n_step],model =
                     # self._primitive_step_fit(n_step,
@@ -161,7 +197,7 @@ class Runtime:
                                                  )
 
                     # add the entry to cache:
-                    print("[INFO] Updating cache!")
+                    # print("[INFO] Updating cache!")
                     cache[(prim_name, prim_hash)] = (
                     primitives_outputs[n_step].copy(), model)
         # kyao!!!!
@@ -208,10 +244,118 @@ class Runtime:
         except:
             print("******************\n[ERROR]Hyperparameters unsuccesfully set - using defaults")
             model = primitive(hyperparams=primitive_hyperparams(primitive_hyperparams.defaults()))
+
+        # kyao!!!!
+        if 'runtime' in step.primitive_description:
+            self.cross_validation_result = self._cross_validation(
+                primitive, training_arguments, produce_params, primitive_hyperparams, custom_hyperparams,
+                step.primitive_description['runtime'])
+
         model.set_training_data(**training_arguments)
         model.fit()
         self.pipeline[n_step] = model
         return model.produce(**produce_params).value,model
+
+    def _cross_validation(self, primitive: typing.Type[base.PrimitiveBase],
+                          training_arguments: typing.Dict,
+                          produce_params: typing.Dict,
+                          primitive_hyperparams: Hyperparams,
+                          custom_hyperparams: typing.Dict,
+                          runtime_instr: typing.Dict,
+                          seed: int = 4767) -> typing.List:
+
+        _logger.debug('cross-val primitive: %s' % str(primitive))
+
+        results: typing.List[str, typing.Dict] = []
+
+        validation_metrics: typing.Dict[str, typing.List[float]] = defaultdict(list)
+        targets: typing.Dict[str, typing.List[list]] = defaultdict(list)
+
+        X = training_arguments['inputs']
+        y = training_arguments['outputs']
+
+        cv = runtime_instr.get('cross_validation', 10)
+        use_stratified = runtime_instr.get('stratified', False)
+
+        # Redirect stderr to an error file
+        #  Directly assigning stderr to tempfile.TemporaryFile cause printing str to fail
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with open(os.path.join(tmpdir, str(primitive)), 'w') as errorfile:
+                with contextlib.redirect_stderr(errorfile):
+
+
+                    if use_stratified:
+                        kf = StratifiedKFold(n_splits=cv, shuffle=True, random_state=seed)
+                    else:
+                        kf = KFold(n_splits=cv, shuffle=True, random_state=seed)
+
+                    num = 0.0
+                    for k, (train, test) in enumerate(kf.split(X, y)):
+
+                        try:
+                            model = primitive(hyperparams=primitive_hyperparams(
+                                        primitive_hyperparams.defaults(), **custom_hyperparams))
+                        except:
+                            print("******************\n[ERROR]Hyperparameters unsuccesfully set - using defaults")
+                            model = primitive(hyperparams=primitive_hyperparams(primitive_hyperparams.defaults()))
+
+
+                        if model is None:
+                            return result
+
+                        trainX = X.take(train, axis=0)
+                        trainY = y.take(train, axis=0).values.ravel()
+                        testX = X.take(test, axis=0)
+                        testY = y.take(test, axis=0).values.ravel()
+
+                        validation_train = dict(training_arguments)
+                        validation_train['inputs'] = trainX
+                        validation_train['outputs'] = trainY
+
+                        validation_test = dict(produce_params)
+                        validation_test['inputs'] = testX
+
+                        try:
+                            model.set_training_data(**validation_train)
+                            model.fit()
+                            ypred = model.produce(**validation_test).value
+
+                            num = num + 1.0
+
+                            targets['ground_truth'].append(testY)
+                            targets['prediction'].append(ypred)
+                            for metric_description in self.metric_descriptions:
+                                metricDesc = PerformanceMetric.parse(metric_description['metric'])
+                                metric: typing.Callable = metricDesc.get_function()
+                                params: typing.Dict = metric_description['params']
+                                validation_metrics[metric_description['metric']].append(metric(testY, ypred, **params))
+
+                        except Exception as e:
+                            sys.stderr.write("ERROR: cross_validation {}: {}\n".format(primitive, e))
+                            # traceback.print_exc(e)
+
+        if num == 0:
+            return results
+
+        average_metrics: typing.Dict[str, dict] = {}
+        for name, values in validation_metrics.items():
+            average_metrics[name] = sum(values)/len(values)
+
+        for metric_description in self.metric_descriptions:
+            result_by_metric = {}
+            result_by_metric['metric'] = metric_description['metric']
+            result_by_metric['value'] = average_metrics[metric_description['metric']]
+            result_by_metric['values'] = validation_metrics[metric_description['metric']]
+            result_by_metric['targets'] = targets[metric_description['metric']]
+            results.append(result_by_metric)
+
+        for result in results:
+            _logger.debug('cross-validation metric: %s=%.4f',  result['metric'], result['value'])
+            _logger.debug('cross-validation details: %s %s',
+                          result['metric'], str(['%.4f' % x for x in result['values']]))
+
+        return results
+
 
     def _primitive_arguments(self, primitive: typing.Type[base.PrimitiveBase], method: str) -> set:
         """
@@ -243,6 +387,15 @@ class Runtime:
             produce_arguments_primitive = self._primitive_arguments(primitive_step.primitive, 'produce')
             produce_arguments: typing.Dict[str, typing.Any] = {}
 
+            _logger.info(
+                "Primitive Produce. 'id': '%(primitive_id)s', 'name': '%(name)s', 'worker_id': '%(worker_id)s'.",
+                {
+                    'primitive_id': primitive_step.primitive_description['id'],
+                    'name': primitive_step.primitive,
+                    'worker_id': current_process()
+                },
+            )
+
             for argument, value in self.primitives_arguments[n_step].items():
                 if argument in produce_arguments_primitive:
                     if value['origin'] == 'steps':
@@ -256,9 +409,31 @@ class Runtime:
                     steps_outputs[n_step] = self.pipeline[n_step].produce(**produce_arguments).value
                 else:
                     steps_outputs[n_step] = None
+
+            _logger.debug(
+                "'id': '%(primitive_id)s', 'name': '%(name)s', 'worker_id': '%(worker_id)s'. Output is written to: '%(path)s'.",
+                {
+                    'primitive_id': primitive_step.primitive_description['id'],
+                    'name': primitive_step.primitive,
+                    'worker_id': current_process(),
+                    'path': os.path.join(TEMP_DIR, "dfs", str(current_process())+primitive_step.primitive_description['id'])
+                },
+            )
+
+            if _logger.getEffectiveLevel() == 10:
+                if steps_outputs[n_step] is None:
+                    with open(os.path.join(TEMP_DIR, "dfs", str(current_process())+primitive_step.primitive_description['id'])) as f:
+                        f.write("None")
+                else:
+                    if isinstance(steps_outputs[n_step], DataFrame):
+                        try:
+                            steps_outputs[n_step][:50].to_csv(os.path.join(TEMP_DIR, "dfs", str(current_process())+primitive_step.primitive_description['id']))
+                        except:
+                            pass
+
         # kyao!!!!
         self.produce_outputs = steps_outputs
-        
+
         # Create output
         pipeline_output: typing.List = []
         for output in self.outputs:
