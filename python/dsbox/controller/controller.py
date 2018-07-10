@@ -7,6 +7,8 @@ import typing
 
 import d3m
 import dsbox.template.runtime as runtime
+import platform
+import tempfile
 
 from d3m.container.dataset import Dataset
 from d3m.container.dataset import D3MDatasetLoader
@@ -27,6 +29,7 @@ from dsbox.template.search import SimpleConfigurationSpace
 from dsbox.template.search import TemplateDimensionalSearch
 from dsbox.template.search import get_target_columns
 from dsbox.template.template import DSBoxTemplate
+from dsbox.template.runtime import TEMP_DIR
 
 __all__ = ['Status', 'Controller']
 
@@ -37,8 +40,26 @@ from sklearn.model_selection import StratifiedShuffleSplit, ShuffleSplit
 # FIXME: we only need this for testing
 import pandas as pd
 
-logging.basicConfig(level=logging.DEBUG, format='%(asctime)s [%(levelname)s] %(name)s -- %(message)s')
+FORMATTER = "[%(levelname)s] - %(asctime)s - %(name)s - %(message)s"
+
+logging.basicConfig(
+                level=logging.INFO,
+                format=FORMATTER,
+                datefmt='%m-%d %H:%M',
+                filename=os.path.join(TEMP_DIR, 'dsbox.log'),
+                filemode='w'
+            )
+
 _logger = logging.getLogger(__name__)
+
+if _logger.getEffectiveLevel() == 10:
+    os.makedirs(os.path.join(TEMP_DIR, "dfs"), exist_ok=True)
+
+# ch = logging.StreamHandler()
+# ch.setFormatter(logging.Formatter(FORMATTER))
+# ch.setLevel(logging.INFO)
+# logger.addHandler(ch)
+
 
 def split_dataset(dataset, problem, problem_loc=None, *, random_state=42, test_size=0.2):
     '''

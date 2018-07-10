@@ -2,11 +2,13 @@ import argparse
 import json
 import os
 import typing
+import platform
 
 import contextlib
 import logging
 import sys
 import tempfile
+from pandas import DataFrame
 from collections import defaultdict
 from sklearn.model_selection import KFold, StratifiedKFold  # type: ignore
 from d3m.metadata.problem import PerformanceMetric
@@ -18,9 +20,12 @@ from d3m.metadata import base as metadata_base
 from d3m.metadata.base import Metadata
 from d3m.metadata.pipeline import Pipeline, PrimitiveStep, Resolver
 from d3m.primitive_interfaces import base
+from multiprocessing import current_process
 
-logging.basicConfig(level=logging.DEBUG, format='%(asctime)s [%(levelname)s] %(name)s -- %(message)s')
+TEMP_DIR = '/tmp' if platform.system() == 'Darwin' else tempfile.gettempdir()
+
 _logger = logging.getLogger(__name__)
+
 
 class Runtime:
     """
@@ -150,6 +155,16 @@ class Runtime:
                 dataset_hash = hash(str(primitive_arguments))
 
                 prim_hash = hash(str([hyperparam_hash, dataset_hash]))
+
+                _logger.info(
+                    "Primitive Fit. 'id': '%(primitive_id)s', '(name, hash)': ('%(name)s', '%(hash)s'), 'worker_id': '%(worker_id)s'.",
+                    {
+                        'primitive_id': self.pipeline_description.steps[n_step].primitive_description['id'],
+                        'name': prim_name,
+                        'hash': prim_hash,
+                        'worker_id': current_process()
+                    },
+                )
 
                 if (prim_name, prim_hash) in cache:
                     # primitives_outputs[n_step],model =
@@ -366,6 +381,15 @@ class Runtime:
             produce_arguments_primitive = self._primitive_arguments(primitive_step.primitive, 'produce')
             produce_arguments: typing.Dict[str, typing.Any] = {}
 
+            _logger.info(
+                "Primitive Produce. 'id': '%(primitive_id)s', 'name': '%(name)s', 'worker_id': '%(worker_id)s'.",
+                {
+                    'primitive_id': primitive_step.primitive_description['id'],
+                    'name': primitive_step.primitive,
+                    'worker_id': current_process()
+                },
+            )
+
             for argument, value in self.primitives_arguments[n_step].items():
                 if argument in produce_arguments_primitive:
                     if value['origin'] == 'steps':
@@ -379,6 +403,28 @@ class Runtime:
                     steps_outputs[n_step] = self.pipeline[n_step].produce(**produce_arguments).value
                 else:
                     steps_outputs[n_step] = None
+
+            _logger.debug(
+                "'id': '%(primitive_id)s', 'name': '%(name)s', 'worker_id': '%(worker_id)s'. Output is written to: '%(path)s'.",
+                {
+                    'primitive_id': primitive_step.primitive_description['id'],
+                    'name': primitive_step.primitive,
+                    'worker_id': current_process(),
+                    'path': os.path.join(TEMP_DIR, "dfs", str(current_process())+primitive_step.primitive_description['id'])
+                },
+            )
+
+            if _logger.getEffectiveLevel() == 10:
+                if steps_outputs[n_step] is None:
+                    with open(os.path.join(TEMP_DIR, "dfs", str(current_process())+primitive_step.primitive_description['id'])) as f:
+                        f.write("None")
+                else:
+                    if isinstance(steps_outputs[n_step], DataFrame):
+                        try:
+                            steps_outputs[n_step][:50].to_csv(os.path.join(TEMP_DIR, "dfs", str(current_process())+primitive_step.primitive_description['id']))
+                        except:
+                            pass
+
         # kyao!!!!
         self.produce_outputs = steps_outputs
 
