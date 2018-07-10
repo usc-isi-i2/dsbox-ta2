@@ -334,6 +334,7 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
                  test_dataset: Dataset,
                  performance_metrics: typing.List[typing.Dict],
                  output_directory: str,
+                 log_dir: str,
                  num_workers: int = 0) -> None:
 
         # Use first metric from test
@@ -354,6 +355,7 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
         ))
 
         self.output_directory = output_directory
+        self.log_dir = log_dir
         self.num_workers = os.cpu_count() if num_workers==0 else num_workers
 
         # if not set(self.template.template_nodes.keys()) <= set(configuration_space.get_dimensions()):
@@ -383,7 +385,7 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
 
         # Todo: update ResourceManager to run pipeline:  ResourceManager.add_pipeline(pipeline)
         fitted_pipeline = FittedPipeline(
-            pipeline, self.train_dataset.metadata.query(())['id'], metric_descriptions=self.performance_metrics)
+            pipeline, self.train_dataset.metadata.query(())['id'], log_dir=self.log_dir, metric_descriptions=self.performance_metrics, )
 
         fitted_pipeline.fit(cache=cache, inputs=[self.train_dataset])
         training_ground_truth = get_target_columns(self.train_dataset,
