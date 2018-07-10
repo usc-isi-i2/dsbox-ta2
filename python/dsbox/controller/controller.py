@@ -429,11 +429,13 @@ class Controller:
         except:
             print("[Warning] Can't find the prediction class name, will use default name.")
             prediction_class_name = "prediction"
-        d3m_index = get_target_columns(self.test_dataset, self.problem_doc_metadata)["d3mIndex"]
+
         prediction = run.produce_outputs[step_number_output]
 
         # if the prediction results do not have d3m_index column
         if 'd3mIndex' not in prediction.columns:
+            d3m_index = get_target_columns(self.test_dataset, self.problem_doc_metadata)["d3mIndex"]
+            d3m_index = d3m_index.reset_index().drop(columns=['index'])
             prediction_col_name = prediction.columns[0]
             prediction['d3mIndex'] = d3m_index
             prediction = prediction[['d3mIndex', prediction_col_name]]
