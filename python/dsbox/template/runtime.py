@@ -161,6 +161,7 @@ class Runtime:
                                                  )
 
                     # add the entry to cache:
+                    print("[INFO] Updating cache!")
                     cache[(prim_name, prim_hash)] = (
                     primitives_outputs[n_step].copy(), model)
         # kyao!!!!

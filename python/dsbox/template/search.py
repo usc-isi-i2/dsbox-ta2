@@ -354,7 +354,14 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
         configuration: ConfigurationPoint[PrimitiveDescription] = args[0]
         cache: typing.Dict = args[1]
         print("[INFO] Worker started, id:", current_process())
-        evaluation_result = self._evaluate(configuration, cache)
+        try:
+            evaluation_result = self._evaluate(configuration, cache)
+        except:
+            return {
+                'fitted_pipeline': None,
+                'training_metrics': None,
+                'validation_metrics': None
+            }
         # configuration.data.update(new_data)
         return evaluation_result
 
