@@ -1,4 +1,5 @@
 import argparse
+import getpass
 import json
 import os
 import typing
@@ -23,6 +24,9 @@ from d3m.primitive_interfaces import base
 from multiprocessing import current_process
 
 TEMP_DIR = '/tmp' if platform.system() == 'Darwin' else tempfile.gettempdir()
+TEMP_DIR = os.path.join(TEMP_DIR, getpass.getuser())
+if not os.path.exists(TEMP_DIR):
+    os.mkdir(TEMP_DIR)
 
 _logger = logging.getLogger(__name__)
 
