@@ -12,6 +12,8 @@ import signal
 import sys
 import traceback
 
+from argparse import Namespace
+
 from pathlib import Path
 from pprint import pprint
 
@@ -23,9 +25,13 @@ import os
 
 import getpass
 
+import multiprocessing
+from multiprocessing import Pool
+
 controller = Controller('/', development_mode=True)
 
-def main(args):
+
+def work(args):
     library_directory = os.path.dirname(
         os.path.realpath(__file__)) + "/library"
     timeout = 0
@@ -79,7 +85,6 @@ def main(args):
             # This os._exit() cannot be caught.
             print('SIGNAL exiting {}'.format(configuration_file), flush=True)
             # persist running
-            return -1
 #            os._exit(0)
 
     # Set timeout, alarm and signal handler
@@ -140,8 +145,15 @@ if __name__ == "__main__":
                         help='Debug mode. No timeout and no output redirection')
 
     args = parser.parse_args()
-
     home = str(Path.home())
+
+    # all_args = []
+    # for conf in os.listdir(home + "/dsbox/runs2/config-seed/"):
+    # # for conf in np.split(np.array(os.listdir(home + "/dsbox/runs2/config-ll0/")), 21)[0]:
+    #     args.configuration_file = "/nas/home/stan/dsbox/runs2/config-seed/" + conf
+    #     all_args.append(Namespace(**vars(args)))
+
+    # print(Pool().map(work, all_args))
 
     for conf in os.listdir(home + "/dsbox/runs2/config-ll0/"):
         print("Working on", conf)
@@ -150,14 +162,9 @@ if __name__ == "__main__":
 
         # result = main(args)
         try:
-            result = main(args)
+            result = work(args)
             print("[INFO] Run succesfull")
         except:
             print("[ERROR] Failed dataset", conf)
 
-        print("\n" * 10)
-
-        # break
-
-    #result = main(args)
-    #os._exit(result)
+    #     print("\n" * 10)
