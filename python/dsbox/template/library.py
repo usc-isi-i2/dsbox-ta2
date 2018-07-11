@@ -145,7 +145,7 @@ class SemanticTypeDict(object):
 #
 #                 {
 #                     "name": "denormalize_step",
-#                     "primitives": ["d3m.primitives.datasets.Denormalize"],
+#                     "primitives": ["d3m.primitives.dsbox.Denormalize"],
 #                     "inputs": ["template_input"]
 #                 },
 #                 {
@@ -205,7 +205,7 @@ class SemanticTypeDict(object):
 #             "steps": [
 #                 {
 #                     "name": "denormalize_step",
-#                     "primitives": ["d3m.primitives.datasets.Denormalize"],
+#                     "primitives": ["d3m.primitives.dsbox.Denormalize"],
 #                     "inputs": ["template_input"]
 #                 },
 #                 {
@@ -279,7 +279,7 @@ class SemanticTypeDict(object):
 #                 # join several tables into one
 #                 {
 #                     "name": "denormalize_step",
-#                     "primitives": ["d3m.primitives.datasets.Denormalize"],
+#                     "primitives": ["d3m.primitives.dsbox.Denormalize"],
 #                     "inputs": ["template_input"]
 #                 },
 #
@@ -385,7 +385,7 @@ class DefaultClassificationTemplate(DSBoxTemplate):
             "steps": [
                 {
                     "name": "denormalize_step",
-                    "primitives": ["d3m.primitives.datasets.Denormalize"],
+                    "primitives": ["d3m.primitives.dsbox.Denormalize"],
                     "inputs": ["template_input"]
                 },
                 {
@@ -447,7 +447,8 @@ class DefaultClassificationTemplate(DSBoxTemplate):
                             'max_depth': [(2),(4),(8)], #(10), #
                             'n_estimators':[(10),(20),(30)]
                             }
-                        }, {
+                        }, 
+                        {
                         "primitive":
                             "d3m.primitives.sklearn_wrap.SKLinearSVC",
                         "hyperparameters":
@@ -491,7 +492,7 @@ class DefaultRegressionTemplate(DSBoxTemplate):
             "steps": [
                 {
                     "name": "denormalize_step",
-                    "primitives": ["d3m.primitives.datasets.Denormalize"],
+                    "primitives": ["d3m.primitives.dsbox.Denormalize"],
                     "inputs": ["template_input"]
                 },
                 {
@@ -595,7 +596,7 @@ class DefaultTimeseriesCollectionTemplate(DSBoxTemplate):
 
                 {
                     "name": "denormalize_step",
-                    "primitives": ["d3m.primitives.datasets.Denormalize"],
+                    "primitives": ["d3m.primitives.dsbox.Denormalize"],
                     "inputs": ["template_input"]
                 },
                 {
@@ -662,7 +663,7 @@ class DefaultImageProcessingRegressionTemplate(DSBoxTemplate):
 
                 {
                     "name": "denormalize_step",
-                    "primitives": ["d3m.primitives.datasets.Denormalize"],
+                    "primitives": ["d3m.primitives.dsbox.Denormalize"],
                     "inputs": ["template_input"]
                 },
                 {
