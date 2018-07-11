@@ -618,8 +618,11 @@ class Controller:
                                                          pipeline_id=pipeline_id,
                                                          log_dir=self.output_logs_dir)
 
-            pipeline_output = run.produce(inputs=[self.test_dataset])
-            pipeline_outputs[pipeline_id] = pipeline_output
+            try:
+                pipeline_output = run.produce(inputs=[self.test_dataset])
+                pipeline_outputs[pipeline_id] = pipeline_output
+            except:
+                pipeline_outputs[pipeline_id] = None
 
         return pipeline_outputs
 
