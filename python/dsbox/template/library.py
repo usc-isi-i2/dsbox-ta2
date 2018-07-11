@@ -418,9 +418,14 @@ class DefaultClassificationTemplate(DSBoxTemplate):
                     "inputs": ["column_parser_step"]
                 },
                 {
+                    "name": "corex_step",
+                    "primitives": ["d3m.primitives.dsbox.CorexText"],
+                    "inputs": ["cast_1_step"]
+                },
+                {
                     "name": "impute_step",
                     "primitives": ["d3m.primitives.sklearn_wrap.SKImputer"],
-                    "inputs": ["cast_1_step"]
+                    "inputs": ["corex_step"]
                 },
                 {
                     "name": "extract_target_step",
