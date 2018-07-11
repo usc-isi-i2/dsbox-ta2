@@ -7,8 +7,6 @@ import typing
 
 import d3m
 import dsbox.template.runtime as runtime
-import platform
-import tempfile
 
 from d3m.container.dataset import Dataset
 from d3m.container.dataset import D3MDatasetLoader
@@ -29,7 +27,6 @@ from dsbox.template.search import SimpleConfigurationSpace
 from dsbox.template.search import TemplateDimensionalSearch
 from dsbox.template.search import get_target_columns
 from dsbox.template.template import DSBoxTemplate
-from dsbox.template.runtime import TEMP_DIR
 
 __all__ = ['Status', 'Controller']
 
@@ -41,25 +38,8 @@ from sklearn.model_selection import StratifiedShuffleSplit, ShuffleSplit
 import pandas as pd
 
 FORMATTER = "[%(levelname)s] - %(asctime)s - %(name)s - %(message)s"
-
-logging.basicConfig(
-                level=logging.INFO,
-                format=FORMATTER,
-                datefmt='%m-%d %H:%M',
-                filename=os.path.join(TEMP_DIR, 'dsbox.log'),
-                filemode='w'
-            )
-
-_logger = logging.getLogger(__name__)
-
-if _logger.getEffectiveLevel() == 10:
-    os.makedirs(os.path.join(TEMP_DIR, "dfs"), exist_ok=True)
-
-# ch = logging.StreamHandler()
-# ch.setFormatter(logging.Formatter(FORMATTER))
-# ch.setLevel(logging.INFO)
-# logger.addHandler(ch)
-
+LOGGING_LEVER = logging.INFO
+LOG_FILENAME = 'dsbox.log'
 
 def split_dataset(dataset, problem, problem_loc=None, *, random_state=42, test_size=0.2):
     '''
@@ -186,6 +166,8 @@ class Controller:
         self.output_temp_dir: str = ""
         self.output_logs_dir: str = ""
 
+        self._logger = None
+
     def initialize_from_config(self, config: typing.Dict) -> None:
 
         self._load_schema(config)
@@ -253,8 +235,6 @@ class Controller:
         if 'saving_folder_loc' in config:
             self.output_directory = os.path.abspath(config['saving_folder_loc'])
 
-        _logger.info('Top level output directory: %s' % self.output_directory)
-
         if 'pipelines_root' in config:
             self.output_pipelines_dir = os.path.abspath(config['pipelines_root'])
         else:
@@ -289,6 +269,28 @@ class Controller:
             if not os.path.exists(path):
                 os.makedirs(path)
 
+        self._log_init()
+        self._logger.info('Top level output directory: %s' % self.output_directory)
+
+    def _log_init(self) -> None:
+        logging.basicConfig(
+            level=LOGGING_LEVER,
+            format=FORMATTER,
+            datefmt='%m-%d %H:%M',
+            filename=os.path.join(self.output_logs_dir, LOG_FILENAME),
+            filemode='w'
+        )
+
+        self._logger = logging.getLogger(__name__)
+
+        if self._logger.getEffectiveLevel() <= 10:
+            os.makedirs(os.path.join(self.output_logs_dir, "dfs"), exist_ok=True)
+
+        # ch = logging.StreamHandler()
+        # ch.setFormatter(logging.Formatter(FORMATTER))
+        # ch.setLevel(logging.INFO)
+        # self._logger.addHandler(ch)
+
 
     def load_templates(self) -> None:
         self.task_type = self.problem['problem']['task_type']
@@ -315,7 +317,8 @@ class Controller:
             fname = f.split('/')[-1].split('.')[0]
             pipeline_load = FittedPipeline.load(folder_loc=self.output_executables_dir,
                                                 pipeline_id=fname,
-                                                dataset=self.dataset)
+                                                dataset=self.dataset,
+                                                log_dir=self.output_logs_dir)
             exec_pipelines.append(pipeline_load)
 
 
@@ -361,11 +364,11 @@ class Controller:
         if self.test_dataset is None:
             search = TemplateDimensionalSearch(
                 template, space, d3m.index.search(), self.problem_doc_metadata, self.dataset,
-                self.dataset, metrics, output_directory=self.output_directory, num_workers=self.num_cpus)
+                self.dataset, metrics, output_directory=self.output_directory, log_dir=self.output_logs_dir, num_workers=self.num_cpus)
         else:
             search = TemplateDimensionalSearch(
                 template, space, d3m.index.search(), self.problem_doc_metadata, self.dataset,
-                self.test_dataset, metrics, output_directory=self.output_directory, num_workers=self.num_cpus)
+                self.test_dataset, metrics, output_directory=self.output_directory, log_dir=self.output_logs_dir, num_workers=self.num_cpus)
 
 
         candidate, value = search.search_one_iter()
@@ -485,7 +488,8 @@ class Controller:
             read_pipeline_id = lastmodified.split('/')[-1].split('.')[0]
 
         pipeline_load, run = FittedPipeline.load(folder_loc=self.output_directory,
-                                                 pipeline_id=read_pipeline_id)
+                                                 pipeline_id=read_pipeline_id,
+                                                 log_dir=self.output_logs_dir)
         return self.output_directory, pipeline_load, read_pipeline_id, run
 
     def generate_configuration_space(self, template_desc: TemplateDescription, problem: typing.Dict, dataset: typing.Optional[Dataset]) -> ConfigurationSpace:
