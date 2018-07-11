@@ -463,15 +463,30 @@ class Controller:
             prediction_col_name = prediction.columns[0]
             prediction['d3mIndex'] = d3m_index
             prediction = prediction[['d3mIndex', prediction_col_name]]
-            prediction = prediction.rename(columns={prediction_col_name:prediction_class_name})
+            prediction = prediction.rename(columns={prediction_col_name: prediction_class_name})
         prediction_folder_loc = outputs_loc + "/predictions/" + read_pipeline_id
         folder = os.path.exists(prediction_folder_loc)
         if not folder:
             os.makedirs(prediction_folder_loc)
-        prediction.to_csv(prediction_folder_loc + "/predictions.csv", index = False)
+        prediction.to_csv(prediction_folder_loc + "/predictions.csv", index=False)
         print("[INFO] Finished: prediction results saving finished")
         print("[INFO] The prediction results is stored at: ", prediction_folder_loc)
         return Status.OK
+
+    def test_pickled_pipelines(self):
+        pipeline_outputs = dict()
+        executables_dir = os.path.join(self.output_directory, 'executables')
+        for pipeline_spec_file in os.listdir(executables_dir):
+            with open(os.path.join(executables_dir, pipeline_spec_file), 'r') as f:
+                pipeline_id = json.load(f).get('fitted_pipeline_id')
+                pipeline_load, run = FittedPipeline.load(folder_loc=self.output_directory,
+                                                         pipeline_id=pipeline_id,
+                                                         log_dir=self.output_logs_dir)
+
+            pipeline_output = run.produce(inputs=[self.test_dataset])
+            pipeline_outputs[pipeline_id] = pipeline_output
+
+        return pipeline_outputs
 
     def load_pipe_runtime(self):
         d = os.path.expanduser(self.output_directory + '/pipelines')
