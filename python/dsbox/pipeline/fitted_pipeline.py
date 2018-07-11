@@ -33,7 +33,7 @@ class FittedPipeline:
         the location of the files of pipeline
     """
 
-    def __init__(self, pipeline: Pipeline, dataset_id: str, log_dir: str, *, id: str = None, metric_descriptions: typing.List = []) -> None:
+    def __init__(self, pipeline: Pipeline, dataset_id: str, *, id: str = None, metric_descriptions: typing.List = []) -> None:
 
         # these two are mandatory
         # TODO add the check
@@ -47,9 +47,7 @@ class FittedPipeline:
         else:
             self.id = id
 
-        self.log_dir = log_dir
-
-        self.runtime = Runtime(pipeline, self.log_dir)
+        self.runtime = Runtime(pipeline)
 
         self.metric_descriptions = list(metric_descriptions)
         self.runtime.set_metric_descriptions(self.metric_descriptions)
@@ -166,7 +164,7 @@ class FittedPipeline:
 
     @classmethod
     def load(cls:typing.Type[TP], folder_loc: str,
-             pipeline_id: str, log_dir: str, dataset_id: str = None,) -> typing.Tuple[TP, Runtime]:
+             pipeline_id: str, dataset_id: str = None) -> typing.Tuple[TP, Runtime]:
         '''
         Load the pipeline with given pipeline id and folder location
         '''
@@ -196,7 +194,7 @@ class FittedPipeline:
         supporting_files_dir = os.path.join(folder_loc, 'supporting_files',
                                             fitted_pipeline_id)
 
-        run = Runtime(pipeline_to_load, log_dir)
+        run = Runtime(pipeline_to_load)
 
         for i in range(0, len(run.execution_order)):
             # print("Now loading step", i)
@@ -210,8 +208,7 @@ class FittedPipeline:
         # fitted_pipeline_loaded = cls(pipeline_to_load, run, dataset)
         fitted_pipeline_loaded = cls(pipeline=pipeline_to_load,
                                      dataset_id=dataset_id,
-                                     id=fitted_pipeline_id,
-                                     log_dir=log_dir)
+                                     id=fitted_pipeline_id)
         fitted_pipeline_loaded._set_fitted(run.pipeline)
 
         return (fitted_pipeline_loaded, run)
@@ -233,7 +230,6 @@ class FittedPipeline:
         # add the fitted_primitives
         state['fitted_pipe'] = self.runtime.pipeline
         state['pipeline'] = self.pipeline.to_json_structure()
-        state['log_dir'] = self.log_dir
         del state['runtime']  # remove runtime entry
 
         return state
@@ -257,7 +253,7 @@ class FittedPipeline:
         structure = state['pipeline']
         state['pipeline'] = Pipeline.from_json_structure(structure)
 
-        run = Runtime(state['pipeline'], state['log_dir'])
+        run = Runtime(state['pipeline'])
         run.pipeline = fitted
 
         state['runtime'] = run

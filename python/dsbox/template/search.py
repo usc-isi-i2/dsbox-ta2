@@ -1,3 +1,4 @@
+import time
 import bisect
 import operator
 import os
@@ -8,6 +9,8 @@ import typing
 from multiprocessing import Pool, current_process, Manager
 from itertools import zip_longest
 from pprint import pprint
+
+import tensorflow as tf
 
 from d3m.exceptions import NotSupportedError
 from d3m.container.dataset import Dataset
@@ -101,6 +104,13 @@ class DimensionalSearch(typing.Generic[T]):
                           dimension: typing.List[DimensionName]):
         pass
 
+    def is_one_better_choice(self, one:float, two:float):
+        if (self.minimize and one < two) or (
+            not self.minimize and one > two):
+            return True
+        else:
+            return False
+
     def search_one_iter(self, candidate_in: ConfigurationPoint[T] = None,
                         candidate_value: float = None, max_per_dimension=50):
         """
@@ -123,6 +133,10 @@ class DimensionalSearch(typing.Generic[T]):
         manager = Manager()
         cache = manager.dict()
 
+        # initialize the simulation counter
+        sim_counter = 0
+
+        start_time = time.clock()
 
         # we first need the baseline for searching the conf_space. For this
         # purpose we initially use first configuration and evaluate it on the
@@ -130,8 +144,12 @@ class DimensionalSearch(typing.Generic[T]):
         # more time to guarantee robustness on error reporting
         candidate, candidate_value = \
             self.setup_initial_candidate(candidate_in, cache)
+        # candidate = None
+        # candidate_value = None
+
 
         # generate an executable pipeline with random steps from conf. space.
+        evaluated_once = False
 
         # The actual searching process starts here.
         for dimension in self.dimension_ordering:
@@ -143,9 +161,15 @@ class DimensionalSearch(typing.Generic[T]):
             # TODO this is just a hack
             if len(choices) == 1:
                 continue
+                # if not evaluated_once and \
+                #         dimension != self.dimension_ordering[-1]:
+                #     continue
+
+
             # print("[INFO] choices:", choices, ", in step:", dimension)
-            assert 1 < len(choices), \
+            assert 1 < len(choices) or not evaluated_once, \
                 f'Step {dimension} has not primitive choices!'
+
 
             # the weights are assigned by template designer
             weights = [self.configuration_space.get_weight(
@@ -155,8 +179,14 @@ class DimensionalSearch(typing.Generic[T]):
                 choices, weights, max_per_dimension)
 
             # No need to evaluate if value is already known
-            if candidate_value is not None and candidate[dimension] in selected:
+            if candidate is not None and candidate[dimension] in selected:
                 selected.remove(candidate[dimension])
+
+            # if candidate is None:
+            #     print("[INFO] Initialize the candidates!")
+            #     evaluated_once = True
+            #     candidate = ConfigurationPoint(
+            #         self.configuration_space, self.first_assignment())
 
             new_candidates: typing.List[ConfigurationPoint] = []
             for value in selected:
@@ -171,6 +201,7 @@ class DimensionalSearch(typing.Generic[T]):
             best_index = -1
             print('*' * 100)
             print("[INFO] Running Pool:", len(new_candidates))
+            sim_counter += len(new_candidates)
             try:
                 with Pool(self.num_workers) as p:
                     results = p.map(
@@ -227,8 +258,8 @@ class DimensionalSearch(typing.Generic[T]):
             if candidate_value is None:
                 candidate = sucessful_candidates[best_index]
                 candidate_value = test_values[best_index]
-            elif (self.minimize and test_values[best_index] < candidate_value) or \
-                (not self.minimize and test_values[best_index] > candidate_value):
+            elif self.is_one_better_choice(one=test_values[best_index],
+                                           two=candidate_value):
                 candidate = sucessful_candidates[best_index]
                 candidate_value = test_values[best_index]
             # assert "fitted_pipe" in candidate.data, "parameters not added! loop"
@@ -239,8 +270,23 @@ class DimensionalSearch(typing.Generic[T]):
 
         # here we can get the details of pipelines from "candidate.data"
         assert "fitted_pipeline" in candidate.data, "parameters not added! last"
-        return (candidate, candidate_value)
 
+        # gather information for UCT
+        reward = abs(sum(test_values))/len(test_values)
+
+        # TODO : come up with a better method for this
+        if self.minimize:
+            reward = -reward
+
+        UCT_report = {
+            'reward': reward,
+            'time': time.clock() - start_time,
+            'sim_count': sim_counter,
+            'candidate': candidate,
+            'best_val': candidate_value
+        }
+        # return (candidate, candidate_value)
+        return UCT_report
 
 
     def setup_initial_candidate(self,
@@ -261,7 +307,7 @@ class DimensionalSearch(typing.Generic[T]):
         """
         if candidate is None:
             candidate = ConfigurationPoint(
-                self.configuration_space, self.first_assignment())
+                self.configuration_space, self.random_assignment())
         # first, then random, then another random
         # for i in range(2):
         #     try:
@@ -272,7 +318,11 @@ class DimensionalSearch(typing.Generic[T]):
         #         candidate = ConfigurationPoint(self.configuration_space,
         #                                        self.random_assignment())
         result = self.evaluate((candidate, cache))
-        candidate.data.update(result)
+        if result:
+            candidate.data.update(result)
+        else:
+            print("[ERROR] Initial Candidate Failed!")
+            return None,None
         # try:
         #     result = self.evaluate(candidate)
         # except:
@@ -287,8 +337,9 @@ class DimensionalSearch(typing.Generic[T]):
         #         candidate = ConfigurationPoint(self.configuration_space,
         #                                        self.random_assignment())
         #         result = self.evaluate(candidate)
-        return (candidate, result['test_metrics'][0]['value'])
 
+        return (candidate, result['test_metrics'][0]['value'])
+        # return result
 
 
     def search(self, candidate: ConfigurationPoint[T] = None, candidate_value: float = None, num_iter=3, max_per_dimension=10):
@@ -334,7 +385,6 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
                  test_dataset: Dataset,
                  performance_metrics: typing.List[typing.Dict],
                  output_directory: str,
-                 log_dir: str,
                  num_workers: int = 0) -> None:
 
         # Use first metric from test
@@ -355,7 +405,6 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
         ))
 
         self.output_directory = output_directory
-        self.log_dir = log_dir
         self.num_workers = os.cpu_count() if num_workers==0 else num_workers
 
         # if not set(self.template.template_nodes.keys()) <= set(configuration_space.get_dimensions()):
@@ -385,7 +434,7 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
 
         # Todo: update ResourceManager to run pipeline:  ResourceManager.add_pipeline(pipeline)
         fitted_pipeline = FittedPipeline(
-            pipeline, self.train_dataset.metadata.query(())['id'], log_dir=self.log_dir, metric_descriptions=self.performance_metrics)
+            pipeline, self.train_dataset.metadata.query(())['id'], metric_descriptions=self.performance_metrics)
 
         fitted_pipeline.fit(cache=cache, inputs=[self.train_dataset])
         training_ground_truth = get_target_columns(self.train_dataset,

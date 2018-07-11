@@ -4,9 +4,14 @@ import logging
 import os
 import random
 import typing
+from multiprocessing import Pool, current_process, Manager
+
+from math import sqrt, log
 
 import d3m
 import dsbox.template.runtime as runtime
+import platform
+import tempfile
 
 from d3m.container.dataset import Dataset
 from d3m.container.dataset import D3MDatasetLoader
@@ -25,9 +30,11 @@ from dsbox.template.library import SemanticTypeDict
 from dsbox.template.search import ConfigurationSpace
 from dsbox.template.search import SimpleConfigurationSpace
 from dsbox.template.search import TemplateDimensionalSearch
+from dsbox.template.search import random_choices_without_replacement
 from dsbox.template.search import get_target_columns
 from dsbox.template.template import DSBoxTemplate
-
+from dsbox.template.runtime import TEMP_DIR
+from dsbox.template.configuration_space import ConfigurationPoint
 __all__ = ['Status', 'Controller']
 
 import copy
@@ -38,8 +45,25 @@ from sklearn.model_selection import StratifiedShuffleSplit, ShuffleSplit
 import pandas as pd
 
 FORMATTER = "[%(levelname)s] - %(asctime)s - %(name)s - %(message)s"
-LOGGING_LEVER = logging.INFO
-LOG_FILENAME = 'dsbox.log'
+
+logging.basicConfig(
+                level=logging.INFO,
+                format=FORMATTER,
+                datefmt='%m-%d %H:%M',
+                filename=os.path.join(TEMP_DIR, 'dsbox.log'),
+                filemode='w'
+            )
+
+_logger = logging.getLogger(__name__)
+
+if _logger.getEffectiveLevel() == 10:
+    os.makedirs(os.path.join(TEMP_DIR, "dfs"), exist_ok=True)
+
+# ch = logging.StreamHandler()
+# ch.setFormatter(logging.Formatter(FORMATTER))
+# ch.setLevel(logging.INFO)
+# logger.addHandler(ch)
+
 
 def split_dataset(dataset, problem, problem_loc=None, *, random_state=42, test_size=0.2):
     '''
@@ -166,8 +190,6 @@ class Controller:
         self.output_temp_dir: str = ""
         self.output_logs_dir: str = ""
 
-        self._logger = None
-
     def initialize_from_config(self, config: typing.Dict) -> None:
 
         self._load_schema(config)
@@ -235,6 +257,8 @@ class Controller:
         if 'saving_folder_loc' in config:
             self.output_directory = os.path.abspath(config['saving_folder_loc'])
 
+        _logger.info('Top level output directory: %s' % self.output_directory)
+
         if 'pipelines_root' in config:
             self.output_pipelines_dir = os.path.abspath(config['pipelines_root'])
         else:
@@ -269,28 +293,6 @@ class Controller:
             if not os.path.exists(path):
                 os.makedirs(path)
 
-        self._log_init()
-        self._logger.info('Top level output directory: %s' % self.output_directory)
-
-    def _log_init(self) -> None:
-        logging.basicConfig(
-            level=LOGGING_LEVER,
-            format=FORMATTER,
-            datefmt='%m-%d %H:%M',
-            filename=os.path.join(self.output_logs_dir, LOG_FILENAME),
-            filemode='w'
-        )
-
-        self._logger = logging.getLogger(__name__)
-
-        if self._logger.getEffectiveLevel() <= 10:
-            os.makedirs(os.path.join(self.output_logs_dir, "dfs"), exist_ok=True)
-
-        # ch = logging.StreamHandler()
-        # ch.setFormatter(logging.Formatter(FORMATTER))
-        # ch.setLevel(logging.INFO)
-        # self._logger.addHandler(ch)
-
 
     def load_templates(self) -> None:
         self.task_type = self.problem['problem']['task_type']
@@ -317,8 +319,7 @@ class Controller:
             fname = f.split('/')[-1].split('.')[0]
             pipeline_load = FittedPipeline.load(folder_loc=self.output_executables_dir,
                                                 pipeline_id=fname,
-                                                dataset=self.dataset,
-                                                log_dir=self.output_logs_dir)
+                                                dataset=self.dataset)
             exec_pipelines.append(pipeline_load)
 
 
@@ -342,42 +343,40 @@ class Controller:
         pipelinesfile.flush()
         pipelinesfile.close()
 
-
-    def train(self) -> Status:
-        """
-        Generate and train pipelines.
-        """
-        if not self.template:
-            return Status.PROBLEM_NOT_IMPLEMENT
-
-        #self._check_and_set_dataset_metadata()
-
-        # For now just use the first template
-        # TODO: sample based on DSBoxTemplate.importance()
-        template = self.template[0]
+    def search_template(self, template: DSBoxTemplate, candidate=None) \
+            -> typing.Dict:
 
         space = template.generate_configuration_space()
 
         metrics = self.problem['problem']['performance_metrics']
 
-        # search = TemplateDimensionalSearch(template, space, d3m.index.search(), self.dataset, self.dataset, metrics)
+        # search = TemplateDimensionalSearch(template, space,
+        # d3m.index.search(), self.dataset, self.dataset, metrics)
         if self.test_dataset is None:
             search = TemplateDimensionalSearch(
-                template, space, d3m.index.search(), self.problem_doc_metadata, self.dataset,
-                self.dataset, metrics, output_directory=self.output_directory, log_dir=self.output_logs_dir, num_workers=self.num_cpus)
+                template, space, d3m.index.search(), self.problem_doc_metadata,
+                self.dataset,
+                self.dataset, metrics, output_directory=self.output_directory,
+                num_workers=self.num_cpus)
         else:
             search = TemplateDimensionalSearch(
-                template, space, d3m.index.search(), self.problem_doc_metadata, self.dataset,
-                self.test_dataset, metrics, output_directory=self.output_directory, log_dir=self.output_logs_dir, num_workers=self.num_cpus)
+                template, space, d3m.index.search(), self.problem_doc_metadata,
+                self.dataset,
+                self.test_dataset, metrics,
+                output_directory=self.output_directory,
+                num_workers=self.num_cpus)
 
-
-        candidate, value = search.search_one_iter()
-
+        # candidate, value = search.search_one_iter()
+        report = search.search_one_iter(
+            candidate_in=candidate)
+        candidate = report['candidate']
+        value = report['best_val']
         # assert "fitted_pipe" in candidate, "argument error!"
 
         if candidate is None:
-            print("[ERROR] not candidate!")
-            return Status.PROBLEM_NOT_IMPLEMENT
+            print("[ERROR] No valid Candidate Found in worker:",
+                  current_process())
+            return (None,None)
         else:
             print("******************\n[INFO] Writing results")
             print(candidate.data)
@@ -397,9 +396,11 @@ class Controller:
             #                             dataset=self.dataset)
 
             dataset_name = self.output_executables_dir.rsplit("/", 2)[1]
-            save_location = os.path.join(self.output_logs_dir, dataset_name + ".txt")
+            save_location = os.path.join(self.output_logs_dir,
+                                         dataset_name + ".txt")
 
-            print("******************\n[INFO] Saving training results in", save_location)
+            print("******************\n[INFO] Saving training results in",
+                  save_location)
             f = open(save_location, "w+")
             f.write(str(metrics) + "\n")
             f.write(str(candidate.data['training_metrics'][0]['value']) + "\n")
@@ -408,17 +409,151 @@ class Controller:
 
             print("******************\n[INFO] Saving Best Pipeline")
             # save the pipeline
+            return report
 
-            try:
-                # pipeline = FittedPipeline.create(configuration=candidate,
-                #                                  dataset=self.dataset)
-                fitted_pipeline = candidate.data['fitted_pipeline']
-                fitted_pipeline.save(self.output_directory)
-            except:
-                raise NotSupportedError(
-                    '[ERROR] Save Failed!')
-            ####################
-            return Status.OK
+    def select_next_template(self, max_iter: int=2):
+        # while True:
+        yield 0;
+        choices = list(range(len(self.template)))
+        print("[INFO] Choices:",choices)
+        for i in range(max_iter-1):
+            selected = random_choices_without_replacement(choices,
+                                                          self.uct_score, 1)
+            yield selected[0]
+
+    def update_UCT_score(self, index: int, report: typing.Dict):
+        self.total_run += 1
+        self.total_time += report['time']
+
+        self.exec_history[index]['reward'] += report['reward']
+        self.exec_history[index]['trial'] += report['sim_count']
+        self.exec_history[index]['exe_time'] += report['time']
+        self.exec_history[index]['candidate'] = report['candidate']
+        for i in range(len(self.uct_score)):
+            self.uct_score = self.give_UCT(i)
+
+        print("[INFO] UCT updated:", self.uct_score)
+
+
+    def give_UCT(self, index=0):
+        beta = 10
+        gamma = 2
+        delta = 1
+        hist = self.exec_history[index]
+        return (beta * (hist['reward']/hist['trial']) +
+                gamma * sqrt(2*log(self.total_run) / hist['trial']) +
+                delta * sqrt(2*log(self.total_time)/hist['exe_time']))
+
+    def initialize_uct(self):
+        self.total_run = 0
+        self.total_time = 0
+        self.exec_history = \
+            [{"exe_time": 0, "reward": 0, "trial": 0, "candidate": None}] * \
+            len(self.template)
+        self.uct_score = [1.0 / len(self.template)] * len(self.template)
+
+    def train(self) -> Status:
+        """
+        Generate and train pipelines.
+        """
+        if not self.template:
+            return Status.PROBLEM_NOT_IMPLEMENT
+
+        #self._check_and_set_dataset_metadata()
+
+        self.initialize_uct()
+
+        # For now just use the first template
+        # TODO: sample based on DSBoxTemplate.importance()
+        # template = self.template[0]
+        best_report = None
+
+        for idx in self.select_next_template(max_iter=2):
+            print("[INFO] Template {} Selected.".format(idx))
+            template = self.template[idx]
+
+            report = self.search_template(
+                template, candidate=self.exec_history[idx]['candidate'])
+
+            self.update_UCT_score(index=idx, report=report)
+            # if best_info and best_info['best_val']:
+            best_report = report
+
+
+        try:
+            # pipeline = FittedPipeline.create(configuration=candidate,
+            #                                  dataset=self.dataset)
+            candidate = best_report['candidate']
+            fitted_pipeline = candidate.data['fitted_pipeline']
+            fitted_pipeline.save(self.output_directory)
+        except:
+            raise NotSupportedError(
+                '[ERROR] Save Failed!')
+        ####################
+        # space = template.generate_configuration_space()
+        #
+        # metrics = self.problem['problem']['performance_metrics']
+        #
+        # # search = TemplateDimensionalSearch(template, space, d3m.index.search(), self.dataset, self.dataset, metrics)
+        # if self.test_dataset is None:
+        #     search = TemplateDimensionalSearch(
+        #         template, space, d3m.index.search(), self.problem_doc_metadata, self.dataset,
+        #         self.dataset, metrics, output_directory=self.output_directory, num_workers=self.num_cpus)
+        # else:
+        #     search = TemplateDimensionalSearch(
+        #         template, space, d3m.index.search(), self.problem_doc_metadata, self.dataset,
+        #         self.test_dataset, metrics, output_directory=self.output_directory, num_workers=self.num_cpus)
+        #
+        #
+        # candidate, value = search.search_one_iter()
+        #
+        # # assert "fitted_pipe" in candidate, "argument error!"
+        #
+        # if candidate is None:
+        #     print("[ERROR] No valid Candidate Found!")
+        #     return Status.PROBLEM_NOT_IMPLEMENT
+        # else:
+        #     print("******************\n[INFO] Writing results")
+        #     print(candidate.data)
+        #     print(candidate, value)
+        #     print('Training {} = {}'.format(
+        #         candidate.data['training_metrics'][0]['metric'],
+        #         candidate.data['training_metrics'][0]['value']))
+        #     print('Training {} = {}'.format(
+        #         candidate.data['cross_validation_metrics'][0]['metric'],
+        #         candidate.data['cross_validation_metrics'][0]['value']))
+        #     print('Test {} = {}'.format(
+        #         candidate.data['test_metrics'][0]['metric'],
+        #         candidate.data['test_metrics'][0]['value']))
+        #
+        #     # FIXME: code used for doing experiments, want to make optionals
+        #     # pipeline = FittedPipeline.create(configuration=candidate,
+        #     #                             dataset=self.dataset)
+        #
+        #     dataset_name = self.output_executables_dir.rsplit("/", 2)[1]
+        #     save_location = os.path.join(self.output_logs_dir, dataset_name + ".txt")
+        #
+        #     print("******************\n[INFO] Saving training results in", save_location)
+        #     f = open(save_location, "w+")
+        #     f.write(str(metrics) + "\n")
+        #     f.write(str(candidate.data['training_metrics'][0]['value']) + "\n")
+        #     f.write(str(candidate.data['test_metrics'][0]['value']) + "\n")
+        #     f.close()
+        #
+        #     print("******************\n[INFO] Saving Best Pipeline")
+        #     # save the pipeline
+        #
+        #     try:
+        #         # pipeline = FittedPipeline.create(configuration=candidate,
+        #         #                                  dataset=self.dataset)
+        #         fitted_pipeline = candidate.data['fitted_pipeline']
+        #         fitted_pipeline.save(self.output_directory)
+        #     except:
+        #         raise NotSupportedError(
+        #             '[ERROR] Save Failed!')
+        #     ####################
+        #     return Status.OK
+
 
     def test(self) -> Status:
         """
@@ -488,8 +623,7 @@ class Controller:
             read_pipeline_id = lastmodified.split('/')[-1].split('.')[0]
 
         pipeline_load, run = FittedPipeline.load(folder_loc=self.output_directory,
-                                                 pipeline_id=read_pipeline_id,
-                                                 log_dir=self.output_logs_dir)
+                                                 pipeline_id=read_pipeline_id)
         return self.output_directory, pipeline_load, read_pipeline_id, run
 
     def generate_configuration_space(self, template_desc: TemplateDescription, problem: typing.Dict, dataset: typing.Optional[Dataset]) -> ConfigurationSpace:
