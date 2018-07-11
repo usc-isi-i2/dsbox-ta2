@@ -23,6 +23,17 @@ controller = Controller('/', development_mode=True)
 
 import getpass
 
+import psutil
+
+
+def cleanup():
+    current_process = psutil.Process()
+    children = current_process.children(recursive=True)
+    for child in children:
+        print('[INFO] Child pid {} killed!'.format(child.pid))
+        os.kill(child, 9)
+
+
 def main(args):
 
     library_directory = os.path.dirname(
@@ -77,6 +88,7 @@ def main(args):
 
             # This os._exit() cannot be caught.
             # print('SIGNAL exiting {}'.format(configuration_file), flush=True)
+            cleanup()
             os._exit(0)
 
     # Set timeout, alarm and signal handler
