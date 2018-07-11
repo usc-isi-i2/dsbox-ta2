@@ -4,6 +4,7 @@ import os
 import random
 import traceback
 import typing
+import logging
 
 from multiprocessing import Pool, current_process, Manager
 from itertools import zip_longest
@@ -32,6 +33,8 @@ from .pipeline_utilities import pipe2str
 
 
 T = typing.TypeVar("T")
+_logger = logging.getLogger(__name__)
+
 
 def get_target_columns(dataset: 'Dataset', problem_doc_metadata: 'Metadata'):
     problem = problem_doc_metadata.query(())["inputs"]["data"]
@@ -455,6 +458,11 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
         # Save results
         if self.output_directory is not None:
             fitted_pipeline.save(self.output_directory)
+            _logger.info("Test pickled pipeline. id: {}".format(fitted_pipeline.id))
+            try:
+                self.test_pickled_pipeline(folder_loc=self.output_directory, pipeline_id=fitted_pipeline.id, test_metrics=test_metrics)
+            except:
+                print("[WARN] Test picked pipeline failed, id: {}".format(fitted_pipeline.id))
 
         data = {
             'fitted_pipeline': fitted_pipeline,
@@ -464,6 +472,12 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
         }
 
         return data
+
+    def test_pickled_pipeline(self, folder_loc: str, pipeline_id: str, test_metrics: typing.List) -> None:
+        fitted_pipeline, run = FittedPipeline.load(folder_loc=folder_loc, pipeline_id=pipeline_id, log_dir=self.log_dir)
+        pipeline_output = run.produce(inputs=[self.test_dataset])
+        print("dasdsadsadsadsa", test_metrics)
+        print(pipeline_output)
 
 
 PythonPathWithHyperaram = typing.Tuple[PythonPath, int, HyperparamDirective]
