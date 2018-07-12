@@ -298,7 +298,7 @@ class Runtime:
 
 
                         if model is None:
-                            return result
+                            return results
 
                         trainX = X.take(train, axis=0)
                         trainY = y.take(train, axis=0).values.ravel()
@@ -408,7 +408,8 @@ class Runtime:
                     steps_outputs[n_step] = None
 
             if _logger.getEffectiveLevel() <= 10:
-                debug_file = os.path.join(self.log_dir, '{}_{}_{:02}_{}'.format(self.pipeline_description.id, self.fitted_pipeline_id, n_step, primitive_step.primitive))
+                debug_file = os.path.join(self.log_dir, 'dfs'
+                                          '{}_{}_{:02}_{}'.format(self.pipeline_description.id, self.fitted_pipeline_id, n_step, primitive_step.primitive))
                 _logger.debug(
                     "'id': '%(pipeline_id)s', 'fitted': '%(fitted_pipeline_id)s', 'name': '%(name)s', 'worker_id': '%(worker_id)s'. Output is written to: '%(path)s'.",
                     {
