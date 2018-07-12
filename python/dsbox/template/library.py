@@ -546,19 +546,9 @@ class DefaultClassificationTemplate(DSBoxTemplate):
                     "inputs": ["to_dataframe_step"]
                 },
                 {
-                    "name": "profile_step",
-                    "primitives": ["d3m.primitives.dsbox.Profiler"],
-                    "inputs": ["extract_attribute_step"]
-                },
-                {
-                    "name": "cleaning_step",
-                    "primitives": ["d3m.primitives.dsbox.CleaningFeaturizer"],
-                    "inputs": ["profile_step"]
-                },
-                {
                     "name": "column_parser_step",
                     "primitives": ["d3m.primitives.data.ColumnParser"],
-                    "inputs": ["cleaning_step"]
+                    "inputs": ["extract_attribute_step"]
                 },
                 {
                     "name": "cast_1_step",
