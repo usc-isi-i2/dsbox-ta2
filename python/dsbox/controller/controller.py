@@ -38,7 +38,7 @@ from sklearn.model_selection import StratifiedShuffleSplit, ShuffleSplit
 import pandas as pd
 
 FORMATTER = "[%(levelname)s] - %(asctime)s - %(name)s - %(message)s"
-LOGGING_LEVER = logging.INFO
+LOGGING_LEVER = logging.DEBUG
 LOG_FILENAME = 'dsbox.log'
 
 def split_dataset(dataset, problem, problem_loc=None, *, random_state=42, test_size=0.2):
