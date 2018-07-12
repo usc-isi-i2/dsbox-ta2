@@ -197,6 +197,32 @@ class Runtime:
                     # print("[INFO] Updating cache!")
                     cache[(prim_name, prim_hash)] = (
                     primitives_outputs[n_step].copy(), model)
+                    if _logger.getEffectiveLevel() <= 10:
+                        debug_file = os.path.join(
+                            self.log_dir, 'dfs',
+                            'fit_{}_{}_{:02}_{}'.format(self.pipeline_description.id, self.fitted_pipeline_id, n_step, primitive_step.primitive))
+                        _logger.debug(
+                            "'id': '%(pipeline_id)s', 'fitted': '%(fitted_pipeline_id)s', 'name': '%(name)s', 'worker_id': '%(worker_id)s'. Output is written to: '%(path)s'.",
+                            {
+                                'pipeline_id': self.pipeline_description.id,
+                                'fitted_pipeline_id': self.fitted_pipeline_id,
+                                'name': primitive_step.primitive,
+                                'worker_id': current_process(),
+                                'path': debug_file
+                            },
+                        )
+                        if primitives_outputs[n_step] is None:
+                            with open(debug_file) as f:
+                                f.write("None")
+                        else:
+                            if isinstance(primitives_outputs[n_step], DataFrame):
+                                try:
+                                    primitives_outputs[n_step][:50].to_csv(debug_file)
+                                except:
+                                    pass
+
+
+
         # kyao!!!!
         self.fit_outputs = primitives_outputs
 
@@ -251,7 +277,9 @@ class Runtime:
         model.set_training_data(**training_arguments)
         model.fit()
         self.pipeline[n_step] = model
-        return model.produce(**produce_params).value,model
+
+        produce_result = model.produce(**produce_params)
+        return produce_result.value,model
 
     def _cross_validation(self, primitive: typing.Type[base.PrimitiveBase],
                           training_arguments: typing.Dict,
@@ -408,8 +436,8 @@ class Runtime:
                     steps_outputs[n_step] = None
 
             if _logger.getEffectiveLevel() <= 10:
-                debug_file = os.path.join(self.log_dir, 'dfs'
-                                          '{}_{}_{:02}_{}'.format(self.pipeline_description.id, self.fitted_pipeline_id, n_step, primitive_step.primitive))
+                debug_file = os.path.join(self.log_dir, 'dfs',
+                                          'produce_{}_{}_{:02}_{}'.format(self.pipeline_description.id, self.fitted_pipeline_id, n_step, primitive_step.primitive))
                 _logger.debug(
                     "'id': '%(pipeline_id)s', 'fitted': '%(fitted_pipeline_id)s', 'name': '%(name)s', 'worker_id': '%(worker_id)s'. Output is written to: '%(path)s'.",
                     {
