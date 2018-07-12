@@ -16,6 +16,7 @@ from .utils import larger_is_better
 
 TP = typing.TypeVar('TP', bound='FittedPipeline')
 
+
 class FittedPipeline:
     """
     Fitted pipeline
@@ -49,7 +50,7 @@ class FittedPipeline:
 
         self.log_dir = log_dir
 
-        self.runtime = Runtime(pipeline, self.log_dir)
+        self.runtime = Runtime(pipeline, self.id, self.log_dir)
 
         self.metric_descriptions = list(metric_descriptions)
         self.runtime.set_metric_descriptions(self.metric_descriptions)
@@ -101,7 +102,6 @@ class FittedPipeline:
 
     def get_produce_step_output(self, step_number: int):
         return self.runtime.produce_outputs[step_number]
-
 
     def save(self, folder_loc : str) -> None:
         '''
@@ -196,7 +196,7 @@ class FittedPipeline:
         supporting_files_dir = os.path.join(folder_loc, 'supporting_files',
                                             fitted_pipeline_id)
 
-        run = Runtime(pipeline_to_load, log_dir)
+        run = Runtime(pipeline_to_load, fitted_pipeline_id, log_dir)
 
         for i in range(0, len(run.execution_order)):
             # print("Now loading step", i)
@@ -234,6 +234,7 @@ class FittedPipeline:
         state['fitted_pipe'] = self.runtime.pipeline
         state['pipeline'] = self.pipeline.to_json_structure()
         state['log_dir'] = self.log_dir
+        state['id'] = self.id
         del state['runtime']  # remove runtime entry
 
         return state
@@ -257,7 +258,7 @@ class FittedPipeline:
         structure = state['pipeline']
         state['pipeline'] = Pipeline.from_json_structure(structure)
 
-        run = Runtime(state['pipeline'], state['log_dir'])
+        run = Runtime(state['pipeline'], state['id'], state['log_dir'])
         run.pipeline = fitted
 
         state['runtime'] = run

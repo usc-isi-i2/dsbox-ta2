@@ -38,7 +38,7 @@ from sklearn.model_selection import StratifiedShuffleSplit, ShuffleSplit
 import pandas as pd
 
 FORMATTER = "[%(levelname)s] - %(asctime)s - %(name)s - %(message)s"
-LOGGING_LEVER = logging.INFO
+LOGGING_LEVER = logging.DEBUG
 LOG_FILENAME = 'dsbox.log'
 
 def split_dataset(dataset, problem, problem_loc=None, *, random_state=42, test_size=0.2):
@@ -463,12 +463,12 @@ class Controller:
             prediction_col_name = prediction.columns[0]
             prediction['d3mIndex'] = d3m_index
             prediction = prediction[['d3mIndex', prediction_col_name]]
-            prediction = prediction.rename(columns={prediction_col_name:prediction_class_name})
+            prediction = prediction.rename(columns={prediction_col_name: prediction_class_name})
         prediction_folder_loc = outputs_loc + "/predictions/" + read_pipeline_id
         folder = os.path.exists(prediction_folder_loc)
         if not folder:
             os.makedirs(prediction_folder_loc)
-        prediction.to_csv(prediction_folder_loc + "/predictions.csv", index = False)
+        prediction.to_csv(prediction_folder_loc + "/predictions.csv", index=False)
         print("[INFO] Finished: prediction results saving finished")
         print("[INFO] The prediction results is stored at: ", prediction_folder_loc)
         return Status.OK
