@@ -4,6 +4,7 @@ import os
 import random
 import traceback
 import typing
+import logging
 
 from multiprocessing import Pool, current_process, Manager
 from itertools import zip_longest
@@ -32,6 +33,8 @@ from .pipeline_utilities import pipe2str
 
 
 T = typing.TypeVar("T")
+_logger = logging.getLogger(__name__)
+
 
 def get_target_columns(dataset: 'Dataset', problem_doc_metadata: 'Metadata'):
     problem = problem_doc_metadata.query(())["inputs"]["data"]
@@ -456,6 +459,14 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
         # Save results
         if self.output_directory is not None:
             fitted_pipeline.save(self.output_directory)
+            _logger.info("Test pickled pipeline. id: {}".format(fitted_pipeline.id))
+            try:
+                self.test_pickled_pipeline(folder_loc=self.output_directory,
+                                           pipeline_id=fitted_pipeline.id,
+                                           test_metrics=test_metrics,
+                                           test_ground_truth=test_ground_truth)
+            except:
+                print("[WARN] Test picked pipeline failed, id: {}".format(fitted_pipeline.id))
 
         data = {
             'fitted_pipeline': fitted_pipeline,
@@ -465,6 +476,60 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
         }
 
         return data
+
+    def test_pickled_pipeline(self,
+                              folder_loc: str,
+                              pipeline_id: str,
+                              test_metrics: typing.List,
+                              test_ground_truth) -> None:
+
+        fitted_pipeline, run = FittedPipeline.load(folder_loc=folder_loc, pipeline_id=pipeline_id, log_dir=self.log_dir)
+        results = fitted_pipeline.produce(inputs=[self.test_dataset])
+        pipeline_pridiction = fitted_pipeline.get_produce_step_output(self.template.get_output_step_number())
+
+        test_pipeline_metrics = list()
+        for metric_description in self.performance_metrics:
+            metricDesc = PerformanceMetric.parse(metric_description['metric'])
+            metric: typing.Callable = metricDesc.get_function()
+            params: typing.Dict = metric_description['params']
+
+            try:
+                if 'regression' in self.problem.query(())['about']['taskType']:
+                    # if the test_ground_truth do not have results
+                    if test_ground_truth.iloc[0, -1] == '':
+                        test_ground_truth.iloc[:, -1] = 0
+                    test_pipeline_metrics.append({
+                        'metric': metric_description['metric'],
+                        'value': metric(
+                            test_ground_truth.iloc[:, -1].astype(float),
+                            pipeline_pridiction.iloc[:, -1].astype(float),
+                            **params
+                        )
+                    })
+                else:
+                    test_pipeline_metrics.append({
+                        'metric': metric_description['metric'],
+                        'value': metric(
+                            test_ground_truth.iloc[:, -1].astype(str),
+                            pipeline_pridiction.iloc[:, -1].astype(str),
+                            **params
+                        )
+                    })
+            except:
+                raise NotSupportedError(
+                    '[ERROR] metric calculation failed in test pickled pipeline')
+
+        pairs = zip(test_metrics, test_pipeline_metrics)
+        if any(x != y for x, y in pairs):
+            print("[WARN] Test pickled pipeline mismatch. id: {}".format(fitted_pipeline.id))
+            _logger.warning(
+                "Test pickled pipeline mismatch. 'id': '%(id)s', 'test__metric': '%(test__metric)s', 'pickled_pipeline__metric': '%(pickled_pipeline__metric)s'.",
+                {
+                    'id': fitted_pipeline.id,
+                    'test__metric': test_metrics,
+                    'pickled_pipeline__metric': test_pipeline_metrics
+                },
+            )
 
 
 PythonPathWithHyperaram = typing.Tuple[PythonPath, int, HyperparamDirective]
