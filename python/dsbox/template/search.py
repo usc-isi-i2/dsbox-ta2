@@ -461,13 +461,10 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
         if self.output_directory is not None:
             fitted_pipeline.save(self.output_directory)
             _logger.info("Test pickled pipeline. id: {}".format(fitted_pipeline.id))
-            try:
-                self.test_pickled_pipeline(folder_loc=self.output_directory,
+            self.test_pickled_pipeline(folder_loc=self.output_directory,
                                            pipeline_id=fitted_pipeline.id,
                                            test_metrics=test_metrics,
                                            test_ground_truth=test_ground_truth)
-            except:
-                print("[WARN] Test picked pipeline failed, id: {}".format(fitted_pipeline.id))
 
         data = {
             'fitted_pipeline': fitted_pipeline,
@@ -521,13 +518,14 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
                     '[ERROR] metric calculation failed in test pickled pipeline')
 
         pairs = zip(test_metrics, test_pipeline_metrics)
-        if any(x != y for x, y in pairs):
-            warn("Test pickled pipeline mismatch. 'id': '%(id)s', 'test__metric': '%(test__metric)s', 'pickled_pipeline__metric': '%(pickled_pipeline__metric)s'.",
+        if any(x == y for x, y in pairs):
+            warn("[WARN] Test pickled pipeline mismatch. id: {}".format(fitted_pipeline.id))
+            print(
                 {
                     'id': fitted_pipeline.id,
                     'test__metric': test_metrics,
                     'pickled_pipeline__metric': test_pipeline_metrics
-                },
+                }
             )
             print("\n" * 5)
             _logger.warning(
