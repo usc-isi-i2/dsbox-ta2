@@ -460,7 +460,10 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
             fitted_pipeline.save(self.output_directory)
             _logger.info("Test pickled pipeline. id: {}".format(fitted_pipeline.id))
             try:
-                self.test_pickled_pipeline(folder_loc=self.output_directory, pipeline_id=fitted_pipeline.id, test_metrics=test_metrics)
+                self.test_pickled_pipeline(folder_loc=self.output_directory,
+                                           pipeline_id=fitted_pipeline.id,
+                                           test_metrics=test_metrics,
+                                           test_ground_truth=test_ground_truth)
             except:
                 print("[WARN] Test picked pipeline failed, id: {}".format(fitted_pipeline.id))
 
@@ -473,11 +476,58 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
 
         return data
 
-    def test_pickled_pipeline(self, folder_loc: str, pipeline_id: str, test_metrics: typing.List) -> None:
+    def test_pickled_pipeline(self,
+                              folder_loc: str,
+                              pipeline_id: str,
+                              test_metrics: typing.List,
+                              test_ground_truth) -> None:
+
         fitted_pipeline, run = FittedPipeline.load(folder_loc=folder_loc, pipeline_id=pipeline_id, log_dir=self.log_dir)
-        pipeline_output = run.produce(inputs=[self.test_dataset])
-        print("dasdsadsadsadsa", test_metrics)
-        print(pipeline_output)
+        results = fitted_pipeline.produce(inputs=[self.test_dataset])
+        pipeline_pridiction = fitted_pipeline.get_produce_step_output(self.template.get_output_step_number())
+
+        test_pipeline_metrics = list()
+        for metric_description in self.performance_metrics:
+            metricDesc = PerformanceMetric.parse(metric_description['metric'])
+            metric: typing.Callable = metricDesc.get_function()
+            params: typing.Dict = metric_description['params']
+
+            try:
+                if 'regression' in self.problem.query(())['about']['taskType']:
+                    # if the test_ground_truth do not have results
+                    if test_ground_truth.iloc[0, -1] == '':
+                        test_ground_truth.iloc[:, -1] = 0
+                    test_pipeline_metrics.append({
+                        'metric': metric_description['metric'],
+                        'value': metric(
+                            test_ground_truth.iloc[:, -1].astype(float),
+                            pipeline_pridiction.iloc[:, -1].astype(float),
+                            **params
+                        )
+                    })
+                else:
+                    test_pipeline_metrics.append({
+                        'metric': metric_description['metric'],
+                        'value': metric(
+                            test_ground_truth.iloc[:, -1].astype(str),
+                            pipeline_pridiction.iloc[:, -1].astype(str),
+                            **params
+                        )
+                    })
+            except:
+                raise NotSupportedError(
+                    '[ERROR] metric calculation failed in test pickled pipeline')
+
+        pairs = zip(test_metrics, test_pipeline_metrics)
+        if any(x != y for x, y in pairs):
+            _logger.warning(
+                "Test pickled pipeline mismatch. 'id': '%(id)s', 'test__metric': '%(test__metric)s', 'pickled_pipeline__metric': '%(pickled_pipeline__metric)s'.",
+                {
+                    'id': fitted_pipeline.id,
+                    'test__metric': test_metrics,
+                    'pickled_pipeline__metric': test_pipeline_metrics
+                },
+            )
 
 
 PythonPathWithHyperaram = typing.Tuple[PythonPath, int, HyperparamDirective]
