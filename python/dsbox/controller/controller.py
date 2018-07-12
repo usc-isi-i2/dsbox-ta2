@@ -159,7 +159,7 @@ class Controller:
         random.seed(4676)
 
         # Output directories
-        self.output_directory: str = '/outputs/'
+        self.output_directory: str = '/output/'
         self.output_pipelines_dir: str = ""
         self.output_executables_dir: str = ""
         self.output_supporting_files_dir: str = ""
