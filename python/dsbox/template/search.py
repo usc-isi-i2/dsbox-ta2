@@ -518,7 +518,7 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
                     '[ERROR] metric calculation failed in test pickled pipeline')
 
         pairs = zip(test_metrics, test_pipeline_metrics)
-        if any(x == y for x, y in pairs):
+        if any(x != y for x, y in pairs):
             warn("[WARN] Test pickled pipeline mismatch. id: {}".format(fitted_pipeline.id))
             print(
                 {
