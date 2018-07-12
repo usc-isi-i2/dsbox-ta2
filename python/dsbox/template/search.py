@@ -373,6 +373,7 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
         try:
             evaluation_result = self._evaluate(configuration, cache)
         except:
+            traceback.print_exc()
             return None
         # configuration.data.update(new_data)
         return evaluation_result
