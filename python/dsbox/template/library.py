@@ -57,7 +57,7 @@ class TemplateLibrary:
             "Default_timeseries_collection_template": DefaultTimeseriesCollectionTemplate,
             "Default_image_processing_regression_template": DefaultImageProcessingRegressionTemplate,
             "Default_GraphMatching_Template": DefaultGraphMatchingTemplate,
-            "TA1_Classification_Template": TA1ClassificationTemplate
+            "TA1_Classification_Template": TA1ClassificationTemplate1
         }
 
         if run_single_template:
@@ -568,15 +568,15 @@ class DefaultClassificationTemplate(DSBoxTemplate):
                     "primitives": ["d3m.primitives.data.CastToType"],
                     "inputs": ["column_parser_step"]
                 },
-                # {
-                #     "name": "corex_step",
-                #     "primitives": ["d3m.primitives.dsbox.CorexText"],
-                #     "inputs": ["cast_1_step"]
-                # },
+                {
+                    "name": "corex_step",
+                    "primitives": ["d3m.primitives.dsbox.CorexText"],
+                    "inputs": ["cast_1_step"]
+                },
                 {
                     "name": "impute_step",
                     "primitives": ["d3m.primitives.sklearn_wrap.SKImputer"],
-                    "inputs": ["column_parser_step"]
+                    "inputs": ["corex_step"]
                 },
                 {
                     "name": "extract_target_step",
@@ -596,23 +596,25 @@ class DefaultClassificationTemplate(DSBoxTemplate):
                         "cross_validation": 10,
                         "stratified": True
                     },
-                    "primitives": [{
-                        "primitive":
-                            "d3m.primitives.sklearn_wrap.SKRandomForestClassifier",
-                        "hyperparameters":
-                            {
-                            'max_depth': [(2),(4),(8)], #(10), #
-                            'n_estimators':[(10),(20),(30)]
-                            }
-                        },
+                    "primitives": [
+                        # {
+                        # "primitive":
+                        #     "d3m.primitives.sklearn_wrap.SKRandomForestClassifier",
+                        # "hyperparameters":
+                        #     {
+                        #     'max_depth': [(2),(4),(8)], #(10), #
+                        #     'n_estimators':[(10),(20),(30)]
+                        #     }
+                        # },
+                        # {
+                        # "primitive":
+                        #     "d3m.primitives.sklearn_wrap.SKLinearSVC",
+                        # "hyperparameters":
+                        #     {
+                        #     'C': [(1), (10), (100)],  # (10), #
+                        #     }
+                        # },
                         {
-                        "primitive":
-                            "d3m.primitives.sklearn_wrap.SKLinearSVC",
-                        "hyperparameters":
-                            {
-                            'C': [(1), (10), (100)],  # (10), #
-                            }
-                        },{
                         "primitive":
                             "d3m.primitives.sklearn_wrap.SKMultinomialNB",
                         "hyperparameters":
@@ -933,11 +935,11 @@ class DefaultGraphMatchingTemplate(DSBoxTemplate):
         return 7
 
 
-class TA1ClassificationTemplate(DSBoxTemplate):
+class TA1ClassificationTemplate1(DSBoxTemplate):
     def __init__(self):
         DSBoxTemplate.__init__(self)
         self.template = {
-            "name": "TA1_Classification_Template",
+            "name": "TA1_classification_template_1",
             "taskSubtype" : {TaskSubtype.BINARY.name,TaskSubtype.MULTICLASS.name},
             "taskType": TaskType.CLASSIFICATION.name,
             "inputType": "table",  # See SEMANTIC_TYPES.keys() for range of values

@@ -522,7 +522,14 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
 
         pairs = zip(test_metrics, test_pipeline_metrics)
         if any(x != y for x, y in pairs):
-            warn("[WARN] Test pickled pipeline mismatch. id: {}".format(fitted_pipeline.id))
+            warn("Test pickled pipeline mismatch. 'id': '%(id)s', 'test__metric': '%(test__metric)s', 'pickled_pipeline__metric': '%(pickled_pipeline__metric)s'.",
+                {
+                    'id': fitted_pipeline.id,
+                    'test__metric': test_metrics,
+                    'pickled_pipeline__metric': test_pipeline_metrics
+                },
+            )
+            print("\n" * 5)
             _logger.warning(
                 "Test pickled pipeline mismatch. 'id': '%(id)s', 'test__metric': '%(test__metric)s', 'pickled_pipeline__metric': '%(pickled_pipeline__metric)s'.",
                 {
@@ -531,6 +538,11 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
                     'pickled_pipeline__metric': test_pipeline_metrics
                 },
             )
+            print("\n" * 5)
+        else:
+            print("\n" * 5)
+            print("Pickling succeeded")
+            print("\n" * 5)
 
 
 PythonPathWithHyperaram = typing.Tuple[PythonPath, int, HyperparamDirective]
