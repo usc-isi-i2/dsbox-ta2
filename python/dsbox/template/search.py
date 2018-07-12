@@ -520,6 +520,7 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
 
         pairs = zip(test_metrics, test_pipeline_metrics)
         if any(x != y for x, y in pairs):
+            print("[WARN] Test pickled pipeline mismatch. id: {}".format(fitted_pipeline.id))
             _logger.warning(
                 "Test pickled pipeline mismatch. 'id': '%(id)s', 'test__metric': '%(test__metric)s', 'pickled_pipeline__metric': '%(pickled_pipeline__metric)s'.",
                 {
