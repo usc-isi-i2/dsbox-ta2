@@ -42,7 +42,7 @@ class TemplateLibrary:
     Library of template pipelines
     """
 
-    def __init__(self, library_dir: str = None) -> None:
+    def __init__(self, library_dir: str = None, run_single_template: bool = False) -> None:
         self.templates: typing.List[typing.Type[DSBoxTemplate]] = []
         self.primitive: typing.Dict = index.search()
 
@@ -50,7 +50,10 @@ class TemplateLibrary:
         if self.library_dir is None:
             self._load_library()
 
-        self._load_inline_templates()
+        if run_single_template:
+            self._load_single_inline_templates()
+        else:
+            self._load_inline_templates()
 
     def get_templates(self, task: TaskType, subtype: TaskSubtype, taskSourceType: SEMANTIC_TYPES) -> typing.List[DSBoxTemplate]:
         results = []
@@ -101,6 +104,10 @@ class TemplateLibrary:
         #self.templates.append(DoesNotMatchTemplate2)
 
         # self.templates.append(TA1ClassificationTemplate)
+
+    def _load_single_inline_templates(self):
+        self.templates.append(DefaultClassificationTemplate)
+
 
 class SemanticTypeDict(object):
     def __init__(self, libdir):
@@ -539,9 +546,19 @@ class DefaultClassificationTemplate(DSBoxTemplate):
                     "inputs": ["to_dataframe_step"]
                 },
                 {
+                    "name": "profile_step",
+                    "primitives": ["d3m.primitives.dsbox.Profiler"],
+                    "inputs": ["extract_attribute_step"]
+                },
+                {
+                    "name": "cleaning_step",
+                    "primitives": ["d3m.primitives.dsbox.CleaningFeaturizer"],
+                    "inputs": ["profile_step"]
+                },
+                {
                     "name": "column_parser_step",
                     "primitives": ["d3m.primitives.data.ColumnParser"],
-                    "inputs": ["extract_attribute_step"]
+                    "inputs": ["cleaning_step"]
                 },
                 {
                     "name": "cast_1_step",
