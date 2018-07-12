@@ -23,12 +23,6 @@ from d3m.metadata.pipeline import Pipeline, PrimitiveStep, Resolver
 from d3m.primitive_interfaces import base
 from multiprocessing import current_process
 
-TEMP_DIR = '/tmp' if platform.system() == 'Darwin' else tempfile.gettempdir()
-# TEMP_DIR = os.path.join(TEMP_DIR, getpass.getuser())
-TEMP_DIR = os.path.join(TEMP_DIR, 'qasemi')
-if not os.path.exists(TEMP_DIR):
-    os.mkdir(TEMP_DIR)
-
 _logger = logging.getLogger(__name__)
 
 
@@ -55,7 +49,7 @@ class Runtime:
         A pipeline description to be executed.
     """
 
-    def __init__(self, pipeline_description: Pipeline) -> None:
+    def __init__(self, pipeline_description: Pipeline, log_dir) -> None:
         self.pipeline_description = pipeline_description
         n_steps = len(self.pipeline_description.steps)
 
@@ -67,6 +61,7 @@ class Runtime:
 
         self.pipeline: typing.List[typing.Optional[base.PrimitiveBase]] = [None] * n_steps
         self.outputs: typing.List[typing.Tuple[str, int]] = []
+        self.log_dir = log_dir
 
         # Getting the outputs
         for output in self.pipeline_description.outputs:
@@ -416,18 +411,18 @@ class Runtime:
                     'primitive_id': primitive_step.primitive_description['id'],
                     'name': primitive_step.primitive,
                     'worker_id': current_process(),
-                    'path': os.path.join(TEMP_DIR, "dfs", str(current_process())+primitive_step.primitive_description['id'])
+                    'path': os.path.join(self.log_dir, "dfs", str(current_process())+primitive_step.primitive_description['id'])
                 },
             )
 
-            if _logger.getEffectiveLevel() == 10:
+            if _logger.getEffectiveLevel() <= 10:
                 if steps_outputs[n_step] is None:
-                    with open(os.path.join(TEMP_DIR, "dfs", str(current_process())+primitive_step.primitive_description['id'])) as f:
+                    with open(os.path.join(self.log_dir, "dfs", str(current_process())+primitive_step.primitive_description['id'])) as f:
                         f.write("None")
                 else:
                     if isinstance(steps_outputs[n_step], DataFrame):
                         try:
-                            steps_outputs[n_step][:50].to_csv(os.path.join(TEMP_DIR, "dfs", str(current_process())+primitive_step.primitive_description['id']))
+                            steps_outputs[n_step][:50].to_csv(os.path.join(self.log_dir, "dfs", str(current_process())+primitive_step.primitive_description['id']))
                         except:
                             pass
 
