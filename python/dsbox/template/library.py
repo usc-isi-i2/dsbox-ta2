@@ -913,11 +913,11 @@ class DefaultGraphMatchingTemplate(DSBoxTemplate):
         return 7
 
 
-class TA1ClassificationTemplate(DSBoxTemplate):
+class TA1ClassificationTemplate1(DSBoxTemplate):
     def __init__(self):
         DSBoxTemplate.__init__(self)
         self.template = {
-            "name": "Default_classification_template",
+            "name": "TA1_classification_template_1",
             "taskSubtype" : {TaskSubtype.BINARY.name,TaskSubtype.MULTICLASS.name},
             "taskType": TaskType.CLASSIFICATION.name,
             "inputType": "table",  # See SEMANTIC_TYPES.keys() for range of values
