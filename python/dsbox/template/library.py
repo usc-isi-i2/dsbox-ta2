@@ -42,7 +42,7 @@ class TemplateLibrary:
     Library of template pipelines
     """
 
-    def __init__(self, library_dir: str = None) -> None:
+    def __init__(self, library_dir: str = None, run_single_template: str = "") -> None:
         self.templates: typing.List[typing.Type[DSBoxTemplate]] = []
         self.primitive: typing.Dict = index.search()
 
@@ -50,7 +50,20 @@ class TemplateLibrary:
         if self.library_dir is None:
             self._load_library()
 
-        self._load_inline_templates()
+        self.all_templates = {
+            "Default_classification_template": DefaultClassificationTemplate,
+            "Test_classification_template": TestClassificationTemplate,
+            "Default_regression_template": DefaultRegressionTemplate,
+            "Default_timeseries_collection_template": DefaultTimeseriesCollectionTemplate,
+            "Default_image_processing_regression_template": DefaultImageProcessingRegressionTemplate,
+            "Default_GraphMatching_Template": DefaultGraphMatchingTemplate,
+            "TA1_Classification_Template": TA1ClassificationTemplate1
+        }
+
+        if run_single_template:
+            self._load_single_inline_templates(run_single_template)
+        else:
+            self._load_inline_templates()
 
     def get_templates(self, task: TaskType, subtype: TaskSubtype, taskSourceType: SEMANTIC_TYPES) -> typing.List[DSBoxTemplate]:
         results = []
@@ -101,6 +114,13 @@ class TemplateLibrary:
         #self.templates.append(DoesNotMatchTemplate2)
 
         # self.templates.append(TA1ClassificationTemplate)
+
+    def _load_single_inline_templates(self, template_name):
+        if template_name in self.all_templates:
+            self.templates.append(self.all_templates[template_name])
+        else:
+            raise KeyError("Template not found, name: {}".format(template_name))
+
 
 class SemanticTypeDict(object):
     def __init__(self, libdir):
@@ -651,7 +671,7 @@ class DefaultRegressionTemplate(DSBoxTemplate):
     def __init__(self):
         DSBoxTemplate.__init__(self)
         self.template = {
-            "name": "default_regression_template",
+            "name": "Default_regression_template",
             "taskType": TaskType.REGRESSION.name,
             # See TaskType, range include 'CLASSIFICATION', 'CLUSTERING',
             # 'COLLABORATIVE_FILTERING', 'COMMUNITY_DETECTION',

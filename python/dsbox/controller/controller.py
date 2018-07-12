@@ -125,9 +125,10 @@ class Status(enum.Enum):
 class Controller:
     TIMEOUT = 59  # in minutes
 
-    def __init__(self, library_dir: str, development_mode: bool = False) -> None:
-        self.library_dir: str = os.path.abspath(library_dir)
+    def __init__(self, development_mode: bool = False, run_single_template: str = "") -> None:
         self.development_mode: bool = development_mode
+
+        self.run_single_template = run_single_template
 
         # self.config: typing.Dict = {}
 
@@ -149,7 +150,10 @@ class Controller:
         self.timeout: int = 0  # in seconds
 
         # Templates
-        self.template_library = TemplateLibrary()
+        if self.run_single_template:
+            self.template_library = TemplateLibrary(run_single_template=run_single_template)
+        else:
+            self.template_library = TemplateLibrary()
         self.template: typing.List[DSBoxTemplate] = []
 
         # Primitives
