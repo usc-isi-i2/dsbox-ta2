@@ -16,6 +16,7 @@ from .utils import larger_is_better
 
 TP = typing.TypeVar('TP', bound='FittedPipeline')
 
+
 class FittedPipeline:
     """
     Fitted pipeline
@@ -101,7 +102,6 @@ class FittedPipeline:
 
     def get_produce_step_output(self, step_number: int):
         return self.runtime.produce_outputs[step_number]
-
 
     def save(self, folder_loc : str) -> None:
         '''
