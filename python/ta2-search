@@ -19,19 +19,17 @@ import dsbox.controller.controller
 reload(dsbox.controller.controller)
 from dsbox.controller.controller import Controller
 import os
-controller = Controller('/', development_mode=True)
+controller = Controller(development_mode=True)
 
 import getpass
 
 def main(args):
 
-    library_directory = os.path.dirname(
-        os.path.realpath(__file__)) + "/library"
     timeout = 0
     configuration_file = args.configuration_file
     debug = args.debug
 
-    controller = Controller(library_directory, development_mode=debug)
+    controller = Controller(development_mode=debug)
 
     with open(configuration_file) as data:
         config = json.load(data)
@@ -44,13 +42,6 @@ def main(args):
         config["executables_root"] = output_location + "/executables"
         config["pipeline_logs_root"] = output_location + "/logs"
         config["saved_pipeline_ID"] = ""
-
-        if not os.path.exists(config["temp_storage_root"]):
-            os.makedirs(config["temp_storage_root"])
-        if not os.path.exists(config["executables_root"]):
-            os.makedirs(config["executables_root"])
-        if not os.path.exists(config["pipeline_logs_root"]):
-            os.makedirs(config["pipeline_logs_root"])
 
     # Define signal handler to exit gracefully
     # Either on an interrupt or after a certain time
