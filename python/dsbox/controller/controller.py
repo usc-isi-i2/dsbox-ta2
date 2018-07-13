@@ -374,7 +374,6 @@ class Controller:
                 template, space, d3m.index.search(), self.problem_doc_metadata, self.dataset,
                 self.test_dataset, metrics, output_directory=self.output_directory, log_dir=self.output_logs_dir, num_workers=self.num_cpus)
 
-
         candidate, value = search.search_one_iter()
 
         # assert "fitted_pipe" in candidate, "argument error!"
@@ -386,15 +385,18 @@ class Controller:
             print("******************\n[INFO] Writing results")
             print(candidate.data)
             print(candidate, value)
-            print('Training {} = {}'.format(
-                candidate.data['training_metrics'][0]['metric'],
-                candidate.data['training_metrics'][0]['value']))
-            print('Training {} = {}'.format(
-                candidate.data['cross_validation_metrics'][0]['metric'],
-                candidate.data['cross_validation_metrics'][0]['value']))
-            print('Test {} = {}'.format(
-                candidate.data['test_metrics'][0]['metric'],
-                candidate.data['test_metrics'][0]['value']))
+            if candidate.data['training_metrics']:
+                print('Training {} = {}'.format(
+                    candidate.data['training_metrics'][0]['metric'],
+                    candidate.data['training_metrics'][0]['value']))
+            if candidate.data['cross_validation_metrics']:
+                print('Training {} = {}'.format(
+                    candidate.data['cross_validation_metrics'][0]['metric'],
+                    candidate.data['cross_validation_metrics'][0]['value']))
+            if candidate.data['test_metrics']:
+                print('Test {} = {}'.format(
+                    candidate.data['test_metrics'][0]['metric'],
+                    candidate.data['test_metrics'][0]['value']))
 
             # FIXME: code used for doing experiments, want to make optionals
             # pipeline = FittedPipeline.create(configuration=candidate,
@@ -404,11 +406,15 @@ class Controller:
             save_location = os.path.join(self.output_logs_dir, dataset_name + ".txt")
 
             print("******************\n[INFO] Saving training results in", save_location)
-            f = open(save_location, "w+")
-            f.write(str(metrics) + "\n")
-            f.write(str(candidate.data['training_metrics'][0]['value']) + "\n")
-            f.write(str(candidate.data['test_metrics'][0]['value']) + "\n")
-            f.close()
+            try:
+                f = open(save_location, "w+")
+                f.write(str(metrics) + "\n")
+                f.write(str(candidate.data['training_metrics'][0]['value']) + "\n")
+                f.write(str(candidate.data['test_metrics'][0]['value']) + "\n")
+                f.close()
+            except:
+                raise NotSupportedError(
+                    '[ERROR] Save training results Failed!')
 
             print("******************\n[INFO] Saving Best Pipeline")
             # save the pipeline
