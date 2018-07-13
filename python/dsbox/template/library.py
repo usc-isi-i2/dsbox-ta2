@@ -570,8 +570,26 @@ class DefaultClassificationTemplate(DSBoxTemplate):
                 },
                 {
                     "name": "corex_step",
-                    "primitives": ["d3m.primitives.dsbox.CorexText"],
+                    "primitives": [
+                    {
+                    "primitive": "d3m.primitives.dsbox.CorexText",
+                    "hyperparameters":
+                        {
+                        # 'n_hidden':[(10)],
+                        # 'threshold':[(0)],
+                        # # 'threshold':[(0), (500)],
+                        # 'n_grams':[(1), (5)],
+                        # 'max_df':[(.9)],
+                        # 'min_df':[(.02)],
+                        }
+                    },
+                    ],
                     "inputs": ["cast_1_step"]
+                },
+                {
+                    "name": "impute_step",
+                    "primitives": ["d3m.primitives.sklearn_wrap.SKImputer"],
+                    "inputs": ["corex_step"]
                 },
                 {
                     "name": "impute_step",
