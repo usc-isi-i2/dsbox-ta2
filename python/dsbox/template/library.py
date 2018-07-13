@@ -52,7 +52,7 @@ class TemplateLibrary:
 
         self.all_templates = {
             "Default_classification_template": DefaultClassificationTemplate,
-            "Test_classification_template": dsboxClassificationTemplate,
+            "dsbox_classification_template": dsboxClassificationTemplate,
             "Default_regression_template": DefaultRegressionTemplate,
             "Default_timeseries_collection_template": DefaultTimeseriesCollectionTemplate,
             "Default_image_processing_regression_template": DefaultImageProcessingRegressionTemplate,
@@ -105,8 +105,8 @@ class TemplateLibrary:
 
         # added new inline_templates muxin
         self.templates.append(DefaultRegressionTemplate)
-        # self.templates.append(dsboxClassificationTemplate)
-        self.templates.append(DefaultClassificationTemplate)
+        self.templates.append(dsboxClassificationTemplate)
+        # self.templates.append(DefaultClassificationTemplate)
         self.templates.append(DefaultTimeseriesCollectionTemplate)
         self.templates.append(DefaultImageProcessingRegressionTemplate)
         self.templates.append(DefaultGraphMatchingTemplate)
@@ -433,6 +433,7 @@ def classifier_model(feature_name: str = "impute_step",
         }
     ]
 
+
 def default_dataparser(attribute_name: str="extract_attribute_step",
                        target_name: str = "extract_target_step"):
     return \
@@ -478,6 +479,7 @@ def default_dataparser(attribute_name: str="extract_attribute_step",
         }
     ]
 
+
 def d3m_preprocessing(attribute_name: str = "cast_1_step",
                       target_name: str = "extract_target_step"):
     return \
@@ -495,16 +497,12 @@ def d3m_preprocessing(attribute_name: str = "cast_1_step",
         },
     ]
 
+
 def dsbox_preprocessing(clean_name: str = "clean_step",
                         target_name: str = "extract_target_step"):
     return \
     [
         *default_dataparser(target_name=target_name),
-        # {
-        #     "name": "column_parser_step",
-        #     "primitives": ["d3m.primitives.data.ColumnParser"],
-        #     "inputs": ["extract_attribute_step"]
-        # },
         {
             "name": "profile_step",
             "primitives": ["d3m.primitives.dsbox.Profiler"],
@@ -515,17 +513,6 @@ def dsbox_preprocessing(clean_name: str = "clean_step",
             "primitives": ["d3m.primitives.dsbox.CleaningFeaturizer"],
             "inputs": ["profile_step"]
         },
-        # {
-        #     "name": processed_name,
-        #     "primitives": [{
-        #         "primitive": "d3m.primitives.data.CastToType",
-        #         "hyperparameters":
-        #             {
-        #                 'type_to_cast': ['str', 'float'],
-        #             }
-        #     }],
-        #     "inputs": ["cleaning_step"]
-        # },
     ]
 
 
@@ -556,8 +543,8 @@ def dsbox_encoding(clean_name: str="clean_step",
         #     "inputs": ["encode_text_step"]
         # },
         {
-            # "name": "encode_string_step",
-            "name": 'encode_string_step',
+            # "name": 'encode_string_step',
+            "name": encoded_name,
             "primitives": [
                 {"primitive": "d3m.primitives.dsbox.Encoder", },
                 {"primitive": "d3m.primitives.dsbox.DoNothing", },
@@ -565,21 +552,16 @@ def dsbox_encoding(clean_name: str="clean_step",
             "inputs": ["encode_text_step"]
         },
 
-        {
-            "name": encoded_name,
-            "primitives": [{
-                "primitive": "d3m.primitives.data.CastToType",
-                "hyperparameters":
-                    {
-                        'type_to_cast': ['float','str'],
-                    }
-            }],
-            "inputs": ["encode_string_step"]
-        },
         # {
         #     "name": encoded_name,
-        #     "primitives": ["d3m.primitives.data.CastToType"],
-        #     "inputs": ["column_parser_step"]
+        #     "primitives": [{
+        #         "primitive": "d3m.primitives.data.CastToType",
+        #         "hyperparameters":
+        #             {
+        #                 'type_to_cast': ['float','str'],
+        #             }
+        #     }],
+        #     "inputs": ["encode_string_step"]
         # },
     ]
 
@@ -589,7 +571,7 @@ def dsbox_imputer(encoded_name: str = "cast_1_step",
     return \
     [
         {
-            "name": "impute_step",
+            "name": impute_name,
             "primitives": [
                 {"primitive": "d3m.primitives.sklearn_wrap.SKImputer", },
                 {"primitive": "d3m.primitives.dsbox.GreedyImputation", },
@@ -597,9 +579,10 @@ def dsbox_imputer(encoded_name: str = "cast_1_step",
                 {"primitive": "d3m.primitives.dsbox.MeanImputation", },
                 {"primitive": "d3m.primitives.dsbox.IterativeRegressionImputation", },
             ],
-            "inputs": ["encoded_name"]
+            "inputs": [encoded_name]
         },
     ]
+
 
 class DefaultClassificationTemplate(DSBoxTemplate):
     def __init__(self):
@@ -744,9 +727,15 @@ class dsboxClassificationTemplate(DSBoxTemplate):
                     target_name="extract_target_step"
                 ),
                 *dsbox_encoding(clean_name="clean_step",
-                                encoded_name="cast_1_step"),
+                                encoded_name="encoder_step"),
 
-                *dsbox_imputer(encoded_name="cast_1_step",
+                {
+                    "name": "columns_parser_step",
+                    "primitives": ["d3m.primitives.data.ColumnParser"],
+                    "inputs": ["encoder_step"]
+                },
+
+                *dsbox_imputer(encoded_name="columns_parser_step",
                                impute_name="impute_step"),
 
                 *classifier_model(feature_name="impute_step",
