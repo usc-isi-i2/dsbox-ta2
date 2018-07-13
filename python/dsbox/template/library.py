@@ -93,8 +93,8 @@ class TemplateLibrary:
 
         # added new inline_templates muxin
         self.templates.append(DefaultRegressionTemplate)
-        # self.templates.append(TestClassificationTemplate)
-        self.templates.append(DefaultClassificationTemplate)
+        self.templates.append(TestClassificationTemplate)
+        # self.templates.append(DefaultClassificationTemplate)
         self.templates.append(DefaultTimeseriesCollectionTemplate)
         self.templates.append(DefaultImageProcessingRegressionTemplate)
         self.templates.append(DefaultGraphMatchingTemplate)
@@ -460,7 +460,7 @@ def default_dataparser(attribute_name: str="extract_attribute_step",
     ]
 
 def d3m_preprocessing(attribute_name: str = "cast_1_step",
-                          target_name: str = "extract_target_step"):
+                      target_name: str = "extract_target_step"):
     return \
     [
         *default_dataparser(target_name=target_name),
@@ -476,7 +476,7 @@ def d3m_preprocessing(attribute_name: str = "cast_1_step",
         },
     ]
 
-def dsbox_preprocessing(cleaner_name: str = "cleaning_step",
+def dsbox_preprocessing(clean_name: str = "clean_step",
                         target_name: str = "extract_target_step"):
     return \
     [
@@ -486,23 +486,101 @@ def dsbox_preprocessing(cleaner_name: str = "cleaning_step",
         #     "primitives": ["d3m.primitives.data.ColumnParser"],
         #     "inputs": ["extract_attribute_step"]
         # },
-        # {
-        #     "name": "cast_1_step",
-        #     "primitives": ["d3m.primitives.data.CastToType"],
-        #     "inputs": ["column_parser_step"]
-        # },
         {
             "name": "profile_step",
             "primitives": ["d3m.primitives.dsbox.Profiler"],
             "inputs": ["extract_attribute_step"]
         },
         {
-            "name": cleaner_name,
+            "name": clean_name,
             "primitives": ["d3m.primitives.dsbox.CleaningFeaturizer"],
             "inputs": ["profile_step"]
         },
+        # {
+        #     "name": processed_name,
+        #     "primitives": [{
+        #         "primitive": "d3m.primitives.data.CastToType",
+        #         "hyperparameters":
+        #             {
+        #                 'type_to_cast': ['str', 'float'],
+        #             }
+        #     }],
+        #     "inputs": ["cleaning_step"]
+        # },
     ]
 
+
+def dsbox_encoding(clean_name: str="clean_step",
+                   encoded_name: str="cast_1_step"):
+    return \
+    [
+        # TODO the ColumnParser primitive is buggy as it generates arbitrary nan values
+        # {
+        #     "name": "encode_strings_step",
+        #     "primitives": ["d3m.primitives.data.ColumnParser"],
+        #     "inputs": [clean_name]
+        # },
+        {
+            "name": "encode_text_step",
+            "primitives": [
+                {"primitive": "d3m.primitives.dsbox.CorexText", },
+                {"primitive": "d3m.primitives.dsbox.DoNothing", },
+            ],
+            "inputs": [clean_name]
+        },
+        # {
+        #     "name": "encode_unary_step",
+        #     "primitives": [
+        #         {"primitive": "d3m.primitives.dsbox.UnaryEncoder", },
+        #         {"primitive": "d3m.primitives.dsbox.DoNothing", },
+        #     ],
+        #     "inputs": ["encode_text_step"]
+        # },
+        {
+            # "name": "encode_string_step",
+            "name": 'encode_string_step',
+            "primitives": [
+                {"primitive": "d3m.primitives.dsbox.Encoder", },
+                {"primitive": "d3m.primitives.dsbox.DoNothing", },
+            ],
+            "inputs": ["encode_text_step"]
+        },
+
+        {
+            "name": encoded_name,
+            "primitives": [{
+                "primitive": "d3m.primitives.data.CastToType",
+                "hyperparameters":
+                    {
+                        'type_to_cast': ['float','str'],
+                    }
+            }],
+            "inputs": ["encode_string_step"]
+        },
+        # {
+        #     "name": encoded_name,
+        #     "primitives": ["d3m.primitives.data.CastToType"],
+        #     "inputs": ["column_parser_step"]
+        # },
+    ]
+
+
+def dsbox_imputer(encoded_name: str = "cast_1_step",
+                   impute_name: str = "impute_step"):
+    return \
+    [
+        {
+            "name": "impute_step",
+            "primitives": [
+                {"primitive": "d3m.primitives.sklearn_wrap.SKImputer", },
+                {"primitive": "d3m.primitives.dsbox.GreedyImputation", },
+                {"primitive": "d3m.primitives.dsbox.MeanImputation", },
+                {"primitive": "d3m.primitives.dsbox.MeanImputation", },
+                {"primitive": "d3m.primitives.dsbox.IterativeRegressionImputation", },
+            ],
+            "inputs": ["encoded_name"]
+        },
+    ]
 
 class DefaultClassificationTemplate(DSBoxTemplate):
     def __init__(self):
@@ -610,7 +688,7 @@ class DefaultClassificationTemplate(DSBoxTemplate):
         return 7
 
 
-class TestClassificationTemplate(DSBoxTemplate):
+class dsboxClassificationTemplate(DSBoxTemplate):
     def __init__(self):
         DSBoxTemplate.__init__(self)
         self.template = {
@@ -622,20 +700,16 @@ class TestClassificationTemplate(DSBoxTemplate):
             "output": "model_step",  # Name of the final step generating the prediction
             "target": "extract_target_step",  # Name of the step generating the ground truth
             "steps": [
-                *d3m_preprocessing(
-                    attribute_name="cast_1_step",
+                *dsbox_preprocessing(
+                    clean_name="clean_step",
                     target_name="extract_target_step"
                 ),
-                # {
-                #     "name": "corex_step",
-                #     "primitives": ["d3m.primitives.dsbox.CorexText"],
-                #     "inputs": ["cast_1_step"]
-                # },
-                {
-                    "name": "impute_step",
-                    "primitives": ["d3m.primitives.sklearn_wrap.SKImputer"],
-                    "inputs": ["cast_1_step"]
-                },
+                *dsbox_encoding(clean_name="clean_step",
+                                encoded_name="cast_1_step"),
+
+                *dsbox_imputer(encoded_name="cast_1_step",
+                               impute_name="impute_step"),
+
                 *classifier_model(feature_name="impute_step",
                                   target_name='extract_target_step'),
             ]
