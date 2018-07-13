@@ -67,7 +67,7 @@ def split_dataset(dataset, problem, problem_loc=None, *, random_state=42, test_s
         train = dataset[res_id].iloc[train_indices]
         test = dataset[res_id].iloc[test_indices]
 
-        use_test_splits = False / 0
+        use_test_splits = False
 
         print("[INFO] Succesfully parsed test data")
     except:
@@ -125,9 +125,10 @@ class Status(enum.Enum):
 class Controller:
     TIMEOUT = 59  # in minutes
 
-    def __init__(self, library_dir: str, development_mode: bool = False) -> None:
-        self.library_dir: str = os.path.abspath(library_dir)
+    def __init__(self, development_mode: bool = False, run_single_template: str = "") -> None:
         self.development_mode: bool = development_mode
+
+        self.run_single_template = run_single_template
 
         # self.config: typing.Dict = {}
 
@@ -149,7 +150,10 @@ class Controller:
         self.timeout: int = 0  # in seconds
 
         # Templates
-        self.template_library = TemplateLibrary()
+        if self.run_single_template:
+            self.template_library = TemplateLibrary(run_single_template=run_single_template)
+        else:
+            self.template_library = TemplateLibrary()
         self.template: typing.List[DSBoxTemplate] = []
 
         # Primitives
@@ -370,7 +374,6 @@ class Controller:
                 template, space, d3m.index.search(), self.problem_doc_metadata, self.dataset,
                 self.test_dataset, metrics, output_directory=self.output_directory, log_dir=self.output_logs_dir, num_workers=self.num_cpus)
 
-
         candidate, value = search.search_one_iter()
 
         # assert "fitted_pipe" in candidate, "argument error!"
@@ -382,15 +385,18 @@ class Controller:
             print("******************\n[INFO] Writing results")
             print(candidate.data)
             print(candidate, value)
-            print('Training {} = {}'.format(
-                candidate.data['training_metrics'][0]['metric'],
-                candidate.data['training_metrics'][0]['value']))
-            print('Training {} = {}'.format(
-                candidate.data['cross_validation_metrics'][0]['metric'],
-                candidate.data['cross_validation_metrics'][0]['value']))
-            print('Test {} = {}'.format(
-                candidate.data['test_metrics'][0]['metric'],
-                candidate.data['test_metrics'][0]['value']))
+            if candidate.data['training_metrics']:
+                print('Training {} = {}'.format(
+                    candidate.data['training_metrics'][0]['metric'],
+                    candidate.data['training_metrics'][0]['value']))
+            if candidate.data['cross_validation_metrics']:
+                print('Training {} = {}'.format(
+                    candidate.data['cross_validation_metrics'][0]['metric'],
+                    candidate.data['cross_validation_metrics'][0]['value']))
+            if candidate.data['test_metrics']:
+                print('Test {} = {}'.format(
+                    candidate.data['test_metrics'][0]['metric'],
+                    candidate.data['test_metrics'][0]['value']))
 
             # FIXME: code used for doing experiments, want to make optionals
             # pipeline = FittedPipeline.create(configuration=candidate,
@@ -400,11 +406,15 @@ class Controller:
             save_location = os.path.join(self.output_logs_dir, dataset_name + ".txt")
 
             print("******************\n[INFO] Saving training results in", save_location)
-            f = open(save_location, "w+")
-            f.write(str(metrics) + "\n")
-            f.write(str(candidate.data['training_metrics'][0]['value']) + "\n")
-            f.write(str(candidate.data['test_metrics'][0]['value']) + "\n")
-            f.close()
+            try:
+                f = open(save_location, "w+")
+                f.write(str(metrics) + "\n")
+                f.write(str(candidate.data['training_metrics'][0]['value']) + "\n")
+                f.write(str(candidate.data['test_metrics'][0]['value']) + "\n")
+                f.close()
+            except:
+                raise NotSupportedError(
+                    '[ERROR] Save training results Failed!')
 
             print("******************\n[INFO] Saving Best Pipeline")
             # save the pipeline

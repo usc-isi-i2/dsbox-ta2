@@ -1,16 +1,10 @@
 #!/usr/bin/env python
 
-"""
-Command Line Interface for running the DSBox TA2 Search
-"""
 import time
 start_time = time.clock()
-from dsbox_dev_setup import path_setup
 import argparse
 import json
-import os
 import signal
-import sys
 import traceback
 from pprint import pprint
 
@@ -29,57 +23,22 @@ def main(args):
     configuration_file = args.configuration_file
     debug = args.debug
 
-    controller = Controller(development_mode=debug)
+    template_name = args.template
+
+    controller = Controller(development_mode=debug, run_single_template=template_name)
 
     with open(configuration_file) as data:
         config = json.load(data)
 
-    if 'saving_folder_loc' not in config:
-        output_location = "/nfs1/dsbox-repo/" + getpass.getuser() + "/dsbox-ta2/python/output/" + config['dataset_schema'].rsplit("/", 3)[-3]
-        # output_location = "/nfs1/dsbox-repo/" + 'qasemi' + "/dsbox-ta2/python/output/" + config['dataset_schema'].rsplit("/", 3)[-3]
-        config["temp_storage_root"] = output_location + "/temp"
-        config["saving_folder_loc"] = output_location
-        config["executables_root"] = output_location + "/executables"
-        config["pipeline_logs_root"] = output_location + "/logs"
-        config["saved_pipeline_ID"] = ""
+    # if 'saving_folder_loc' not in config:
+    #     output_location = "/nfs1/dsbox-repo/" + getpass.getuser() + "/dsbox-ta2/python/output/" + config['dataset_schema'].rsplit("/", 3)[-3]
+    #     # output_location = "/nfs1/dsbox-repo/" + 'qasemi' + "/dsbox-ta2/python/output/" + config['dataset_schema'].rsplit("/", 3)[-3]
+    #     config["temp_storage_root"] = output_location + "/temp"
+    #     config["saving_folder_loc"] = output_location
+    #     config["executables_root"] = output_location + "/executables"
+    #     config["pipeline_logs_root"] = output_location + "/logs"
+    #     config["saved_pipeline_ID"] = ""
 
-    # Define signal handler to exit gracefully
-    # Either on an interrupt or after a certain time
-    def write_results_and_exit(a_signal, frame):
-        # print('SIGNAL exit: {}'.format(configuration_file))
-        try:
-            # Reset to handlers to default as not to output multiple times
-            signal.signal(signal.SIGINT, signal.SIG_DFL)
-            signal.signal(signal.SIGTERM, signal.SIG_DFL)
-            signal.signal(signal.SIGALRM, signal.SIG_DFL)
-            # print('SIGNAL exit done reset signal {}'.format(configuration_file))
-
-            controller.write_training_results()
-            # print('SIGNAL exit done writing: {}'.format(
-            #     configuration_file), flush=True)
-        except Exception as e:
-            print(e)
-            traceback.print_exc()
-        finally:
-            # sys.exit(0) generates SystemExit exception, which may
-            # be caught and ignore.
-
-            # This os._exit() cannot be caught.
-            # print('SIGNAL exiting {}'.format(configuration_file), flush=True)
-            os._exit(0)
-
-    # Set timeout, alarm and signal handler
-    if 'timeout' in config:
-        # Timeout less 1 minute to give system chance to clean up
-        timeout = int(config['timeout']) - 1
-    if args.timeout > -1:
-        # Overide config timeout
-        timeout = args.timeout
-    if timeout > 0:
-        signal.signal(signal.SIGINT, write_results_and_exit)
-        signal.signal(signal.SIGTERM, write_results_and_exit)
-        signal.signal(signal.SIGALRM, write_results_and_exit)
-        signal.alarm(60*timeout)
     config['timeout'] = timeout
 
     if args.cpus > -1:
@@ -133,6 +92,9 @@ if __name__ == "__main__":
                         Replace path prefix "*/output/" with argument''')
     parser.add_argument('--debug', action='store_true', default=False,
                         help='Debug mode. No timeout and no output redirection')
+
+    parser.add_argument('--template', action='store', default="",
+                        help='Specify a template name')
 
     args = parser.parse_args()
 

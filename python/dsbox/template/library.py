@@ -42,7 +42,7 @@ class TemplateLibrary:
     Library of template pipelines
     """
 
-    def __init__(self, library_dir: str = None) -> None:
+    def __init__(self, library_dir: str = None, run_single_template: str = "") -> None:
         self.templates: typing.List[typing.Type[DSBoxTemplate]] = []
         self.primitive: typing.Dict = index.search()
 
@@ -50,7 +50,20 @@ class TemplateLibrary:
         if self.library_dir is None:
             self._load_library()
 
-        self._load_inline_templates()
+        self.all_templates = {
+            "Default_classification_template": DefaultClassificationTemplate,
+            "Test_classification_template": dsboxClassificationTemplate,
+            "Default_regression_template": DefaultRegressionTemplate,
+            "Default_timeseries_collection_template": DefaultTimeseriesCollectionTemplate,
+            "Default_image_processing_regression_template": DefaultImageProcessingRegressionTemplate,
+            "Default_GraphMatching_Template": DefaultGraphMatchingTemplate,
+            "TA1_classification_template_1": TA1ClassificationTemplate1
+        }
+
+        if run_single_template:
+            self._load_single_inline_templates(run_single_template)
+        else:
+            self._load_inline_templates()
 
     def get_templates(self, task: TaskType, subtype: TaskSubtype, taskSourceType: SEMANTIC_TYPES) -> typing.List[DSBoxTemplate]:
         results = []
@@ -92,7 +105,7 @@ class TemplateLibrary:
 
         # added new inline_templates muxin
         self.templates.append(DefaultRegressionTemplate)
-        # self.templates.append(TestClassificationTemplate)
+        # self.templates.append(dsboxClassificationTemplate)
         self.templates.append(DefaultClassificationTemplate)
         self.templates.append(DefaultTimeseriesCollectionTemplate)
         self.templates.append(DefaultImageProcessingRegressionTemplate)
@@ -100,6 +113,13 @@ class TemplateLibrary:
         #self.templates.append(DoesNotMatchTemplate2)
         self.templates.append(DefaultTextClassificationTemplate)
         # self.templates.append(TA1ClassificationTemplate)
+
+    def _load_single_inline_templates(self, template_name):
+        if template_name in self.all_templates:
+            self.templates.append(self.all_templates[template_name])
+        else:
+            raise KeyError("Template not found, name: {}".format(template_name))
+
 
 class SemanticTypeDict(object):
     def __init__(self, libdir):
@@ -459,7 +479,7 @@ def default_dataparser(attribute_name: str="extract_attribute_step",
     ]
 
 def d3m_preprocessing(attribute_name: str = "cast_1_step",
-                          target_name: str = "extract_target_step"):
+                      target_name: str = "extract_target_step"):
     return \
     [
         *default_dataparser(target_name=target_name),
@@ -475,7 +495,7 @@ def d3m_preprocessing(attribute_name: str = "cast_1_step",
         },
     ]
 
-def dsbox_preprocessing(cleaner_name: str = "cleaning_step",
+def dsbox_preprocessing(clean_name: str = "clean_step",
                         target_name: str = "extract_target_step"):
     return \
     [
@@ -485,23 +505,101 @@ def dsbox_preprocessing(cleaner_name: str = "cleaning_step",
         #     "primitives": ["d3m.primitives.data.ColumnParser"],
         #     "inputs": ["extract_attribute_step"]
         # },
-        # {
-        #     "name": "cast_1_step",
-        #     "primitives": ["d3m.primitives.data.CastToType"],
-        #     "inputs": ["column_parser_step"]
-        # },
         {
             "name": "profile_step",
             "primitives": ["d3m.primitives.dsbox.Profiler"],
             "inputs": ["extract_attribute_step"]
         },
         {
-            "name": cleaner_name,
+            "name": clean_name,
             "primitives": ["d3m.primitives.dsbox.CleaningFeaturizer"],
             "inputs": ["profile_step"]
         },
+        # {
+        #     "name": processed_name,
+        #     "primitives": [{
+        #         "primitive": "d3m.primitives.data.CastToType",
+        #         "hyperparameters":
+        #             {
+        #                 'type_to_cast': ['str', 'float'],
+        #             }
+        #     }],
+        #     "inputs": ["cleaning_step"]
+        # },
     ]
 
+
+def dsbox_encoding(clean_name: str="clean_step",
+                   encoded_name: str="cast_1_step"):
+    return \
+    [
+        # TODO the ColumnParser primitive is buggy as it generates arbitrary nan values
+        # {
+        #     "name": "encode_strings_step",
+        #     "primitives": ["d3m.primitives.data.ColumnParser"],
+        #     "inputs": [clean_name]
+        # },
+        {
+            "name": "encode_text_step",
+            "primitives": [
+                {"primitive": "d3m.primitives.dsbox.CorexText", },
+                {"primitive": "d3m.primitives.dsbox.DoNothing", },
+            ],
+            "inputs": [clean_name]
+        },
+        # {
+        #     "name": "encode_unary_step",
+        #     "primitives": [
+        #         {"primitive": "d3m.primitives.dsbox.UnaryEncoder", },
+        #         {"primitive": "d3m.primitives.dsbox.DoNothing", },
+        #     ],
+        #     "inputs": ["encode_text_step"]
+        # },
+        {
+            # "name": "encode_string_step",
+            "name": 'encode_string_step',
+            "primitives": [
+                {"primitive": "d3m.primitives.dsbox.Encoder", },
+                {"primitive": "d3m.primitives.dsbox.DoNothing", },
+            ],
+            "inputs": ["encode_text_step"]
+        },
+
+        {
+            "name": encoded_name,
+            "primitives": [{
+                "primitive": "d3m.primitives.data.CastToType",
+                "hyperparameters":
+                    {
+                        'type_to_cast': ['float','str'],
+                    }
+            }],
+            "inputs": ["encode_string_step"]
+        },
+        # {
+        #     "name": encoded_name,
+        #     "primitives": ["d3m.primitives.data.CastToType"],
+        #     "inputs": ["column_parser_step"]
+        # },
+    ]
+
+
+def dsbox_imputer(encoded_name: str = "cast_1_step",
+                   impute_name: str = "impute_step"):
+    return \
+    [
+        {
+            "name": "impute_step",
+            "primitives": [
+                {"primitive": "d3m.primitives.sklearn_wrap.SKImputer", },
+                {"primitive": "d3m.primitives.dsbox.GreedyImputation", },
+                {"primitive": "d3m.primitives.dsbox.MeanImputation", },
+                {"primitive": "d3m.primitives.dsbox.MeanImputation", },
+                {"primitive": "d3m.primitives.dsbox.IterativeRegressionImputation", },
+            ],
+            "inputs": ["encoded_name"]
+        },
+    ]
 
 class DefaultClassificationTemplate(DSBoxTemplate):
     def __init__(self):
@@ -549,8 +647,26 @@ class DefaultClassificationTemplate(DSBoxTemplate):
                 },
                 {
                     "name": "corex_step",
-                    "primitives": ["d3m.primitives.dsbox.CorexText"],
+                    "primitives": [
+                    {
+                    "primitive": "d3m.primitives.dsbox.CorexText",
+                    "hyperparameters":
+                        {
+                        # 'n_hidden':[(10)],
+                        # 'threshold':[(0)],
+                        # # 'threshold':[(0), (500)],
+                        # 'n_grams':[(1), (5)],
+                        # 'max_df':[(.9)],
+                        # 'min_df':[(.02)],
+                        }
+                    },
+                    ],
                     "inputs": ["cast_1_step"]
+                },
+                {
+                    "name": "impute_step",
+                    "primitives": ["d3m.primitives.sklearn_wrap.SKImputer"],
+                    "inputs": ["corex_step"]
                 },
                 {
                     "name": "impute_step",
@@ -611,11 +727,11 @@ class DefaultClassificationTemplate(DSBoxTemplate):
         return 7
 
 
-class TestClassificationTemplate(DSBoxTemplate):
+class dsboxClassificationTemplate(DSBoxTemplate):
     def __init__(self):
         DSBoxTemplate.__init__(self)
         self.template = {
-            "name": "Default_classification_template",
+            "name": "Test_classification_template",
             "taskSubtype": {TaskSubtype.BINARY.name, TaskSubtype.MULTICLASS.name},
             "taskType": TaskType.CLASSIFICATION.name,
         # See TaskType, range include 'CLASSIFICATION', 'CLUSTERING', 'COLLABORATIVE_FILTERING', 'COMMUNITY_DETECTION', 'GRAPH_CLUSTERING', 'GRAPH_MATCHING', 'LINK_PREDICTION', 'REGRESSION', 'TIME_SERIES_FORECASTING', 'VERTEX_NOMINATION'
@@ -623,20 +739,16 @@ class TestClassificationTemplate(DSBoxTemplate):
             "output": "model_step",  # Name of the final step generating the prediction
             "target": "extract_target_step",  # Name of the step generating the ground truth
             "steps": [
-                *d3m_preprocessing(
-                    attribute_name="cast_1_step",
+                *dsbox_preprocessing(
+                    clean_name="clean_step",
                     target_name="extract_target_step"
                 ),
-                # {
-                #     "name": "corex_step",
-                #     "primitives": ["d3m.primitives.dsbox.CorexText"],
-                #     "inputs": ["cast_1_step"]
-                # },
-                {
-                    "name": "impute_step",
-                    "primitives": ["d3m.primitives.sklearn_wrap.SKImputer"],
-                    "inputs": ["cast_1_step"]
-                },
+                *dsbox_encoding(clean_name="clean_step",
+                                encoded_name="cast_1_step"),
+
+                *dsbox_imputer(encoded_name="cast_1_step",
+                               impute_name="impute_step"),
+
                 *classifier_model(feature_name="impute_step",
                                   target_name='extract_target_step'),
             ]
@@ -650,7 +762,7 @@ class DefaultRegressionTemplate(DSBoxTemplate):
     def __init__(self):
         DSBoxTemplate.__init__(self)
         self.template = {
-            "name": "default_regression_template",
+            "name": "Default_regression_template",
             "taskType": TaskType.REGRESSION.name,
             # See TaskType, range include 'CLASSIFICATION', 'CLUSTERING',
             # 'COLLABORATIVE_FILTERING', 'COMMUNITY_DETECTION',
@@ -760,7 +872,7 @@ class DefaultTimeseriesCollectionTemplate(DSBoxTemplate):
     def __init__(self):
         DSBoxTemplate.__init__(self)
         self.template = {
-            "name": "default_timeseries_collection_template",
+            "name": "Default_timeseries_collection_template",
             "taskType": TaskType.CLASSIFICATION.name, # See TaskType, range include 'CLASSIFICATION', 'CLUSTERING', 'COLLABORATIVE_FILTERING', 'COMMUNITY_DETECTION', 'GRAPH_CLUSTERING', 'GRAPH_MATCHING', 'LINK_PREDICTION', 'REGRESSION', 'TIME_SERIES_FORECASTING', 'VERTEX_NOMINATION'
             "taskSubtype" : {TaskSubtype.BINARY.name,TaskSubtype.MULTICLASS.name},
             "inputType": "timeseries",  # See SEMANTIC_TYPES.keys() for range of values
@@ -827,7 +939,7 @@ class DefaultImageProcessingRegressionTemplate(DSBoxTemplate):
     def __init__(self):
         DSBoxTemplate.__init__(self)
         self.template = {
-            "name": "default_image_processing_regression_template",
+            "name": "Default_image_processing_regression_template",
             "taskType": TaskType.REGRESSION.name, # See TaskType, range include 'CLASSIFICATION', 'CLUSTERING', 'COLLABORATIVE_FILTERING', 'COMMUNITY_DETECTION', 'GRAPH_CLUSTERING', 'GRAPH_MATCHING', 'LINK_PREDICTION', 'REGRESSION', 'TIME_SERIES_FORECASTING', 'VERTEX_NOMINATION'
             "taskSubtype" : {TaskSubtype.UNIVARIATE.name,TaskSubtype.MULTIVARIATE.name},
             "inputType": "image",  # See SEMANTIC_TYPES.keys() for range of values
@@ -989,21 +1101,6 @@ class TA1ClassificationTemplate1(DSBoxTemplate):
                             {
                             'max_depth': [(2),(4),(8)], #(10), #
                             'n_estimators':[(10),(20),(30)]
-                            }
-                        },
-                        {
-                        "primitive":
-                            "d3m.primitives.sklearn_wrap.SKLinearSVC",
-                        "hyperparameters":
-                            {
-                            'C': [(1), (10), (100)],  # (10), #
-                            }
-                        },{
-                        "primitive":
-                            "d3m.primitives.sklearn_wrap.SKMultinomialNB",
-                        "hyperparameters":
-                            {
-                            'alpha':[(1)],
                             }
                         },
                     ],
