@@ -106,8 +106,8 @@ class TemplateLibrary:
 
         # added new inline_templates muxin
         self.templates.append(DefaultRegressionTemplate)
-        self.templates.append(TestClassificationTemplate)
-        # self.templates.append(DefaultClassificationTemplate)
+        # self.templates.append(dsboxClassificationTemplate)
+        self.templates.append(DefaultClassificationTemplate)
         self.templates.append(DefaultTimeseriesCollectionTemplate)
         self.templates.append(DefaultImageProcessingRegressionTemplate)
         self.templates.append(DefaultGraphMatchingTemplate)
