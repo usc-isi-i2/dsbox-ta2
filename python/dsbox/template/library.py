@@ -1012,21 +1012,6 @@ class TA1ClassificationTemplate1(DSBoxTemplate):
                             'n_estimators':[(10),(20),(30)]
                             }
                         },
-                        {
-                        "primitive":
-                            "d3m.primitives.sklearn_wrap.SKLinearSVC",
-                        "hyperparameters":
-                            {
-                            'C': [(1), (10), (100)],  # (10), #
-                            }
-                        },{
-                        "primitive":
-                            "d3m.primitives.sklearn_wrap.SKMultinomialNB",
-                        "hyperparameters":
-                            {
-                            'alpha':[(1)],
-                            }
-                        },
                     ],
                     "inputs": ["impute_step", "extract_target_step"]
                 }
