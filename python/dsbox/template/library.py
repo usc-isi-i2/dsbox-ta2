@@ -581,15 +581,23 @@ def dsbox_imputer(encoded_name: str = "cast_1_step",
     return \
     [
         {
-            "name": impute_name,
+            "name": "base_impute_step",
             "primitives": [
                 {"primitive": "d3m.primitives.sklearn_wrap.SKImputer", },
                 {"primitive": "d3m.primitives.dsbox.GreedyImputation", },
                 {"primitive": "d3m.primitives.dsbox.MeanImputation", },
-                {"primitive": "d3m.primitives.dsbox.MeanImputation", },
                 {"primitive": "d3m.primitives.dsbox.IterativeRegressionImputation", },
+                {"primitive": "d3m.primitives.dsbox.DoNothing", },
             ],
             "inputs": [encoded_name]
+        },
+        {
+            "name": impute_name,
+            "primitives": [
+                {"primitive": "d3m.primitives.dsbox.IQRScaler", },
+                {"primitive": "d3m.primitives.dsbox.DoNothing", },
+            ],
+            "inputs": ["base_impute_step"]
         },
     ]
 
@@ -739,13 +747,13 @@ class dsboxClassificationTemplate(DSBoxTemplate):
                 *dsbox_encoding(clean_name="clean_step",
                                 encoded_name="encoder_step"),
 
-                {
-                    "name": "columns_parser_step",
-                    "primitives": ["d3m.primitives.data.ColumnParser"],
-                    "inputs": ["encoder_step"]
-                },
+                # {
+                #     "name": "columns_parser_step",
+                #     "primitives": ["d3m.primitives.data.ColumnParser"],
+                #     "inputs": ["encoder_step"]
+                # },
 
-                *dsbox_imputer(encoded_name="columns_parser_step",
+                *dsbox_imputer(encoded_name="encoder_step",
                                impute_name="impute_step"),
 
                 *classifier_model(feature_name="impute_step",

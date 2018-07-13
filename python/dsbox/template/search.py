@@ -201,8 +201,12 @@ class DimensionalSearch(typing.Generic[T]):
 
             # All candidates failed!
             if len(test_values) == 0:
-                print("[ERROR] No Candidate worked!:", test_values)
-                return (None, None)
+                print("[INFO] No new Candidate worked in this step!")
+                if not candidate:
+                    print("[ERROR] The template did not return any valid pipelines!")
+                    return (None, None)
+                else:
+                    continue
 
             # Find best candidate
             best_cv_index = 0 # initialize best_cv_index
