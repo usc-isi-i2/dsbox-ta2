@@ -69,12 +69,11 @@ class TemplateLibrary:
         results = []
         for template_class in self.templates:
             template = template_class()
-            #import pdb
-            #pdb.set_trace()
-
+            # sourceType refer to d3m/container/dataset.py ("SEMANTIC_TYPES" as line 40-70)
+            #taskType and taskSubtype refer to d3m/
             if task.name in template.template['taskType'] and subtype.name in template.template['taskSubtype']:
                 # if there is only one task source type which is table, we don't need to check other things
-                if taskSourceType == {"table"} and template.template['inputType'] == "table":
+                if {"table"} == taskSourceType and template.template['inputType'] == "table":
                     results.append(template)
                 else:
                     # otherwise, we need to process in another way because "table" source type exist nearly in every dataset
@@ -112,7 +111,7 @@ class TemplateLibrary:
         self.templates.append(DefaultImageProcessingRegressionTemplate)
         self.templates.append(DefaultGraphMatchingTemplate)
         #self.templates.append(DoesNotMatchTemplate2)
-
+        self.templates.append(DefaultTextClassificationTemplate)
         # self.templates.append(TA1ClassificationTemplate)
 
     def _load_single_inline_templates(self, template_name):
@@ -1101,6 +1100,113 @@ class TA1ClassificationTemplate1(DSBoxTemplate):
                             {
                             'max_depth': [(2),(4),(8)], #(10), #
                             'n_estimators':[(10),(20),(30)]
+                            }
+                        },
+                    ],
+                    "inputs": ["impute_step", "extract_target_step"]
+                }
+            ]
+        }
+    # @override
+    def importance(datset, problem_description):
+        return 7
+
+class DefaultTextClassificationTemplate(DSBoxTemplate):
+    def __init__(self):
+        DSBoxTemplate.__init__(self)
+        self.template = {
+            "name": "Default_text_classification_template",
+            "taskSubtype" : {TaskSubtype.BINARY.name,TaskSubtype.MULTICLASS.name},
+            "taskType": TaskType.CLASSIFICATION.name,  # See TaskType, range include 'CLASSIFICATION', 'CLUSTERING', 'COLLABORATIVE_FILTERING', 'COMMUNITY_DETECTION', 'GRAPH_CLUSTERING', 'GRAPH_MATCHING', 'LINK_PREDICTION', 'REGRESSION', 'TIME_SERIES_FORECASTING', 'VERTEX_NOMINATION'
+            "inputType": "text",  # See SEMANTIC_TYPES.keys() for range of values
+            "output": "model_step",  # Name of the final step generating the prediction
+            "target": "extract_target_step",  # Name of the step generating the ground truth
+            "steps": [
+                {
+                    "name": "denormalize_step",
+                    "primitives": ["d3m.primitives.dsbox.Denormalize"],
+                    "inputs": ["template_input"]
+                },
+                {
+                    "name": "to_dataframe_step",
+                    "primitives": ["d3m.primitives.datasets.DatasetToDataFrame"],
+                    "inputs": ["denormalize_step"]
+                },
+                {
+                    "name": "extract_attribute_step",
+                    "primitives": [{
+                        "primitive": "d3m.primitives.data.ExtractColumnsBySemanticTypes",
+                        "hyperparameters":
+                            {
+                                'semantic_types': ('https://metadata.datadrivendiscovery.org/types/Attribute',),
+                                'use_columns': (),
+                                'exclude_columns': ()
+                            }
+                    }],
+                    "inputs": ["to_dataframe_step"]
+                },
+                {
+                    "name": "column_parser_step",
+                    "primitives": ["d3m.primitives.data.ColumnParser"],
+                    "inputs": ["extract_attribute_step"]
+                },
+                {
+                    "name": "cast_1_step",
+                    "primitives": ["d3m.primitives.data.CastToType"],
+                    "inputs": ["column_parser_step"]
+                },
+                {
+                    "name": "corex_step",
+                    "primitives": ["d3m.primitives.dsbox.CorexText"],
+                    "inputs": ["cast_1_step"]
+                },
+                {
+                    "name": "impute_step",
+                    "primitives": ["d3m.primitives.sklearn_wrap.SKImputer"],
+                    "inputs": ["corex_step"]
+                },
+                {
+                    "name": "extract_target_step",
+                    "primitives": [{
+                        "primitive": "d3m.primitives.data.ExtractColumnsBySemanticTypes",
+                        "hyperparameters":
+                            {'semantic_types': ('https://metadata.datadrivendiscovery.org/types/Target', 'https://metadata.datadrivendiscovery.org/types/SuggestedTarget',),
+                             'use_columns': (),
+                             'exclude_columns': ()
+                             }
+                    }],
+                    "inputs": ["to_dataframe_step"]
+                },
+                {
+                    "name": "model_step",
+                    "runtime": {
+                        "cross_validation": 10,
+                        "stratified": True
+                    },
+                    "primitives": [
+                        # {
+                        # "primitive":
+                        #     "d3m.primitives.sklearn_wrap.SKRandomForestClassifier",
+                        # "hyperparameters":
+                        #     {
+                        #     'max_depth': [(2),(4),(8)], #(10), #
+                        #     'n_estimators':[(10),(20),(30)]
+                        #     }
+                        # },
+                        # {
+                        # "primitive":
+                        #     "d3m.primitives.sklearn_wrap.SKLinearSVC",
+                        # "hyperparameters":
+                        #     {
+                        #     'C': [(1), (10), (100)],  # (10), #
+                        #     }
+                        # },
+                        {
+                        "primitive":
+                            "d3m.primitives.sklearn_wrap.SKMultinomialNB",
+                        "hyperparameters":
+                            {
+                            'alpha':[(1)],
                             }
                         },
                     ],
