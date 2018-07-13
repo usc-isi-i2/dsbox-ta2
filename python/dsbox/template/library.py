@@ -557,6 +557,7 @@ def dsbox_encoding(clean_name: str="clean_step",
             "name": encoded_name,
             "primitives": [
                 {"primitive": "d3m.primitives.dsbox.Encoder", },
+                {"primitive": "d3m.primitives.dsbox.Labler", },
                 {"primitive": "d3m.primitives.dsbox.DoNothing", },
             ],
             "inputs": ["encode_text_step"]
