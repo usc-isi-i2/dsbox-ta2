@@ -99,7 +99,7 @@ class TemplateLibrary:
         # self.templates.append(DefaultGraphMatchingTemplate)
         # self.templates.append(DoesNotMatchTemplate2)
 
-        self.templates.append(TA1ClassificationTemplate1)
+        self.templates.append(MuxinTA1ClassificationTemplate1)
 
 
 class SemanticTypeDict(object):
@@ -753,7 +753,7 @@ class DefaultGraphMatchingTemplate(DSBoxTemplate):
         return 7
 
 
-class TA1ClassificationTemplate1(DSBoxTemplate):
+class MuxinTA1ClassificationTemplate1(DSBoxTemplate):
     def __init__(self):
         DSBoxTemplate.__init__(self)
         self.template = {
@@ -861,7 +861,7 @@ class TA1ClassificationTemplate1(DSBoxTemplate):
         return 7
 
 
-class TA1ClassificationTemplate2(DSBoxTemplate):
+class MuxinTA1ClassificationTemplate2(DSBoxTemplate):
     def __init__(self):
         DSBoxTemplate.__init__(self)
         self.template = {
@@ -951,7 +951,7 @@ class TA1ClassificationTemplate2(DSBoxTemplate):
         return 7
 
 
-class TA1ClassificationTemplate3(DSBoxTemplate):
+class MuxinTA1ClassificationTemplate3(DSBoxTemplate):
     def __init__(self):
         DSBoxTemplate.__init__(self)
         self.template = {
