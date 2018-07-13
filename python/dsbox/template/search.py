@@ -189,7 +189,8 @@ class DimensionalSearch(typing.Generic[T]):
                         print('[ERROR] candidate failed:', x)
                         continue
                     test_values.append(res['test_metrics'][0]['value'])
-                    cross_validation_values.append(res['cross_validation_metrics'][0]['value'])
+                    if res['cross_validation_metrics']:
+                        cross_validation_values.append(res['cross_validation_metrics'][0]['value'])
                     # pipeline = self.template.to_pipeline(x)
                     # res['pipeline'] = pipeline
                     res['fitted_pipeline'] = res['fitted_pipeline']
@@ -198,36 +199,32 @@ class DimensionalSearch(typing.Generic[T]):
             except:
                 traceback.print_exc()
 
-            # for x in new_candidates:
-            #     try:
-            #         result = self.evaluate(x)
-            #         test_values.append(result[0])
-            #         sucessful_candidates.append(x)
-            #         # print("[INFO] Results:")
-            #         # pprint(result)
-            #         # pprint(result[0])
-            #     except:
-            #         # print('Pipeline failed: ', x)
-            #         traceback.print_exc()
-
             # All candidates failed!
             if len(test_values) == 0:
                 print("[ERROR] No Candidate worked!:", test_values)
                 return (None, None)
 
             # Find best candidate
+            best_cv_index = 0 # initialize best_cv_index
             if self.minimize:
                 best_index = test_values.index(min(test_values))
-                best_cv_index = cross_validation_values.index(min(cross_validation_values))
+                if cross_validation_values:
+                    best_cv_index = cross_validation_values.index(min(cross_validation_values))
             else:
                 best_index = test_values.index(max(test_values))
-                best_cv_index = cross_validation_values.index(max(cross_validation_values))
+                if cross_validation_values:
+                    best_cv_index = cross_validation_values.index(max(cross_validation_values))
             print("[INFO] Best index:", best_index, "___", test_values[best_index])
-            if best_index == best_cv_index:
-                print("[INFO] Best CV index:", best_cv_index, "___", cross_validation_values[best_cv_index])
-            else:
-                print("[WARN] Best CV index:", best_cv_index, "___", cross_validation_values[best_cv_index])
-                print("[WARN] CV detail values:", ['{:.4f}'.format(x) for x in results[best_cv_index]['cross_validation_metrics'][0]['values']])
+            if cross_validation_values:
+                if best_index == best_cv_index:
+                    print("[INFO] Best CV index:", best_cv_index,
+                          "___", cross_validation_values[best_cv_index])
+                else:
+                    print("[WARN] Best CV index:", best_cv_index,
+                          "___", cross_validation_values[best_cv_index])
+                    print("[WARN] CV detail values:",
+                          ['{:.4f}'.format(x) for x in
+                           results[best_cv_index]['cross_validation_metrics'][0]['values']])
             if candidate_value is None:
                 candidate = sucessful_candidates[best_index]
                 candidate_value = test_values[best_index]
@@ -267,16 +264,20 @@ class DimensionalSearch(typing.Generic[T]):
             candidate = ConfigurationPoint(
                 self.configuration_space, self.first_assignment())
         # first, then random, then another random
-        # for i in range(2):
-        #     try:
-        #         result = self.evaluate(candidate)
-        #         return (candidate, result[0])
-        #     except:
-        #         print("Pipeline failed")
-        #         candidate = ConfigurationPoint(self.configuration_space,
-        #                                        self.random_assignment())
-        result = self.evaluate((candidate, cache))
-        candidate.data.update(result)
+        for i in range(2):
+            try:
+                result = self.evaluate((candidate, cache))
+                candidate.data.update(result)
+                return (candidate, result['test_metrics'][0]['value'])
+            except:
+                traceback.print_exc()
+                print("-"*20)
+                print("[ERROR] Initial Pipeline failed, Trying a random pipeline ...")
+                candidate = ConfigurationPoint(self.configuration_space,
+                                               self.random_assignment())
+        exit(1)
+        # result = self.evaluate((candidate, cache))
+        # candidate.data.update(result)
         # try:
         #     result = self.evaluate(candidate)
         # except:
@@ -291,7 +292,7 @@ class DimensionalSearch(typing.Generic[T]):
         #         candidate = ConfigurationPoint(self.configuration_space,
         #                                        self.random_assignment())
         #         result = self.evaluate(candidate)
-        return (candidate, result['test_metrics'][0]['value'])
+        # return (candidate, result['test_metrics'][0]['value'])
 
 
 
