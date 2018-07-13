@@ -67,7 +67,7 @@ def split_dataset(dataset, problem, problem_loc=None, *, random_state=42, test_s
         train = dataset[res_id].iloc[train_indices]
         test = dataset[res_id].iloc[test_indices]
 
-        use_test_splits = False / 0
+        use_test_splits = False
 
         print("[INFO] Succesfully parsed test data")
     except:
