@@ -52,7 +52,7 @@ class TemplateLibrary:
 
         self.all_templates = {
             "Default_classification_template": DefaultClassificationTemplate,
-            "Test_classification_template": TestClassificationTemplate,
+            "Test_classification_template": dsboxClassificationTemplate,
             "Default_regression_template": DefaultRegressionTemplate,
             "Default_timeseries_collection_template": DefaultTimeseriesCollectionTemplate,
             "Default_image_processing_regression_template": DefaultImageProcessingRegressionTemplate,
