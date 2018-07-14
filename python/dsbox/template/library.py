@@ -118,7 +118,7 @@ class TemplateLibrary:
         # self.templates.append(DefaultGraphMatchingTemplate)
         #self.templates.append(DoesNotMatchTemplate2)
         # self.templates.append(DefaultTextClassificationTemplate)
-        self.templates.append(UU3TestTemplate)
+        self.templates.append(TA1Classification_2)
         # self.templates.append(TA1ClassificationTemplate)
 
     def _load_single_inline_templates(self, template_name):
@@ -1716,7 +1716,7 @@ class TA1Classification_2(DSBoxTemplate):
             # See TaskType, range include 'CLASSIFICATION', 'CLUSTERING', 'COLLABORATIVE_FILTERING',
             # 'COMMUNITY_DETECTION', 'GRAPH_CLUSTERING', 'GRAPH_MATCHING', 'LINK_PREDICTION',
             # 'REGRESSION', 'TIME_SERIES_FORECASTING', 'VERTEX_NOMINATION'
-            "inputType": "table",  # See SEMANTIC_TYPES.keys() for range of values
+            "inputType": "text",  # See SEMANTIC_TYPES.keys() for range of values
             "output": "model_step",  # Name of the final step generating the prediction
             "target": "extract_target_step",  # Name of the step generating the ground truth
             "steps": [
