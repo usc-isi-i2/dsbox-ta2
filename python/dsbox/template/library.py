@@ -1707,6 +1707,7 @@ class UU3TestTemplate(DSBoxTemplate):
     def importance(datset, problem_description):
         return 7
 
+
 class TA1Classification_2(DSBoxTemplate):
     def __init__(self):
         DSBoxTemplate.__init__(self)
