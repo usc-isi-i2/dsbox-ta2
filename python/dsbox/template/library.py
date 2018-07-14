@@ -58,7 +58,8 @@ class TemplateLibrary:
             "Default_image_processing_regression_template": DefaultImageProcessingRegressionTemplate,
             "TA1DefaultImageProcessingRegressionTemplate":TA1DefaultImageProcessingRegressionTemplate,
             "Default_GraphMatching_Template": DefaultGraphMatchingTemplate,
-            "TA1_classification_template_1": TA1ClassificationTemplate1
+            "TA1_classification_template_1": TA1ClassificationTemplate1,
+            "Default_text_classification_template": DefaultTextClassificationTemplate
         }
 
         if run_single_template:
