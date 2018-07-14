@@ -728,7 +728,65 @@ class DefaultClassificationTemplate(DSBoxTemplate):
     def importance(datset, problem_description):
         return 7
 
+class TA1Classification_2(DSBoxTemplate):
+    def __init__(self):
+        DSBoxTemplate.__init__(self)
+        self.template = {
+            "name": "TA1Classification_2",
+            "taskSubtype": {TaskSubtype.BINARY.name, TaskSubtype.MULTICLASS.name},
+            "taskType": TaskType.CLASSIFICATION.name,
+            # See TaskType, range include 'CLASSIFICATION', 'CLUSTERING', 'COLLABORATIVE_FILTERING',
+            # 'COMMUNITY_DETECTION', 'GRAPH_CLUSTERING', 'GRAPH_MATCHING', 'LINK_PREDICTION',
+            # 'REGRESSION', 'TIME_SERIES_FORECASTING', 'VERTEX_NOMINATION'
+            "inputType": "table",  # See SEMANTIC_TYPES.keys() for range of values
+            "output": "model_step",  # Name of the final step generating the prediction
+            "target": "extract_target_step",  # Name of the step generating the ground truth
+            "steps": [
+                *default_dataparser(attribute_name="extract_attribute_step",
+                                    target_name="extract_target_step"),
+                {
+                    "name": "corex_step",
+                    "primitives": ["d3m.primitives.dsbox.CorexText"],
+                    "inputs": ["extract_attribute_step"]
+                },
+                {
+                    "name": "encoder_step",
+                    "primitives": ["d3m.primitives.dsbox.Labler"],
+                    "inputs": ["corex_step"]
+                },
+                {
+                    "name": "impute_step",
+                    "primitives": ["d3m.primitives.sklearn_wrap.SKImputer"],
+                    "inputs": ["encoder_step"]
+                },
+                {
+                    "name": "nothing_step",
+                    "primitives": ["d3m.primitives.dsbox.DoNothing"],
+                    "inputs": ["impute_step"]
+                },
+                {
+                    "name": "scaler_step",
+                    "primitives": ["d3m.primitives.dsbox.IQRScaler"],
+                    "inputs": ["nothing_step"]
+                },
+                {
+                    "name": "model_step",
+                    "runtime": {
+                        "cross_validation": 10,
+                        "stratified": True
+                    },
+                    "primitives": ["d3m.primitives.sklearn_wrap.SKRandomForestClassifier"],
+                    "inputs": ["scaler_step", "extract_target_step"]
+                }
+            ]
+        }
+        # import pprint
+        # pprint.pprint(self.template)
+        # exit(1)
 
+    # @override
+    def importance(datset, problem_description):
+        return 7
 class dsboxClassificationTemplate(DSBoxTemplate):
     def __init__(self):
         DSBoxTemplate.__init__(self)
