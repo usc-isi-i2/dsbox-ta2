@@ -62,7 +62,7 @@ class TemplateLibrary:
             "MuxinTA1ClassificationTemplate2":MuxinTA1ClassificationTemplate2,
             "MuxinTA1ClassificationTemplate3":MuxinTA1ClassificationTemplate3,
             "MuxinTA1ClassificationTemplate4":MuxinTA1ClassificationTemplate4,
-            "UU3TestTemplate":UU3TestTemplate
+            "UU3_Test_Template":UU3TestTemplate
         }
 
         if run_single_template:
@@ -1620,7 +1620,7 @@ class UU3TestTemplate(DSBoxTemplate):
     def __init__(self):
         DSBoxTemplate.__init__(self)
         self.template = {
-            "name": "UU3-Test-Template",
+            "name": "UU3_Test_Template",
             "taskSubtype": {TaskSubtype.UNIVARIATE.name,TaskSubtype.MULTIVARIATE.name},
             "taskType": TaskType.REGRESSION.name,
             "inputType": "table",  # See SEMANTIC_TYPES.keys() for range of values
