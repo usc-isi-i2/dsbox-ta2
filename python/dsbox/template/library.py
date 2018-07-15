@@ -58,13 +58,14 @@ class TemplateLibrary:
             "Default_image_processing_regression_template": DefaultImageProcessingRegressionTemplate,
             "Default_GraphMatching_Template": DefaultGraphMatchingTemplate,
             "TA1_classification_template_1": TA1ClassificationTemplate1,
-            "MuxinTA1ClassificationTemplate1":MuxinTA1ClassificationTemplate1,
-            "MuxinTA1ClassificationTemplate2":MuxinTA1ClassificationTemplate2,
-            "MuxinTA1ClassificationTemplate3":MuxinTA1ClassificationTemplate3,
-            "MuxinTA1ClassificationTemplate4":MuxinTA1ClassificationTemplate4,
-            "UU3_Test_Template":UU3TestTemplate,
+            "MuxinTA1ClassificationTemplate1": MuxinTA1ClassificationTemplate1,
+            "MuxinTA1ClassificationTemplate2": MuxinTA1ClassificationTemplate2,
+            "MuxinTA1ClassificationTemplate3": MuxinTA1ClassificationTemplate3,
+            "MuxinTA1ClassificationTemplate4": MuxinTA1ClassificationTemplate4,
+            "UU3_Test_Template": UU3TestTemplate,
             "TA1Classification_2": TA1Classification_2,
-            "TA1Classification_3":TA1Classification_3
+            "TA1Classification_3": TA1Classification_3,
+            "TA1VggImageProcessingRegressionTemplate": TA1VggImageProcessingRegressionTemplate
         }
 
         if run_single_template:
@@ -950,11 +951,11 @@ class DefaultTimeseriesCollectionTemplate(DSBoxTemplate):
         return 7
 
 
-class DefaultImageProcessingRegressionTemplate(DSBoxTemplate):
+class TA1VggImageProcessingRegressionTemplate(DSBoxTemplate):
     def __init__(self):
         DSBoxTemplate.__init__(self)
         self.template = {
-            "name": "Default_image_processing_regression_template",
+            "name": "TA1VggImageProcessingRegressionTemplate",
             "taskType": TaskType.REGRESSION.name, # See TaskType, range include 'CLASSIFICATION', 'CLUSTERING', 'COLLABORATIVE_FILTERING', 'COMMUNITY_DETECTION', 'GRAPH_CLUSTERING', 'GRAPH_MATCHING', 'LINK_PREDICTION', 'REGRESSION', 'TIME_SERIES_FORECASTING', 'VERTEX_NOMINATION'
             "taskSubtype" : {TaskSubtype.UNIVARIATE.name,TaskSubtype.MULTIVARIATE.name},
             "inputType": "image",  # See SEMANTIC_TYPES.keys() for range of values
@@ -1849,5 +1850,72 @@ class TA1Classification_3(DSBoxTemplate):
         }
     # @override
 
+    def importance(datset, problem_description):
+        return 7
+
+class DefaultImageProcessingRegressionTemplate(DSBoxTemplate):
+    def __init__(self):
+        DSBoxTemplate.__init__(self)
+        self.template = {
+            "name": "Default_image_processing_regression_template",
+            "taskType": TaskType.REGRESSION.name, # See TaskType, range include 'CLASSIFICATION', 'CLUSTERING', 'COLLABORATIVE_FILTERING', 'COMMUNITY_DETECTION', 'GRAPH_CLUSTERING', 'GRAPH_MATCHING', 'LINK_PREDICTION', 'REGRESSION', 'TIME_SERIES_FORECASTING', 'VERTEX_NOMINATION'
+            "taskSubtype" : {TaskSubtype.UNIVARIATE.name,TaskSubtype.MULTIVARIATE.name},
+            "inputType": "image",  # See SEMANTIC_TYPES.keys() for range of values
+            "output" : "regressor_step",  # Name of the final step generating the prediction
+            "target" : "extract_target_step",  # Name of the step generating the ground truth
+            "steps": [
+
+                {
+                    "name": "denormalize_step",
+                    "primitives": ["d3m.primitives.dsbox.Denormalize"],
+                    "inputs": ["template_input"]
+                },
+                {
+                    "name": "to_dataframe_step",
+                    "primitives": ["d3m.primitives.datasets.DatasetToDataFrame"],
+                    "inputs": ["denormalize_step"]
+                },
+                # read Y value
+                {
+                    "name": "extract_target_step",
+                    "primitives": [{
+                        "primitive":"d3m.primitives.data.ExtractColumnsBySemanticTypes",
+                        "hyperparameters":
+                            {'semantic_types': ('https://metadata.datadrivendiscovery.org/types/Target','https://metadata.datadrivendiscovery.org/types/SuggestedTarget',),
+                            'use_columns': (),
+                            'exclude_columns': ()
+                            }
+                        }],
+                    "inputs": ["to_dataframe_step"]
+                },
+                # {
+                #     "name": "column_parser_step",
+                #     "primitives": ["d3m.primitives.data.ColumnParser"],
+                #     "inputs": ["to_dataframe_step"]
+                # },
+                # read X value
+                {
+                    "name": "dataframe_to_tensor",
+                    "primitives": ["d3m.primitives.dsbox.DataFrameToTensor"],
+                    "inputs": ["to_dataframe_step"]
+                },
+                {
+                    "name": "feature_extraction",
+                    "primitives": ["d3m.primitives.dsbox.Vgg16ImageFeature"],
+                    "inputs": ["dataframe_to_tensor"]
+                },
+                {
+                    "name": "PCA_step",
+                    "primitives": ["d3m.primitives.sklearn_wrap.SKPCA"],
+                    "inputs": ["feature_extraction"]
+                },
+
+                {
+                    "name": "regressor_step",
+                    "primitives": ["d3m.primitives.sklearn_wrap.SKRandomForestRegressor"],
+                    "inputs": ["PCA_step", "extract_target_step"]
+                },
+            ]
+        }
     def importance(datset, problem_description):
         return 7
