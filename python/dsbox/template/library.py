@@ -65,7 +65,8 @@ class TemplateLibrary:
             "UU3_Test_Template": UU3TestTemplate,
             "TA1Classification_2": TA1Classification_2,
             "TA1Classification_3": TA1Classification_3,
-            "TA1VggImageProcessingRegressionTemplate": TA1VggImageProcessingRegressionTemplate
+            "TA1VggImageProcessingRegressionTemplate": TA1VggImageProcessingRegressionTemplate,
+            "Default_text_classification_template": DefaultTextClassificationTemplate
         }
 
         if run_single_template:
@@ -107,20 +108,16 @@ class TemplateLibrary:
         pass
 
     def _load_inline_templates(self):
-        # These 2 are in old version style, do not load them!
-        # self.templates.append(self._generate_simple_classifer_template())
-        # self.templates.append(self._generate_simple_regressor_template())
 
-        # added new inline_templates muxin
-        # self.templates.append(DefaultRegressionTemplate)
+        self.templates.append(DefaultRegressionTemplate)
+        self.templates.append(DefaultClassificationTemplate)
+        self.templates.append(DefaultTimeseriesCollectionTemplate)
+        self.templates.append(DefaultImageProcessingRegressionTemplate)
+        self.templates.append(DefaultGraphMatchingTemplate)
+        self.templates.append(DefaultTextClassificationTemplate)
         # self.templates.append(dsboxClassificationTemplate)
-        # self.templates.append(DefaultClassificationTemplate)
-        # self.templates.append(DefaultTimeseriesCollectionTemplate)
-        # self.templates.append(DefaultImageProcessingRegressionTemplate)
-        # self.templates.append(DefaultGraphMatchingTemplate)
-        #self.templates.append(DoesNotMatchTemplate2)
-        # self.templates.append(DefaultTextClassificationTemplate)
-        self.templates.append(TA1Classification_3)
+        # self.templates.append(DoesNotMatchTemplate2)
+        # self.templates.append(TA1Classification_3)
         # self.templates.append(TA1ClassificationTemplate)
 
     def _load_single_inline_templates(self, template_name):
