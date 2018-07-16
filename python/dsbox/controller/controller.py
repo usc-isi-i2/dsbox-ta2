@@ -37,9 +37,11 @@ from sklearn.model_selection import StratifiedShuffleSplit, ShuffleSplit
 # FIXME: we only need this for testing
 import pandas as pd
 
-FORMATTER = "[%(levelname)s] - %(asctime)s - %(name)s - %(message)s"
-LOGGING_LEVER = logging.DEBUG
+FILE_FORMATTER = "[%(levelname)s] - %(asctime)s - %(name)s - %(message)s"
+FILE_LOGGING_LEVEL = logging.DEBUG
 LOG_FILENAME = 'dsbox.log'
+CONSOLE_LOGGING_LEVEL = logging.INFO
+CONSOLE_FORMATTER = "[%(levelname)s] - %(name)s - %(message)s"
 
 def split_dataset(dataset, problem, problem_loc=None, *, random_state=42, test_size=0.2):
     '''
@@ -167,7 +169,6 @@ class Controller:
         self.output_pipelines_dir: str = ""
         self.output_executables_dir: str = ""
         self.output_supporting_files_dir: str = ""
-        self.output_temp_dir: str = ""
         self.output_logs_dir: str = ""
 
         self._logger = None
@@ -236,40 +237,26 @@ class Controller:
 
         For the Summer 2018 evaluation the top-level output dir is '/output'
         '''
-        if 'saving_folder_loc' in config:
-            self.output_directory = os.path.abspath(config['saving_folder_loc'])
 
-        if 'pipelines_root' in config:
-            self.output_pipelines_dir = os.path.abspath(config['pipelines_root'])
-        else:
-            self.output_pipelines_dir = os.path.join(self.output_directory, 'pipelines')
+        #### Official config entry for Evaluation
+        self.output_pipelines_dir = os.path.abspath(config['pipeline_logs_root'])
+        self.output_executables_dir = os.path.abspath(config['executables_root'])
+        self.output_supporting_files_dir = os.path.abspath(config['temp_storage_root'])
+        #### End: Official config entry for Evaluation
 
-        if 'executables_root' in config:
-            self.output_executables_dir = os.path.abspath(config['executables_root'])
-        else:
-            self.output_executables_dir = os.path.join(self.output_directory, 'executables')
+        self.output_directory = os.path.split(self.output_pipelines_dir)[0]
 
-        if 'supporting_files_root' in config:
-            self.output_supporting_files_dir = os.path.abspath(config['supporting_files_root'])
+        if 'logs_root' in config:
+            self.output_logs_dir = os.path.abspath(config['logs_root'])
         else:
-            self.output_supporting_files_dir = os.path.join(self.output_directory, 'supporting_files')
-
-        if 'temp_storage_root' in config:
-            self.output_temp_dir = os.path.abspath(config['temp_storage_root'])
-        else:
-            self.output_temp_dir = os.path.join(self.output_directory, 'temp')
-
-        if 'pipeline_logs_root' in config:
-            self.output_logs_dir = os.path.abspath(config['pipeline_logs_root'])
-        else:
-            self.output_logs_dir = os.path.join(self.output_directory, 'logs')
+            self.output_logs_dir = os.path.join(self.output_supporting_files_dir, 'logs')
 
         # Make directories if they do not exist
         if not os.path.exists(self.output_directory):
             os.makedirs(self.output_directory)
 
-        for path in [self.output_pipelines_dir, self.output_executables_dir, self.output_supporting_files_dir,
-                     self.output_temp_dir, self.output_logs_dir]:
+        for path in [self.output_pipelines_dir, self.output_executables_dir,
+                     self.output_supporting_files_dir, self.output_logs_dir]:
             if not os.path.exists(path):
                 os.makedirs(path)
 
@@ -278,8 +265,8 @@ class Controller:
 
     def _log_init(self) -> None:
         logging.basicConfig(
-            level=LOGGING_LEVER,
-            format=FORMATTER,
+            level=FILE_LOGGING_LEVEL,
+            format=FILE_FORMATTER,
             datefmt='%m-%d %H:%M',
             filename=os.path.join(self.output_logs_dir, LOG_FILENAME),
             filemode='w'
@@ -290,10 +277,10 @@ class Controller:
         if self._logger.getEffectiveLevel() <= 10:
             os.makedirs(os.path.join(self.output_logs_dir, "dfs"), exist_ok=True)
 
-        # ch = logging.StreamHandler()
-        # ch.setFormatter(logging.Formatter(FORMATTER))
-        # ch.setLevel(logging.INFO)
-        # self._logger.addHandler(ch)
+        console = logging.StreamHandler()
+        console.setFormatter(logging.Formatter(CONSOLE_FORMATTER))
+        console.setLevel(logging.INFO)
+        self._logger.addHandler(console)
 
 
     def load_templates(self) -> None:
@@ -403,7 +390,8 @@ class Controller:
             #                             dataset=self.dataset)
 
             dataset_name = self.output_executables_dir.rsplit("/", 2)[1]
-            save_location = os.path.join(self.output_logs_dir, dataset_name + ".txt")
+            # save_location = os.path.join(self.output_logs_dir, dataset_name + ".txt")
+            save_location = self.output_directory + ".txt"
 
             print("******************\n[INFO] Saving training results in", save_location)
             try:

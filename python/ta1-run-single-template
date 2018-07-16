@@ -4,8 +4,6 @@ import time
 start_time = time.clock()
 import argparse
 import json
-import signal
-import traceback
 from pprint import pprint
 
 from importlib import reload
@@ -14,8 +12,6 @@ reload(dsbox.controller.controller)
 from dsbox.controller.controller import Controller
 import os
 controller = Controller(development_mode=True)
-
-import getpass
 
 def main(args):
 
@@ -30,31 +26,11 @@ def main(args):
     with open(configuration_file) as data:
         config = json.load(data)
 
-    # if 'saving_folder_loc' not in config:
-    #     output_location = "/nfs1/dsbox-repo/" + getpass.getuser() + "/dsbox-ta2/python/output/" + config['dataset_schema'].rsplit("/", 3)[-3]
-    #     # output_location = "/nfs1/dsbox-repo/" + 'qasemi' + "/dsbox-ta2/python/output/" + config['dataset_schema'].rsplit("/", 3)[-3]
-    #     config["temp_storage_root"] = output_location + "/temp"
-    #     config["saving_folder_loc"] = output_location
-    #     config["executables_root"] = output_location + "/executables"
-    #     config["pipeline_logs_root"] = output_location + "/logs"
-    #     config["saved_pipeline_ID"] = ""
-
     config['timeout'] = timeout
 
     if args.cpus > -1:
         config['cpus'] = args.cpus
 
-    # Replace output directories
-    if args.output_prefix is not None:
-        for key in ['pipeline_logs_root', 'executables_root', 'temp_storage_root']:
-            if not '/output/' in config[key]:
-                print(
-                    'Skipping. No "*/output/" for config[{}]={}.'.format(key, config[key]))
-            else:
-                suffix = config[key].split('/output/', 1)[1]
-                config[key] = os.path.join(args.output_prefix, suffix)
-
-    #os.system('clear')
     print('Using configuation:')
     pprint(config)
 
