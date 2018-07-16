@@ -277,6 +277,7 @@ class DimensionalSearch(typing.Generic[T]):
                 traceback.print_exc()
                 print("-"*20)
                 print("[ERROR] Initial Pipeline failed, Trying a random pipeline ...")
+                exit(1)
                 candidate = ConfigurationPoint(self.configuration_space,
                                                self.random_assignment())
         exit(1)
