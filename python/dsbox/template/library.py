@@ -59,7 +59,6 @@ class TemplateLibrary:
                 DefaultImageProcessingRegressionTemplate,
             "TA1DefaultImageProcessingRegressionTemplate":
                 TA1DefaultImageProcessingRegressionTemplate,
-            "Default_GraphMatching_Template": DefaultGraphMatchingTemplate,
             "TA1_classification_template_1": TA1ClassificationTemplate1,
             "MuxinTA1ClassificationTemplate1": MuxinTA1ClassificationTemplate1,
             "MuxinTA1ClassificationTemplate2": MuxinTA1ClassificationTemplate2,
@@ -123,7 +122,6 @@ class TemplateLibrary:
         self.templates.append(DefaultTimeseriesCollectionTemplate)
         # self.templates.append(DefaultImageProcessingRegressionTemplate)
         self.templates.append(TA1DefaultImageProcessingRegressionTemplate)
-        self.templates.append(DefaultGraphMatchingTemplate)
         # self.templates.append(DoesNotMatchTemplate2)
         self.templates.append(DefaultTextClassificationTemplate)
         # self.templates.append(dsboxClassificationTemplate)
@@ -887,30 +885,6 @@ class TA1DefaultImageProcessingRegressionTemplate(DSBoxTemplate):
         }
 
     def importance(datset, problem_description):
-        return 7
-
-
-class DefaultGraphMatchingTemplate(DSBoxTemplate):
-    def __init__(self):
-        DSBoxTemplate.__init__(self)
-        self.template = {
-            "name": "Default_GraphMatching_Template",
-            "taskType": TaskType.GRAPH_MATCHING.name,
-            # for some special condition, the taskSubtype can be "NONE" which indicate no
-            # taskSubtype given
-            "taskSubtype": "NONE",
-            "inputType": "graph",
-            "output": "model_step",
-            "steps": [
-                {
-                    "name": "model_step",
-                    "primitives": ["d3m.primitives.sri.psl.GraphMatchingLinkPrediction"],
-                    "inputs": ["template_input"]
-                }
-            ]
-        }
-
-    def importance(dataset, problem_description):
         return 7
 
 
