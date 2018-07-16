@@ -390,7 +390,8 @@ class Controller:
             #                             dataset=self.dataset)
 
             dataset_name = self.output_executables_dir.rsplit("/", 2)[1]
-            save_location = os.path.join(self.output_logs_dir, dataset_name + ".txt")
+            # save_location = os.path.join(self.output_logs_dir, dataset_name + ".txt")
+            save_location = self.output_directory + ".txt"
 
             print("******************\n[INFO] Saving training results in", save_location)
             try:
