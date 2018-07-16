@@ -1916,3 +1916,132 @@ class DefaultImageProcessingRegressionTemplate(DSBoxTemplate):
         }
     def importance(datset, problem_description):
         return 7
+
+
+
+class SRILinkPredictionTemplate(DSBoxTemplate):
+    def __init__(self):
+        DSBoxTemplate.__init__(self)
+        self.template = {
+            "name": "SRI_LinkPrediction_Template",
+            "taskType": TaskType.LINK_PREDICTION.name,
+            "taskSubtype": "NONE",
+            "inputType": "graph",
+            "output": "model_step",
+            "steps": [
+                {
+                    "name": "parser_step",
+                    "primitives": ["d3m.primitives.sri.graph.GraphMatchingParser"],
+                    "inputs":["template_input"]
+                },
+                {
+                    "name": "transform_step",
+                    "primitives": ["d3m.primitives.sri.graph.GraphTransformer"],
+                    "inputs":["parser_step"]
+                },
+                {
+                    "name": "model_step",
+                    "primitives": ["d3m.primitives.sri.psl.LinkPrediction"],
+                    "inputs":["transform_step"]
+                }]
+        }
+
+    def importance(dataset, problem_description):
+        return 7
+
+
+class SRIGraphMatchingTemplate(DSBoxTemplate):
+    def __init__(self):
+        DSBoxTemplate.__init__(self)
+        self.template = {
+            "name": "SRI_GraphMatching_Template",
+            "taskType": {TaskType.GRAPH_MATCHING.name},
+            # for some special condition, the taskSubtype can be "NONE" which indicate no taskSubtype given
+            "taskSubtype": "NONE",
+            "inputType": "graph",
+            "output": "model_step",
+            "steps": [
+                {
+                    "name": "model_step",
+                    "primitives": ["d3m.primitives.sri.psl.GraphMatchingLinkPrediction"],
+                    "inputs":["template_input"]
+                }
+            ]
+        }
+
+    def importance(dataset, problem_description):
+        return 7
+
+
+class SRIVertexNominationTemplate(DSBoxTemplate):
+    def __init__(self):
+        DSBoxTemplate.__init__(self)
+        self.template = {
+            "name": "SRI_Vertex_Nomination_Template",
+            "taskType": TaskType.VERTEX_NOMINATION.name,
+            "taskSubtype": "NONE",
+            "inputType": "graph",
+            "output": "model_step",
+            "steps": [
+                {
+                    "name": "parse_step",
+                    "primitives": ["d3m.primitives.sri.graph.VertexNominationParser"],
+                    "inputs":["template_input"]
+
+                },
+                {
+                    "name": "model_step",
+                    "primitives": ["d3m.primitives.sri.psl.VertexNomination"],
+                    "inputs": ["parse_step"]
+
+                }
+            ]
+        }
+
+    def importance(datset, problem_description):
+        return 7
+
+
+class JHUVertexNominationTemplate(DSBoxTemplate):
+    def __init__(self):
+        DSBoxTemplate.__init__(self)
+        self.template = {
+            "name": "JHU_Vertex_Nomination_Template",
+            "taskType": {TaskType.VERTEX_NOMINATION.name},
+            "taskSubtype": "NONE",
+            "inputType": "graph",
+            "output": "model_step",
+            "steps": [
+                {
+                    "name": "model_step",
+                    "primitives": ["d3m.primitives.jhu_primitives.SpectralGraphClustering"],
+                    "inputs": ["template_input"]
+
+                }
+            ]
+        }
+
+    def importance(datset, problem_description):
+        return 7
+
+
+class JHUGraphMatchingTemplate(DSBoxTemplate):
+    def __init__(self):
+        DSBoxTemplate.__init__(self)
+        self.template = {
+            "name": "JHU_Graph_Matching_Template",
+            "taskType": {TaskType.GRAPH_MATCHING.name},
+            "taskSubtype": "None",
+            "inputType": "graph",
+            "output": "model_step",
+            "steps": [
+                {
+                    "name": "model_step",
+                    "primitives": ["d3m.primitives.jhu_primitives.SeededGraphMatching"],
+                    "inputs":["template_input"]
+                }
+            ]
+        }
+
+    def importance(datset, problem_description):
+        return 7
