@@ -43,11 +43,10 @@ LOG_FILENAME = 'dsbox.log'
 CONSOLE_LOGGING_LEVEL = logging.INFO
 CONSOLE_FORMATTER = "[%(levelname)s] - %(name)s - %(message)s"
 
-def split_dataset(dataset, problem, problem_loc=None, *, random_state=42, test_size=0.2):
+def split_dataset(dataset, problem, problem_loc=None, development_mode: bool = True, *, random_state=42, test_size=0.2):
     '''
     Split dataset into training and test
     '''
-
     task_type : TaskType = problem['problem']['task_type']  # 'classification' 'regression'
 
     for i in range(len(problem['inputs'])):
@@ -57,22 +56,45 @@ def split_dataset(dataset, problem, problem_loc=None, *, random_state=42, test_s
     res_id = problem['inputs'][i]['targets'][0]['resource_id']
     target_index = problem['inputs'][i]['targets'][0]['column_index']
 
-    try:
-        splits_file = problem_loc.rsplit("/", 1)[0] + "/dataSplits.csv"
+    # if in the development mode, we split the data as previously
+    if development_mode:
+        try:
+            splits_file = problem_loc.rsplit("/", 1)[0] + "/dataSplits.csv"
 
-        df = pd.read_csv(splits_file)
+            df = pd.read_csv(splits_file)
 
-        train_test = df[df.columns[1]]
-        train_indices = df[train_test == 'TRAIN'][df.columns[0]]
-        test_indices = df[train_test == 'TEST'][df.columns[0]]
+            train_test = df[df.columns[1]]
+            train_indices = df[train_test == 'TRAIN'][df.columns[0]]
+            test_indices = df[train_test == 'TEST'][df.columns[0]]
 
-        train = dataset[res_id].iloc[train_indices]
-        test = dataset[res_id].iloc[test_indices]
+            train = dataset[res_id].iloc[train_indices]
+            test = dataset[res_id].iloc[test_indices]
 
-        use_test_splits = False
+            use_test_splits = False
 
-        print("[INFO] Succesfully parsed test data")
-    except:
+            print("[INFO] Succesfully parsed test data")
+        except:
+            if task_type == TaskType.CLASSIFICATION:
+                # Use stratified sample to split the dataset
+                sss = StratifiedShuffleSplit(n_splits=1, test_size=test_size, random_state=random_state)
+                sss.get_n_splits(dataset[res_id], dataset[res_id].iloc[:, target_index])
+                for train_index, test_index in sss.split(dataset[res_id], dataset[res_id].iloc[:, target_index]):
+                    train = dataset[res_id].iloc[train_index,:]
+                    test = dataset[res_id].iloc[test_index,:]
+            else:
+                # Use random split
+                if not task_type == TaskType.REGRESSION:
+                    print('USING Random Split to split task type: {}'.format(task_type))
+                ss = ShuffleSplit(n_splits=1, test_size=test_size, random_state=random_state)
+                ss.get_n_splits(dataset[res_id])
+                for train_index, test_index in ss.split(dataset[res_id]):
+                    train = dataset[res_id].iloc[train_index,:]
+                    test = dataset[res_id].iloc[test_index,:]
+
+            print("[INFO] Failed test data parse/ using stratified kfold data instead")
+
+    # if in evaluation mode, we will only run the random split
+    else:
         if task_type == TaskType.CLASSIFICATION:
             # Use stratified sample to split the dataset
             sss = StratifiedShuffleSplit(n_splits=1, test_size=test_size, random_state=random_state)
@@ -89,8 +111,6 @@ def split_dataset(dataset, problem, problem_loc=None, *, random_state=42, test_s
             for train_index, test_index in ss.split(dataset[res_id]):
                 train = dataset[res_id].iloc[train_index,:]
                 test = dataset[res_id].iloc[test_index,:]
-
-        print("[INFO] Failed test data parse/ using stratified kfold data instead")
 
     # Generate training dataset
     train_dataset = copy.copy(dataset)
@@ -127,10 +147,10 @@ class Status(enum.Enum):
 class Controller:
     TIMEOUT = 59  # in minutes
 
-    def __init__(self, development_mode: bool = False, run_single_template: str = "") -> None:
+    def __init__(self, development_mode: bool = False, run_single_template_name: str = "") -> None:
         self.development_mode: bool = development_mode
 
-        self.run_single_template = run_single_template
+        self.run_single_template_name = run_single_template_name
 
         # self.config: typing.Dict = {}
 
@@ -141,7 +161,9 @@ class Controller:
         self.problem_doc_metadata: Metadata = None
 
         # Dataset
+
         self.dataset_schema_file: str = ""
+        self.all_dataset: Dataset = None
         self.dataset: Dataset = None
         self.test_dataset: Dataset = None
         self.taskSourceType: typing.Set[str]  = set()  # str from SEMANTIC_TYPES
@@ -152,8 +174,8 @@ class Controller:
         self.timeout: int = 0  # in seconds
 
         # Templates
-        if self.run_single_template:
-            self.template_library = TemplateLibrary(run_single_template=run_single_template)
+        if self.run_single_template_name:
+            self.template_library = TemplateLibrary(run_single_template=run_single_template_name)
         else:
             self.template_library = TemplateLibrary()
         self.template: typing.List[DSBoxTemplate] = []
@@ -173,6 +195,22 @@ class Controller:
 
         self._logger = None
 
+    def initialize_from_config_for_evaluation(self, config: typing.Dict) -> None:
+
+        self._load_schema(config)
+        self._create_output_directory(config)
+
+        # Dataset
+        loader = D3MDatasetLoader()
+        json_file = os.path.abspath(self.dataset_schema_file)
+        all_dataset_uri = 'file://{}'.format(json_file)
+        self.all_dataset = loader.load(dataset_uri=all_dataset_uri)
+        # here we still need to split the dataset to ensure we are doing right things, but we will not use dataSplits.csv to split
+        self.dataset, self.test_dataset = split_dataset(self.all_dataset, self.problem, config['problem_schema'], development_mode = self.development_mode)
+        self.test_dataset = runtime.add_target_columns_metadata(self.test_dataset, self.problem_doc_metadata)
+        # load templates
+        self.load_templates()
+
     def initialize_from_config(self, config: typing.Dict) -> None:
 
         self._load_schema(config)
@@ -181,8 +219,8 @@ class Controller:
         # Dataset
         loader = D3MDatasetLoader()
 
-        #dataset_uri = 'file://{}'.format(os.path.abspath(self.dataset_schema_file))
-        #self.dataset = loader.load(dataset_uri=dataset_uri)
+        dataset_uri = 'file://{}'.format(os.path.abspath(self.dataset_schema_file))
+        self.dataset = loader.load(dataset_uri=dataset_uri)
 
         # train dataset
         train_dataset_uri = 'file://{}'.format(os.path.abspath(config['train_data_schema']))
@@ -239,9 +277,12 @@ class Controller:
         '''
 
         #### Official config entry for Evaluation
-        self.output_pipelines_dir = os.path.abspath(config['pipeline_logs_root'])
-        self.output_executables_dir = os.path.abspath(config['executables_root'])
-        self.output_supporting_files_dir = os.path.abspath(config['temp_storage_root'])
+        if 'pipeline_logs_root' in config:
+            self.output_pipelines_dir = os.path.abspath(config['pipeline_logs_root'])
+        if 'output_executables_dir' in config:
+            self.output_executables_dir = os.path.abspath(config['executables_root'])
+        if 'output_supporting_files_dir' in config:
+            self.output_supporting_files_dir = os.path.abspath(config['temp_storage_root'])
         #### End: Official config entry for Evaluation
 
         self.output_directory = os.path.split(self.output_pipelines_dir)[0]
@@ -252,12 +293,12 @@ class Controller:
             self.output_logs_dir = os.path.join(self.output_supporting_files_dir, 'logs')
 
         # Make directories if they do not exist
-        if not os.path.exists(self.output_directory):
+        if self.output_directory and not os.path.exists(self.output_directory):
             os.makedirs(self.output_directory)
 
         for path in [self.output_pipelines_dir, self.output_executables_dir,
                      self.output_supporting_files_dir, self.output_logs_dir]:
-            if not os.path.exists(path):
+            if path and not os.path.exists(path):
                 os.makedirs(path)
 
         self._log_init()
