@@ -446,14 +446,14 @@ class DefaultClassificationTemplate(DSBoxTemplate):
                     "inputs": ["cast_1_step"]
                 },
                 {
-                    "name": "impute_step",
-                    "primitives": ["d3m.primitives.sklearn_wrap.SKImputer"],
+                    "name": "encoder_step",
+                    "primitives": ["d3m.primitives.dsbox.Labler"],
                     "inputs": ["corex_step"]
                 },
                 {
                     "name": "impute_step",
                     "primitives": ["d3m.primitives.sklearn_wrap.SKImputer"],
-                    "inputs": ["corex_step"]
+                    "inputs": ["encoder_step"]
                 },
                 {
                     "name": "extract_target_step",
