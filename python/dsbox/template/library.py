@@ -1691,6 +1691,16 @@ class TA1Classification_3(DSBoxTemplate):
                     "primitives": ["d3m.primitives.dsbox.MeanImputation"],
                     "inputs": ["clean_step"]
                 },
+                {
+                    "name": "label_step",
+                    "primitives": ["d3m.primitives.dsbox.Labler"],
+                    "inputs": ["impute_step"]
+                },
+                {
+                    "name": "corex_step",
+                    "primitives": ["d3m.primitives.dsbox.CorexText"],
+                    "inputs": ["label_step"]
+                },
                 # {
                 #     "name": "corex_step",
                 #     "primitives": ["d3m.primitives.dsbox.CorexText"],
@@ -1704,7 +1714,7 @@ class TA1Classification_3(DSBoxTemplate):
                         "cross_validation": 10,
                         "stratified": False
                     },
-                    "inputs": ["impute_step", "extract_target_step"]
+                    "inputs": ["corex_step", "extract_target_step"]
                 }
             ]
         }
