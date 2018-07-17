@@ -279,9 +279,9 @@ class Controller:
         #### Official config entry for Evaluation
         if 'pipeline_logs_root' in config:
             self.output_pipelines_dir = os.path.abspath(config['pipeline_logs_root'])
-        if 'output_executables_dir' in config:
+        if 'executables_root' in config:
             self.output_executables_dir = os.path.abspath(config['executables_root'])
-        if 'output_supporting_files_dir' in config:
+        if 'temp_storage_root' in config:
             self.output_supporting_files_dir = os.path.abspath(config['temp_storage_root'])
         #### End: Official config entry for Evaluation
 

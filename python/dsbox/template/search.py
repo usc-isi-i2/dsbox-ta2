@@ -465,7 +465,9 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
 
         # Save results
         if self.output_directory is not None:
-            fitted_pipeline = retrain(fitted_pipeline)
+            # retrain the best fitted pipeline with all dataset but not only the train dataset
+            # to achieve best results
+            fitted_pipeline = self.retrain(fitted_pipeline)
             fitted_pipeline.save(self.output_directory)
             _logger.info("Test pickled pipeline. id: {}".format(fitted_pipeline.id))
             self.test_pickled_pipeline(folder_loc=self.output_directory,
@@ -482,6 +484,9 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
         }
 
         return data
+
+    def retrain(self,fitted_pipeline:FittedPipeline) -> FittedPipeline:
+        return fitted_pipeline
 
     def test_pickled_pipeline(self,
                               folder_loc: str,
