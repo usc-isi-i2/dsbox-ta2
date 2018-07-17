@@ -118,16 +118,23 @@ class TemplateLibrary:
     def _load_inline_templates(self):
 
         self.templates.append(DefaultRegressionTemplate)
+
         self.templates.append(DefaultClassificationTemplate)
+        self.templates.append(dsboxClassificationTemplate)
+        self.templates.append(TA1Classification_3)
+        self.templates.append(MuxinTA1ClassificationTemplate4)
+        self.templates.append(MuxinTA1ClassificationTemplate3)
+        self.templates.append(MuxinTA1ClassificationTemplate2)
+        self.templates.append(MuxinTA1ClassificationTemplate1)
+
         self.templates.append(DefaultTimeseriesCollectionTemplate)
+
         # self.templates.append(DefaultImageProcessingRegressionTemplate)
         self.templates.append(TA1DefaultImageProcessingRegressionTemplate)
         # self.templates.append(DoesNotMatchTemplate2)
+
         self.templates.append(DefaultTextClassificationTemplate)
-        # self.templates.append(dsboxClassificationTemplate)
         # self.templates.append(DoesNotMatchTemplate2)
-        # self.templates.append(TA1Classification_3)
-        # self.templates.append(TA1ClassificationTemplate)
 
     def _load_single_inline_templates(self, template_name):
         if template_name in self.all_templates:
@@ -431,7 +438,7 @@ class DefaultClassificationTemplate(DSBoxTemplate):
                     "name": "corex_step",
                     "primitives": [
                         {
-                            "primitive": "d3m.primitives.dsbox.CorexText",
+                            "primitive": "d3m.primitives.dsbox.Labler",
                             "hyperparameters":
                                 {
                                     # 'n_hidden':[(10)],
@@ -517,7 +524,7 @@ class dsboxClassificationTemplate(DSBoxTemplate):
     def __init__(self):
         DSBoxTemplate.__init__(self)
         self.template = {
-            "name": "Test_classification_template",
+            "name": "DSBox_classification_template",
             "taskSubtype": {TaskSubtype.BINARY.name, TaskSubtype.MULTICLASS.name},
             "taskType": TaskType.CLASSIFICATION.name,
             # See TaskType, range include 'CLASSIFICATION', 'CLUSTERING',

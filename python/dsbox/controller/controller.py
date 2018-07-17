@@ -4,6 +4,18 @@ import logging
 import os
 import random
 import typing
+from multiprocessing import Pool, current_process, Manager
+from math import sqrt, log
+
+import importlib
+spam_spec = importlib.util.find_spec("colorama")
+STYLE = ""
+if spam_spec is not None:
+    from colorama import Fore, Back, init
+    # STYLE = Fore.BLUE + Back.GREEN
+    STYLE = Fore.BLACK+Back.GREEN
+    init(autoreset=True)
+
 
 import d3m
 import dsbox.template.runtime as runtime
@@ -25,7 +37,7 @@ from dsbox.template.library import SemanticTypeDict
 from dsbox.template.search import ConfigurationSpace
 from dsbox.template.search import SimpleConfigurationSpace
 from dsbox.template.search import TemplateDimensionalSearch
-from dsbox.template.search import get_target_columns
+from dsbox.template.search import get_target_columns, random_choices_without_replacement
 from dsbox.template.template import DSBoxTemplate
 
 __all__ = ['Status', 'Controller']
@@ -333,36 +345,32 @@ class Controller:
         pipelinesfile.flush()
         pipelinesfile.close()
 
-
-    def train(self) -> Status:
-        """
-        Generate and train pipelines.
-        """
-        if not self.template:
-            return Status.PROBLEM_NOT_IMPLEMENT
-
-        #self._check_and_set_dataset_metadata()
-
-        # For now just use the first template
-        # TODO: sample based on DSBoxTemplate.importance()
-        template = self.template[0]
+    def search_template(self, template: DSBoxTemplate, candidate=None, cache=None) \
+            -> typing.Dict:
 
         space = template.generate_configuration_space()
 
         metrics = self.problem['problem']['performance_metrics']
 
-        # search = TemplateDimensionalSearch(template, space, d3m.index.search(), self.dataset, self.dataset, metrics)
+        # search = TemplateDimensionalSearch(template, space, d3m.index.search(), self.dataset,
+        # self.dataset, metrics)
         if self.test_dataset is None:
             search = TemplateDimensionalSearch(
                 template, space, d3m.index.search(), self.problem_doc_metadata, self.dataset,
-                self.dataset, metrics, output_directory=self.output_directory, log_dir=self.output_logs_dir, num_workers=self.num_cpus)
+                self.dataset, metrics, output_directory=self.output_directory,
+                log_dir=self.output_logs_dir, num_workers=self.num_cpus)
         else:
             search = TemplateDimensionalSearch(
                 template, space, d3m.index.search(), self.problem_doc_metadata, self.dataset,
-                self.test_dataset, metrics, output_directory=self.output_directory, log_dir=self.output_logs_dir, num_workers=self.num_cpus)
+                self.test_dataset, metrics, output_directory=self.output_directory,
+                log_dir=self.output_logs_dir, num_workers=self.num_cpus)
 
-        candidate, value = search.search_one_iter()
 
+        # candidate, value = search.search_one_iter()
+        report = search.search_one_iter(
+            candidate_in=candidate, cache = cache)
+        candidate = report['candidate']
+        value = report['best_val']
         # assert "fitted_pipe" in candidate, "argument error!"
 
         if candidate is None:
@@ -404,19 +412,228 @@ class Controller:
                 raise NotSupportedError(
                     '[ERROR] Save training results Failed!')
 
-            print("******************\n[INFO] Saving Best Pipeline")
-            # save the pipeline
-
-            try:
-                # pipeline = FittedPipeline.create(configuration=candidate,
-                #                                  dataset=self.dataset)
-                fitted_pipeline = candidate.data['fitted_pipeline']
-                fitted_pipeline.save(self.output_directory)
-            except:
-                raise NotSupportedError(
-                    '[ERROR] Save Failed!')
+            # print("******************\n[INFO] Saving Best Pipeline")
+            # # save the pipeline
+            #
+            # try:
+            #     # pipeline = FittedPipeline.create(configuration=candidate,
+            #     #                                  dataset=self.dataset)
+            #     fitted_pipeline = candidate.data['fitted_pipeline']
+            #     fitted_pipeline.save(self.output_directory)
+            # except:
+            #     raise NotSupportedError(
+            #         '[ERROR] Save Failed!')
             ####################
-            return Status.OK
+            return report
+
+    def select_next_template(self, max_iter: int = 2):
+        # while True:
+        choices = list(range(len(self.template)))
+
+        # initial evaluation
+        for i in choices:
+            yield i
+
+        # print("[INFO] Choices:", choices)
+        # UCT based evaluation
+        for i in range(max_iter):
+            selected = random_choices_without_replacement(choices,
+                                                          self.uct_score, 1)
+            yield selected[0]
+
+    def update_UCT_score(self, index: int, report: typing.Dict):
+        self.update_history(index, report)
+
+        self.normalize = self.exec_history[['reward', 'exe_time', 'trial']]
+        self.normalize = (self.normalize - self.normalize.min()) / \
+                         (self.normalize.max() - self.normalize.min())
+
+        for i in range(len(self.uct_score)):
+            self.uct_score[i] = self.compute_UCT(i)
+
+        print(STYLE+"[INFO] UCT updated:", self.uct_score)
+
+    def update_history(self, index, report):
+        self.total_run += report['sim_count']
+        self.total_time += report['time']
+        row = self.exec_history.iloc[index]
+
+        update = {
+            'reward': row['reward'] + report['reward'] * report['sim_count'],
+            'trial': row['trial'] + report['sim_count'],
+            'exe_time': row['exe_time'] + report['time'],
+            'candidate': report['candidate'],
+            'best_value': max(report['reward'], row['best_value'])
+         }
+        for k in update:
+            self.exec_history.iloc[index][k] = update[k]
+
+    def compute_UCT(self, index=0):
+        beta = 10
+        gamma = 2
+        delta = 1
+        history = self.normalize.iloc[index]
+        try:
+            return (beta * (history['reward'] / history['trial']) +
+                gamma * sqrt(2 * log(self.total_run) / history['trial']) +
+                delta * sqrt(2 * log(self.total_time) / history['exe_time']))
+        except:
+            return 100.0
+
+    def initialize_uct(self):
+        self.total_run = 0
+        self.total_time = 0
+        # self.exec_history = \
+        #     [{"exe_time": 1, "reward": 1, "trial": 1, "candidate": None, "best_value": 0}] * \
+        #     len(self.template)
+
+        self.exec_history = pd.DataFrame(None,
+            index=map(lambda s: s.template["name"], self.template),
+            columns=['reward', 'exe_time', 'trial', 'candidate', 'best_value'])
+        self.exec_history[['reward', 'exe_time', 'trial']] = 1
+        self.exec_history[['best_value']] = 0
+
+        self.exec_history['candidate'] = self.exec_history['candidate'].astype(object)
+        self.exec_history['candidate'] = None
+
+        # print(self.exec_history.to_string())
+        self.uct_score = [100.0] * len(self.template)
+
+    def train(self) -> Status:
+        """
+        Generate and train pipelines.
+        """
+        if not self.template:
+            return Status.PROBLEM_NOT_IMPLEMENT
+
+        # self._check_and_set_dataset_metadata()
+
+        self.initialize_uct()
+
+        # setup the output cache
+        manager = Manager()
+        cache = manager.dict()
+
+
+        # For now just use the first template
+        # TODO: sample based on DSBoxTemplate.importance()
+        # template = self.template[0]
+        best_report = None
+
+        for idx in self.select_next_template(max_iter=5):
+            template = self.template[idx]
+            print(STYLE+"[INFO] Template {}:{} Selected. UCT:{}".format(
+                idx, template.template['name'], self.uct_score))
+            try:
+                report = self.search_template(
+                    template, candidate=self.exec_history.iloc[idx]['candidate'], cache=cache)
+                print(STYLE + "[INFO] report:", report['best_val'])
+                self.update_UCT_score(index=idx, report=report)
+            except:
+                continue
+
+            # if best_info and best_info['best_val']:
+            best_report = report
+
+
+
+        # shutdown the cache manager
+        manager.shutdown()
+
+        try:
+            # pipeline = FittedPipeline.create(configuration=candidate,
+            #                                  dataset=self.dataset)
+            candidate = best_report['candidate']
+            fitted_pipeline = candidate.data['fitted_pipeline']
+            fitted_pipeline.save(self.output_directory)
+        except:
+            raise NotSupportedError(
+                '[ERROR] Save Failed!')
+
+
+    # def train(self) -> Status:
+    #     """
+    #     Generate and train pipelines.
+    #     """
+    #     if not self.template:
+    #         return Status.PROBLEM_NOT_IMPLEMENT
+    #
+    #     #self._check_and_set_dataset_metadata()
+    #
+    #     # For now just use the first template
+    #     # TODO: sample based on DSBoxTemplate.importance()
+    #     template = self.template[0]
+    #
+    #     space = template.generate_configuration_space()
+    #
+    #     metrics = self.problem['problem']['performance_metrics']
+    #
+    #     # search = TemplateDimensionalSearch(template, space, d3m.index.search(), self.dataset, self.dataset, metrics)
+    #     if self.test_dataset is None:
+    #         search = TemplateDimensionalSearch(
+    #             template, space, d3m.index.search(), self.problem_doc_metadata, self.dataset,
+    #             self.dataset, metrics, output_directory=self.output_directory, log_dir=self.output_logs_dir, num_workers=self.num_cpus)
+    #     else:
+    #         search = TemplateDimensionalSearch(
+    #             template, space, d3m.index.search(), self.problem_doc_metadata, self.dataset,
+    #             self.test_dataset, metrics, output_directory=self.output_directory, log_dir=self.output_logs_dir, num_workers=self.num_cpus)
+    #
+    #     candidate, value = search.search_one_iter()
+    #
+    #     # assert "fitted_pipe" in candidate, "argument error!"
+    #
+    #     if candidate is None:
+    #         print("[ERROR] not candidate!")
+    #         return Status.PROBLEM_NOT_IMPLEMENT
+    #     else:
+    #         print("******************\n[INFO] Writing results")
+    #         print(candidate.data)
+    #         print(candidate, value)
+    #         if candidate.data['training_metrics']:
+    #             print('Training {} = {}'.format(
+    #                 candidate.data['training_metrics'][0]['metric'],
+    #                 candidate.data['training_metrics'][0]['value']))
+    #         if candidate.data['cross_validation_metrics']:
+    #             print('Training {} = {}'.format(
+    #                 candidate.data['cross_validation_metrics'][0]['metric'],
+    #                 candidate.data['cross_validation_metrics'][0]['value']))
+    #         if candidate.data['test_metrics']:
+    #             print('Test {} = {}'.format(
+    #                 candidate.data['test_metrics'][0]['metric'],
+    #                 candidate.data['test_metrics'][0]['value']))
+    #
+    #         # FIXME: code used for doing experiments, want to make optionals
+    #         # pipeline = FittedPipeline.create(configuration=candidate,
+    #         #                             dataset=self.dataset)
+    #
+    #         dataset_name = self.output_executables_dir.rsplit("/", 2)[1]
+    #         # save_location = os.path.join(self.output_logs_dir, dataset_name + ".txt")
+    #         save_location = self.output_directory + ".txt"
+    #
+    #         print("******************\n[INFO] Saving training results in", save_location)
+    #         try:
+    #             f = open(save_location, "w+")
+    #             f.write(str(metrics) + "\n")
+    #             f.write(str(candidate.data['training_metrics'][0]['value']) + "\n")
+    #             f.write(str(candidate.data['test_metrics'][0]['value']) + "\n")
+    #             f.close()
+    #         except:
+    #             raise NotSupportedError(
+    #                 '[ERROR] Save training results Failed!')
+    #
+    #         print("******************\n[INFO] Saving Best Pipeline")
+    #         # save the pipeline
+    #
+    #         try:
+    #             # pipeline = FittedPipeline.create(configuration=candidate,
+    #             #                                  dataset=self.dataset)
+    #             fitted_pipeline = candidate.data['fitted_pipeline']
+    #             fitted_pipeline.save(self.output_directory)
+    #         except:
+    #             raise NotSupportedError(
+    #                 '[ERROR] Save Failed!')
+    #         ####################
+    #         return Status.OK
 
     def test(self) -> Status:
         """
