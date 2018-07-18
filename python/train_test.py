@@ -18,7 +18,8 @@ home = str(Path.home())
 config_dir = sys.argv[2]
 
 for conf in os.listdir(config_dir):
-    command = "python3 ta1-run-single-template --template " + sys.argv[1] + " " + config_dir + conf
+    command = "python3 ta1-run-single-template --template " + sys.argv[1] + " " + \
+              os.path.join(config_dir, conf, 'search_config.json')
 
     print(command)
 
