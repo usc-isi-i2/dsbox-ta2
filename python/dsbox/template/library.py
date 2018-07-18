@@ -70,7 +70,10 @@ class TemplateLibrary:
             "TA1VggImageProcessingRegressionTemplate": TA1VggImageProcessingRegressionTemplate,
             "Default_text_classification_template": DefaultTextClassificationTemplate, 
             "BBN_audio_classification_template": BBNAudioClassificationTemplate, 
-            "SRI_GraphMatching_Template":SRIGraphMatchingTemplate
+            "SRI_GraphMatching_Template":SRIGraphMatchingTemplate,
+            "SRI_Vertex_Nomination_Template":SRIVertexNominationTemplate, 
+            "SRI_Collaborative_Filtering_Template":SRICollaborativeFilteringTemplate, 
+            "SRI_Community_Detection_Template":SRICommunityDetectionTemplate
         }
 
         if run_single_template:
@@ -119,26 +122,24 @@ class TemplateLibrary:
 
     def _load_inline_templates(self):
 
-        # self.templates.append(DefaultRegressionTemplate)
-        # self.templates.append(DefaultClassificationTemplate)
-        # self.templates.append(DefaultTimeseriesCollectionTemplate)
-        # self.templates.append(DefaultImageProcessingRegressionTemplate)
-        # self.templates.append(TA1DefaultImageProcessingRegressionTemplate)
-        # self.templates.append(DoesNotMatchTemplate2)
-        # self.templates.append(DefaultTextClassificationTemplate)
-        # self.templates.append(dsboxClassificationTemplate)
-        # self.templates.append(DoesNotMatchTemplate2)
-        # self.templates.append(TA1Classification_3)
+        self.templates.append(DefaultRegressionTemplate)
+        self.templates.append(DefaultClassificationTemplate)
+        self.templates.append(DefaultTimeseriesCollectionTemplate)
+        self.templates.append(DefaultImageProcessingRegressionTemplate)
+        self.templates.append(TA1DefaultImageProcessingRegressionTemplate)
+        self.templates.append(DefaultTextClassificationTemplate)
+        self.templates.append(dsboxClassificationTemplate)
+        self.templates.append(TA1Classification_3)
+        self.templates.append(MuxinTA1ClassificationTemplate1)
         self.templates.append(dsboxClassificationTemplate)
         self.templates.append(SRIGraphMatchingTemplate)
-        # self.templates.append(TA1ClassificationTemplate)
-        # self.templates.append(JHUVertexNominationTemplate)
-        # self.templates.append(BBNAudioClassificationTemplate1)
+        self.templates.append(SRIVertexNominationTemplate)
+        self.templates.append(SRICommunityDetectionTemplate)
+        self.templates.append(TA1ClassificationTemplate1)
+        self.templates.append(JHUVertexNominationTemplate)
         self.templates.append(BBNAudioClassificationTemplate)
+        self.templates.append(SRICollaborativeFilteringTemplate)
 
-
-        self.templates.append(DefaultTextClassificationTemplate)
-        # self.templates.append(DoesNotMatchTemplate2)
 
 
     def _load_single_inline_templates(self, template_name):
@@ -1858,7 +1859,7 @@ class SRIGraphMatchingTemplate(DSBoxTemplate):
         DSBoxTemplate.__init__(self)
         self.template = {
             "name": "SRI_GraphMatching_Template",
-            "taskType": {TaskType.GRAPH_MATCHING.name},
+            "taskType": {TaskType.GRAPH_MATCHING.name, TaskType.LINK_PREDICTION.name},
             # for some special condition, the taskSubtype can be "NONE" which indicate no taskSubtype given
             "taskSubtype": "NONE",
             "inputType": "graph",
@@ -1866,12 +1867,13 @@ class SRIGraphMatchingTemplate(DSBoxTemplate):
             "steps": [
                 {
                     "name": "model_step",
-                    "primitives": [{
-                    "primitive":"d3m.primitives.sri.psl.GraphMatchingLinkPrediction", 
-                    "hyperparameters":{
-                    "truth_threshold":[(0.1),(0.5), (0.9)]
-                    }
-                    }],
+                    # "primitives": [{
+                    # "primitive":"d3m.primitives.sri.psl.GraphMatchingLinkPrediction", 
+                    # "hyperparameters":{
+                    # "truth_threshold":[(0.1),(0.5), (0.9)]
+                    # }
+                    # }],
+                    "primitives":["d3m.primitives.sri.psl.GraphMatchingLinkPrediction"],
                     "inputs":["template_input"]
                 }
             ]
@@ -1908,6 +1910,56 @@ class SRIVertexNominationTemplate(DSBoxTemplate):
 
     def importance(datset, problem_description):
         return 7
+
+class SRICollaborativeFilteringTemplate(DSBoxTemplate):
+    def __init__(self):
+        DSBoxTemplate.__init__(self)
+        self.template = {
+            "name": "SRI_Collaborative_Filtering_Template",
+            "taskType": {TaskType.COLLABORATIVE_FILTERING.name},
+            "taskSubtype": "NONE",
+            "inputType": "table",
+            "output": "model_step",
+            "steps": [
+                {
+                    "name": "model_step",
+                    "primitives": ["d3m.primitives.sri.psl.CollaborativeFilteringLinkPrediction"],
+                    "inputs": ["template_input"]
+
+                }
+            ]
+        }
+
+    def importance(dataset, problem_description):
+        return 7
+
+class SRICommunityDetectionTemplate(DSBoxTemplate):
+    def __init__(self):
+        DSBoxTemplate.__init__(self)
+        self.template = {
+            "name": "SRI_Community_Detection_Template",
+            "taskType": {TaskType.COMMUNITY_DETECTION.name},
+            "taskSubtype": {TaskSubtype.NONOVERLAPPING.name, TaskSubtype.OVERLAPPING.name},
+            "inputType": "graph",
+            "output": "model_step",
+            "steps": [
+                {
+                    "name": "parser_step",
+                    "primitives": ["d3m.primitives.sri.graph.CommunityDetectionParser"],
+                    "inputs": ["template_input"]
+
+                },
+                {
+                    "name":"model_step",
+                    "primitives":["d3m.primitives.sri.psl.CommunityDetection"], 
+                    "inputs":["parser_step"]
+                }
+            ]
+        }
+
+    def importance(dataset, problem_description):
+        return 7    
+
 
 
 class JHUVertexNominationTemplate(DSBoxTemplate):
@@ -2092,5 +2144,31 @@ class BBNAudioClassificationTemplate(DSBoxTemplate):
         ]
         }
         
+    def importance(datset, problem_description):
+        return 7
+
+
+
+class UCHITimeSeriesClassification(DSBoxTemplate):
+    def __init__(self):
+        DSBoxTemplate.__init__(self)
+        self.template = {
+            "name": "UCHI_Time_Series_Classification",
+            "taskType": TaskType.CLASSIFICATION.name,
+        # See TaskType, range include 'CLASSIFICATION', 'CLUSTERING', 'COLLABORATIVE_FILTERING',
+            # 'COMMUNITY_DETECTION', 'GRAPH_CLUSTERING', 'GRAPH_MATCHING', 'LINK_PREDICTION',
+            # 'REGRESSION', 'TIME_SERIES_FORECASTING', 'VERTEX_NOMINATION'
+            "taskSubtype": {TaskSubtype.BINARY.name, TaskSubtype.MULTICLASS.name},
+            "inputType": "timeseries",  # See SEMANTIC_TYPES.keys() for range of values
+            "output": "model_step",  # Name of the final step generating the prediction
+            "target": "extract_target_step",  # Name of the step generating the ground truth
+            "steps": [
+                "name":"model_step", 
+                "primitives":["d3m.primitives.datasmash.d3m_XG2"], 
+                "inputs":["template_input", "template_input"]
+            ]
+        }
+
+    # @override
     def importance(datset, problem_description):
         return 7
