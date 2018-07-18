@@ -2,7 +2,6 @@ import time
 start_time = time.clock()
 import json
 import os
-import sys
 import signal
 import traceback
 from pprint import pprint
@@ -11,7 +10,7 @@ from dsbox.controller.controller import Controller
 from dsbox.controller.controller import Status
 
 
-def main(arg):
+def main():
     timeout = 0
     if os.environ["D3MRUN"] == "search":
         config = json.load(open('/input/search_config.json', 'r'))
@@ -72,7 +71,7 @@ def main(arg):
     elif 'test_data_root' in config:
         print("[INFO] Now in testing process")
         controller.initialize_from_test_config_for_evaluation(config)
-        fitted_pipeline_id = json.load(open(arg, 'r'))["fitted_pipeline_id"]
+        fitted_pipeline_id = json.load(open(os.environ["D3MTESTOPT"], 'r'))["fitted_pipeline_id"]
         status = controller.test_fitted_pipeline(fitted_pipeline_id=fitted_pipeline_id)
         print("[INFO] Testing Done")
     else:
@@ -86,5 +85,5 @@ def main(arg):
 
 if __name__ == "__main__":
 
-    result = main(sys.argv[1])
+    result = main()
     os._exit(result)
