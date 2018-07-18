@@ -73,7 +73,8 @@ class TemplateLibrary:
             "SRI_GraphMatching_Template":SRIGraphMatchingTemplate,
             "SRI_Vertex_Nomination_Template":SRIVertexNominationTemplate, 
             "SRI_Collaborative_Filtering_Template":SRICollaborativeFilteringTemplate, 
-            "SRI_Community_Detection_Template":SRICommunityDetectionTemplate
+            "SRI_Community_Detection_Template":SRICommunityDetectionTemplate, 
+            "UCHI_Time_Series_Classification_Template":UCHITimeSeriesClassificationTemplate
         }
 
         if run_single_template:
@@ -139,6 +140,7 @@ class TemplateLibrary:
         self.templates.append(JHUVertexNominationTemplate)
         self.templates.append(BBNAudioClassificationTemplate)
         self.templates.append(SRICollaborativeFilteringTemplate)
+        self.templates.append(UCHITimeSeriesClassificationTemplate)
 
 
 
@@ -2149,11 +2151,11 @@ class BBNAudioClassificationTemplate(DSBoxTemplate):
 
 
 
-class UCHITimeSeriesClassification(DSBoxTemplate):
+class UCHITimeSeriesClassificationTemplate(DSBoxTemplate):
     def __init__(self):
         DSBoxTemplate.__init__(self)
         self.template = {
-            "name": "UCHI_Time_Series_Classification",
+            "name": "UCHI_Time_Series_Classification_Template",
             "taskType": TaskType.CLASSIFICATION.name,
         # See TaskType, range include 'CLASSIFICATION', 'CLUSTERING', 'COLLABORATIVE_FILTERING',
             # 'COMMUNITY_DETECTION', 'GRAPH_CLUSTERING', 'GRAPH_MATCHING', 'LINK_PREDICTION',
@@ -2163,9 +2165,38 @@ class UCHITimeSeriesClassification(DSBoxTemplate):
             "output": "model_step",  # Name of the final step generating the prediction
             "target": "extract_target_step",  # Name of the step generating the ground truth
             "steps": [
+                # {
+                #     "name": "denormalize_step",
+                #     "primitives": ["d3m.primitives.dsbox.Denormalize"],
+                #     "inputs": ["template_input"]
+                # },
+                # {
+                #     "name": "to_dataframe_step",
+                #     "primitives": ["d3m.primitives.datasets.DatasetToDataFrame"],
+                #     "inputs": ["denormalize_step"]
+                # },
+                # # read Y value
+                # {
+                #     "name": "extract_target_step",
+                #     "primitives": [{
+                #         "primitive": "d3m.primitives.data.ExtractColumnsBySemanticTypes",
+                #         "hyperparameters":
+                #             {
+                #                 'semantic_types': (
+                #                 'https://metadata.datadrivendiscovery.org/types/Target',
+                #                 'https://metadata.datadrivendiscovery.org/types/SuggestedTarget',),
+                #                 'use_columns': (),
+                #                 'exclude_columns': ()
+                #             }
+                #     }],
+                #     "inputs": ["to_dataframe_step"]
+                # },
+
+            {
                 "name":"model_step", 
                 "primitives":["d3m.primitives.datasmash.d3m_XG2"], 
                 "inputs":["template_input", "template_input"]
+            }
             ]
         }
 
