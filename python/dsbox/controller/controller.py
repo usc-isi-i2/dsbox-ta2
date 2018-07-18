@@ -6,7 +6,7 @@ import random
 import typing
 from multiprocessing import Pool, current_process, Manager
 from math import sqrt, log
-
+import traceback
 import importlib
 spam_spec = importlib.util.find_spec("colorama")
 STYLE = ""
@@ -368,7 +368,7 @@ class Controller:
 
         # candidate, value = search.search_one_iter()
         report = search.search_one_iter(
-            candidate_in=candidate, cache = cache)
+            candidate_in=candidate, cache=cache)
         candidate = report['candidate']
         value = report['best_val']
         # assert "fitted_pipe" in candidate, "argument error!"
@@ -438,16 +438,16 @@ class Controller:
         # print("[INFO] Choices:", choices)
         # UCT based evaluation
         for i in range(max_iter):
-            selected = random_choices_without_replacement(choices,
-                                                          self.uct_score, 1)
+            selected = random_choices_without_replacement(choices, self.uct_score, 1)
             yield selected[0]
 
     def update_UCT_score(self, index: int, report: typing.Dict):
         self.update_history(index, report)
 
+        alpha = 0.01
         self.normalize = self.exec_history[['reward', 'exe_time', 'trial']]
-        self.normalize = (self.normalize - self.normalize.min()) / \
-                         (self.normalize.max() - self.normalize.min())
+        self.normalize = (self.normalize - (1-alpha)*self.normalize.min()) / \
+                         (self.normalize.max() - (1 - alpha) * self.normalize.min())
 
         for i in range(len(self.uct_score)):
             self.uct_score[i] = self.compute_UCT(i)
@@ -470,8 +470,8 @@ class Controller:
             self.exec_history.iloc[index][k] = update[k]
 
     def compute_UCT(self, index=0):
-        beta = 10
-        gamma = 2
+        beta = 15
+        gamma = 1
         delta = 1
         history = self.normalize.iloc[index]
         try:
@@ -479,6 +479,7 @@ class Controller:
                 gamma * sqrt(2 * log(self.total_run) / history['trial']) +
                 delta * sqrt(2 * log(self.total_time) / history['exe_time']))
         except:
+            print(STYLE+"[WARN] compute UCT failed:", history.tolist())
             return 100.0
 
     def initialize_uct(self):
@@ -491,7 +492,7 @@ class Controller:
         self.exec_history = pd.DataFrame(None,
             index=map(lambda s: s.template["name"], self.template),
             columns=['reward', 'exe_time', 'trial', 'candidate', 'best_value'])
-        self.exec_history[['reward', 'exe_time', 'trial']] = 1
+        self.exec_history[['reward', 'exe_time', 'trial']] = 0
         self.exec_history[['best_value']] = 0
 
         self.exec_history['candidate'] = self.exec_history['candidate'].astype(object)
@@ -528,17 +529,19 @@ class Controller:
             try:
                 report = self.search_template(
                     template, candidate=self.exec_history.iloc[idx]['candidate'], cache=cache)
-                print(STYLE + "[INFO] report:", report['best_val'])
-                self.update_UCT_score(index=idx, report=report)
             except:
+                traceback.print_exc()
                 continue
-
-            # if best_info and best_info['best_val']:
-            best_report = report
+            print(STYLE + "[INFO] report:", report['best_val'])
+            self.update_UCT_score(index=idx, report=report)
+            print("[INFO] cache size:", len(cache))
 
             # break
 
 
+        # if best_info and best_info['best_val']:
+        best_template, best_report = max(self.exec_history.iterrows(),
+                                         key=lambda r: r[1]['best_value'])
 
         # shutdown the cache manager
         manager.shutdown()
