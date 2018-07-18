@@ -425,20 +425,20 @@ class DefaultClassificationTemplate(DSBoxTemplate):
                     "inputs": ["to_dataframe_step"]
                 },
                 {
-                    "name": "column_parser_step",
-                    "primitives": ["d3m.primitives.data.ColumnParser"],
+                    "name": "profiler_step",
+                    "primitives": ["d3m.primitives.dsbox.Profiler"],
                     "inputs": ["extract_attribute_step"]
                 },
                 {
-                    "name": "cast_1_step",
-                    "primitives": ["d3m.primitives.data.CastToType"],
-                    "inputs": ["column_parser_step"]
+                    "name": "clean_step",
+                    "primitives": ["d3m.primitives.dsbox.CleaningFeaturizer"],
+                    "inputs": ["profiler_step"]
                 },
                 {
                     "name": "corex_step",
                     "primitives": [
                         {
-                            "primitive": "d3m.primitives.dsbox.Labler",
+                            "primitive": "d3m.primitives.dsbox.CorexText",
                             "hyperparameters":
                                 {
                                     # 'n_hidden':[(10)],
@@ -450,11 +450,11 @@ class DefaultClassificationTemplate(DSBoxTemplate):
                                 }
                         },
                     ],
-                    "inputs": ["cast_1_step"]
+                    "inputs": ["clean_step"]
                 },
                 {
                     "name": "encoder_step",
-                    "primitives": ["d3m.primitives.dsbox.Labler"],
+                    "primitives": ["d3m.primitives.dsbox.Encoder"],
                     "inputs": ["corex_step"]
                 },
                 {
@@ -484,15 +484,15 @@ class DefaultClassificationTemplate(DSBoxTemplate):
                         "stratified": True
                     },
                     "primitives": [
-                        # {
-                        # "primitive":
-                        #     "d3m.primitives.sklearn_wrap.SKRandomForestClassifier",
-                        # "hyperparameters":
-                        #     {
-                        #     'max_depth': [(2),(4),(8)], #(10), #
-                        #     'n_estimators':[(10),(20),(30)]
-                        #     }
-                        # },
+                        {
+                        "primitive":
+                            "d3m.primitives.sklearn_wrap.SKRandomForestClassifier",
+                        "hyperparameters":
+                            {
+                            # 'max_depth': [(2),(4),(8)], #(10), #
+                            # 'n_estimators':[(10),(20),(30)]
+                            }
+                        },
                         # {
                         # "primitive":
                         #     "d3m.primitives.sklearn_wrap.SKLinearSVC",
@@ -501,14 +501,14 @@ class DefaultClassificationTemplate(DSBoxTemplate):
                         #     'C': [(1), (10), (100)],  # (10), #
                         #     }
                         # },
-                        {
-                            "primitive":
-                                "d3m.primitives.sklearn_wrap.SKMultinomialNB",
-                            "hyperparameters":
-                                {
-                                    'alpha': [(1)],
-                                }
-                        },
+                        # {
+                        #     "primitive":
+                        #         "d3m.primitives.sklearn_wrap.SKMultinomialNB",
+                        #     "hyperparameters":
+                        #         {
+                        #             'alpha': [(1)],
+                        #         }
+                        # },
                     ],
                     "inputs": ["impute_step", "extract_target_step"]
                 }
@@ -518,7 +518,6 @@ class DefaultClassificationTemplate(DSBoxTemplate):
     # @override
     def importance(datset, problem_description):
         return 7
-
 
 class dsboxClassificationTemplate(DSBoxTemplate):
     def __init__(self):
