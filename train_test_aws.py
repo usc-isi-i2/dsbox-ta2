@@ -29,7 +29,7 @@ home = str(Path.home())
 config_dir = sys.argv[1]
 
 for conf in os.listdir(config_dir):
-    command = "python ta2-search " + config_dir + conf + " --timeout " + str(timeout) + " --cpus " + str(cpus)
+    command = "python3 ta2-search " + config_dir + conf + " --timeout " + str(timeout) + " --cpus " + str(cpus)
 
     tp.apply_async(call_ta2search, (command,))
 
