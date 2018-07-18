@@ -5,6 +5,7 @@ import random
 import traceback
 import typing
 import logging
+import time
 from warnings import warn
 
 from multiprocessing import Pool, current_process, Manager
@@ -106,7 +107,7 @@ class DimensionalSearch(typing.Generic[T]):
         pass
 
     def search_one_iter(self, candidate_in: ConfigurationPoint[T] = None,
-                        candidate_value: float = None, max_per_dimension=50):
+                        candidate_value: float = None, max_per_dimension=50, cache = None):
         """
         Performs one iteration of dimensional search. During dimesional
         search our algorithm iterates through all 8 steps of pipeline as
@@ -124,9 +125,14 @@ class DimensionalSearch(typing.Generic[T]):
         """
 
         # setup the output cache
-        manager = Manager()
-        cache = manager.dict()
+        if not cache:
+            local_cache = True
+            manager = Manager()
+            cache = manager.dict()
 
+        # initialize the simulation counter
+        sim_counter = 0
+        start_time = time.clock()
 
         # we first need the baseline for searching the conf_space. For this
         # purpose we initially use first configuration and evaluate it on the
@@ -134,9 +140,8 @@ class DimensionalSearch(typing.Generic[T]):
         # more time to guarantee robustness on error reporting
         candidate, candidate_value = \
             self.setup_initial_candidate(candidate_in, cache)
-
+        sim_counter += 1
         # generate an executable pipeline with random steps from conf. space.
-
         # The actual searching process starts here.
         for dimension in self.dimension_ordering:
             # get all possible choices for the step, as specified in
@@ -174,7 +179,8 @@ class DimensionalSearch(typing.Generic[T]):
             sucessful_candidates = []
             best_index = -1
             print('*' * 100)
-            print("[INFO] Running Pool:", len(new_candidates))
+            print("[INFO] Running Pool for step", dimension,", fork_num:", len(new_candidates))
+            sim_counter += len(new_candidates)
             try:
                 with Pool(self.num_workers) as p:
                     results = p.map(
@@ -186,7 +192,9 @@ class DimensionalSearch(typing.Generic[T]):
 
                 for res, x in zip(results, new_candidates):
                     if not res:
-                        print('[ERROR] candidate failed:', x)
+                        print('[ERROR] candidate failed:')
+                        pprint(x)
+                        print("-"*10)
                         continue
                     test_values.append(res['test_metrics'][0]['value'])
                     if res['cross_validation_metrics']:
@@ -240,11 +248,31 @@ class DimensionalSearch(typing.Generic[T]):
         # END FOR
 
         # shutdown the cache manager
-        manager.shutdown()
+        if local_cache:
+            manager.shutdown()
 
         # here we can get the details of pipelines from "candidate.data"
         assert "fitted_pipeline" in candidate.data, "parameters not added! last"
-        return (candidate, candidate_value)
+        # gather information for UCT
+
+        # if 'test_values' in locals() and test_values:
+        #     reward = abs(sum(test_values)) / len(test_values)
+        # else:
+        reward = candidate_value
+
+        # TODO : come up with a better method for this
+        if self.minimize:
+            reward = -reward
+
+        UCT_report = {
+            'reward': reward,
+            'time': time.clock() - start_time,
+            'sim_count': sim_counter,
+            'candidate': candidate,
+            'best_val': candidate_value
+        }
+        # return (candidate, candidate_value)
+        return UCT_report
 
 
 
@@ -275,12 +303,12 @@ class DimensionalSearch(typing.Generic[T]):
                 return (candidate, result['test_metrics'][0]['value'])
             except:
                 traceback.print_exc()
-                print("-"*20)
                 print("[ERROR] Initial Pipeline failed, Trying a random pipeline ...")
-                exit(1)
+                pprint(candidate)
+                print("-"*20)
                 candidate = ConfigurationPoint(self.configuration_space,
                                                self.random_assignment())
-        exit(1)
+        raise ValueError("Invalid initial candidate")
         # result = self.evaluate((candidate, cache))
         # candidate.data.update(result)
         # try:
@@ -466,11 +494,11 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
         # Save results
         if self.output_directory is not None:
             fitted_pipeline.save(self.output_directory)
-            _logger.info("Test pickled pipeline. id: {}".format(fitted_pipeline.id))
-            self.test_pickled_pipeline(folder_loc=self.output_directory,
-                                           pipeline_id=fitted_pipeline.id,
-                                           test_metrics=test_metrics,
-                                           test_ground_truth=test_ground_truth)
+            # _logger.info("Test pickled pipeline. id: {}".format(fitted_pipeline.id))
+            # self.test_pickled_pipeline(folder_loc=self.output_directory,
+            #                                pipeline_id=fitted_pipeline.id,
+            #                                test_metrics=test_metrics,
+            #                                test_ground_truth=test_ground_truth)
 
         data = {
             'fitted_pipeline': fitted_pipeline,
