@@ -2,6 +2,7 @@ import bisect
 import operator
 import os
 import random
+import time
 import traceback
 import typing
 import logging
@@ -427,6 +428,8 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
                   configuration: ConfigurationPoint,
                   cache: typing.Dict) -> typing.Dict:
 
+        start_time = time.time()
+
         pipeline = self.template.to_pipeline(configuration)
 
         # Todo: update ResourceManager to run pipeline:  ResourceManager.add_pipeline(pipeline)
@@ -511,7 +514,8 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
             'fitted_pipeline': fitted_pipeline,
             'training_metrics': training_metrics,
             'cross_validation_metrics': fitted_pipeline.get_cross_validation_metrics(),
-            'test_metrics': test_metrics
+            'test_metrics': test_metrics,
+            'total_runtime': time.time() - start_time
         }
 
         return data

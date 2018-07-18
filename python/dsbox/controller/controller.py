@@ -408,6 +408,7 @@ class Controller:
                 f.write(str(candidate.data['training_metrics'][0]['value']) + "\n")
                 f.write(str(candidate.data['cross_validation_metrics'][0]['value']) + "\n")
                 f.write(str(candidate.data['test_metrics'][0]['value']) + "\n")
+                f.write(str(candidate.data['total_runtime']) + "\n")
                 f.close()
             except:
                 raise NotSupportedError(
