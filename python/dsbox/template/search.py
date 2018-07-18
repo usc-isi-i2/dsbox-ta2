@@ -125,7 +125,9 @@ class DimensionalSearch(typing.Generic[T]):
         """
 
         # setup the output cache
-        if not cache:
+        local_cache = False
+        if cache is None:
+            print("[INFO] Using Local Cache")
             local_cache = True
             manager = Manager()
             cache = manager.dict()
