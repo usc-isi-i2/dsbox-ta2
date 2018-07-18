@@ -385,7 +385,7 @@ class Controller:
                     candidate.data['training_metrics'][0]['metric'],
                     candidate.data['training_metrics'][0]['value']))
             if candidate.data['cross_validation_metrics']:
-                print('Training {} = {}'.format(
+                print('CV {} = {}'.format(
                     candidate.data['cross_validation_metrics'][0]['metric'],
                     candidate.data['cross_validation_metrics'][0]['value']))
             if candidate.data['test_metrics']:
@@ -406,6 +406,7 @@ class Controller:
                 f = open(save_location, "w+")
                 f.write(str(metrics) + "\n")
                 f.write(str(candidate.data['training_metrics'][0]['value']) + "\n")
+                f.write(str(candidate.data['cross_validation_metrics'][0]['value']) + "\n")
                 f.write(str(candidate.data['test_metrics'][0]['value']) + "\n")
                 f.close()
             except:
@@ -534,6 +535,8 @@ class Controller:
 
             # if best_info and best_info['best_val']:
             best_report = report
+
+            # break
 
 
 
