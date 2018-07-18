@@ -143,6 +143,7 @@ class DimensionalSearch(typing.Generic[T]):
         sim_counter += 1
         # generate an executable pipeline with random steps from conf. space.
         # The actual searching process starts here.
+
         for dimension in self.dimension_ordering:
             # get all possible choices for the step, as specified in
             # configuration space
@@ -150,7 +151,7 @@ class DimensionalSearch(typing.Generic[T]):
                                           .get_values(dimension)
 
             # TODO this is just a hack
-            if len(choices) == 1:
+            if len(choices) == 1: # if only have one candidate primitive for this step, skip?
                 continue
             # print("[INFO] choices:", choices, ", in step:", dimension)
             assert 1 < len(choices), \
@@ -160,6 +161,7 @@ class DimensionalSearch(typing.Generic[T]):
             weights = [self.configuration_space.get_weight(
                 dimension, x) for x in choices]
 
+            # generate the candidates choices list
             selected = random_choices_without_replacement(
                 choices, weights, max_per_dimension)
 
@@ -167,10 +169,14 @@ class DimensionalSearch(typing.Generic[T]):
             if candidate_value is not None and candidate[dimension] in selected:
                 selected.remove(candidate[dimension])
 
+            # all the new possible pipelines are generated in new_candidates
             new_candidates: typing.List[ConfigurationPoint] = []
             for value in selected:
+                # transfer the pipeline to dictionary type so that we can change detail steps
                 new = dict(candidate)
+                # replace the traget step
                 new[dimension] = value
+                # regenerate the pipeline
                 candidate_ = self.configuration_space.get_point(new)
                 new_candidates.append(candidate_)
 
@@ -189,7 +195,6 @@ class DimensionalSearch(typing.Generic[T]):
                     )
 
                 # results = map(self.evaluate,new_candidates)
-
                 for res, x in zip(results, new_candidates):
                     if not res:
                         print('[ERROR] candidate failed:')
