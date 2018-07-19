@@ -24,7 +24,7 @@ def call_ta2search(command):
 tp = ThreadPool(num_threads)
 
 home = str(Path.home())
-# config_dir = sys.argv[2]
+print(sys.argv)
 config_dir = sys.argv[1]
 
 for conf in os.listdir(config_dir):
