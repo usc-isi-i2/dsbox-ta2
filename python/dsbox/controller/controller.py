@@ -10,10 +10,14 @@ import traceback
 import importlib
 spam_spec = importlib.util.find_spec("colorama")
 STYLE = ""
+ERROR = ""
+WARNING = ""
 if spam_spec is not None:
     from colorama import Fore, Back, init
     # STYLE = Fore.BLUE + Back.GREEN
     STYLE = Fore.BLACK+Back.GREEN
+    ERROR = Fore.WHITE+Back.RED
+    WARNING = Fore.BLACK+Back.YELLOW
     init(autoreset=True)
 
 
@@ -345,7 +349,8 @@ class Controller:
         pipelinesfile.flush()
         pipelinesfile.close()
 
-    def search_template(self, template: DSBoxTemplate, candidate=None, cache=None) \
+    def search_template(self, template: DSBoxTemplate, candidate: typing.Dict=None,
+                        cache_bundle:typing.Tuple[typing.Dict, typing.Dict]=(None, None)) \
             -> typing.Dict:
 
         space = template.generate_configuration_space()
@@ -367,7 +372,8 @@ class Controller:
 
 
         # candidate, value = search.search_one_iter()
-        report = search.search_one_iter(candidate_in=candidate, cache=cache)
+        report = search.search_one_iter(candidate_in=candidate, cache_bundle=cache_bundle)
+
         candidate = report['candidate']
         value = report['best_val']
         # assert "fitted_pipe" in candidate, "argument error!"
@@ -377,7 +383,7 @@ class Controller:
             return Status.PROBLEM_NOT_IMPLEMENT
         else:
             print("******************\n[INFO] Writing results")
-            print(candidate.data)
+            pprint.pprint(candidate.data)
             print(candidate, value)
             if candidate.data['training_metrics']:
                 print('Training {} = {}'.format(
@@ -388,7 +394,7 @@ class Controller:
                     candidate.data['cross_validation_metrics'][0]['metric'],
                     candidate.data['cross_validation_metrics'][0]['value']))
             if candidate.data['test_metrics']:
-                print('Test {} = {}'.format(
+                print('Validation {} = {}'.format(
                     candidate.data['test_metrics'][0]['metric'],
                     candidate.data['test_metrics'][0]['value']))
 
@@ -402,34 +408,19 @@ class Controller:
 
             print("******************\n[INFO] Saving training results in", save_location)
             try:
-                # hacky fix - if cross validation is not performed then we are just re-reading 
-                # and re-running an already tested pipeline, so no need to save results
-                if candidate.data['cross_validation_metrics']:
-                    f = open(save_location, "w+")
-                    f.write(str(metrics) + "\n")
-                    f.write(str(candidate.data['training_metrics'][0]['value']) + "\n")
-                    f.write(str(candidate.data['cross_validation_metrics'][0]['value']) + "\n")
-                    f.write(str(candidate.data['test_metrics'][0]['value']) + "\n")
-                    f.write(str(candidate.data['total_runtime']) + "\n")
-                    f.close()
-                else:
-                    print("[INFO] Skip saving - no CV data")
+                f = open(save_location, "w+")
+                f.write(str(metrics) + "\n")
+                for m in ["training_metrics", "cross_validation_metrics", "test_metrics"]:
+                    if m in candidate.data and candidate.data[m]:
+                        f.write(str(candidate.data[m][0]['value']) + "\n")
+                # f.write(str(candidate.data['training_metrics'][0]['value']) + "\n")
+                # f.write(str(candidate.data['cross_validation_metrics'][0]['value']) + "\n")
+                # f.write(str(candidate.data['test_metrics'][0]['value']) + "\n")
+                f.close()
             except:
                 raise NotSupportedError(
                     '[ERROR] Save training results Failed!')
 
-            # print("******************\n[INFO] Saving Best Pipeline")
-            # # save the pipeline
-            #
-            # try:
-            #     # pipeline = FittedPipeline.create(configuration=candidate,
-            #     #                                  dataset=self.dataset)
-            #     fitted_pipeline = candidate.data['fitted_pipeline']
-            #     fitted_pipeline.save(self.output_directory)
-            # except:
-            #     raise NotSupportedError(
-            #         '[ERROR] Save Failed!')
-            ####################
             return report
 
     def select_next_template(self, max_iter: int = 2):
@@ -475,16 +466,16 @@ class Controller:
             self.exec_history.iloc[index][k] = update[k]
 
     def compute_UCT(self, index=0):
-        beta = 15
+        beta = 10
         gamma = 1
-        delta = 1
+        delta = 4
         history = self.normalize.iloc[index]
         try:
-            return (beta * (history['reward'] / history['trial']) +
+            return (beta * (history['reward'] / history['trial']) * log(history['trial']) +
                 gamma * sqrt(2 * log(self.total_run) / history['trial']) +
                 delta * sqrt(2 * log(self.total_time) / history['exe_time']))
         except:
-            print(STYLE+"[WARN] compute UCT failed:", history.tolist())
+            # print(STYLE+"[WARN] compute UCT failed:", history.tolist())
             return 100.0
 
     def initialize_uct(self):
@@ -520,7 +511,7 @@ class Controller:
         # setup the output cache
         manager = Manager()
         cache = manager.dict()
-
+        candidate_cache = manager.dict()
 
         # For now just use the first template
         # TODO: sample based on DSBoxTemplate.importance()
@@ -533,13 +524,16 @@ class Controller:
                 idx, template.template['name'], self.uct_score))
             try:
                 report = self.search_template(
-                    template, candidate=self.exec_history.iloc[idx]['candidate'], cache=cache)
+                    template, candidate=self.exec_history.iloc[idx]['candidate'],
+                    cache_bundle=(cache, candidate_cache),
+                )
             except:
                 traceback.print_exc()
                 continue
             print(STYLE + "[INFO] report:", report['best_val'])
             self.update_UCT_score(index=idx, report=report)
-            print("[INFO] cache size:", len(cache))
+            print(STYLE+"[INFO] cache size:", len(cache),
+                  STYLE+", candidates:", len(candidate_cache))
 
             # break
 
