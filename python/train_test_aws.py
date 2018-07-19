@@ -1,7 +1,6 @@
 import os
 import subprocess
 import sys
-
 from multiprocessing.pool import ThreadPool
 from pathlib import Path
 
@@ -17,7 +16,7 @@ def call_ta2search(command):
 
     try:
         p.communicate(timeout=timeout * 60)
-    except TimeoutExpired:
+    except subprocess.TimeoutExpired:
         p.kill()
         print(command, "took too long and was terminated" + "\n\n")
 
