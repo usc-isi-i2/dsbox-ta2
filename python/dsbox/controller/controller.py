@@ -350,7 +350,7 @@ class Controller:
         pipelinesfile.close()
 
     def search_template(self, template: DSBoxTemplate, candidate: typing.Dict=None,
-                        cache:typing.Tuple[typing.Dict, typing.Dict]=(None, None)) \
+                        cache_bundle:typing.Tuple[typing.Dict, typing.Dict]=(None, None)) \
             -> typing.Dict:
 
         space = template.generate_configuration_space()
@@ -372,7 +372,8 @@ class Controller:
 
 
         # candidate, value = search.search_one_iter()
-        report = search.search_one_iter(candidate_in=candidate, cache_bundle=cache)
+        report = search.search_one_iter(candidate_in=candidate, cache_bundle=cache_bundle)
+
         candidate = report['candidate']
         value = report['best_val']
         # assert "fitted_pipe" in candidate, "argument error!"
@@ -524,7 +525,7 @@ class Controller:
             try:
                 report = self.search_template(
                     template, candidate=self.exec_history.iloc[idx]['candidate'],
-                    cache=(cache, candidate_cache),
+                    cache_bundle=(cache, candidate_cache),
                 )
             except:
                 traceback.print_exc()

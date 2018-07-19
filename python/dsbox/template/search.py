@@ -2,6 +2,7 @@ import bisect
 import operator
 import os
 import random
+import time
 import traceback
 import typing
 import logging
@@ -146,6 +147,7 @@ class DimensionalSearch(typing.Generic[T]):
                         max_per_dimension: int=50,
                         cache_bundle: typing.Tuple[typing.Dict, typing.Dict]=(None, None)) -> \
             typing.Dict:
+
         """
         Performs one iteration of dimensional search. During dimesional
         search our algorithm iterates through all 8 steps of pipeline as
@@ -158,9 +160,10 @@ class DimensionalSearch(typing.Generic[T]):
             Current best candidate
         max_per_dimension: int
             Maximum number of values to search per dimension
-        cache: Dict
-            the global cache object for storing and reusing computation on intermediate results.
-            if the cache is None, a local cache will be used in the dimensional search
+        cache_bundle: tuple[Dict,Dict]
+            the global cache object and candidate cache object for storing and reusing computation
+            on intermediate results. if the cache is None, a local cache will be used in the
+            dimensional search
         """
 
         # setup the output cache
@@ -183,6 +186,7 @@ class DimensionalSearch(typing.Generic[T]):
         # purpose we initially use first configuration and evaluate it on the
         #  dataset. In case that failed we repeat the sampling process one
         # more time to guarantee robustness on error reporting
+
         candidate, candidate_value = \
             self.setup_initial_candidate(candidate_in, cache, candidate_cache)
 
@@ -492,6 +496,8 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
                   cache: typing.Dict,
                   dump2disk: bool) -> typing.Dict:
 
+        start_time = time.time()
+
         pipeline = self.template.to_pipeline(configuration)
 
         # Todo: update ResourceManager to run pipeline:  ResourceManager.add_pipeline(pipeline)
@@ -563,6 +569,15 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
         if len(test_metrics) > 0:
             fitted_pipeline.set_metric(test_metrics[0])
 
+        data = {
+            'fitted_pipeline': fitted_pipeline,
+            'training_metrics': training_metrics,
+            'cross_validation_metrics': fitted_pipeline.get_cross_validation_metrics(),
+            'test_metrics': test_metrics,
+            'total_runtime': time.time() - start_time
+        }
+        fitted_pipeline.auxiliary = dict(data)
+
         # Save results
         if self.output_directory is not None and dump2disk:
             fitted_pipeline.save(self.output_directory)
@@ -571,13 +586,6 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
             #                                pipeline_id=fitted_pipeline.id,
             #                                test_metrics=test_metrics,
             #                                test_ground_truth=test_ground_truth)
-
-        data = {
-            'fitted_pipeline': fitted_pipeline,
-            'training_metrics': training_metrics,
-            'cross_validation_metrics': fitted_pipeline.get_cross_validation_metrics(),
-            'test_metrics': test_metrics
-        }
 
         return data
 
