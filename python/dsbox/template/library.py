@@ -125,22 +125,22 @@ class TemplateLibrary:
 
         self.templates.append(DefaultRegressionTemplate)
         self.templates.append(DefaultClassificationTemplate)
-        self.templates.append(DefaultTimeseriesCollectionTemplate)
-        self.templates.append(DefaultImageProcessingRegressionTemplate)
-        self.templates.append(TA1DefaultImageProcessingRegressionTemplate)
-        self.templates.append(DefaultTextClassificationTemplate)
-        self.templates.append(dsboxClassificationTemplate)
-        self.templates.append(TA1Classification_3)
-        self.templates.append(MuxinTA1ClassificationTemplate1)
-        self.templates.append(dsboxClassificationTemplate)
-        self.templates.append(SRIGraphMatchingTemplate)
-        self.templates.append(SRIVertexNominationTemplate)
-        self.templates.append(SRICommunityDetectionTemplate)
-        self.templates.append(TA1ClassificationTemplate1)
-        self.templates.append(JHUVertexNominationTemplate)
-        self.templates.append(BBNAudioClassificationTemplate)
-        self.templates.append(SRICollaborativeFilteringTemplate)
-        self.templates.append(UCHITimeSeriesClassificationTemplate)
+        # self.templates.append(DefaultTimeseriesCollectionTemplate)
+        # self.templates.append(DefaultImageProcessingRegressionTemplate)
+        # self.templates.append(TA1DefaultImageProcessingRegressionTemplate)
+        # self.templates.append(DefaultTextClassificationTemplate)
+        # self.templates.append(dsboxClassificationTemplate)
+        # self.templates.append(TA1Classification_3)
+        # self.templates.append(MuxinTA1ClassificationTemplate1)
+        # self.templates.append(dsboxClassificationTemplate)
+        # self.templates.append(SRIGraphMatchingTemplate)
+        # self.templates.append(SRIVertexNominationTemplate)
+        # self.templates.append(SRICommunityDetectionTemplate)
+        # self.templates.append(TA1ClassificationTemplate1)
+        # self.templates.append(JHUVertexNominationTemplate)
+        # self.templates.append(BBNAudioClassificationTemplate)
+        # self.templates.append(SRICollaborativeFilteringTemplate)
+        # self.templates.append(UCHITimeSeriesClassificationTemplate)
 
 
 
@@ -498,7 +498,7 @@ class DefaultClassificationTemplate(DSBoxTemplate):
                         "hyperparameters":
                             {
                             # 'max_depth': [(2),(4),(8)], #(10), #
-                            # 'n_estimators':[(10),(20),(30)]
+                            # 'n_estimators':[(10),(20)]
                             }
                         },
                         # {
