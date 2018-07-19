@@ -367,8 +367,7 @@ class Controller:
 
 
         # candidate, value = search.search_one_iter()
-        report = search.search_one_iter(
-            candidate_in=candidate, cache=cache)
+        report = search.search_one_iter(candidate_in=candidate, cache=cache)
         candidate = report['candidate']
         value = report['best_val']
         # assert "fitted_pipe" in candidate, "argument error!"
