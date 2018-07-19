@@ -253,6 +253,7 @@ class DimensionalSearch(typing.Generic[T]):
                         print('[ERROR] candidate failed:')
                         pprint(x)
                         print("-"*10)
+                        continue
 
                     test_values.append(res['test_metrics'][0]['value'])
                     if res['cross_validation_metrics']:
