@@ -108,7 +108,7 @@ class DimensionalSearch(typing.Generic[T]):
         pass
 
     def search_one_iter(self, candidate_in: ConfigurationPoint[T] = None,
-                        candidate_value: float = None, max_per_dimension=50, cache = None):
+                        candidate_value: float = None, max_per_dimension=1000, cache = None):
         """
         Performs one iteration of dimensional search. During dimesional
         search our algorithm iterates through all 8 steps of pipeline as

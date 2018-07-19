@@ -217,7 +217,7 @@ class Runtime:
                         else:
                             if isinstance(primitives_outputs[n_step], DataFrame):
                                 try:
-                                    primitives_outputs[n_step][:50].to_csv(debug_file)
+                                    primitives_outputs[n_step][:1000].to_csv(debug_file)
                                 except:
                                     pass
 
@@ -454,7 +454,7 @@ class Runtime:
                 else:
                     if isinstance(steps_outputs[n_step], DataFrame):
                         try:
-                            steps_outputs[n_step][:50].to_csv(debug_file)
+                            steps_outputs[n_step][:1000].to_csv(debug_file)
                         except:
                             pass
 
