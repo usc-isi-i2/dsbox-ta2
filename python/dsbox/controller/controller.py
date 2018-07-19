@@ -367,8 +367,7 @@ class Controller:
 
 
         # candidate, value = search.search_one_iter()
-        report = search.search_one_iter(
-            candidate_in=candidate, cache=cache)
+        report = search.search_one_iter(candidate_in=candidate, cache=cache)
         candidate = report['candidate']
         value = report['best_val']
         # assert "fitted_pipe" in candidate, "argument error!"
@@ -403,12 +402,18 @@ class Controller:
 
             print("******************\n[INFO] Saving training results in", save_location)
             try:
-                f = open(save_location, "w+")
-                f.write(str(metrics) + "\n")
-                f.write(str(candidate.data['training_metrics'][0]['value']) + "\n")
-                f.write(str(candidate.data['cross_validation_metrics'][0]['value']) + "\n")
-                f.write(str(candidate.data['test_metrics'][0]['value']) + "\n")
-                f.close()
+                # hacky fix - if cross validation is not performed then we are just re-reading 
+                # and re-running an already tested pipeline, so no need to save results
+                if candidate.data['cross_validation_metrics']:
+                    f = open(save_location, "w+")
+                    f.write(str(metrics) + "\n")
+                    f.write(str(candidate.data['training_metrics'][0]['value']) + "\n")
+                    f.write(str(candidate.data['cross_validation_metrics'][0]['value']) + "\n")
+                    f.write(str(candidate.data['test_metrics'][0]['value']) + "\n")
+                    f.write(str(candidate.data['total_runtime']) + "\n")
+                    f.close()
+                else:
+                    print("[INFO] Skip saving - no CV data")
             except:
                 raise NotSupportedError(
                     '[ERROR] Save training results Failed!')

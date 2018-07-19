@@ -2,6 +2,7 @@ import bisect
 import operator
 import os
 import random
+import time
 import traceback
 import typing
 import logging
@@ -107,7 +108,7 @@ class DimensionalSearch(typing.Generic[T]):
         pass
 
     def search_one_iter(self, candidate_in: ConfigurationPoint[T] = None,
-                        candidate_value: float = None, max_per_dimension=50, cache = None):
+                        candidate_value: float = None, max_per_dimension=1000, cache = None):
         """
         Performs one iteration of dimensional search. During dimesional
         search our algorithm iterates through all 8 steps of pipeline as
@@ -140,8 +141,7 @@ class DimensionalSearch(typing.Generic[T]):
         # purpose we initially use first configuration and evaluate it on the
         #  dataset. In case that failed we repeat the sampling process one
         # more time to guarantee robustness on error reporting
-        candidate, candidate_value = \
-            self.setup_initial_candidate(candidate_in, cache)
+        candidate, candidate_value = self.setup_initial_candidate(candidate_in, cache)
         sim_counter += 1
         # generate an executable pipeline with random steps from conf. space.
         # The actual searching process starts here.
@@ -427,6 +427,8 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
                   configuration: ConfigurationPoint,
                   cache: typing.Dict) -> typing.Dict:
 
+        start_time = time.time()
+
         pipeline = self.template.to_pipeline(configuration)
 
         # Todo: update ResourceManager to run pipeline:  ResourceManager.add_pipeline(pipeline)
@@ -498,6 +500,15 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
         if len(test_metrics) > 0:
             fitted_pipeline.set_metric(test_metrics[0])
 
+        data = {
+            'fitted_pipeline': fitted_pipeline,
+            'training_metrics': training_metrics,
+            'cross_validation_metrics': fitted_pipeline.get_cross_validation_metrics(),
+            'test_metrics': test_metrics,
+            'total_runtime': time.time() - start_time
+        }
+        fitted_pipeline.auxiliary = dict(data)
+
         # Save results
         if self.output_directory is not None:
             fitted_pipeline.save(self.output_directory)
@@ -506,13 +517,6 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
             #                                pipeline_id=fitted_pipeline.id,
             #                                test_metrics=test_metrics,
             #                                test_ground_truth=test_ground_truth)
-
-        data = {
-            'fitted_pipeline': fitted_pipeline,
-            'training_metrics': training_metrics,
-            'cross_validation_metrics': fitted_pipeline.get_cross_validation_metrics(),
-            'test_metrics': test_metrics
-        }
 
         return data
 
