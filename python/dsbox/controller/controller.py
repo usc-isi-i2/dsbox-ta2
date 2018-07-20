@@ -73,40 +73,40 @@ def split_dataset(dataset, problem, problem_loc=None, *, random_state=42, test_s
     res_id = problem['inputs'][i]['targets'][0]['resource_id']
     target_index = problem['inputs'][i]['targets'][0]['column_index']
 
-    try:
-        splits_file = problem_loc.rsplit("/", 1)[0] + "/dataSplits.csv"
+    # try:
+    #     splits_file = problem_loc.rsplit("/", 1)[0] + "/dataSplits.csv"
+    #
+    #     df = pd.read_csv(splits_file)
+    #
+    #     train_test = df[df.columns[1]]
+    #     train_indices = df[train_test == 'TRAIN'][df.columns[0]]
+    #     test_indices = df[train_test == 'TEST'][df.columns[0]]
+    #
+    #     train = dataset[res_id].iloc[train_indices]
+    #     test = dataset[res_id].iloc[test_indices]
+    #
+    #     use_test_splits = False
+    #
+    #     print("[INFO] Succesfully parsed test data")
+    # except:
+    if task_type == TaskType.CLASSIFICATION:
+        # Use stratified sample to split the dataset
+        sss = StratifiedShuffleSplit(n_splits=1, test_size=test_size, random_state=random_state)
+        sss.get_n_splits(dataset[res_id], dataset[res_id].iloc[:, target_index])
+        for train_index, test_index in sss.split(dataset[res_id], dataset[res_id].iloc[:, target_index]):
+            train = dataset[res_id].iloc[train_index,:]
+            test = dataset[res_id].iloc[test_index,:]
+    else:
+        # Use random split
+        if not task_type == TaskType.REGRESSION:
+            print('USING Random Split to split task type: {}'.format(task_type))
+        ss = ShuffleSplit(n_splits=1, test_size=test_size, random_state=random_state)
+        ss.get_n_splits(dataset[res_id])
+        for train_index, test_index in ss.split(dataset[res_id]):
+            train = dataset[res_id].iloc[train_index,:]
+            test = dataset[res_id].iloc[test_index,:]
 
-        df = pd.read_csv(splits_file)
-
-        train_test = df[df.columns[1]]
-        train_indices = df[train_test == 'TRAIN'][df.columns[0]]
-        test_indices = df[train_test == 'TEST'][df.columns[0]]
-
-        train = dataset[res_id].iloc[train_indices]
-        test = dataset[res_id].iloc[test_indices]
-
-        use_test_splits = False
-
-        print("[INFO] Succesfully parsed test data")
-    except:
-        if task_type == TaskType.CLASSIFICATION:
-            # Use stratified sample to split the dataset
-            sss = StratifiedShuffleSplit(n_splits=1, test_size=test_size, random_state=random_state)
-            sss.get_n_splits(dataset[res_id], dataset[res_id].iloc[:, target_index])
-            for train_index, test_index in sss.split(dataset[res_id], dataset[res_id].iloc[:, target_index]):
-                train = dataset[res_id].iloc[train_index,:]
-                test = dataset[res_id].iloc[test_index,:]
-        else:
-            # Use random split
-            if not task_type == TaskType.REGRESSION:
-                print('USING Random Split to split task type: {}'.format(task_type))
-            ss = ShuffleSplit(n_splits=1, test_size=test_size, random_state=random_state)
-            ss.get_n_splits(dataset[res_id])
-            for train_index, test_index in ss.split(dataset[res_id]):
-                train = dataset[res_id].iloc[train_index,:]
-                test = dataset[res_id].iloc[test_index,:]
-
-        print("[INFO] Failed test data parse/ using stratified kfold data instead")
+    print("[INFO] Failed test data parse/ using stratified kfold data instead")
 
     # Generate training dataset
     train_dataset = copy.copy(dataset)
