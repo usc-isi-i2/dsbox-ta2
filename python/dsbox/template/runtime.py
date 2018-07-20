@@ -25,6 +25,7 @@ from multiprocessing import current_process
 
 _logger = logging.getLogger(__name__)
 
+MAX_DUMP_SIZE = 50  # 1000
 
 class Runtime:
     """
@@ -217,7 +218,7 @@ class Runtime:
                         else:
                             if isinstance(primitives_outputs[n_step], DataFrame):
                                 try:
-                                    primitives_outputs[n_step][:1000].to_csv(debug_file)
+                                    primitives_outputs[n_step][:MAX_DUMP_SIZE].to_csv(debug_file)
                                 except:
                                     pass
 
@@ -454,7 +455,7 @@ class Runtime:
                 else:
                     if isinstance(steps_outputs[n_step], DataFrame):
                         try:
-                            steps_outputs[n_step][:1000].to_csv(debug_file)
+                            steps_outputs[n_step][:MAX_DUMP_SIZE].to_csv(debug_file)
                         except:
                             pass
 

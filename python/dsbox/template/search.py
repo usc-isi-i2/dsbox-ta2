@@ -107,8 +107,46 @@ class DimensionalSearch(typing.Generic[T]):
                           dimension: typing.List[DimensionName]):
         pass
 
+    def _lookup_candidate(self, candidate: ConfigurationPoint[T], cand_cache: typing.Dict) -> \
+            typing.Tuple[ConfigurationPoint[T], float]:
+
+        key = hash(str(candidate))
+        if key in cand_cache:
+            line = cand_cache[key]
+            print("[INFO] hit@Candidate: ({},{})".format(key, line["id"]))
+            # print("[INFO] candidate cache Hit@{}:{}".format(key, line['candidate']))
+            return line['candidate'], line['value']
+        else:
+            return (None, None)
+
+    def _push_candidate(self, result: typing.Dict, candidate: ConfigurationPoint[T],
+                        cand_cache: typing.Dict) -> None:
+
+        key = hash(str(candidate))
+        cand_id = result['fitted_pipeline'].id if result else None
+        value = result['test_metrics'][0]['value'] if result else None
+        print("[INFO] push@Candidate: ({},{})".format(key, cand_id))
+        # add value to candidate cache
+
+        if self._is_candidate_hit(candidate, cand_cache):
+            assert value == cand_cache[key]['value'], \
+                "New value for candidate:" + str(candidate)
+            return
+
+        cand_cache[key] = {
+            "candidate": candidate,
+            "id": cand_id,
+            "value": value,
+        }
+
+    def _is_candidate_hit(self, candidate: ConfigurationPoint[T], cand_cache: typing.Dict) -> bool:
+        return hash(str(candidate)) in cand_cache
+
     def search_one_iter(self, candidate_in: ConfigurationPoint[T] = None,
-                        candidate_value: float = None, max_per_dimension=1000, cache=None):
+
+                        max_per_dimension: int=50,
+                        cache_bundle: typing.Tuple[typing.Dict, typing.Dict]=(None, None)) -> \
+            typing.Dict:
         """
         Performs one iteration of dimensional search. During dimesional
         search our algorithm iterates through all 8 steps of pipeline as
@@ -119,19 +157,24 @@ class DimensionalSearch(typing.Generic[T]):
         ----------
         candidate_in: ConfigurationPoint[T]
             Current best candidate
-        candidate_value: float
-            The valude for the current best candidate
         max_per_dimension: int
-            Maximunum number of values to search per dimension
+            Maximum number of values to search per dimension
+        cache_bundle: tuple[Dict,Dict]
+            the global cache object and candidate cache object for storing and reusing computation
+            on intermediate results. if the cache is None, a local cache will be used in the
+            dimensional search
         """
 
         # setup the output cache
         local_cache = False
-        if cache is None:
+        if cache_bundle[0] is None or cache_bundle[1] is None:
             print("[INFO] Using Local Cache")
             local_cache = True
             manager = Manager()
             cache = manager.dict()
+            candidate_cache = manager.dict()
+        else:
+            cache, candidate_cache = cache_bundle
 
         # initialize the simulation counter
         sim_counter = 0
@@ -141,7 +184,10 @@ class DimensionalSearch(typing.Generic[T]):
         # purpose we initially use first configuration and evaluate it on the
         #  dataset. In case that failed we repeat the sampling process one
         # more time to guarantee robustness on error reporting
-        candidate, candidate_value = self.setup_initial_candidate(candidate_in, cache)
+
+        candidate, candidate_value = \
+            self.setup_initial_candidate(candidate_in, cache, candidate_cache)
+
         sim_counter += 1
         # generate an executable pipeline with random steps from conf. space.
         # The actual searching process starts here.
@@ -180,7 +226,9 @@ class DimensionalSearch(typing.Generic[T]):
                 new[dimension] = value
                 # regenerate the pipeline
                 candidate_ = self.configuration_space.get_point(new)
-                new_candidates.append(candidate_)
+
+                if not self._is_candidate_hit(candidate_, candidate_cache):
+                    new_candidates.append(candidate_)
 
             test_values = []
             cross_validation_values = []
@@ -198,16 +246,16 @@ class DimensionalSearch(typing.Generic[T]):
 
                 # results = map(self.evaluate,new_candidates)
                 for res, x in zip(results, new_candidates):
+                    self._push_candidate(res, x, candidate_cache)
                     if not res:
                         print('[ERROR] candidate failed:')
                         pprint(x)
                         print("-" * 10)
                         continue
+
                     test_values.append(res['test_metrics'][0]['value'])
                     if res['cross_validation_metrics']:
                         cross_validation_values.append(res['cross_validation_metrics'][0]['value'])
-                    # pipeline = self.template.to_pipeline(x)
-                    # res['pipeline'] = pipeline
                     res['fitted_pipeline'] = res['fitted_pipeline']
                     x.data.update(res)
                     sucessful_candidates.append(x)
@@ -262,9 +310,6 @@ class DimensionalSearch(typing.Generic[T]):
         assert "fitted_pipeline" in candidate.data, "parameters not added! last"
         # gather information for UCT
 
-        # if 'test_values' in locals() and test_values:
-        #     reward = abs(sum(test_values)) / len(test_values)
-        # else:
         reward = candidate_value
 
         # TODO : come up with a better method for this
@@ -283,7 +328,8 @@ class DimensionalSearch(typing.Generic[T]):
 
     def setup_initial_candidate(self,
                                 candidate: ConfigurationPoint[T],
-                                cache: typing.Dict) -> \
+                                cache: typing.Dict,
+                                candidate_cache: typing.Dict) -> \
             typing.Tuple[ConfigurationPoint[T], float]:
         """
         we first need the baseline for searching the conf_space. For this
@@ -293,6 +339,15 @@ class DimensionalSearch(typing.Generic[T]):
 
         Args:
             candidate: ConfigurationPoint[T]
+                the previous best candidate. In case it is None, random candidate will be
+                evaluated. if the random candidates fail on the dataset the process of choosing
+                a random candidate will be repeated three times
+
+            cache: typing.Dict
+                cache object for storing intermediate primitive outputs
+
+            candidate_cache: typing.Dict
+                cache object for storing candidate evalueation results
 
         Returns:
             candidate, evaluate_value : ConfigurationPoint[T], float
@@ -303,9 +358,20 @@ class DimensionalSearch(typing.Generic[T]):
         # first, then random, then another random
         for i in range(2):
             try:
-                result = self.evaluate((candidate, cache))
+                cand_tmp, value_tmp = self._lookup_candidate(candidate, candidate_cache)
+
+                # if the candidate has been evaluated before and its metric value was None (
+                # meaning it was not compatible with dataset), then reevaluating the candidate is
+                #  redundant
+                if cand_tmp is not None and value_tmp is None:
+                    raise ValueError("Candidate is not compatible with the dataset")
+
+                result = self.evaluate((candidate, cache, True if cand_tmp is None else False))
+
+                self._push_candidate(result, candidate, candidate_cache)
+
                 candidate.data.update(result)
-                return (candidate, result['test_metrics'][0]['value'])
+                return candidate, result['test_metrics'][0]['value']
             except:
                 traceback.print_exc()
                 print("[ERROR] Initial Pipeline failed, Trying a random pipeline ...")
@@ -399,7 +465,10 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
 
         self.output_directory = output_directory
         self.log_dir = log_dir
+
         self.num_workers = os.cpu_count() if num_workers == 0 else num_workers
+
+        # print("[INFO] number of workers:", self.num_workers)
 
         # if not set(self.template.template_nodes.keys()) <= set(configuration_space.get_dimensions()):
         #     raise exceptions.InvalidArgumentValueError(
@@ -412,9 +481,10 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
         """
         configuration: ConfigurationPoint[PrimitiveDescription] = args[0]
         cache: typing.Dict = args[1]
-        print("[INFO] Worker started, id:", current_process())
+        dump2disk = args[2] if len(args) == 3 else True
+        print("[INFO] Worker started, id:", current_process(), ",", dump2disk)
         try:
-            evaluation_result = self._evaluate(configuration, cache)
+            evaluation_result = self._evaluate(configuration, cache, dump2disk)
         except:
             traceback.print_exc()
             return None
@@ -423,7 +493,8 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
 
     def _evaluate(self,
                   configuration: ConfigurationPoint,
-                  cache: typing.Dict) -> typing.Dict:
+                  cache: typing.Dict,
+                  dump2disk: bool) -> typing.Dict:
 
         start_time = time.time()
 
@@ -510,7 +581,7 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
         fitted_pipeline.auxiliary = dict(data)
 
         # Save results
-        if self.output_directory is not None:
+        if self.output_directory is not None and dump2disk:
             fitted_pipeline.save(self.output_directory)
             # _logger.info("Test pickled pipeline. id: {}".format(fitted_pipeline.id))
             # self.test_pickled_pipeline(folder_loc=self.output_directory,
