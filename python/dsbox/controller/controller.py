@@ -443,9 +443,10 @@ class Controller:
 
         alpha = 0.01
         self.normalize = self.exec_history[['reward', 'exe_time', 'trial']]
-        self.normalize = (
-                self.normalize - (1 - np.sign(self.normalize.min())*alpha) * self.normalize.min()
-                ) / (self.normalize.max() - (1 - alpha) * self.normalize.min())
+        self.normalize = (self.normalize - self.normalize.min()) / \
+                         (self.normalize.max() - self.normalize.min())
+
+        self.normalize.clip(lower=0.01, upper=1,inplace=True)
 
         for i in range(len(self.uct_score)):
             self.uct_score[i] = self.compute_UCT(i)
@@ -458,7 +459,10 @@ class Controller:
         row = self.exec_history.iloc[index]
 
         update = {
-            'reward': row['reward'] + report['reward'] * report['sim_count'],
+            'reward': (
+                (row['reward']*row['trial'] + report['reward'] * report['sim_count']) /
+                (row['trial'] + report['sim_count'])
+            ),
             'trial': row['trial'] + report['sim_count'],
             'exe_time': row['exe_time'] + report['time'],
             'candidate': report['candidate'],
@@ -474,9 +478,8 @@ class Controller:
         history = self.normalize.iloc[index]
         try:
             reward = history['reward']
-            if self.minimize: # convert normalized regret to reward
-                reward = 1-reward
-            return (beta * (reward / history['trial']) * log(history['trial']) +
+            # / history['trial']
+            return (beta * (reward) * log(history['trial']) +
                 gamma * sqrt(2 * log(self.total_run) / history['trial']) +
                 delta * sqrt(2 * log(self.total_time) / history['exe_time']))
         except:
