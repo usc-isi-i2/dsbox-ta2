@@ -108,7 +108,7 @@ class DimensionalSearch(typing.Generic[T]):
         pass
 
     def _lookup_candidate(self, candidate: ConfigurationPoint[T], cand_cache: typing.Dict) -> \
-        typing.Tuple[ConfigurationPoint[T], float]:
+            typing.Tuple[ConfigurationPoint[T], float]:
 
         key = hash(str(candidate))
         if key in cand_cache:
@@ -130,7 +130,7 @@ class DimensionalSearch(typing.Generic[T]):
 
         if self._is_candidate_hit(candidate, cand_cache):
             assert value == cand_cache[key]['value'], \
-                "New value for candidate:"+str(candidate)
+                "New value for candidate:" + str(candidate)
             return
 
         cand_cache[key] = {
@@ -139,15 +139,14 @@ class DimensionalSearch(typing.Generic[T]):
             "value": value,
         }
 
-
     def _is_candidate_hit(self, candidate: ConfigurationPoint[T], cand_cache: typing.Dict) -> bool:
         return hash(str(candidate)) in cand_cache
 
     def search_one_iter(self, candidate_in: ConfigurationPoint[T] = None,
+
                         max_per_dimension: int=50,
                         cache_bundle: typing.Tuple[typing.Dict, typing.Dict]=(None, None)) -> \
             typing.Dict:
-
         """
         Performs one iteration of dimensional search. During dimesional
         search our algorithm iterates through all 8 steps of pipeline as
@@ -177,7 +176,6 @@ class DimensionalSearch(typing.Generic[T]):
         else:
             cache, candidate_cache = cache_bundle
 
-
         # initialize the simulation counter
         sim_counter = 0
         start_time = time.clock()
@@ -201,7 +199,7 @@ class DimensionalSearch(typing.Generic[T]):
                                           .get_values(dimension)
 
             # TODO this is just a hack
-            if len(choices) == 1: # if only have one candidate primitive for this step, skip?
+            if len(choices) == 1:  # if only have one candidate primitive for this step, skip?
                 continue
             # print("[INFO] choices:", choices, ", in step:", dimension)
             assert 1 < len(choices), \
@@ -233,11 +231,11 @@ class DimensionalSearch(typing.Generic[T]):
                     new_candidates.append(candidate_)
 
             test_values = []
-            cross_validation_values =[]
+            cross_validation_values = []
             sucessful_candidates = []
             best_index = -1
             print('*' * 100)
-            print("[INFO] Running Pool for step", dimension,", fork_num:", len(new_candidates))
+            print("[INFO] Running Pool for step", dimension, ", fork_num:", len(new_candidates))
             sim_counter += len(new_candidates)
             try:
                 with Pool(self.num_workers) as p:
@@ -252,7 +250,7 @@ class DimensionalSearch(typing.Generic[T]):
                     if not res:
                         print('[ERROR] candidate failed:')
                         pprint(x)
-                        print("-"*10)
+                        print("-" * 10)
                         continue
 
                     test_values.append(res['test_metrics'][0]['value'])
@@ -274,7 +272,7 @@ class DimensionalSearch(typing.Generic[T]):
                     continue
 
             # Find best candidate
-            best_cv_index = 0 # initialize best_cv_index
+            best_cv_index = 0  # initialize best_cv_index
             if self.minimize:
                 best_index = test_values.index(min(test_values))
                 if cross_validation_values:
@@ -298,7 +296,7 @@ class DimensionalSearch(typing.Generic[T]):
                 candidate = sucessful_candidates[best_index]
                 candidate_value = test_values[best_index]
             elif (self.minimize and test_values[best_index] < candidate_value) or \
-                (not self.minimize and test_values[best_index] > candidate_value):
+                    (not self.minimize and test_values[best_index] > candidate_value):
                 candidate = sucessful_candidates[best_index]
                 candidate_value = test_values[best_index]
             # assert "fitted_pipe" in candidate.data, "parameters not added! loop"
@@ -327,8 +325,6 @@ class DimensionalSearch(typing.Generic[T]):
         }
         # return (candidate, candidate_value)
         return UCT_report
-
-
 
     def setup_initial_candidate(self,
                                 candidate: ConfigurationPoint[T],
@@ -362,7 +358,7 @@ class DimensionalSearch(typing.Generic[T]):
         # first, then random, then another random
         for i in range(2):
             try:
-                cand_tmp, value_tmp = self._lookup_candidate(candidate,candidate_cache)
+                cand_tmp, value_tmp = self._lookup_candidate(candidate, candidate_cache)
 
                 # if the candidate has been evaluated before and its metric value was None (
                 # meaning it was not compatible with dataset), then reevaluating the candidate is
@@ -380,7 +376,7 @@ class DimensionalSearch(typing.Generic[T]):
                 traceback.print_exc()
                 print("[ERROR] Initial Pipeline failed, Trying a random pipeline ...")
                 pprint(candidate)
-                print("-"*20)
+                print("-" * 20)
                 candidate = ConfigurationPoint(self.configuration_space,
                                                self.random_assignment())
         raise ValueError("Invalid initial candidate")
@@ -401,8 +397,6 @@ class DimensionalSearch(typing.Generic[T]):
         #                                        self.random_assignment())
         #         result = self.evaluate(candidate)
         # return (candidate, result['test_metrics'][0]['value'])
-
-
 
     def search(self, candidate: ConfigurationPoint[T] = None, candidate_value: float = None, num_iter=3, max_per_dimension=10):
         for i in range(num_iter):
@@ -466,11 +460,16 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
             lambda d: {'metric': d['metric'].unparse(), 'params': d['params']},
             performance_metrics
         ))
+        self.classification_metric = ('accuracy', 'precision', 'recall', 'f1', 'f1Micro', 'f1Macro', 'rocAuc', 'rocAucMicro', 'rocAucMacro')
+        self.regression_metric = ('meanSquaredError', 'rootMeanSquaredError', 'rootMeanSquaredErrorAvg', 'meanAbsoluteError', 'rSquared', 'normalizedMutualInformation', 'jaccardSimilarityScore', 'precisionAtTopK', 'objectDetectionAP')
 
         self.output_directory = output_directory
         self.log_dir = log_dir
-        self.num_workers = os.cpu_count() if num_workers==0 else num_workers
+
+        self.num_workers = os.cpu_count() if num_workers == 0 else num_workers
+
         # print("[INFO] number of workers:", self.num_workers)
+
         # if not set(self.template.template_nodes.keys()) <= set(configuration_space.get_dimensions()):
         #     raise exceptions.InvalidArgumentValueError(
         #         "Not all template steps are in configuration space: {}".format(self.template.template_nodes.keys()))
@@ -483,7 +482,7 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
         configuration: ConfigurationPoint[PrimitiveDescription] = args[0]
         cache: typing.Dict = args[1]
         dump2disk = args[2] if len(args) == 3 else True
-        print("[INFO] Worker started, id:", current_process(), ",",dump2disk)
+        print("[INFO] Worker started, id:", current_process(), ",", dump2disk)
         try:
             evaluation_result = self._evaluate(configuration, cache, dump2disk)
         except:
@@ -513,7 +512,7 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
 
         results = fitted_pipeline.produce(inputs=[self.test_dataset])
         test_ground_truth = get_target_columns(self.test_dataset,
-                                                     self.problem)
+                                               self.problem)
         # Note: results == test_prediction
         test_prediction = fitted_pipeline.get_produce_step_output(
             self.template.get_output_step_number())
@@ -525,8 +524,9 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
             metric: typing.Callable = metricDesc.get_function()
             params: typing.Dict = metric_description['params']
 
+            # we should depends on the metrics type to evaluate prediction results
             try:
-                if 'regression' in self.problem.query(())['about']['taskType']:
+                if metric_description["metric"] in self.regression_metric:
                     training_metrics.append({
                         'metric': metric_description['metric'],
                         'value': metric(
@@ -563,6 +563,7 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
                             **params
                         )
                     })
+
             except:
                 raise NotSupportedError(
                     '[ERROR] metric calculation failed')
@@ -607,7 +608,7 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
             params: typing.Dict = metric_description['params']
 
             try:
-                if 'regression' in self.problem.query(())['about']['taskType']:
+                if metric_description["metric"] in self.regression_metric:
                     # if the test_ground_truth do not have results
                     if test_ground_truth.iloc[0, -1] == '':
                         test_ground_truth.iloc[:, -1] = 0
@@ -670,6 +671,7 @@ def generate_hyperparam_configuration_space(space: ConfigurationSpace[PythonPath
                 values.append((path, index, hyperparam_directive))
         new_space[name] = values
     return SimpleConfigurationSpace(new_space)
+
 
 def random_choices_without_replacement(population, weights, k=1):
     """
