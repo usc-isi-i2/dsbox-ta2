@@ -125,27 +125,31 @@ class TemplateLibrary:
     def _load_inline_templates(self):
 
         # self.templates.append(RandomForestTemplate)
-
+        # Tabular Classification
         self.templates.append(DefaultRegressionTemplate)
+        self.templates.append(dsboxRegressionTemplate)
+
+        # Tabular Regression
         self.templates.append(DefaultClassificationTemplate)
-        self.templates.append(DefaultTimeseriesCollectionTemplate)
-        self.templates.append(DefaultImageProcessingRegressionTemplate)
-        self.templates.append(TA1DefaultImageProcessingRegressionTemplate)
-        self.templates.append(DefaultTextClassificationTemplate)
         self.templates.append(dsboxClassificationTemplate)
         self.templates.append(TA1Classification_3)
         self.templates.append(MuxinTA1ClassificationTemplate1)
-        self.templates.append(dsboxClassificationTemplate)
+        self.templates.append(TA1ClassificationTemplate1)
+
+        # Image Regression
+        self.templates.append(DefaultImageProcessingRegressionTemplate)
+        self.templates.append(TA1DefaultImageProcessingRegressionTemplate)
+
+        # Others
+        self.templates.append(DefaultTimeseriesCollectionTemplate)
+        self.templates.append(DefaultTextClassificationTemplate)
         self.templates.append(SRIGraphMatchingTemplate)
         self.templates.append(SRIVertexNominationTemplate)
         self.templates.append(SRICommunityDetectionTemplate)
-        self.templates.append(TA1ClassificationTemplate1)
         self.templates.append(JHUVertexNominationTemplate)
         self.templates.append(BBNAudioClassificationTemplate)
         self.templates.append(SRICollaborativeFilteringTemplate)
         self.templates.append(UCHITimeSeriesClassificationTemplate)
-
-
 
     def _load_single_inline_templates(self, template_name):
         if template_name in self.all_templates:
@@ -186,7 +190,74 @@ class SemanticTypeDict(object):
         return definition
 
 
+def regression_model(feature_name: str = "impute_step",
+                     target_name: str = "extract_target_step"):
+    return \
+        [
+            {
+                "name": "model_step",
+                "primitives": [
+                    # Bayesian ARD regression: based on Serban's work it's the most stable model
+                    {"primitive": "d3m.primitives.sklearn_wrap.SKARDRegression", },
+                    # linear ridge : simplistic linear regression with L2 regularization
+                    {"primitive": "d3m.primitives.sklearn_wrap.SKRidge", },
+                    # Least-angle regression: (1 / (2 * n_samples)) * |y - Xw|^2_2 + alpha * |w|_1
+                    {"primitive": "d3m.primitives.sklearn_wrap.SKLars", },
+                    # Nearest Neighbour
+                    {"primitive": "d3m.primitives.sklearn_wrap.SKKNeighborsRegressor", },
+                    # Support Vector Regression Method
+                    {"primitive": "d3m.primitives.sklearn_wrap.SKLinearSVR", },
 
+                    {"primitive": "d3m.primitives.sklearn_wrap.SKSGDRegressor", },
+                    {"primitive": "d3m.primitives.sklearn_wrap.SKGradientBoostingRegressor", },
+                ],
+                "runtime": {
+                    "cross_validation": 10,
+                    "stratified": False
+                },
+                "inputs": [feature_name, target_name]
+            }
+        ]
+
+
+def dimensionality_reduction(feature_name: str = "impute_step",
+                            dim_reduce_name: str = "dim_reduce_step"):
+    return \
+        [
+            {
+                "name": dim_reduce_name,
+                "primitives": [
+                    {
+                        "primitive": "d3m.primitives.sklearn_wrap.SKPCA",
+                        "hyperparameters":
+                            {'n_components': [(8), (16), (32), (64), (128)], }
+                    },
+                    {
+                        "primitive": "d3m.primitives.sklearn_wrap.SKKernelPCA",
+                        "hyperparameters":
+                            {
+                                'n_components': [(8), (16), (32), (64), (128)],
+                                'kernel': [('rbf'), ('sigmoid'), ('cosine')]
+                            }
+                    },
+                    {
+                        "primitive": "d3m.primitives.sklearn_wrap.SKKernelPCA",
+                        "hyperparameters":
+                            {
+                                'n_components': [(8), (16), (32), (64), (128)],
+                                'kernel': [('poly')],
+                                'degree': [(2), (3), (4)],
+                            }
+                    },
+                    {
+                        "primitive": "d3m.primitives.sklearn_wrap.SKVarianceThreshold",
+                        "hyperparameters":
+                            {'threshold': [(0), (0.01), (0.1), (0.15)], }
+                    },
+                ],
+                "inputs": [feature_name]
+            }
+        ]
 
 
 def classifier_model(feature_name: str = "impute_step",
@@ -354,7 +425,7 @@ def dsbox_encoding(clean_name: str = "clean_step",
                 "primitives": [
                     {"primitive": "d3m.primitives.dsbox.Encoder", },
                     {"primitive": "d3m.primitives.dsbox.Labler", },
-                    {"primitive": "d3m.primitives.dsbox.DoNothing", },
+                    #{"primitive": "d3m.primitives.dsbox.DoNothing", },
                 ],
                 "inputs": ["encode_text_step"]
             },
@@ -384,7 +455,7 @@ def dsbox_imputer(encoded_name: str = "cast_1_step",
                     {"primitive": "d3m.primitives.dsbox.GreedyImputation", },
                     {"primitive": "d3m.primitives.dsbox.MeanImputation", },
                     {"primitive": "d3m.primitives.dsbox.IterativeRegressionImputation", },
-                    {"primitive": "d3m.primitives.dsbox.DoNothing", },
+                    #{"primitive": "d3m.primitives.dsbox.DoNothing", },
                 ],
                 "inputs": [encoded_name]
             },
@@ -649,6 +720,7 @@ class DefaultClassificationTemplate(DSBoxTemplate):
     def importance(datset, problem_description):
         return 7
 
+
 class dsboxClassificationTemplate(DSBoxTemplate):
     def __init__(self):
         DSBoxTemplate.__init__(self)
@@ -819,6 +891,43 @@ class DefaultRegressionTemplate(DSBoxTemplate):
     def importance(datset, problem_description):
         return 7
 
+
+class dsboxRegressionTemplate(DSBoxTemplate):
+    def __init__(self):
+        DSBoxTemplate.__init__(self)
+        self.template = {
+            "name": "DSBox_regression_template",
+            "taskType": TaskType.REGRESSION.name,
+            "taskSubtype": {TaskSubtype.UNIVARIATE.name, TaskSubtype.MULTIVARIATE.name},
+            # See TaskType, range include 'CLASSIFICATION', 'CLUSTERING', 'COLLABORATIVE_FILTERING',
+            # 'COMMUNITY_DETECTION', 'GRAPH_CLUSTERING', 'GRAPH_MATCHING', 'LINK_PREDICTION',
+            # 'REGRESSION', 'TIME_SERIES_FORECASTING', 'VERTEX_NOMINATION'
+            "inputType": "table",  # See SEMANTIC_TYPES.keys() for range of values
+            "output": "model_step",  # Name of the final step generating the prediction
+            "target": "extract_target_step",  # Name of the step generating the ground truth
+            "steps": [
+                *dsbox_preprocessing(
+                    clean_name="clean_step",
+                    target_name="extract_target_step"
+                ),
+                *dsbox_encoding(
+                    clean_name="clean_step",
+                    encoded_name="encoder_step"
+                ),
+                *dsbox_imputer(
+                    encoded_name="encoder_step",
+                    impute_name="impute_step"
+                ),
+                *regression_model(
+                    feature_name="impute_step",
+                    target_name="extract_target_step"
+                ),
+            ]
+        }
+
+    # @override
+    def importance(datset, problem_description):
+        return 7
 
 
 class DefaultTimeseriesCollectionTemplate(DSBoxTemplate):
