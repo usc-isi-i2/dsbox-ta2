@@ -125,7 +125,6 @@ class DimensionalSearch(typing.Generic[T]):
         key = hash(str(candidate))
         cand_id = result['fitted_pipeline'].id if result else None
         value = result['test_metrics'][0]['value'] if result else None
-        print("[INFO] push@Candidate: ({},{})".format(key, cand_id))
         # add value to candidate cache
 
         if self._is_candidate_hit(candidate, cand_cache):
@@ -133,6 +132,7 @@ class DimensionalSearch(typing.Generic[T]):
                 "New value for candidate:" + str(candidate)
             return
 
+        print("[INFO] push@Candidate: ({},{})".format(key, cand_id))
         cand_cache[key] = {
             "candidate": candidate,
             "id": cand_id,
