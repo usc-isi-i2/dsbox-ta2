@@ -27,6 +27,7 @@ _logger = logging.getLogger(__name__)
 
 MAX_DUMP_SIZE = 50  # 1000
 
+
 class Runtime:
     """
     Class to run the build and run a Pipeline.
@@ -115,8 +116,8 @@ class Runtime:
         # kyao!!!!
         self.produce_order = set(self.execution_order)
         self.fit_outputs: typing.List = []
-        self.produce_outputs: typing.List  = []
-        self.metric_descriptions: typing.List  = []
+        self.produce_outputs: typing.List = []
+        self.metric_descriptions: typing.List = []
         self.cross_validation_result: typing.List = []
 
     def set_metric_descriptions(self, metric_descriptions):
@@ -141,6 +142,8 @@ class Runtime:
         for i in range(0, len(self.execution_order)):
             primitive_arguments: typing.Dict[str, typing.Any] = {}
             n_step = self.execution_order[i]
+            import pdb
+            pdb.set_trace()
             for argument, value in self.primitives_arguments[n_step].items():
                 if value['origin'] == 'steps':
                     primitive_arguments[argument] = primitives_outputs[value['source']]
@@ -154,7 +157,7 @@ class Runtime:
                 prim_name = str(self.pipeline_description
                                 .steps[n_step].primitive)
                 hyperparam_hash = hash(str(self.pipeline_description.steps[
-                                               n_step].hyperparams.items()))
+                    n_step].hyperparams.items()))
                 dataset_hash = hash(str(primitive_arguments))
 
                 prim_hash = hash(str([hyperparam_hash, dataset_hash]))
@@ -197,7 +200,7 @@ class Runtime:
                     # add the entry to cache:
                     # print("[INFO] Updating cache!")
                     cache[(prim_name, prim_hash)] = (
-                    primitives_outputs[n_step].copy(), model)
+                        primitives_outputs[n_step].copy(), model)
                     if _logger.getEffectiveLevel() <= 10:
                         debug_file = os.path.join(
                             self.log_dir, 'dfs',
@@ -221,8 +224,6 @@ class Runtime:
                                     primitives_outputs[n_step][:MAX_DUMP_SIZE].to_csv(debug_file)
                                 except:
                                     pass
-
-
 
         # kyao!!!!
         self.fit_outputs = primitives_outputs
@@ -264,7 +265,7 @@ class Runtime:
                 training_arguments[param] = value
         try:
             model = primitive(hyperparams=primitive_hyperparams(
-                        primitive_hyperparams.defaults(), **custom_hyperparams))
+                primitive_hyperparams.defaults(), **custom_hyperparams))
         except:
             print("******************\n[ERROR]Hyperparameters unsuccesfully set - using defaults")
             model = primitive(hyperparams=primitive_hyperparams(primitive_hyperparams.defaults()))
@@ -280,7 +281,7 @@ class Runtime:
         self.pipeline[n_step] = model
 
         produce_result = model.produce(**produce_params)
-        return produce_result.value,model
+        return produce_result.value, model
 
     def _cross_validation(self, primitive: typing.Type[base.PrimitiveBase],
                           training_arguments: typing.Dict,
@@ -309,7 +310,6 @@ class Runtime:
             with open(os.path.join(tmpdir, str(primitive)), 'w') as errorfile:
                 with contextlib.redirect_stderr(errorfile):
 
-
                     if use_stratified:
                         kf = StratifiedKFold(n_splits=cv, shuffle=True, random_state=seed)
                     else:
@@ -320,11 +320,10 @@ class Runtime:
 
                         try:
                             model = primitive(hyperparams=primitive_hyperparams(
-                                        primitive_hyperparams.defaults(), **custom_hyperparams))
+                                primitive_hyperparams.defaults(), **custom_hyperparams))
                         except:
                             print("******************\n[ERROR]Hyperparameters unsuccesfully set - using defaults")
                             model = primitive(hyperparams=primitive_hyperparams(primitive_hyperparams.defaults()))
-
 
                         if model is None:
                             return results
@@ -365,7 +364,7 @@ class Runtime:
 
         average_metrics: typing.Dict[str, dict] = {}
         for name, values in validation_metrics.items():
-            average_metrics[name] = sum(values)/len(values)
+            average_metrics[name] = sum(values) / len(values)
 
         for metric_description in self.metric_descriptions:
             result_by_metric = {}
@@ -376,12 +375,11 @@ class Runtime:
             results.append(result_by_metric)
 
         for result in results:
-            _logger.debug('cross-validation metric: %s=%.4f',  result['metric'], result['value'])
+            _logger.debug('cross-validation metric: %s=%.4f', result['metric'], result['value'])
             _logger.debug('cross-validation details: %s %s',
                           result['metric'], str(['%.4f' % x for x in result['values']]))
 
         return results
-
 
     def _primitive_arguments(self, primitive: typing.Type[base.PrimitiveBase], method: str) -> set:
         """
@@ -608,9 +606,9 @@ def main() -> None:
     test_dataset_doc = os.path.join(base_dataset_dir, 'TEST', 'dataset_TEST', 'datasetDoc.json')
 
     pipeline_runtime = generate_pipeline(
-            pipeline_path=pipeline_path,
-            dataset_path=train_dataset_doc,
-            problem_doc_path=train_problem_doc)
+        pipeline_path=pipeline_path,
+        dataset_path=train_dataset_doc,
+        problem_doc_path=train_problem_doc)
 
     results = test_pipeline(pipeline_runtime, test_dataset_doc)
     print(results)

@@ -505,6 +505,7 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
             pipeline, self.train_dataset.metadata.query(())['id'], log_dir=self.log_dir, metric_descriptions=self.performance_metrics)
 
         fitted_pipeline.fit(cache=cache, inputs=[self.train_dataset])
+
         training_ground_truth = get_target_columns(self.train_dataset,
                                                    self.problem)
         training_prediction = fitted_pipeline.get_fit_step_output(

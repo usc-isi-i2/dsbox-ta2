@@ -71,11 +71,14 @@ class TemplateLibrary:
             "TA1VggImageProcessingRegressionTemplate": TA1VggImageProcessingRegressionTemplate,
             "Default_text_classification_template": DefaultTextClassificationTemplate, 
             "BBN_audio_classification_template": BBNAudioClassificationTemplate, 
-            "SRI_GraphMatching_Template":SRIGraphMatchingTemplate,
-            "SRI_Vertex_Nomination_Template":SRIVertexNominationTemplate, 
+            # "SRI_GraphMatching_Template":SRIGraphMatchingTemplate,
+            # "SRI_Vertex_Nomination_Template":SRIVertexNominationTemplate, 
             "SRI_Collaborative_Filtering_Template":SRICollaborativeFilteringTemplate, 
             "SRI_Community_Detection_Template":SRICommunityDetectionTemplate, 
-            "UCHI_Time_Series_Classification_Template":UCHITimeSeriesClassificationTemplate
+            "UCHI_Time_Series_Classification_Template":UCHITimeSeriesClassificationTemplate, 
+            "JHU_Graph_Matching_Template":JHUGraphMatchingTemplate, 
+            "JHU_Vertex_Nomination_Template":JHUVertexNominationTemplate, 
+            "Default_Time_Series_Forcasting_Template":DefaultTimeSeriesForcastingTemplate
         }
 
         if run_single_template:
@@ -136,14 +139,16 @@ class TemplateLibrary:
         self.templates.append(TA1Classification_3)
         self.templates.append(MuxinTA1ClassificationTemplate1)
         self.templates.append(dsboxClassificationTemplate)
-        self.templates.append(SRIGraphMatchingTemplate)
-        self.templates.append(SRIVertexNominationTemplate)
+        # self.templates.append(SRIGraphMatchingTemplate)
+        # self.templates.append(SRIVertexNominationTemplate)
         self.templates.append(SRICommunityDetectionTemplate)
         self.templates.append(TA1ClassificationTemplate1)
         self.templates.append(JHUVertexNominationTemplate)
+        self.templates.append(JHUGraphMatchingTemplate)
         self.templates.append(BBNAudioClassificationTemplate)
         self.templates.append(SRICollaborativeFilteringTemplate)
         self.templates.append(UCHITimeSeriesClassificationTemplate)
+        self.templates.append(DefaultTimeSeriesForcastingTemplate)
 
 
 
@@ -2091,7 +2096,7 @@ class JHUVertexNominationTemplate(DSBoxTemplate):
         DSBoxTemplate.__init__(self)
         self.template = {
             "name": "JHU_Vertex_Nomination_Template",
-            "taskType": {TaskType.VERTEX_NOMINATION.name},
+            "taskType": TaskType.VERTEX_NOMINATION.name,
             "taskSubtype": "NONE",
             "inputType": "graph",
             "output": "model_step",
@@ -2105,7 +2110,7 @@ class JHUVertexNominationTemplate(DSBoxTemplate):
             ]
         }
 
-    def importance(dataset, problem_description):
+    def importance(datset, problem_description):
         return 7
 
 
@@ -2114,8 +2119,8 @@ class JHUGraphMatchingTemplate(DSBoxTemplate):
         DSBoxTemplate.__init__(self)
         self.template = {
             "name": "JHU_Graph_Matching_Template",
-            "taskType": {TaskType.GRAPH_MATCHING.name},
-            "taskSubtype": "None",
+            "taskType": TaskType.GRAPH_MATCHING.name,
+            "taskSubtype": "NONE",
             "inputType": "graph",
             "output": "model_step",
             "steps": [
@@ -2320,6 +2325,59 @@ class UCHITimeSeriesClassificationTemplate(DSBoxTemplate):
                 "inputs":["template_input", "template_input"]
             }
             ]
+        }
+
+    # @override
+    def importance(datset, problem_description):
+        return 7
+
+
+class DefaultTimeSeriesForcastingTemplate(DSBoxTemplate):
+    def __init__(self):
+        DSBoxTemplate.__init__(self)
+        self.template = {
+            "name": "Default_Time_Series_Forcasting_Template",
+            "taskType": TaskType.TIME_SERIES_FORECASTING.name,
+        # See TaskType, range include 'CLASSIFICATION', 'CLUSTERING', 'COLLABORATIVE_FILTERING',
+            # 'COMMUNITY_DETECTION', 'GRAPH_CLUSTERING', 'GRAPH_MATCHING', 'LINK_PREDICTION',
+            # 'REGRESSION', 'TIME_SERIES_FORECASTING', 'VERTEX_NOMINATION'
+            "taskSubtype": "NONE",
+            "inputType": "table",  # See SEMANTIC_TYPES.keys() for range of values
+            "output": "model_step",  # Name of the final step generating the prediction
+            "target": "extract_target_step",  # Name of the step generating the ground truth
+            "steps": [
+                {
+                    "name": "denormalize_step",
+                    "primitives": ["d3m.primitives.dsbox.Denormalize"],
+                    "inputs": ["template_input"]
+                },
+                {
+                    "name": "to_dataframe_step",
+                    "primitives": ["d3m.primitives.datasets.DatasetToDataFrame"],
+                    "inputs": ["denormalize_step"]
+                },
+                # read Y value
+                {
+                    "name": "extract_target_step",
+                    "primitives": [{
+                        "primitive": "d3m.primitives.data.ExtractColumnsBySemanticTypes",
+                        "hyperparameters":
+                            {
+                                'semantic_types': (
+                                'https://metadata.datadrivendiscovery.org/types/Target',
+                                'https://metadata.datadrivendiscovery.org/types/SuggestedTarget',),
+                                'use_columns': (),
+                                'exclude_columns': ()
+                            }
+                    }],
+                    "inputs": ["to_dataframe_step"]
+                },
+                {
+                    "name": "model_step",
+                    "primitives": ["d3m.primitives.sklearn_wrap.SKARDRegression"], 
+                    "inputs":["to_dataframe_step", "extract_target_step"]
+                },
+                ]
         }
 
     # @override
