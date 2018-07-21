@@ -26,7 +26,6 @@ from d3m.exceptions import NotSupportedError
 from d3m.exceptions import InvalidArgumentValueError
 from d3m.metadata.base import ALL_ELEMENTS
 from d3m.metadata.base import Metadata
-from d3m.metadata.problem import TaskType
 from d3m.metadata.problem import TaskSubtype
 from d3m.metadata.problem import parse_problem_description
 
@@ -44,7 +43,6 @@ __all__ = ['Status', 'Controller']
 
 import copy
 import pprint
-from sklearn.model_selection import StratifiedShuffleSplit, ShuffleSplit
 
 # FIXME: we only need this for testing
 import pandas as pd
@@ -55,82 +53,6 @@ LOG_FILENAME = 'dsbox.log'
 CONSOLE_LOGGING_LEVEL = logging.INFO
 CONSOLE_FORMATTER = "[%(levelname)s] - %(name)s - %(message)s"
 
-def split_dataset(dataset, problem, problem_loc=None, *, random_state=42, test_size=0.2):
-    '''
-    Split dataset into training and test
-    '''
-
-    task_type : TaskType = problem['problem']['task_type']  # 'classification' 'regression'
-
-    for i in range(len(problem['inputs'])):
-        if 'targets' in problem['inputs'][i]:
-            break
-
-    res_id = problem['inputs'][i]['targets'][0]['resource_id']
-    target_index = problem['inputs'][i]['targets'][0]['column_index']
-
-    try:
-        splits_file = problem_loc.rsplit("/", 1)[0] + "/dataSplits.csv"
-
-        df = pd.read_csv(splits_file)
-
-        train_test = df[df.columns[1]]
-        train_indices = df[train_test == 'TRAIN'][df.columns[0]]
-        test_indices = df[train_test == 'TEST'][df.columns[0]]
-
-        train = dataset[res_id].iloc[train_indices]
-        test = dataset[res_id].iloc[test_indices]
-
-        use_test_splits = False
-
-        print("[INFO] Succesfully parsed test data")
-    except:
-        if task_type == TaskType.CLASSIFICATION:
-            # Use stratified sample to split the dataset
-            sss = StratifiedShuffleSplit(n_splits=1, test_size=test_size, random_state=random_state)
-            sss.get_n_splits(dataset[res_id], dataset[res_id].iloc[:, target_index])
-            for train_index, test_index in sss.split(dataset[res_id], dataset[res_id].iloc[:, target_index]):
-                train = dataset[res_id].iloc[train_index,:]
-                test = dataset[res_id].iloc[test_index,:]
-        else:
-            # Use random split
-            if not task_type == TaskType.REGRESSION:
-                print('USING Random Split to split task type: {}'.format(task_type))
-            ss = ShuffleSplit(n_splits=1, test_size=test_size, random_state=random_state)
-            ss.get_n_splits(dataset[res_id])
-            for train_index, test_index in ss.split(dataset[res_id]):
-                train = dataset[res_id].iloc[train_index,:]
-                test = dataset[res_id].iloc[test_index,:]
-
-        print("[INFO] Failed test data parse/ using stratified kfold data instead")
-
-    # Generate training dataset
-    train_dataset = copy.copy(dataset)
-    train_dataset[res_id] = train
-    meta = dict(train_dataset.metadata.query((res_id,)))
-    dimension = dict(meta['dimension'])
-    meta['dimension'] = dimension
-    dimension['length'] = train.shape[0]
-    print(meta)
-    train_dataset.metadata = train_dataset.metadata.update((res_id,), meta)
-    pprint.pprint(dict(train_dataset.metadata.query((res_id,))))
-
-    # Generate testing dataset
-    test_dataset = copy.copy(dataset)
-    test_dataset[res_id] = test
-    meta = dict(test_dataset.metadata.query((res_id,)))
-    dimension = dict(meta['dimension'])
-    meta['dimension'] = dimension
-    dimension['length'] = test.shape[0]
-    print(meta)
-    test_dataset.metadata = test_dataset.metadata.update((res_id,), meta)
-    pprint.pprint(dict(test_dataset.metadata.query((res_id,))))
-
-
-    return (train_dataset, test_dataset)
-
-
-
 class Status(enum.Enum):
     OK = 0
     PROBLEM_NOT_IMPLEMENT = 148
@@ -139,12 +61,12 @@ class Status(enum.Enum):
 class Controller:
     TIMEOUT = 59  # in minutes
 
-    def __init__(self, development_mode: bool = False, run_single_template: str = "") -> None:
+    def __init__(self, development_mode: bool = False, run_single_template: str = "MuxinTA1ClassificationTemplate1") -> None:
         self.development_mode: bool = development_mode
 
         self.run_single_template = run_single_template
 
-        # self.config: typing.Dict = {}
+        self.config: typing.Dict = {}
 
         # Problem
         self.problem: typing.Dict = {}
@@ -154,8 +76,9 @@ class Controller:
 
         # Dataset
         self.dataset_schema_file: str = ""
-        self.dataset: Dataset = None
+        self.train_dataset: Dataset = None
         self.test_dataset: Dataset = None
+        self.all_dataset: Dataset = None
         self.taskSourceType: typing.Set[str]  = set()  # str from SEMANTIC_TYPES
 
         # Resource limits
@@ -198,7 +121,7 @@ class Controller:
 
         # train dataset
         train_dataset_uri = 'file://{}'.format(os.path.abspath(config['train_data_schema']))
-        self.dataset = loader.load(dataset_uri=train_dataset_uri)
+        self.train_dataset = loader.load(dataset_uri=train_dataset_uri)
 
         # test dataset
         test_dataset_uri = 'file://{}'.format(os.path.abspath(config['test_data_schema']))
@@ -219,14 +142,15 @@ class Controller:
         all_dataset_uri = 'file://{}'.format(json_file)
         self.all_dataset = loader.load(dataset_uri=all_dataset_uri)
 
-        self.dataset, self.test_dataset = split_dataset(self.all_dataset, self.problem, config['problem_schema'])
-
-        self.test_dataset = runtime.add_target_columns_metadata(self.test_dataset, self.problem_doc_metadata)
+        #self.test_dataset = runtime.add_target_columns_metadata(self.test_dataset, self.problem_doc_metadata)
 
         # Templates
         self.load_templates()
 
     def _load_schema(self, config):
+        # config
+        self.config = config
+
         # Problem
         self.problem = parse_problem_description(config['problem_schema'])
         self.problem_doc_metadata = runtime.load_problem_doc(os.path.abspath(config['problem_schema']))
@@ -320,7 +244,7 @@ class Controller:
             fname = f.split('/')[-1].split('.')[0]
             pipeline_load = FittedPipeline.load(folder_loc=self.output_executables_dir,
                                                 pipeline_id=fname,
-                                                dataset=self.dataset,
+                                                dataset=self.train_dataset,
                                                 log_dir=self.output_logs_dir)
             exec_pipelines.append(pipeline_load)
 
@@ -354,25 +278,26 @@ class Controller:
 
         # search = TemplateDimensionalSearch(template, space, d3m.index.search(), self.dataset,
         # self.dataset, metrics)
-        if self.test_dataset is None:
-            search = TemplateDimensionalSearch(
-                template, space, d3m.index.search(), self.problem_doc_metadata, self.dataset,
-                self.dataset, metrics, output_directory=self.output_directory,
-                log_dir=self.output_logs_dir, num_workers=self.num_cpus)
-        else:
-            search = TemplateDimensionalSearch(
-                template, space, d3m.index.search(), self.problem_doc_metadata, self.dataset,
-                self.test_dataset, metrics, output_directory=self.output_directory,
-                log_dir=self.output_logs_dir, num_workers=self.num_cpus)
+        # if self.test_dataset is None:
+        #     search = TemplateDimensionalSearch(
+        #         template, space, d3m.index.search(), self.problem_doc_metadata, self.dataset,
+        #         self.dataset, metrics, output_directory=self.output_directory,
+        #         log_dir=self.output_logs_dir, num_workers=self.num_cpus)
+        # else:
 
+        # setup the dimensional search configs
+        search = TemplateDimensionalSearch(
+            template = template, configuration_space = space, problem = self.problem_doc_metadata, 
+            all_dataset = self.all_dataset, performance_metrics = metrics, 
+            output_directory=self.output_directory, log_dir=self.output_logs_dir, 
+            num_workers=self.num_cpus, config = self.config, problem_dict = self.problem)
 
-        # candidate, value = search.search_one_iter()
-        report = search.search_one_iter(
-            candidate_in=candidate, cache = cache)
+        report = search.search_one_iter(candidate_in=candidate, cache = cache)
         candidate = report['candidate']
         value = report['best_val']
+        import pdb
+        pdb.set_trace()
         # assert "fitted_pipe" in candidate, "argument error!"
-
         if candidate is None:
             print("[ERROR] not candidate!")
             return Status.PROBLEM_NOT_IMPLEMENT
@@ -405,9 +330,12 @@ class Controller:
             try:
                 f = open(save_location, "w+")
                 f.write(str(metrics) + "\n")
-                f.write(str(candidate.data['training_metrics'][0]['value']) + "\n")
-                f.write(str(candidate.data['cross_validation_metrics'][0]['value']) + "\n")
-                f.write(str(candidate.data['test_metrics'][0]['value']) + "\n")
+                if len(candidate.data['training_metrics']) > 0:
+                    f.write(str(candidate.data['training_metrics'][0]['value']) + "\n")
+                if len(candidate.data['cross_validation_metrics']) > 0:
+                    f.write(str(candidate.data['cross_validation_metrics'][0]['value']) + "\n")
+                if len(candidate.data['test_metrics']) > 0:
+                    f.write(str(candidate.data['test_metrics'][0]['value']) + "\n")
                 f.close()
             except:
                 raise NotSupportedError(
@@ -523,11 +451,10 @@ class Controller:
 
         for idx in self.select_next_template(max_iter=5):
             template = self.template[idx]
-            print(STYLE+"[INFO] Template {}:{} Selected. UCT:{}".format(
-                idx, template.template['name'], self.uct_score))
+            print(STYLE+"[INFO] Template {}:{} Selected. UCT:{}".format(idx, template.template['name'], self.uct_score))
+
             try:
-                report = self.search_template(
-                    template, candidate=self.exec_history.iloc[idx]['candidate'], cache=cache)
+                report = self.search_template(template, candidate=self.exec_history.iloc[idx]['candidate'], cache=cache)
                 print(STYLE + "[INFO] report:", report['best_val'])
                 self.update_UCT_score(index=idx, report=report)
             except:
@@ -537,8 +464,6 @@ class Controller:
             best_report = report
 
             # break
-
-
 
         # shutdown the cache manager
         manager.shutdown()
@@ -550,8 +475,7 @@ class Controller:
             fitted_pipeline = candidate.data['fitted_pipeline']
             fitted_pipeline.save(self.output_directory)
         except:
-            raise NotSupportedError(
-                '[ERROR] Save Failed!')
+            raise NotSupportedError('[ERROR] Save Failed!')
 
 
     # def train(self) -> Status:
@@ -733,21 +657,21 @@ class Controller:
         if self.task_type == TaskType.CLASSIFICATION or self.task_type == TaskType.REGRESSION:
 
             # start from last column, since typically target is the last column
-            for index in range(self.dataset.metadata.query(('0', ALL_ELEMENTS))['dimension']['length']-1, -1, -1):
-                column_semantic_types = self.dataset.metadata.query(
+            for index in range(self.train_dataset.metadata.query(('0', ALL_ELEMENTS))['dimension']['length']-1, -1, -1):
+                column_semantic_types = self.train_dataset.metadata.query(
                     ('0', ALL_ELEMENTS, index))['semantic_types']
                 if ('https://metadata.datadrivendiscovery.org/types/Target' in column_semantic_types
                         and 'https://metadata.datadrivendiscovery.org/types/TrueTarget' in column_semantic_types):
                     return
 
             # If not set, use sugested target column
-            for index in range(self.dataset.metadata.query(('0', ALL_ELEMENTS))['dimension']['length']-1, -1, -1):
-                column_semantic_types = self.dataset.metadata.query(
+            for index in range(self.train_dataset.metadata.query(('0', ALL_ELEMENTS))['dimension']['length']-1, -1, -1):
+                column_semantic_types = self.train_dataset.metadata.query(
                     ('0', ALL_ELEMENTS, index))['semantic_types']
                 if 'https://metadata.datadrivendiscovery.org/types/SuggestedTarget' in column_semantic_types:
                     column_semantic_types = list(column_semantic_types) + ['https://metadata.datadrivendiscovery.org/types/Target',
                                                                            'https://metadata.datadrivendiscovery.org/types/TrueTarget']
-                    self.dataset.metadata = self.dataset.metadata.update(
+                    self.train_dataset.metadata = self.train_dataset.metadata.update(
                         ('0', ALL_ELEMENTS, index), {'semantic_types': column_semantic_types})
                     return
 
