@@ -371,10 +371,7 @@ class Controller:
                 self.test_dataset, metrics, output_directory=self.output_directory,
                 log_dir=self.output_logs_dir, num_workers=self.num_cpus)
 
-<<<<<<< Updated upstream
         self.minimize = search.minimize
-=======
->>>>>>> Stashed changes
         # candidate, value = search.search_one_iter()
         report = search.search_one_iter(candidate_in=candidate, cache_bundle=cache_bundle)
 
@@ -447,15 +444,10 @@ class Controller:
 
         alpha = 0.01
         self.normalize = self.exec_history[['reward', 'exe_time', 'trial']]
-<<<<<<< Updated upstream
-        self.normalize = (self.normalize - self.normalize.min()) / \
-                         (self.normalize.max() - self.normalize.min())
-
-        self.normalize.clip(lower=0.01, upper=1,inplace=True)
-=======
         self.normalize = (self.normalize - (1 - alpha) * self.normalize.min()) / \
                          (self.normalize.max() - (1 - alpha) * self.normalize.min())
->>>>>>> Stashed changes
+
+        self.normalize.clip(lower=0.01, upper=1, inplace=True)
 
         for i in range(len(self.uct_score)):
             self.uct_score[i] = self.compute_UCT(i)
@@ -469,7 +461,7 @@ class Controller:
 
         update = {
             'reward': (
-                (row['reward']*row['trial'] + report['reward'] * report['sim_count']) /
+                (row['reward'] * row['trial'] + report['reward'] * report['sim_count']) /
                 (row['trial'] + report['sim_count'])
             ),
             'trial': row['trial'] + report['sim_count'],
@@ -486,17 +478,12 @@ class Controller:
         delta = 4
         history = self.normalize.iloc[index]
         try:
-<<<<<<< Updated upstream
+
             reward = history['reward']
             # / history['trial']
             return (beta * (reward) * log(history['trial']) +
-                gamma * sqrt(2 * log(self.total_run) / history['trial']) +
-                delta * sqrt(2 * log(self.total_time) / history['exe_time']))
-=======
-            return (beta * (history['reward'] / history['trial']) * log(history['trial']) +
                     gamma * sqrt(2 * log(self.total_run) / history['trial']) +
                     delta * sqrt(2 * log(self.total_time) / history['exe_time']))
->>>>>>> Stashed changes
         except:
             # print(STYLE+"[WARN] compute UCT failed:", history.tolist())
             return 100.0
