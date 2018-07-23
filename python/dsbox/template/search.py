@@ -2,12 +2,12 @@ import bisect
 import operator
 import os
 import random
+import time
 import traceback
 import typing
 import logging
 import time
 import copy
-import pprint
 import pathos.pools as pp
 
 from warnings import warn
@@ -45,7 +45,7 @@ T = typing.TypeVar("T")
 _logger = logging.getLogger(__name__)
 
 
-def split_dataset(dataset, problem_info, problem_loc=None, *, random_state=42, test_size=0.2, n_splits = 1):
+def split_dataset(dataset, problem_info: typing.Dict, problem_loc=None, *, random_state=42, test_size=0.2, n_splits = 1):
     '''
     Split dataset into training and test
     '''
@@ -176,8 +176,46 @@ class DimensionalSearch(typing.Generic[T]):
                           dimension: typing.List[DimensionName]):
         pass
 
+    def _lookup_candidate(self, candidate: ConfigurationPoint[T], cand_cache: typing.Dict) -> \
+            typing.Tuple[ConfigurationPoint[T], float]:
+
+        key = hash(str(candidate))
+        if key in cand_cache:
+            line = cand_cache[key]
+            print("[INFO] hit@Candidate: ({},{})".format(key, line["id"]))
+            # print("[INFO] candidate cache Hit@{}:{}".format(key, line['candidate']))
+            return line['candidate'], line['value']
+        else:
+            return (None, None)
+
+    def _push_candidate(self, result: typing.Dict, candidate: ConfigurationPoint[T],
+                        cand_cache: typing.Dict) -> None:
+
+        key = hash(str(candidate))
+        cand_id = result['fitted_pipeline'].id if result else None
+        value = result['test_metrics'][0]['value'] if result else None
+        # add value to candidate cache
+
+        if self._is_candidate_hit(candidate, cand_cache):
+            assert value == cand_cache[key]['value'], \
+                "New value for candidate:" + str(candidate)
+            return
+
+        print("[INFO] push@Candidate: ({},{})".format(key, cand_id))
+        cand_cache[key] = {
+            "candidate": candidate,
+            "id": cand_id,
+            "value": value,
+        }
+
+    def _is_candidate_hit(self, candidate: ConfigurationPoint[T], cand_cache: typing.Dict) -> bool:
+        return hash(str(candidate)) in cand_cache
+
     def search_one_iter(self, candidate_in: ConfigurationPoint[T] = None,
-                        candidate_value: float = None, max_per_dimension=50, cache = None):
+
+                        max_per_dimension: int=50,
+                        cache_bundle: typing.Tuple[typing.Dict, typing.Dict]=(None, None)) -> \
+            typing.Dict:
         """
         Performs one iteration of dimensional search. During dimesional
         search our algorithm iterates through all 8 steps of pipeline as
@@ -188,17 +226,24 @@ class DimensionalSearch(typing.Generic[T]):
         ----------
         candidate_in: ConfigurationPoint[T]
             Current best candidate
-        candidate_value: float
-            The valude for the current best candidate
         max_per_dimension: int
-            Maximunum number of values to search per dimension
+            Maximum number of values to search per dimension
+        cache_bundle: tuple[Dict,Dict]
+            the global cache object and candidate cache object for storing and reusing computation
+            on intermediate results. if the cache is None, a local cache will be used in the
+            dimensional search
         """
 
         # setup the output cache
-        if not cache:
+        local_cache = False
+        if cache_bundle[0] is None or cache_bundle[1] is None:
+            print("[INFO] Using Local Cache")
             local_cache = True
             manager = Manager()
             cache = manager.dict()
+            candidate_cache = manager.dict()
+        else:
+            cache, candidate_cache = cache_bundle
 
         # initialize the simulation counter
         sim_counter = 0
@@ -209,9 +254,10 @@ class DimensionalSearch(typing.Generic[T]):
         #  dataset. In case that failed we repeat the sampling process one
         # more time to guarantee robustness on error reporting
 
-        candidate, candidate_value = self.setup_initial_candidate(candidate_in, cache)
-        sim_counter = 1
+        candidate, candidate_value = \
+            self.setup_initial_candidate(candidate_in, cache, candidate_cache)
 
+        sim_counter += 1
         # generate an executable pipeline with random steps from conf. space.
         # The actual searching process starts here.
         for dimension in self.dimension_ordering:
@@ -220,8 +266,8 @@ class DimensionalSearch(typing.Generic[T]):
             choices: typing.List[T] = self.configuration_space.get_values(dimension)
 
             # TODO this is just a hack
-             # if only have one candidate primitive for this step, no need to search
-            if len(choices) == 1:
+
+            if len(choices) == 1:  # if only have one candidate primitive for this step, skip?
                 continue
             # print("[INFO] choices:", choices, ", in step:", dimension)
             assert 1 < len(choices), \
@@ -255,11 +301,13 @@ class DimensionalSearch(typing.Generic[T]):
                 new[dimension] = value
                 # regenerate the pipeline
                 candidate_ = self.configuration_space.get_point(new)
-                new_candidates.append(candidate_)
+
+                if not self._is_candidate_hit(candidate_, candidate_cache):
+                    new_candidates.append(candidate_)
 
             best_index = -1
             print('*' * 100)
-            print("[INFO] Running Pool for step", dimension,", fork_num:", len(new_candidates))
+            print("[INFO] Running Pool for step", dimension, ", fork_num:", len(new_candidates))
             sim_counter += len(new_candidates)
             # run all candidate pipelines in multi-processing mode
             try:
@@ -269,11 +317,13 @@ class DimensionalSearch(typing.Generic[T]):
                         map(lambda c: (c, cache), new_candidates)
                     )
                 for res, x in zip(results, new_candidates):
+                    self._push_candidate(res, x, candidate_cache)
                     if not res:
                         print('[ERROR] candidate failed:')
                         pprint(x)
-                        print("-"*10)
+                        print("-" * 10)
                         continue
+
                     if len(res['cross_validation_metrics']) > 0:
                         cross_validation_mode = True
                         score_values.append(res['cross_validation_metrics'][0]['value'])
@@ -282,6 +332,7 @@ class DimensionalSearch(typing.Generic[T]):
                         cross_validation_mode = False
                     # pipeline = self.template.to_pipeline(x)
                     # res['pipeline'] = pipeline
+
                     res['fitted_pipeline'] = res['fitted_pipeline']
                     x.data.update(res)
                     sucessful_candidates.append(x)
@@ -300,7 +351,6 @@ class DimensionalSearch(typing.Generic[T]):
                 else:
                     continue
             # Find best candidate
-           #best_cv_index = 0 # initialize best_cv_index
             if self.minimize:
                 best_index = score_values.index(min(score_values))
             else:
@@ -317,7 +367,6 @@ class DimensionalSearch(typing.Generic[T]):
             # put the best candidate pipeline and results to candidate
             candidate = sucessful_candidates[best_index]
             candidate_value = score_values[best_index]
-
         # END FOR
 
         # shutdown the cache manager
@@ -328,9 +377,6 @@ class DimensionalSearch(typing.Generic[T]):
         assert "fitted_pipeline" in candidate.data, "parameters not added! last"
         # gather information for UCT
 
-        # if 'test_values' in locals() and test_values:
-        #     reward = abs(sum(test_values)) / len(test_values)
-        # else:
         reward = candidate_value
 
         # TODO : come up with a better method for this
@@ -347,11 +393,10 @@ class DimensionalSearch(typing.Generic[T]):
         # return (candidate, candidate_value)
         return UCT_report
 
-
-
     def setup_initial_candidate(self,
                                 candidate: ConfigurationPoint[T],
-                                cache: typing.Dict) -> \
+                                cache: typing.Dict,
+                                candidate_cache: typing.Dict) -> \
             typing.Tuple[ConfigurationPoint[T], float]:
         """
         we first need the baseline for searching the conf_space. For this
@@ -361,6 +406,15 @@ class DimensionalSearch(typing.Generic[T]):
 
         Args:
             candidate: ConfigurationPoint[T]
+                the previous best candidate. In case it is None, random candidate will be
+                evaluated. if the random candidates fail on the dataset the process of choosing
+                a random candidate will be repeated three times
+
+            cache: typing.Dict
+                cache object for storing intermediate primitive outputs
+
+            candidate_cache: typing.Dict
+                cache object for storing candidate evalueation results
 
         Returns:
             candidate, evaluate_value : ConfigurationPoint[T], float
@@ -370,7 +424,18 @@ class DimensionalSearch(typing.Generic[T]):
         # first, then random, then another random
         for i in range(2):
             try:
-                result = self.evaluate((candidate, cache))
+                cand_tmp, value_tmp = self._lookup_candidate(candidate, candidate_cache)
+
+                # if the candidate has been evaluated before and its metric value was None (
+                # meaning it was not compatible with dataset), then reevaluating the candidate is
+                #  redundant
+                if cand_tmp is not None and value_tmp is None:
+                    raise ValueError("Candidate is not compatible with the dataset")
+
+                result = self.evaluate((candidate, cache, True if cand_tmp is None else False))
+
+                self._push_candidate(result, candidate, candidate_cache)
+
                 candidate.data.update(result)
 
                 if 'cross_validation_metrics' in result and len(result['cross_validation_metrics']) > 0:
@@ -381,7 +446,7 @@ class DimensionalSearch(typing.Generic[T]):
                 traceback.print_exc()
                 print("[ERROR] Initial Pipeline failed, Trying a random pipeline ...")
                 pprint(candidate)
-                print("-"*20)
+                print("-" * 20)
                 candidate = ConfigurationPoint(self.configuration_space,
                                                self.random_assignment())
         raise ValueError("Invalid initial candidate")
@@ -402,8 +467,6 @@ class DimensionalSearch(typing.Generic[T]):
         #                                        self.random_assignment())
         #         result = self.evaluate(candidate)
         # return (candidate, result['test_metrics'][0]['value'])
-
-
 
     def search(self, candidate: ConfigurationPoint[T] = None, candidate_value: float = None, num_iter=3, max_per_dimension=10):
         for i in range(num_iter):
@@ -472,12 +535,19 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
             lambda d: {'metric': d['metric'].unparse(), 'params': d['params']},
             performance_metrics
         ))
+        self.classification_metric = ('accuracy', 'precision', 'recall', 'f1', 'f1Micro', 'f1Macro', 'rocAuc', 'rocAucMicro', 'rocAucMacro')
+        self.regression_metric = ('meanSquaredError', 'rootMeanSquaredError', 'rootMeanSquaredErrorAvg', 'meanAbsoluteError', 'rSquared', 'normalizedMutualInformation', 'jaccardSimilarityScore', 'precisionAtTopK', 'objectDetectionAP')
 
         self.output_directory = output_directory
         self.log_dir = log_dir
-        self.num_workers = os.cpu_count() if num_workers==0 else num_workers
+
+        self.num_workers = os.cpu_count() if num_workers == 0 else num_workers
+
+        # print("[INFO] number of workers:", self.num_workers)
 
         # new searching method: first check whether we will do corss validation or not
+        #!!!!
+        # TODO: add some function to determine whether to go quick mode or not
         self.quick_mode = False
         self.testing_mode = 0 # set default to not use cross validation mode
         # testing_mode = 0: normal testing mode with test only 1 time
@@ -518,9 +588,10 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
         """
         configuration: ConfigurationPoint[PrimitiveDescription] = args[0]
         cache: typing.Dict = args[1]
-        print("[INFO] Worker started, id:", current_process())
+        dump2disk = args[2] if len(args) == 3 else True
+        print("[INFO] Worker started, id:", current_process(), ",", dump2disk)
         try:
-            evaluation_result = self._evaluate(configuration, cache)
+            evaluation_result = self._evaluate(configuration, cache, dump2disk)
         except:
             traceback.print_exc()
             return None
@@ -529,9 +600,13 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
 
     def _evaluate(self,
                   configuration: ConfigurationPoint,
-                  cache: typing.Dict) -> typing.Dict:
+                  cache: typing.Dict,
+                  dump2disk: bool) -> typing.Dict:
+
+        start_time = time.time()
         pipeline = self.template.to_pipeline(configuration)
         # Todo: update ResourceManager to run pipeline:  ResourceManager.add_pipeline(pipeline)
+
         # if in cross validation mode
         if self.testing_mode == 1:
             repeat_times = int(self.validation_config['cross_validation'])
@@ -549,8 +624,14 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
                     training_ground_truth,training_prediction,None,None)
 
             # copy the cross validation score here to test_metrics for return
-            test_metrics = fitted_pipeline.get_cross_validation_metrics()
+            test_metrics = copy.deepcopy(training_metrics) #fitted_pipeline.get_cross_validation_metrics()
+            # generate a test matrics results with score = worst value
+            if larger_is_better(training_metrics):
+                test_metrics[0]["value"] = 0
+            else:
+                test_metrics[0]["value"] = sys.float_info.max
             print("[INFO] Testing finish.!!!")
+        # if in normal testing mode(including default testing mode with train/test one time each)
         else:
             if self.testing_mode == 2:
                 repeat_times = int(self.validation_config['test_validation'])
@@ -604,16 +685,24 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
                 test_metrics_new['value'] = sum(test_value_list) / len(test_value_list)
                 test_metrics_new['values'] = test_value_list
                 test_metrics = [test_metrics_new]
+        # END evaluation part
 
-        # Save results
+
         if self.output_directory is not None:
             data = {
                 'fitted_pipeline': fitted_pipeline,
                 'training_metrics': training_metrics,
                 'cross_validation_metrics': fitted_pipeline.get_cross_validation_metrics(),
-                'test_metrics': test_metrics
+                'test_metrics': test_metrics,
+                'total_runtime': time.time() - start_time
             }
+            fitted_pipeline.auxiliary = dict(data)
 
+            # print("!!!!")
+            # pprint(data)
+            # print("!!!!")
+            
+        # Save results
             if self.quick_mode:
                 print("[INFO] Now in quick mode, will skip training with train_dataset1")
                 # if in quick mode, we did not fit the model with dataset_train1 again
@@ -633,24 +722,29 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
             # Note: results == test_prediction
             test_prediction = fitted_pipeline2.get_produce_step_output(self.template.get_output_step_number())
 
-            training_metrics, test_metrics = self._calculate_score(
+            training_metrics2, test_metrics2 = self._calculate_score(
                 None, None, test_ground_truth, test_prediction)
 
             # set the metric for calculating the rank
-            fitted_pipeline2.set_metric(test_metrics)
+            fitted_pipeline2.set_metric(test_metrics2[0])
 
             # finally, fit the model with all data and save it
             print("[INFO] Now are training the pipeline with all dataset and saving the pipeline.")
             #fitted_pipeline2.fit(cache=cache, inputs = [self.all_dataset])
             fitted_pipeline2.fit(inputs = [self.all_dataset])
             fitted_pipeline2.save(self.output_directory)
+
+        # still return the original fitted_pipeline with relation to train_dataset1
+        if self.output_directory is not None and dump2disk:
+            fitted_pipeline2.save(self.output_directory)
+
             # _logger.info("Test pickled pipeline. id: {}".format(fitted_pipeline.id))
             # self.test_pickled_pipeline(folder_loc=self.output_directory,
             #                                pipeline_id=fitted_pipeline.id,
             #                                test_metrics=test_metrics,
             #                                test_ground_truth=test_ground_truth)
 
-        # still return the original fitted_pipeline with relation to train_dataset1
+
         return data
 
     def _calculate_score(self, training_ground_truth, training_prediction, test_ground_truth, test_prediction):
@@ -710,13 +804,15 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
                 raise NotSupportedError('[ERROR] metric calculation failed')
         # END for loop
 
-        if len(training_metrics) == 1:
-            training_metrics = training_metrics[0]
-        elif len(training_metrics) > 1:
+        # if len(training_metrics) == 1:
+        #     training_metrics = training_metrics[0]
+        # el
+        if len(training_metrics) > 1:
             print("[WARN] More than one training metrics found in one evaluation.")
-        if len(test_metrics) == 1:
-            test_metrics = test_metrics[0]
-        elif len(test_metrics) > 1:
+        # if len(test_metrics) == 1:
+        #     test_metrics = test_metrics[0]
+        # el
+        if len(test_metrics) > 1:
             print("[WARN] More than one test metrics found in one evaluation.")
         
         # return the training and test metrics
@@ -739,7 +835,7 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
             params: typing.Dict = metric_description['params']
 
             try:
-                if 'regression' in self.problem.query(())['about']['taskType']:
+                if metric_description["metric"] in self.regression_metric:
                     # if the test_ground_truth do not have results
                     if test_ground_truth.iloc[0, -1] == '':
                         test_ground_truth.iloc[:, -1] = 0
@@ -802,6 +898,7 @@ def generate_hyperparam_configuration_space(space: ConfigurationSpace[PythonPath
                 values.append((path, index, hyperparam_directive))
         new_space[name] = values
     return SimpleConfigurationSpace(new_space)
+
 
 def random_choices_without_replacement(population, weights, k=1):
     """

@@ -6,17 +6,21 @@ import random
 import typing
 from multiprocessing import Pool, current_process, Manager
 from math import sqrt, log
-
+import traceback
 import importlib
 spam_spec = importlib.util.find_spec("colorama")
 STYLE = ""
+ERROR = ""
+WARNING = ""
 if spam_spec is not None:
     from colorama import Fore, Back, init
     # STYLE = Fore.BLUE + Back.GREEN
     STYLE = Fore.BLACK+Back.GREEN
+    ERROR = Fore.WHITE+Back.RED
+    WARNING = Fore.BLACK+Back.YELLOW
     init(autoreset=True)
 
-
+import numpy as np
 import d3m
 import dsbox.template.runtime as runtime
 
@@ -269,7 +273,8 @@ class Controller:
         pipelinesfile.flush()
         pipelinesfile.close()
 
-    def search_template(self, template: DSBoxTemplate, candidate=None, cache=None) \
+    def search_template(self, template: DSBoxTemplate, candidate: typing.Dict=None,
+                        cache_bundle:typing.Tuple[typing.Dict, typing.Dict]=(None, None)) \
             -> typing.Dict:
 
         space = template.generate_configuration_space()
@@ -278,12 +283,6 @@ class Controller:
 
         # search = TemplateDimensionalSearch(template, space, d3m.index.search(), self.dataset,
         # self.dataset, metrics)
-        # if self.test_dataset is None:
-        #     search = TemplateDimensionalSearch(
-        #         template, space, d3m.index.search(), self.problem_doc_metadata, self.dataset,
-        #         self.dataset, metrics, output_directory=self.output_directory,
-        #         log_dir=self.output_logs_dir, num_workers=self.num_cpus)
-        # else:
 
         # setup the dimensional search configs
         search = TemplateDimensionalSearch(
@@ -292,7 +291,9 @@ class Controller:
             output_directory=self.output_directory, log_dir=self.output_logs_dir, 
             num_workers=self.num_cpus, config = self.config, problem_dict = self.problem)
 
-        report = search.search_one_iter(candidate_in=candidate, cache = cache)
+        self.minimize = search.minimize
+        # candidate, value = search.search_one_iter()
+        report = search.search_one_iter(candidate_in=candidate, cache_bundle=cache_bundle)
         candidate = report['candidate']
         value = report['best_val']
         import pdb
@@ -302,8 +303,10 @@ class Controller:
             print("[ERROR] not candidate!")
             return Status.PROBLEM_NOT_IMPLEMENT
         else:
+            import pdb
+            pdb.set_trace()
             print("******************\n[INFO] Writing results")
-            print(candidate.data)
+            pprint.pprint(candidate.data)
             print(candidate, value)
             if candidate.data['training_metrics']:
                 print('Training {} = {}'.format(
@@ -314,7 +317,7 @@ class Controller:
                     candidate.data['cross_validation_metrics'][0]['metric'],
                     candidate.data['cross_validation_metrics'][0]['value']))
             if candidate.data['test_metrics']:
-                print('Test {} = {}'.format(
+                print('Validation {} = {}'.format(
                     candidate.data['test_metrics'][0]['metric'],
                     candidate.data['test_metrics'][0]['value']))
 
@@ -330,29 +333,18 @@ class Controller:
             try:
                 f = open(save_location, "w+")
                 f.write(str(metrics) + "\n")
-                if len(candidate.data['training_metrics']) > 0:
-                    f.write(str(candidate.data['training_metrics'][0]['value']) + "\n")
-                if len(candidate.data['cross_validation_metrics']) > 0:
-                    f.write(str(candidate.data['cross_validation_metrics'][0]['value']) + "\n")
-                if len(candidate.data['test_metrics']) > 0:
-                    f.write(str(candidate.data['test_metrics'][0]['value']) + "\n")
+
+                for m in ["training_metrics", "cross_validation_metrics", "test_metrics"]:
+                    if m in candidate.data and candidate.data[m]:
+                        f.write(str(candidate.data[m][0]['value']) + "\n")
+                # f.write(str(candidate.data['training_metrics'][0]['value']) + "\n")
+                # f.write(str(candidate.data['cross_validation_metrics'][0]['value']) + "\n")
+                # f.write(str(candidate.data['test_metrics'][0]['value']) + "\n")
                 f.close()
             except:
                 raise NotSupportedError(
                     '[ERROR] Save training results Failed!')
 
-            # print("******************\n[INFO] Saving Best Pipeline")
-            # # save the pipeline
-            #
-            # try:
-            #     # pipeline = FittedPipeline.create(configuration=candidate,
-            #     #                                  dataset=self.dataset)
-            #     fitted_pipeline = candidate.data['fitted_pipeline']
-            #     fitted_pipeline.save(self.output_directory)
-            # except:
-            #     raise NotSupportedError(
-            #         '[ERROR] Save Failed!')
-            ####################
             return report
 
     def select_next_template(self, max_iter: int = 2):
@@ -366,16 +358,20 @@ class Controller:
         # print("[INFO] Choices:", choices)
         # UCT based evaluation
         for i in range(max_iter):
-            selected = random_choices_without_replacement(choices,
-                                                          self.uct_score, 1)
+            weights = self.uct_score
+            selected = random_choices_without_replacement(choices, self.uct_score, 1)
             yield selected[0]
 
     def update_UCT_score(self, index: int, report: typing.Dict):
         self.update_history(index, report)
 
+        alpha = 0.01
         self.normalize = self.exec_history[['reward', 'exe_time', 'trial']]
-        self.normalize = (self.normalize - self.normalize.min()) / \
-                         (self.normalize.max() - self.normalize.min())
+        self.normalize = (
+            self.normalize - (1 - np.sign(self.normalize.min())*alpha) * self.normalize.min()
+            ) / (self.normalize.max() - (1 - alpha) * self.normalize.min())
+
+        self.normalize.clip(lower=0.01, upper=1,inplace=True)
 
         for i in range(len(self.uct_score)):
             self.uct_score[i] = self.compute_UCT(i)
@@ -388,7 +384,10 @@ class Controller:
         row = self.exec_history.iloc[index]
 
         update = {
-            'reward': row['reward'] + report['reward'] * report['sim_count'],
+            'reward': (
+                (row['reward']*row['trial'] + report['reward'] * report['sim_count']) /
+                (row['trial'] + report['sim_count'])
+            ),
             'trial': row['trial'] + report['sim_count'],
             'exe_time': row['exe_time'] + report['time'],
             'candidate': report['candidate'],
@@ -399,14 +398,17 @@ class Controller:
 
     def compute_UCT(self, index=0):
         beta = 10
-        gamma = 2
-        delta = 1
+        gamma = 1
+        delta = 4
         history = self.normalize.iloc[index]
         try:
-            return (beta * (history['reward'] / history['trial']) +
+            reward = history['reward']
+            # / history['trial']
+            return (beta * (reward) * log(history['trial']) +
                 gamma * sqrt(2 * log(self.total_run) / history['trial']) +
                 delta * sqrt(2 * log(self.total_time) / history['exe_time']))
         except:
+            # print(STYLE+"[WARN] compute UCT failed:", history.tolist())
             return 100.0
 
     def initialize_uct(self):
@@ -419,8 +421,8 @@ class Controller:
         self.exec_history = pd.DataFrame(None,
             index=map(lambda s: s.template["name"], self.template),
             columns=['reward', 'exe_time', 'trial', 'candidate', 'best_value'])
-        self.exec_history[['reward', 'exe_time', 'trial']] = 1
-        self.exec_history[['best_value']] = 0
+        self.exec_history[['reward', 'exe_time', 'trial']] = 0
+        self.exec_history[['best_value']] = float('-inf')
 
         self.exec_history['candidate'] = self.exec_history['candidate'].astype(object)
         self.exec_history['candidate'] = None
@@ -442,7 +444,7 @@ class Controller:
         # setup the output cache
         manager = Manager()
         cache = manager.dict()
-
+        candidate_cache = manager.dict()
 
         # For now just use the first template
         # TODO: sample based on DSBoxTemplate.importance()
@@ -454,16 +456,24 @@ class Controller:
             print(STYLE+"[INFO] Template {}:{} Selected. UCT:{}".format(idx, template.template['name'], self.uct_score))
 
             try:
-                report = self.search_template(template, candidate=self.exec_history.iloc[idx]['candidate'], cache=cache)
-                print(STYLE + "[INFO] report:", report['best_val'])
-                self.update_UCT_score(index=idx, report=report)
-            except:
-                continue
+                report = self.search_template(
+                    template, candidate=self.exec_history.iloc[idx]['candidate'],
+                    cache_bundle=(cache, candidate_cache),
+                    )
 
-            # if best_info and best_info['best_val']:
-            best_report = report
+            except:
+                traceback.print_exc()
+                continue
+            print(STYLE + "[INFO] report:", report['best_val'])
+            self.update_UCT_score(index=idx, report=report)
+            print(STYLE+"[INFO] cache size:", len(cache),
+                  STYLE+", candidates:", len(candidate_cache))
 
             # break
+
+        # if best_info and best_info['best_val']:
+        best_template, best_report = max(self.exec_history.iterrows(),
+                                         key=lambda r: r[1]['best_value'])
 
         # shutdown the cache manager
         manager.shutdown()
