@@ -296,7 +296,8 @@ class Controller:
             self.output_supporting_files_dir = os.path.abspath(config['temp_storage_root'])
         #### End: Official config entry for Evaluation
 
-        self.output_directory = os.path.split(self.output_pipelines_dir)[0]
+        # self.output_directory = os.path.split(self.output_pipelines_dir)[0]
+        # What is the above line doing? It is updating the output_dir. It cause some problem, so comment out
 
         if 'logs_root' in config:
             self.output_logs_dir = os.path.abspath(config['logs_root'])
