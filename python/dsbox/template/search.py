@@ -124,7 +124,6 @@ class DimensionalSearch(typing.Generic[T]):
 
     def _push_candidate(self, result: typing.Dict, candidate: ConfigurationPoint[T],
                         cand_cache: typing.Dict) -> None:
-
         key = hash(str(candidate))
         cand_id = result['fitted_pipeline'].id if result else None
         value = result['test_metrics'][0]['value'] if result else None
@@ -601,6 +600,10 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
                 test_metrics_new['value'] = sum(test_value_list) / len(test_value_list)
                 test_metrics_new['values'] = test_value_list
                 test_metrics = [test_metrics_new]
+            else:
+                if type(test_metrics[0]) is list:
+                    test_metrics = test_metrics[0]
+                    training_metrics = training_metrics[0]
         # END evaluation part
 
         if self.output_directory is not None:
