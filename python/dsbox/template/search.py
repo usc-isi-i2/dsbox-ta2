@@ -39,74 +39,9 @@ from .configuration_space import SimpleConfigurationSpace
 
 from .pipeline_utilities import pipe2str
 
-from sklearn.model_selection import StratifiedShuffleSplit, ShuffleSplit
 
 T = typing.TypeVar("T")
-_logger = logging.getLogger(__name__)
 
-
-def split_dataset(dataset, problem_info: typing.Dict, problem_loc=None, *, random_state=42, test_size=0.2, n_splits = 1):
-    '''
-    Split dataset into training and test
-    '''
-    task_type = problem_info["task_type"]#['problem']['task_type'].name  # 'classification' 'regression'
-    res_id = problem_info["res_id"]
-    target_index = problem_info["target_index"]
-
-    # for i in range(len(problem['inputs'])):
-    #     if 'targets' in problem['inputs'][i]:
-    #         break
-    # task_type : str = problem['problem']['task_type'].name  # 'classification' 'regression'
-    # res_id = problem['inputs'][i]['targets'][0]['resource_id']
-    # target_index = problem['inputs'][i]['targets'][0]['column_index']
-
-    def generate_split_data(dataset,res_id):
-        train = dataset[res_id].iloc[train_index,:]
-        test = dataset[res_id].iloc[test_index,:]
-        # Generate training dataset
-        train_dataset = copy.copy(dataset)
-        train_dataset[res_id] = train
-        meta = dict(train_dataset.metadata.query((res_id,)))
-        dimension = dict(meta['dimension'])
-        meta['dimension'] = dimension
-        dimension['length'] = train.shape[0]
-        #print(meta)
-        train_dataset.metadata = train_dataset.metadata.update((res_id,), meta)
-        #pprint(dict(train_dataset.metadata.query((res_id,))))
-        # Generate testing dataset
-        test_dataset = copy.copy(dataset)
-        test_dataset[res_id] = test
-        meta = dict(test_dataset.metadata.query((res_id,)))
-        dimension = dict(meta['dimension'])
-        meta['dimension'] = dimension
-        dimension['length'] = test.shape[0]
-        #print(meta)
-        test_dataset.metadata = test_dataset.metadata.update((res_id,), meta)
-        #pprint(dict(test_dataset.metadata.query((res_id,))))
-        return (train_dataset,test_dataset)
-
-    train_return = []
-    test_return = []
-    if task_type == 'CLASSIFICATION':
-        # Use stratified sample to split the dataset
-        sss = StratifiedShuffleSplit(n_splits=n_splits, test_size=test_size, random_state=random_state)
-        sss.get_n_splits(dataset[res_id], dataset[res_id].iloc[:, target_index])
-        for train_index, test_index in sss.split(dataset[res_id], dataset[res_id].iloc[:, target_index]):
-            train_dataset,test_dataset = generate_split_data(dataset,res_id)
-            train_return.append(train_dataset)
-            test_return.append(test_dataset)
-    else:
-        # Use random split
-        if not task_type == "REGRESSION":
-            print('USING Random Split to split task type: {}'.format(task_type))
-        ss = ShuffleSplit(n_splits=n_splits, test_size=test_size, random_state=random_state)
-        ss.get_n_splits(dataset[res_id])
-        for train_index, test_index in ss.split(dataset[res_id]):
-            train_dataset,test_dataset = generate_split_data(dataset,res_id)
-            train_return.append(train_dataset)
-            test_return.append(test_dataset)
-
-    return (train_return, test_return)
 
 def get_target_columns(dataset: 'Dataset', problem_doc_metadata: 'Metadata'):
     problem = problem_doc_metadata.query(())["inputs"]["data"]
@@ -124,7 +59,6 @@ def get_target_columns(dataset: 'Dataset', problem_doc_metadata: 'Metadata'):
     targetlist.append(colIndex)
     targetcol = dataset[resID].iloc[:, targetlist]
     return targetcol
-
 
 class DimensionalSearch(typing.Generic[T]):
     """
@@ -279,11 +213,8 @@ class DimensionalSearch(typing.Generic[T]):
             # generate the candidates choices list
             selected = random_choices_without_replacement(choices, weights, max_per_dimension)
 
-            #test_values = []
             score_values =[]
             sucessful_candidates = []
-            import pdb
-            pdb.set_trace()
 
             # No need to evaluate if value is already known
             if candidate_value is not None and candidate[dimension] in selected:
@@ -338,9 +269,6 @@ class DimensionalSearch(typing.Generic[T]):
                     sucessful_candidates.append(x)
             except:
                 traceback.print_exc()
-
-            import pdb
-            pdb.set_trace()
 
             # If all candidates failed, only the initial one in the score_values
             if len(score_values) == 1:
@@ -506,9 +434,13 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
     def __init__(self, 
                  template: DSBoxTemplate,
                  config: typing.Dict,
-                 problem_dict: typing.Dict,
+                 #problem_dict: typing.Dict,
                  configuration_space: ConfigurationSpace[PrimitiveDescription],
                  problem: Metadata,
+                 train_dataset1: Dataset,
+                 train_dataset2: typing.List[Dataset],
+                 test_dataset1: Dataset,
+                 test_dataset2: typing.List[Dataset],
                  all_dataset: Dataset,
                  performance_metrics: typing.List[typing.Dict],
                  output_directory: str,
@@ -524,11 +456,11 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
         # self.configuration_space = configuration_space
         #self.primitive_index: typing.List[str] = primitive_index
         self.problem = problem
-        self.problem_info = self._generate_problem_info(problem_dict)
-        self.train_dataset1 = None
-        self.test_dataset1 = None
-        # self.train_dataset2 = None
-        # self.test_dataset2 = None
+        #self.problem_info = problem_info self._generate_problem_info(problem_dict)
+        self.train_dataset1 = train_dataset1
+        self.train_dataset2 = train_dataset2
+        self.test_dataset1 = test_dataset1
+        self.test_dataset2 = test_dataset2
         self.all_dataset = all_dataset
 
         self.performance_metrics = list(map(
@@ -548,6 +480,7 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
         # new searching method: first check whether we will do corss validation or not
         #!!!!
         # TODO: add some function to determine whether to go quick mode or not
+
         self.quick_mode = False
         self.testing_mode = 0 # set default to not use cross validation mode
         # testing_mode = 0: normal testing mode with test only 1 time
@@ -561,25 +494,11 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
                     self.testing_mode = 1
                 else:
                     self.testing_mode = 2
-        # now we split dataset here to keep only one spliting function
-        self.train_dataset1, self.test_dataset1 = split_dataset(dataset = self.all_dataset, 
-            problem_info = self.problem_info, problem_loc = self.config['problem_schema'])
-        # here we only split one times, so no need to use list to include the dataset
-        self.train_dataset1 = self.train_dataset1[0]
-        self.test_dataset1 = self.test_dataset1[0]
+
+
         # if not set(self.template.template_nodes.keys()) <= set(configuration_space.get_dimensions()):
         #     raise exceptions.InvalidArgumentValueError(
         #         "Not all template steps are in configuration space: {}".format(self.template.template_nodes.keys()))
-
-    def _generate_problem_info(self,problem):
-        problem_info = {}
-        for i in range(len(problem['inputs'])):
-            if 'targets' in problem['inputs'][i]:
-                break
-        problem_info["task_type"] = problem['problem']['task_type'].name  # 'classification' 'regression'
-        problem_info["res_id"] = problem['inputs'][i]['targets'][0]['resource_id']
-        problem_info["target_index"] = problem['inputs'][i]['targets'][0]['column_index']
-        return problem_info
 
     def evaluate_pipeline(self, args) -> typing.Dict:
         """
@@ -618,7 +537,7 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
             fitted_pipeline.fit(inputs=[self.train_dataset1])
             training_ground_truth = get_target_columns(self.train_dataset1,self.problem)
             training_prediction = fitted_pipeline.get_fit_step_output(
-            self.template.get_output_step_number())
+                self.template.get_output_step_number())
 
             training_metrics, test_metrics = self._calculate_score(
                     training_ground_truth,training_prediction,None,None)
@@ -631,6 +550,7 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
             else:
                 test_metrics[0]["value"] = sys.float_info.max
             print("[INFO] Testing finish.!!!")
+
         # if in normal testing mode(including default testing mode with train/test one time each)
         else:
             if self.testing_mode == 2:
@@ -640,23 +560,19 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
             print("[INFO] Will use normal train-test mode ( n =", repeat_times,") to choose best primitives.")
             training_metrics = []
             test_metrics = []
-            # make n times of different spliting results
-            # train_dataset2, test_dataset2 = split_dataset(dataset = self.train_dataset1, 
-            #     problem = self.problem_info, problem_loc = self.config['problem_schema'],
-            #     test_size = 0.1, n_splits = repeat_times)
 
             for each_repeat in range(repeat_times):
                 # start training and testing
-                fitted_pipeline = FittedPipeline(pipeline, train_dataset2[each_repeat].metadata.query(())['id'], 
+                fitted_pipeline = FittedPipeline(pipeline, self.train_dataset2[each_repeat].metadata.query(())['id'], 
                     log_dir=self.log_dir, metric_descriptions=self.performance_metrics)
 
                 #fitted_pipeline.fit(cache=cache, inputs=[train_dataset2[each_repeat]])
-                fitted_pipeline.fit(inputs=[train_dataset2[each_repeat]])
-                training_ground_truth = get_target_columns(train_dataset2[each_repeat],self.problem)
+                fitted_pipeline.fit(inputs=[self.train_dataset2[each_repeat]])
+                training_ground_truth = get_target_columns(self.train_dataset2[each_repeat],self.problem)
                 training_prediction = fitted_pipeline.get_fit_step_output(
                     self.template.get_output_step_number())
-                results = fitted_pipeline.produce(inputs=[test_dataset2[each_repeat]])
-                test_ground_truth = get_target_columns(test_dataset2[each_repeat],self.problem)
+                results = fitted_pipeline.produce(inputs=[self.test_dataset2[each_repeat]])
+                test_ground_truth = get_target_columns(self.test_dataset2[each_repeat],self.problem)
 
                 # Note: results == test_prediction
                 test_prediction = fitted_pipeline.get_produce_step_output(self.template.get_output_step_number())
@@ -687,7 +603,6 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
                 test_metrics = [test_metrics_new]
         # END evaluation part
 
-
         if self.output_directory is not None:
             data = {
                 'fitted_pipeline': fitted_pipeline,
@@ -701,7 +616,7 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
             # print("!!!!")
             # pprint(data)
             # print("!!!!")
-            
+
         # Save results
             if self.quick_mode:
                 print("[INFO] Now in quick mode, will skip training with train_dataset1")
@@ -757,9 +672,11 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
             metricDesc = PerformanceMetric.parse(metric_description['metric'])
             metric: typing.Callable = metricDesc.get_function()
             params: typing.Dict = metric_description['params']
-            try:                
-                if 'regression' in self.problem.query(())['about']['taskType']:
-                    if training_ground_truth is not None and training_prediction is not None: # if training data exist
+            regression_mode = metric_description["metric"] in self.regression_metric
+            try: 
+                # generate the metrics for training results           
+                if training_ground_truth is not None and training_prediction is not None: # if training data exist    
+                    if regression_mode:
                         training_metrics.append({
                             'metric': metric_description['metric'],
                             'value': metric(
@@ -768,9 +685,20 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
                                 **params
                             )
                         })
-
-                    if test_ground_truth is not None and test_prediction is not None: # if testing data exist
-                        # if the test_ground_truth do not have results
+                    else:
+                        if training_ground_truth is not None and training_prediction is not None: # if training data exist
+                            training_metrics.append({
+                                'metric': metric_description['metric'],
+                                'value': metric(
+                                    training_ground_truth.iloc[:, -1].astype(str),
+                                    training_prediction.iloc[:, -1].astype(str),
+                                    **params
+                                )
+                            })
+                # generate the metrics for testing results  
+                if test_ground_truth is not None and test_prediction is not None: # if testing data exist
+                    # if the test_ground_truth do not have results
+                    if regression_mode:
                         if test_ground_truth.iloc[0, -1] == '':
                             test_ground_truth.iloc[:, -1] = 0
                         test_metrics.append({
@@ -781,17 +709,8 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
                                 **params
                             )
                         })
-                else:
-                    if training_ground_truth is not None and training_prediction is not None: # if training data exist
-                        training_metrics.append({
-                            'metric': metric_description['metric'],
-                            'value': metric(
-                                training_ground_truth.iloc[:, -1].astype(str),
-                                training_prediction.iloc[:, -1].astype(str),
-                                **params
-                            )
-                        })
-                    if test_ground_truth is not None and test_prediction is not None: # if testing data exist
+
+                    else:
                         test_metrics.append({
                             'metric': metric_description['metric'],
                             'value': metric(

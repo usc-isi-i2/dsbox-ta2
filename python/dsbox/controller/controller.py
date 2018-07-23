@@ -47,6 +47,7 @@ __all__ = ['Status', 'Controller']
 
 import copy
 import pprint
+from sklearn.model_selection import StratifiedShuffleSplit, ShuffleSplit
 
 # FIXME: we only need this for testing
 import pandas as pd
@@ -57,6 +58,69 @@ LOG_FILENAME = 'dsbox.log'
 CONSOLE_LOGGING_LEVEL = logging.INFO
 CONSOLE_FORMATTER = "[%(levelname)s] - %(name)s - %(message)s"
 
+def split_dataset(dataset, problem_info: typing.Dict, problem_loc=None, *, random_state=42, test_size=0.2, n_splits = 1):
+    '''
+    Split dataset into training and test
+    '''
+    task_type = problem_info["task_type"]#['problem']['task_type'].name  # 'classification' 'regression'
+    res_id = problem_info["res_id"]
+    target_index = problem_info["target_index"]
+
+    # for i in range(len(problem['inputs'])):
+    #     if 'targets' in problem['inputs'][i]:
+    #         break
+    # task_type : str = problem['problem']['task_type'].name  # 'classification' 'regression'
+    # res_id = problem['inputs'][i]['targets'][0]['resource_id']
+    # target_index = problem['inputs'][i]['targets'][0]['column_index']
+
+    def generate_split_data(dataset,res_id):
+        train = dataset[res_id].iloc[train_index,:]
+        test = dataset[res_id].iloc[test_index,:]
+        # Generate training dataset
+        train_dataset = copy.copy(dataset)
+        train_dataset[res_id] = train
+        meta = dict(train_dataset.metadata.query((res_id,)))
+        dimension = dict(meta['dimension'])
+        meta['dimension'] = dimension
+        dimension['length'] = train.shape[0]
+        #print(meta)
+        train_dataset.metadata = train_dataset.metadata.update((res_id,), meta)
+        #pprint(dict(train_dataset.metadata.query((res_id,))))
+        # Generate testing dataset
+        test_dataset = copy.copy(dataset)
+        test_dataset[res_id] = test
+        meta = dict(test_dataset.metadata.query((res_id,)))
+        dimension = dict(meta['dimension'])
+        meta['dimension'] = dimension
+        dimension['length'] = test.shape[0]
+        #print(meta)
+        test_dataset.metadata = test_dataset.metadata.update((res_id,), meta)
+        #pprint(dict(test_dataset.metadata.query((res_id,))))
+        return (train_dataset,test_dataset)
+
+    train_return = []
+    test_return = []
+    if task_type == 'CLASSIFICATION':
+        # Use stratified sample to split the dataset
+        sss = StratifiedShuffleSplit(n_splits=n_splits, test_size=test_size, random_state=random_state)
+        sss.get_n_splits(dataset[res_id], dataset[res_id].iloc[:, target_index])
+        for train_index, test_index in sss.split(dataset[res_id], dataset[res_id].iloc[:, target_index]):
+            train_dataset,test_dataset = generate_split_data(dataset,res_id)
+            train_return.append(train_dataset)
+            test_return.append(test_dataset)
+    else:
+        # Use random split
+        if not task_type == "REGRESSION":
+            print('USING Random Split to split task type: {}'.format(task_type))
+        ss = ShuffleSplit(n_splits=n_splits, test_size=test_size, random_state=random_state)
+        ss.get_n_splits(dataset[res_id])
+        for train_index, test_index in ss.split(dataset[res_id]):
+            train_dataset,test_dataset = generate_split_data(dataset,res_id)
+            train_return.append(train_dataset)
+            test_return.append(test_dataset)
+
+    return (train_return, test_return)
+
 class Status(enum.Enum):
     OK = 0
     PROBLEM_NOT_IMPLEMENT = 148
@@ -65,7 +129,7 @@ class Status(enum.Enum):
 class Controller:
     TIMEOUT = 59  # in minutes
 
-    def __init__(self, development_mode: bool = False, run_single_template: str = "MuxinTA1ClassificationTemplate1") -> None:
+    def __init__(self, development_mode: bool = False, run_single_template: str = "") -> None:
         self.development_mode: bool = development_mode
 
         self.run_single_template = run_single_template
@@ -77,11 +141,13 @@ class Controller:
         self.task_type: TaskType = None
         self.task_subtype: TaskSubtype = None
         self.problem_doc_metadata: Metadata = None
-
+        self.problem_info = {}
         # Dataset
         self.dataset_schema_file: str = ""
-        self.train_dataset: Dataset = None
-        self.test_dataset: Dataset = None
+        self.train_dataset1: Dataset = None
+        self.train_dataset2: typing.List[Dataset] = None
+        self.test_dataset1: Dataset = None
+        self.test_dataset2: typing.List[Dataset] = None
         self.all_dataset: Dataset = None
         self.taskSourceType: typing.Set[str]  = set()  # str from SEMANTIC_TYPES
 
@@ -96,7 +162,7 @@ class Controller:
         else:
             self.template_library = TemplateLibrary()
         self.template: typing.List[DSBoxTemplate] = []
-
+        self.max_split_times = 0
         # Primitives
         self.primitive: typing.Dict = d3m.index.search()
 
@@ -112,27 +178,28 @@ class Controller:
 
         self._logger = None
 
-    def initialize_from_config(self, config: typing.Dict) -> None:
+    # we should no longer use this method
+    # def initialize_from_config(self, config: typing.Dict) -> None:
 
-        self._load_schema(config)
-        self._create_output_directory(config)
+    #     self._load_schema(config)
+    #     self._create_output_directory(config)
 
-        # Dataset
-        loader = D3MDatasetLoader()
+    #     # Dataset
+    #     loader = D3MDatasetLoader()
 
-        #dataset_uri = 'file://{}'.format(os.path.abspath(self.dataset_schema_file))
-        #self.dataset = loader.load(dataset_uri=dataset_uri)
+    #     #dataset_uri = 'file://{}'.format(os.path.abspath(self.dataset_schema_file))
+    #     #self.dataset = loader.load(dataset_uri=dataset_uri)
 
-        # train dataset
-        train_dataset_uri = 'file://{}'.format(os.path.abspath(config['train_data_schema']))
-        self.train_dataset = loader.load(dataset_uri=train_dataset_uri)
+    #     # train dataset
+    #     train_dataset_uri = 'file://{}'.format(os.path.abspath(config['train_data_schema']))
+    #     self.train_dataset = loader.load(dataset_uri=train_dataset_uri)
 
-        # test dataset
-        test_dataset_uri = 'file://{}'.format(os.path.abspath(config['test_data_schema']))
-        self.test_dataset = loader.load(dataset_uri=test_dataset_uri)
+    #     # test dataset
+    #     test_dataset_uri = 'file://{}'.format(os.path.abspath(config['test_data_schema']))
+    #     self.test_dataset = loader.load(dataset_uri=test_dataset_uri)
 
-        # Templates
-        self.load_templates()
+    #     # Templates
+    #     self.load_templates()
 
     def initialize_from_config_train_test(self, config: typing.Dict) -> None:
 
@@ -170,6 +237,14 @@ class Controller:
             self.saved_pipeline_id = config['saved_pipeline_ID']
         except:
             self.saved_pipeline_id = ""
+
+    #def _generate_problem_info(self,problem):
+        for i in range(len(self.problem['inputs'])):
+            if 'targets' in self.problem['inputs'][i]:
+                break
+        self.problem_info["task_type"] = self.problem['problem']['task_type'].name  # 'classification' 'regression'
+        self.problem_info["res_id"] = self.problem['inputs'][i]['targets'][0]['resource_id']
+        self.problem_info["target_index"] = self.problem['inputs'][i]['targets'][0]['column_index']
 
     def _create_output_directory(self, config):
         '''
@@ -234,6 +309,14 @@ class Controller:
                 self.taskSourceType.add(each_type["resType"])
         self.template = self.template_library.get_templates(self.task_type, self.task_subtype, self.taskSourceType)
 
+        # find the maximum dataset split requirements
+        for each_template in self.template:
+            for each_step in each_template.template['steps']:
+                if "runtime" in each_step and "test_validation" in each_step["runtime"]:
+                    split_times = int(each_step["runtime"]["test_validation"])
+                    if split_times > self.max_split_times:
+                        self.max_split_times = split_times
+
     def write_training_results(self):
         # load trained pipelines
         print("[WARN] write_training_results")
@@ -284,27 +367,43 @@ class Controller:
         # search = TemplateDimensionalSearch(template, space, d3m.index.search(), self.dataset,
         # self.dataset, metrics)
 
+        # split the dataset first time
+        self.train_dataset1, self.test_dataset1 = split_dataset(dataset = self.all_dataset, 
+            problem_info = self.problem_info, problem_loc = self.config['problem_schema'])
+        # here we only split one times, so no need to use list to include the dataset
+        self.train_dataset1 = self.train_dataset1[0]
+        self.test_dataset1 = self.test_dataset1[0]
+
+        # if necessary, we need to make a second split
+        if self.max_split_times > 0:
+            # make n times of different spliting results
+            self.train_dataset2, self.test_dataset2 = split_dataset(dataset = self.train_dataset1, 
+                problem_info = self.problem_info, problem_loc = self.config['problem_schema'],
+                test_size = 0.1, n_splits = self.max_split_times)
+        else:
+            self.train_dataset2 = None
+            self.test_dataset2 = None
+
         # setup the dimensional search configs
         search = TemplateDimensionalSearch(
-            template = template, configuration_space = space, problem = self.problem_doc_metadata, 
+            template = template, configuration_space = space, problem = self.problem_doc_metadata,
+            test_dataset1 = self.test_dataset1, train_dataset1 = self.train_dataset1,
+            test_dataset2 = self.test_dataset2, train_dataset2 = self.train_dataset2,
             all_dataset = self.all_dataset, performance_metrics = metrics, 
             output_directory=self.output_directory, log_dir=self.output_logs_dir, 
-            num_workers=self.num_cpus, config = self.config, problem_dict = self.problem)
+            num_workers=self.num_cpus, config = self.config
+            )
 
         self.minimize = search.minimize
         # candidate, value = search.search_one_iter()
         report = search.search_one_iter(candidate_in=candidate, cache_bundle=cache_bundle)
         candidate = report['candidate']
         value = report['best_val']
-        import pdb
-        pdb.set_trace()
         # assert "fitted_pipe" in candidate, "argument error!"
         if candidate is None:
             print("[ERROR] not candidate!")
             return Status.PROBLEM_NOT_IMPLEMENT
         else:
-            import pdb
-            pdb.set_trace()
             print("******************\n[INFO] Writing results")
             pprint.pprint(candidate.data)
             print(candidate, value)
@@ -367,9 +466,8 @@ class Controller:
 
         alpha = 0.01
         self.normalize = self.exec_history[['reward', 'exe_time', 'trial']]
-        self.normalize = (
-            self.normalize - (1 - np.sign(self.normalize.min())*alpha) * self.normalize.min()
-            ) / (self.normalize.max() - (1 - alpha) * self.normalize.min())
+        self.normalize = (self.normalize - self.normalize.min()) / \
+                         (self.normalize.max() - self.normalize.min())
 
         self.normalize.clip(lower=0.01, upper=1,inplace=True)
 
