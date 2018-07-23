@@ -126,30 +126,30 @@ class TemplateLibrary:
 
         # self.templates.append(RandomForestTemplate)
         # Tabular Classification
-        self.templates.append(DefaultRegressionTemplate)
-        self.templates.append(dsboxRegressionTemplate)
+        # self.templates.append(DefaultRegressionTemplate)
+        # self.templates.append(dsboxRegressionTemplate)
 
         # Tabular Regression
         self.templates.append(DefaultClassificationTemplate)
-        self.templates.append(dsboxClassificationTemplate)
-        self.templates.append(TA1Classification_3)
-        self.templates.append(MuxinTA1ClassificationTemplate1)
-        self.templates.append(TA1ClassificationTemplate1)
+        # self.templates.append(dsboxClassificationTemplate)
+        # self.templates.append(TA1Classification_3)
+        # self.templates.append(MuxinTA1ClassificationTemplate1)
+        # self.templates.append(TA1ClassificationTemplate1)
 
         # Image Regression
-        self.templates.append(DefaultImageProcessingRegressionTemplate)
-        self.templates.append(TA1DefaultImageProcessingRegressionTemplate)
+        # self.templates.append(DefaultImageProcessingRegressionTemplate)
+        # self.templates.append(TA1DefaultImageProcessingRegressionTemplate)
 
         # Others
-        self.templates.append(DefaultTimeseriesCollectionTemplate)
-        self.templates.append(DefaultTextClassificationTemplate)
-        self.templates.append(SRIGraphMatchingTemplate)
-        self.templates.append(SRIVertexNominationTemplate)
-        self.templates.append(SRICommunityDetectionTemplate)
-        self.templates.append(JHUVertexNominationTemplate)
-        self.templates.append(BBNAudioClassificationTemplate)
-        self.templates.append(SRICollaborativeFilteringTemplate)
-        self.templates.append(UCHITimeSeriesClassificationTemplate)
+        # self.templates.append(DefaultTimeseriesCollectionTemplate)
+        # self.templates.append(DefaultTextClassificationTemplate)
+        # self.templates.append(SRIGraphMatchingTemplate)
+        # self.templates.append(SRIVertexNominationTemplate)
+        # self.templates.append(SRICommunityDetectionTemplate)
+        # self.templates.append(JHUVertexNominationTemplate)
+        # self.templates.append(BBNAudioClassificationTemplate)
+        # self.templates.append(SRICollaborativeFilteringTemplate)
+        # self.templates.append(UCHITimeSeriesClassificationTemplate)
 
     def _load_single_inline_templates(self, template_name):
         if template_name in self.all_templates:
