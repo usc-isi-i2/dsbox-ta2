@@ -331,7 +331,7 @@ class Controller:
             fname = f.split('/')[-1].split('.')[0]
             pipeline_load = FittedPipeline.load(folder_loc=self.output_executables_dir,
                                                 pipeline_id=fname,
-                                                dataset=self.train_dataset,
+                                                dataset=self.dataset,
                                                 log_dir=self.output_logs_dir)
             exec_pipelines.append(pipeline_load)
 
@@ -765,21 +765,21 @@ class Controller:
         if self.task_type == TaskType.CLASSIFICATION or self.task_type == TaskType.REGRESSION:
 
             # start from last column, since typically target is the last column
-            for index in range(self.train_dataset.metadata.query(('0', ALL_ELEMENTS))['dimension']['length']-1, -1, -1):
-                column_semantic_types = self.train_dataset.metadata.query(
+            for index in range(self.all_dataset.metadata.query(('0', ALL_ELEMENTS))['dimension']['length']-1, -1, -1):
+                column_semantic_types = self.all_dataset.metadata.query(
                     ('0', ALL_ELEMENTS, index))['semantic_types']
                 if ('https://metadata.datadrivendiscovery.org/types/Target' in column_semantic_types
                         and 'https://metadata.datadrivendiscovery.org/types/TrueTarget' in column_semantic_types):
                     return
 
             # If not set, use sugested target column
-            for index in range(self.train_dataset.metadata.query(('0', ALL_ELEMENTS))['dimension']['length']-1, -1, -1):
-                column_semantic_types = self.train_dataset.metadata.query(
+            for index in range(self.all_dataset.metadata.query(('0', ALL_ELEMENTS))['dimension']['length']-1, -1, -1):
+                column_semantic_types = self.all_dataset.metadata.query(
                     ('0', ALL_ELEMENTS, index))['semantic_types']
                 if 'https://metadata.datadrivendiscovery.org/types/SuggestedTarget' in column_semantic_types:
                     column_semantic_types = list(column_semantic_types) + ['https://metadata.datadrivendiscovery.org/types/Target',
                                                                            'https://metadata.datadrivendiscovery.org/types/TrueTarget']
-                    self.train_dataset.metadata = self.train_dataset.metadata.update(
+                    self.all_dataset.metadata = self.all_dataset.metadata.update(
                         ('0', ALL_ELEMENTS, index), {'semantic_types': column_semantic_types})
                     return
 
