@@ -384,7 +384,8 @@ class Controller:
         else:
             print("******************\n[INFO] Writing results")
             pprint.pprint(candidate.data)
-            print(candidate, value)
+            pprint.pprint(candidate)
+            print(value)
             if candidate.data['training_metrics']:
                 print('Training {} = {}'.format(
                     candidate.data['training_metrics'][0]['metric'],
@@ -431,12 +432,15 @@ class Controller:
         for i in choices:
             yield i
 
-        # print("[INFO] Choices:", choices)
-        # UCT based evaluation
-        for i in range(max_iter):
-            weights = self.uct_score
-            selected = random_choices_without_replacement(choices, self.uct_score, 1)
-            yield selected[0]
+        # # print("[INFO] Choices:", choices)
+        # # UCT based evaluation
+        # for i in range(max_iter):
+        #     valids = list(filter(lambda t: t[1] is not None,
+        #                          zip(choices, self.uct_score)))
+        #     _choices = list(map(lambda t: t[0], valids))
+        #     _weights = list(map(lambda t: t[1], valids))
+        #     selected = random_choices_without_replacement(_choices, _weights, 1)
+        #     yield selected[0]
 
     def update_UCT_score(self, index: int, report: typing.Dict):
         self.update_history(index, report)
@@ -446,7 +450,7 @@ class Controller:
         self.normalize = (self.normalize - self.normalize.min()) / \
                          (self.normalize.max() - self.normalize.min())
 
-        self.normalize.clip(lower=0.01, upper=1,inplace=True)
+        self.normalize.clip(lower=0.01, upper=1, inplace=True)
 
         for i in range(len(self.uct_score)):
             self.uct_score[i] = self.compute_UCT(i)
@@ -479,12 +483,12 @@ class Controller:
         try:
             reward = history['reward']
             # / history['trial']
-            return (beta * (reward) * log(history['trial']) +
+            return (beta * (reward) * max(log(10*history['trial']), 1) +
                 gamma * sqrt(2 * log(self.total_run) / history['trial']) +
                 delta * sqrt(2 * log(self.total_time) / history['exe_time']))
         except:
             # print(STYLE+"[WARN] compute UCT failed:", history.tolist())
-            return 100.0
+            return None
 
     def initialize_uct(self):
         self.total_run = 0
@@ -503,7 +507,7 @@ class Controller:
         self.exec_history['candidate'] = None
 
         # print(self.exec_history.to_string())
-        self.uct_score = [100.0] * len(self.template)
+        self.uct_score = [None] * len(self.template)
 
     def train(self) -> Status:
         """
@@ -537,6 +541,9 @@ class Controller:
                 )
             except:
                 traceback.print_exc()
+                report = {
+
+                }
                 continue
             print(STYLE + "[INFO] report:", report['best_val'])
             self.update_UCT_score(index=idx, report=report)
