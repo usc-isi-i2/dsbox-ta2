@@ -162,7 +162,7 @@ class Controller:
         else:
             self.template_library = TemplateLibrary()
         self.template: typing.List[DSBoxTemplate] = []
-        self.max_split_times = 0
+        self.max_split_times = 1
         # Primitives
         self.primitive: typing.Dict = d3m.index.search()
 
