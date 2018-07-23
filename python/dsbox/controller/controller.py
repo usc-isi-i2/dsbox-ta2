@@ -15,9 +15,9 @@ WARNING = ""
 if spam_spec is not None:
     from colorama import Fore, Back, init
     # STYLE = Fore.BLUE + Back.GREEN
-    STYLE = Fore.BLACK+Back.GREEN
-    ERROR = Fore.WHITE+Back.RED
-    WARNING = Fore.BLACK+Back.YELLOW
+    STYLE = Fore.BLACK + Back.GREEN
+    ERROR = Fore.WHITE + Back.RED
+    WARNING = Fore.BLACK + Back.YELLOW
     init(autoreset=True)
 
 import numpy as np
@@ -59,12 +59,13 @@ LOG_FILENAME = 'dsbox.log'
 CONSOLE_LOGGING_LEVEL = logging.INFO
 CONSOLE_FORMATTER = "[%(levelname)s] - %(name)s - %(message)s"
 
+
 def split_dataset(dataset, problem, problem_loc=None, *, random_state=42, test_size=0.2):
     '''
     Split dataset into training and test
     '''
 
-    task_type : TaskType = problem['problem']['task_type']  # 'classification' 'regression'
+    task_type: TaskType = problem['problem']['task_type']  # 'classification' 'regression'
 
     for i in range(len(problem['inputs'])):
         if 'targets' in problem['inputs'][i]:
@@ -94,8 +95,8 @@ def split_dataset(dataset, problem, problem_loc=None, *, random_state=42, test_s
         sss = StratifiedShuffleSplit(n_splits=1, test_size=test_size, random_state=random_state)
         sss.get_n_splits(dataset[res_id], dataset[res_id].iloc[:, target_index])
         for train_index, test_index in sss.split(dataset[res_id], dataset[res_id].iloc[:, target_index]):
-            train = dataset[res_id].iloc[train_index,:]
-            test = dataset[res_id].iloc[test_index,:]
+            train = dataset[res_id].iloc[train_index, :]
+            test = dataset[res_id].iloc[test_index, :]
     else:
         # Use random split
         if not task_type == TaskType.REGRESSION:
@@ -103,8 +104,8 @@ def split_dataset(dataset, problem, problem_loc=None, *, random_state=42, test_s
         ss = ShuffleSplit(n_splits=1, test_size=test_size, random_state=random_state)
         ss.get_n_splits(dataset[res_id])
         for train_index, test_index in ss.split(dataset[res_id]):
-            train = dataset[res_id].iloc[train_index,:]
-            test = dataset[res_id].iloc[test_index,:]
+            train = dataset[res_id].iloc[train_index, :]
+            test = dataset[res_id].iloc[test_index, :]
 
     print("[INFO] Failed test data parse/ using stratified kfold data instead")
 
@@ -130,9 +131,7 @@ def split_dataset(dataset, problem, problem_loc=None, *, random_state=42, test_s
     test_dataset.metadata = test_dataset.metadata.update((res_id,), meta)
     pprint.pprint(dict(test_dataset.metadata.query((res_id,))))
 
-
     return (train_dataset, test_dataset)
-
 
 
 class Status(enum.Enum):
@@ -160,7 +159,7 @@ class Controller:
         self.dataset_schema_file: str = ""
         self.dataset: Dataset = None
         self.test_dataset: Dataset = None
-        self.taskSourceType: typing.Set[str]  = set()  # str from SEMANTIC_TYPES
+        self.taskSourceType: typing.Set[str] = set()  # str from SEMANTIC_TYPES
 
         # Resource limits
         self.num_cpus: int = 0
@@ -208,6 +207,8 @@ class Controller:
         test_dataset_uri = 'file://{}'.format(os.path.abspath(config['test_data_schema']))
         self.test_dataset = loader.load(dataset_uri=test_dataset_uri)
 
+        self.dataset = runtime.add_target_columns_metadata(self.dataset, self.problem_doc_metadata)
+        self.test_dataset = runtime.add_target_columns_metadata(self.test_dataset, self.problem_doc_metadata)
         # Templates
         self.load_templates()
 
@@ -224,7 +225,9 @@ class Controller:
         self.all_dataset = loader.load(dataset_uri=all_dataset_uri)
 
         self.dataset, self.test_dataset = split_dataset(self.all_dataset, self.problem, config['problem_schema'])
-
+        import pdb
+        pdb.set_trace()
+        self.dataset = runtime.add_target_columns_metadata(self.dataset, self.problem_doc_metadata)
         self.test_dataset = runtime.add_target_columns_metadata(self.test_dataset, self.problem_doc_metadata)
 
         # Templates
@@ -254,11 +257,11 @@ class Controller:
         For the Summer 2018 evaluation the top-level output dir is '/output'
         '''
 
-        #### Official config entry for Evaluation
+        # Official config entry for Evaluation
         self.output_pipelines_dir = os.path.abspath(config['pipeline_logs_root'])
         self.output_executables_dir = os.path.abspath(config['executables_root'])
         self.output_supporting_files_dir = os.path.abspath(config['temp_storage_root'])
-        #### End: Official config entry for Evaluation
+        # End: Official config entry for Evaluation
 
         self.output_directory = os.path.split(self.output_pipelines_dir)[0]
 
@@ -298,13 +301,12 @@ class Controller:
         console.setLevel(logging.INFO)
         self._logger.addHandler(console)
 
-
     def load_templates(self) -> None:
         self.task_type = self.problem['problem']['task_type']
         self.task_subtype = self.problem['problem']['task_subtype']
         # find the data resources type
-        self.taskSourceType = set() # set the type to be set so that we can ignore the repeat elements
-        with open(self.dataset_schema_file,'r') as dataset_description_file:
+        self.taskSourceType = set()  # set the type to be set so that we can ignore the repeat elements
+        with open(self.dataset_schema_file, 'r') as dataset_description_file:
             dataset_description = json.load(dataset_description_file)
             for each_type in dataset_description["dataResources"]:
                 self.taskSourceType.add(each_type["resType"])
@@ -328,14 +330,13 @@ class Controller:
                                                 log_dir=self.output_logs_dir)
             exec_pipelines.append(pipeline_load)
 
-
-        print("[INFO] wtr:",exec_pipelines)
+        print("[INFO] wtr:", exec_pipelines)
         # sort the pipelins
         # TODO add the sorter method
         # self.exec_pipelines = self.get_pipeline_sorter().sort_pipelines(self.exec_pipelines)
 
         # write the results
-        pipelinesfile = open("somefile.ext",'W+') # TODO check this address
+        pipelinesfile = open("somefile.ext", 'W+')  # TODO check this address
         print("Found total %d successfully executing pipeline(s)..." % len(exec_pipelines))
         pipelinesfile.write("# Pipelines ranked by (adjusted) metrics (%s)\n" % self.problem.metrics)
         for pipe in exec_pipelines:
@@ -350,7 +351,7 @@ class Controller:
         pipelinesfile.close()
 
     def search_template(self, template: DSBoxTemplate, candidate: typing.Dict=None,
-                        cache_bundle:typing.Tuple[typing.Dict, typing.Dict]=(None, None)) \
+                        cache_bundle: typing.Tuple[typing.Dict, typing.Dict]=(None, None)) \
             -> typing.Dict:
 
         space = template.generate_configuration_space()
@@ -370,7 +371,10 @@ class Controller:
                 self.test_dataset, metrics, output_directory=self.output_directory,
                 log_dir=self.output_logs_dir, num_workers=self.num_cpus)
 
+<<<<<<< Updated upstream
         self.minimize = search.minimize
+=======
+>>>>>>> Stashed changes
         # candidate, value = search.search_one_iter()
         report = search.search_one_iter(candidate_in=candidate, cache_bundle=cache_bundle)
 
@@ -443,15 +447,20 @@ class Controller:
 
         alpha = 0.01
         self.normalize = self.exec_history[['reward', 'exe_time', 'trial']]
+<<<<<<< Updated upstream
         self.normalize = (self.normalize - self.normalize.min()) / \
                          (self.normalize.max() - self.normalize.min())
 
         self.normalize.clip(lower=0.01, upper=1,inplace=True)
+=======
+        self.normalize = (self.normalize - (1 - alpha) * self.normalize.min()) / \
+                         (self.normalize.max() - (1 - alpha) * self.normalize.min())
+>>>>>>> Stashed changes
 
         for i in range(len(self.uct_score)):
             self.uct_score[i] = self.compute_UCT(i)
 
-        print(STYLE+"[INFO] UCT updated:", self.uct_score)
+        print(STYLE + "[INFO] UCT updated:", self.uct_score)
 
     def update_history(self, index, report):
         self.total_run += report['sim_count']
@@ -467,7 +476,7 @@ class Controller:
             'exe_time': row['exe_time'] + report['time'],
             'candidate': report['candidate'],
             'best_value': max(report['reward'], row['best_value'])
-         }
+        }
         for k in update:
             self.exec_history.iloc[index][k] = update[k]
 
@@ -477,11 +486,17 @@ class Controller:
         delta = 4
         history = self.normalize.iloc[index]
         try:
+<<<<<<< Updated upstream
             reward = history['reward']
             # / history['trial']
             return (beta * (reward) * log(history['trial']) +
                 gamma * sqrt(2 * log(self.total_run) / history['trial']) +
                 delta * sqrt(2 * log(self.total_time) / history['exe_time']))
+=======
+            return (beta * (history['reward'] / history['trial']) * log(history['trial']) +
+                    gamma * sqrt(2 * log(self.total_run) / history['trial']) +
+                    delta * sqrt(2 * log(self.total_time) / history['exe_time']))
+>>>>>>> Stashed changes
         except:
             # print(STYLE+"[WARN] compute UCT failed:", history.tolist())
             return 100.0
@@ -494,8 +509,8 @@ class Controller:
         #     len(self.template)
 
         self.exec_history = pd.DataFrame(None,
-            index=map(lambda s: s.template["name"], self.template),
-            columns=['reward', 'exe_time', 'trial', 'candidate', 'best_value'])
+                                         index=map(lambda s: s.template["name"], self.template),
+                                         columns=['reward', 'exe_time', 'trial', 'candidate', 'best_value'])
         self.exec_history[['reward', 'exe_time', 'trial']] = 0
         self.exec_history[['best_value']] = float('-inf')
 
@@ -528,7 +543,7 @@ class Controller:
 
         for idx in self.select_next_template(max_iter=5):
             template = self.template[idx]
-            print(STYLE+"[INFO] Template {}:{} Selected. UCT:{}".format(
+            print(STYLE + "[INFO] Template {}:{} Selected. UCT:{}".format(
                 idx, template.template['name'], self.uct_score))
             try:
                 report = self.search_template(
@@ -540,11 +555,10 @@ class Controller:
                 continue
             print(STYLE + "[INFO] report:", report['best_val'])
             self.update_UCT_score(index=idx, report=report)
-            print(STYLE+"[INFO] cache size:", len(cache),
-                  STYLE+", candidates:", len(candidate_cache))
+            print(STYLE + "[INFO] cache size:", len(cache),
+                  STYLE + ", candidates:", len(candidate_cache))
 
             # break
-
 
         # if best_info and best_info['best_val']:
         best_template, best_report = max(self.exec_history.iterrows(),
@@ -562,7 +576,6 @@ class Controller:
         except:
             raise NotSupportedError(
                 '[ERROR] Save Failed!')
-
 
     # def train(self) -> Status:
     #     """
@@ -671,7 +684,7 @@ class Controller:
 
         # get the target column name
         try:
-            with open(self.dataset_schema_file,'r') as dataset_description_file:
+            with open(self.dataset_schema_file, 'r') as dataset_description_file:
                 dataset_description = json.load(dataset_description_file)
                 for each_resource in dataset_description["dataResources"]:
                     if "columns" in each_resource:
@@ -743,7 +756,7 @@ class Controller:
         if self.task_type == TaskType.CLASSIFICATION or self.task_type == TaskType.REGRESSION:
 
             # start from last column, since typically target is the last column
-            for index in range(self.dataset.metadata.query(('0', ALL_ELEMENTS))['dimension']['length']-1, -1, -1):
+            for index in range(self.dataset.metadata.query(('0', ALL_ELEMENTS))['dimension']['length'] - 1, -1, -1):
                 column_semantic_types = self.dataset.metadata.query(
                     ('0', ALL_ELEMENTS, index))['semantic_types']
                 if ('https://metadata.datadrivendiscovery.org/types/Target' in column_semantic_types
@@ -751,7 +764,7 @@ class Controller:
                     return
 
             # If not set, use sugested target column
-            for index in range(self.dataset.metadata.query(('0', ALL_ELEMENTS))['dimension']['length']-1, -1, -1):
+            for index in range(self.dataset.metadata.query(('0', ALL_ELEMENTS))['dimension']['length'] - 1, -1, -1):
                 column_semantic_types = self.dataset.metadata.query(
                     ('0', ALL_ELEMENTS, index))['semantic_types']
                 if 'https://metadata.datadrivendiscovery.org/types/SuggestedTarget' in column_semantic_types:

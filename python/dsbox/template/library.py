@@ -71,13 +71,13 @@ class TemplateLibrary:
             "TA1VggImageProcessingRegressionTemplate": TA1VggImageProcessingRegressionTemplate,
             "Default_text_classification_template": DefaultTextClassificationTemplate, 
             "BBN_audio_classification_template": BBNAudioClassificationTemplate, 
-            # "SRI_GraphMatching_Template":SRIGraphMatchingTemplate,
-            # "SRI_Vertex_Nomination_Template":SRIVertexNominationTemplate, 
+            "SRI_GraphMatching_Template":SRIGraphMatchingTemplate,
+            "SRI_Vertex_Nomination_Template":SRIVertexNominationTemplate, 
             "SRI_Collaborative_Filtering_Template":SRICollaborativeFilteringTemplate, 
             "SRI_Community_Detection_Template":SRICommunityDetectionTemplate, 
             "UCHI_Time_Series_Classification_Template":UCHITimeSeriesClassificationTemplate, 
-            "JHU_Graph_Matching_Template":JHUGraphMatchingTemplate, 
-            "JHU_Vertex_Nomination_Template":JHUVertexNominationTemplate, 
+            # "JHU_Graph_Matching_Template":JHUGraphMatchingTemplate, 
+            # "JHU_Vertex_Nomination_Template":JHUVertexNominationTemplate, 
             "Default_Time_Series_Forcasting_Template":DefaultTimeSeriesForcastingTemplate
         }
 
@@ -2466,6 +2466,20 @@ class DefaultTimeSeriesForcastingTemplate(DSBoxTemplate):
                     "primitives": ["d3m.primitives.datasets.DatasetToDataFrame"],
                     "inputs": ["denormalize_step"]
                 },
+                {
+                    "name": "extract_attribute_step",
+                    "primitives": [{
+                        "primitive": "d3m.primitives.data.ExtractColumnsBySemanticTypes",
+                        "hyperparameters":
+                            {
+                                'semantic_types': (
+                                'https://metadata.datadrivendiscovery.org/types/Attribute',),
+                                'use_columns': (),
+                                'exclude_columns': ()
+                            }
+                    }],
+                    "inputs": ["to_dataframe_step"]
+                },
                 # read Y value
                 {
                     "name": "extract_target_step",
@@ -2474,8 +2488,7 @@ class DefaultTimeSeriesForcastingTemplate(DSBoxTemplate):
                         "hyperparameters":
                             {
                                 'semantic_types': (
-                                'https://metadata.datadrivendiscovery.org/types/Target',
-                                'https://metadata.datadrivendiscovery.org/types/SuggestedTarget',),
+                                'https://metadata.datadrivendiscovery.org/types/TrueTarget',),
                                 'use_columns': (),
                                 'exclude_columns': ()
                             }
@@ -2485,7 +2498,7 @@ class DefaultTimeSeriesForcastingTemplate(DSBoxTemplate):
                 {
                     "name": "model_step",
                     "primitives": ["d3m.primitives.sklearn_wrap.SKARDRegression"], 
-                    "inputs":["to_dataframe_step", "extract_target_step"]
+                    "inputs":["extract_attribute_step", "extract_target_step"]
                 },
                 ]
         }
