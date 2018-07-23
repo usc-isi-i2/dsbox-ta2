@@ -20,7 +20,7 @@ if spam_spec is not None:
     WARNING = Fore.BLACK+Back.YELLOW
     init(autoreset=True)
 
-
+import numpy as np
 import d3m
 import dsbox.template.runtime as runtime
 
@@ -370,7 +370,7 @@ class Controller:
                 self.test_dataset, metrics, output_directory=self.output_directory,
                 log_dir=self.output_logs_dir, num_workers=self.num_cpus)
 
-
+        self.minimize = search.minimize
         # candidate, value = search.search_one_iter()
         report = search.search_one_iter(candidate_in=candidate, cache_bundle=cache_bundle)
 
@@ -434,6 +434,7 @@ class Controller:
         # print("[INFO] Choices:", choices)
         # UCT based evaluation
         for i in range(max_iter):
+            weights = self.uct_score
             selected = random_choices_without_replacement(choices, self.uct_score, 1)
             yield selected[0]
 
@@ -442,8 +443,10 @@ class Controller:
 
         alpha = 0.01
         self.normalize = self.exec_history[['reward', 'exe_time', 'trial']]
-        self.normalize = (self.normalize - (1-alpha)*self.normalize.min()) / \
-                         (self.normalize.max() - (1 - alpha) * self.normalize.min())
+        self.normalize = (self.normalize - self.normalize.min()) / \
+                         (self.normalize.max() - self.normalize.min())
+
+        self.normalize.clip(lower=0.01, upper=1,inplace=True)
 
         for i in range(len(self.uct_score)):
             self.uct_score[i] = self.compute_UCT(i)
@@ -456,7 +459,10 @@ class Controller:
         row = self.exec_history.iloc[index]
 
         update = {
-            'reward': row['reward'] + report['reward'] * report['sim_count'],
+            'reward': (
+                (row['reward']*row['trial'] + report['reward'] * report['sim_count']) /
+                (row['trial'] + report['sim_count'])
+            ),
             'trial': row['trial'] + report['sim_count'],
             'exe_time': row['exe_time'] + report['time'],
             'candidate': report['candidate'],
@@ -471,7 +477,9 @@ class Controller:
         delta = 4
         history = self.normalize.iloc[index]
         try:
-            return (beta * (history['reward'] / history['trial']) * log(history['trial']) +
+            reward = history['reward']
+            # / history['trial']
+            return (beta * (reward) * log(history['trial']) +
                 gamma * sqrt(2 * log(self.total_run) / history['trial']) +
                 delta * sqrt(2 * log(self.total_time) / history['exe_time']))
         except:
@@ -489,7 +497,7 @@ class Controller:
             index=map(lambda s: s.template["name"], self.template),
             columns=['reward', 'exe_time', 'trial', 'candidate', 'best_value'])
         self.exec_history[['reward', 'exe_time', 'trial']] = 0
-        self.exec_history[['best_value']] = 0
+        self.exec_history[['best_value']] = float('-inf')
 
         self.exec_history['candidate'] = self.exec_history['candidate'].astype(object)
         self.exec_history['candidate'] = None
