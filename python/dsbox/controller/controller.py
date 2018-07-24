@@ -77,7 +77,9 @@ def auto_regress_convert(dataset: "Dataset", problem: "Metadata"):
 
 
 def remove_empty_targets(dataset: "Dataset", problem: "Metadata"):
-
+    '''
+    will automatically remove empty targets in training
+    '''
     problem = problem.query(())
     targets = problem["inputs"]["data"][0]["targets"]
     resID = targets[0]["resID"]
@@ -259,9 +261,7 @@ class Controller:
         json_file = os.path.abspath(self.dataset_schema_file)
         all_dataset_uri = 'file://{}'.format(json_file)
         self.all_dataset = loader.load(dataset_uri=all_dataset_uri)
-        self.all_dataset = remove_empty_targets(self.all_dataset, self.problem_doc_metadata)
-        self.all_dataset = auto_regress_convert(self.all_dataset, self.problem_doc_metadata)
-        self._check_and_set_dataset_metadata()
+
         # self.dataset, self.test_dataset = split_dataset(self.all_dataset, self.problem, config['problem_schema'])
         # self.dataset = runtime.add_target_columns_metadata(self.dataset, self.problem_doc_metadata)
         # self.test_dataset = runtime.add_target_columns_metadata(self.test_dataset, self.problem_doc_metadata)
@@ -389,7 +389,7 @@ class Controller:
 
 
 
-        self._logger.info("[INFO] wtr:",exec_pipelines)
+        self._logger.info("[INFO] wtr: %s",exec_pipelines)
         # sort the pipelins
         # TODO add the sorter method
         # self.exec_pipelines = self.get_pipeline_sorter().sort_pipelines(self.exec_pipelines)
@@ -442,7 +442,9 @@ class Controller:
         else:
             self._logger.info("******************\n[INFO] Writing results")
             pprint.pprint(candidate.data)
-            self._logger.info(candidate, value)
+            import pdb
+            pdb.set_trace()
+            self._logger.info(str(candidate.data)+ " "+ str(value))
             if candidate.data['training_metrics']:
                 self._logger.info('Training {} = {}'.format(
                     candidate.data['training_metrics'][0]['metric'],
@@ -464,7 +466,7 @@ class Controller:
             # save_location = os.path.join(self.output_logs_dir, dataset_name + ".txt")
             save_location = self.output_directory + ".txt"
 
-            self._logger.info("******************\n[INFO] Saving training results in", save_location)
+            self._logger.info("******************\n[INFO] Saving training results in %s", save_location)
             try:
                 f = open(save_location, "w+")
                 f.write(str(metrics) + "\n")
@@ -514,7 +516,7 @@ class Controller:
         for i in range(len(self.uct_score)):
             self.uct_score[i] = self.compute_UCT(i)
 
-        self._logger.info(STYLE+"[INFO] UCT updated:", self.uct_score)
+        self._logger.info(STYLE+"[INFO] UCT updated: %s", self.uct_score)
 
     def update_history(self, index, report):
         self.total_run += report['sim_count']
@@ -591,7 +593,9 @@ class Controller:
         # TODO: sample based on DSBoxTemplate.importance()
         # template = self.template[0]
         best_report = None
-
+        self.all_dataset = remove_empty_targets(self.all_dataset, self.problem_doc_metadata)
+        self.all_dataset = auto_regress_convert(self.all_dataset, self.problem_doc_metadata)
+        runtime.add_target_columns_metadata(self.all_dataset, self.problem_doc_metadata)        
         # split the dataset first time
         self.train_dataset1, self.test_dataset1 = split_dataset(dataset = self.all_dataset, 
             problem_info = self.problem_info, problem_loc = self.config['problem_schema'])
@@ -627,10 +631,10 @@ class Controller:
 
                 }
                 continue
-            self._logger.info(STYLE + "[INFO] report:", report['best_val'])
+            self._logger.info(STYLE + "[INFO] report: %s", report['best_val'])
             self.update_UCT_score(index=idx, report=report)
-            self._logger.info(STYLE+"[INFO] cache size:", len(cache),
-                  STYLE+", candidates:", len(candidate_cache))
+            self._logger.info(STYLE+"[INFO] cache size: " + str(len(cache))+
+                  ", candidates: " + str(len(candidate_cache)))
 
             # break
 
