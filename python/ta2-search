@@ -23,6 +23,7 @@ controller = Controller(development_mode=True)
 
 import getpass
 
+
 def main(args):
 
     timeout = 0
@@ -34,14 +35,15 @@ def main(args):
     with open(configuration_file) as data:
         config = json.load(data)
 
-    # if 'saving_folder_loc' not in config:
-    #     output_location = "/nfs1/dsbox-repo/" + getpass.getuser() + "/dsbox-ta2/python/output/" + config['dataset_schema'].rsplit("/", 3)[-3]
-    #     # output_location = "/nfs1/dsbox-repo/" + 'qasemi' + "/dsbox-ta2/python/output/" + config['dataset_schema'].rsplit("/", 3)[-3]
-    #     config["temp_storage_root"] = output_location + "/temp"
-    #     config["saving_folder_loc"] = output_location
-    #     config["executables_root"] = output_location + "/executables"
-    #     config["pipeline_logs_root"] = output_location + "/logs"
-    #     config["saved_pipeline_ID"] = ""
+    if 'saving_folder_loc' not in config:
+        output_location = "/nfs1/dsbox-repo/" + getpass.getuser() + "/dsbox-ta2/python/output/" + \
+            config['dataset_schema'].rsplit("/", 3)[-3]
+        # output_location = "/nfs1/dsbox-repo/" + 'qasemi' + "/dsbox-ta2/python/output/" + config['dataset_schema'].rsplit("/", 3)[-3]
+        config["temp_storage_root"] = output_location + "/temp"
+        config["saving_folder_loc"] = output_location
+        config["executables_root"] = output_location + "/executables"
+        config["pipeline_logs_root"] = output_location + "/logs"
+        config["saved_pipeline_ID"] = ""
 
     # Define signal handler to exit gracefully
     # Either on an interrupt or after a certain time
@@ -79,7 +81,7 @@ def main(args):
         signal.signal(signal.SIGINT, write_results_and_exit)
         signal.signal(signal.SIGTERM, write_results_and_exit)
         signal.signal(signal.SIGALRM, write_results_and_exit)
-        signal.alarm(60*timeout)
+        signal.alarm(60 * timeout)
     config['timeout'] = timeout
 
     if args.cpus > -1:
@@ -95,11 +97,9 @@ def main(args):
                 suffix = config[key].split('/output/', 1)[1]
                 config[key] = os.path.join(args.output_prefix, suffix)
 
-    #os.system('clear')
+    # os.system('clear')
     print('Using configuation:')
     pprint(config)
-
-
     if 'test_data_schema' in config and config['test_data_schema'] != '':
         print("[INFO] Test data config found! Will use given test data.")
         controller.initialize_from_config(config)
@@ -108,11 +108,11 @@ def main(args):
         controller.initialize_from_config_train_test(config)
 
     status = controller.train()
-    print("*+"*10)
+    print("*+" * 10)
     status = controller.test()
     print("[INFO] Testing Done")
     time_used = time.clock() - start_time
-    print("[INFO] The time used for running program is",time_used,"seconds.")
+    print("[INFO] The time used for running program is", time_used, "seconds.")
     return status.value
 
 
@@ -140,3 +140,4 @@ if __name__ == "__main__":
 
     result = main(args)
     os._exit(result)
+_exit(result)
