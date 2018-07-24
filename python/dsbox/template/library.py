@@ -84,8 +84,7 @@ class TemplateLibrary:
             self._load_inline_templates()
 
     def get_templates(self, task: TaskType, subtype: TaskSubtype, taskSourceType: SEMANTIC_TYPES)\
-            -> \
-    typing.List[DSBoxTemplate]:
+            -> typing.List[DSBoxTemplate]:
         results = []
         for template_class in self.templates:
             template = template_class()
@@ -128,6 +127,7 @@ class TemplateLibrary:
         # Tabular Classification
         self.templates.append(DefaultRegressionTemplate)
         self.templates.append(dsboxRegressionTemplate)
+        self.templates.append(UU3TestTemplate)
 
         # Tabular Regression
         self.templates.append(DefaultClassificationTemplate)
@@ -135,7 +135,6 @@ class TemplateLibrary:
         self.templates.append(dsboxClassificationTemplate)
         self.templates.append(TA1Classification_3)
         self.templates.append(MuxinTA1ClassificationTemplate1)
-        self.templates.append(dsboxClassificationTemplate)
         self.templates.append(SRIGraphMatchingTemplate)
         self.templates.append(SRIVertexNominationTemplate)
         self.templates.append(TA1ClassificationTemplate1)
@@ -153,6 +152,7 @@ class TemplateLibrary:
         self.templates.append(BBNAudioClassificationTemplate)
         self.templates.append(SRICollaborativeFilteringTemplate)
         self.templates.append(DefaultTimeSeriesForcastingTemplate)
+        
 
     def _load_single_inline_templates(self, template_name):
         if template_name in self.all_templates:
@@ -1577,9 +1577,9 @@ class UU3TestTemplate(DSBoxTemplate):
         DSBoxTemplate.__init__(self)
         self.template = {
             "name": "UU3_Test_Template",
-            "taskSubtype": {TaskSubtype.UNIVARIATE.name,TaskSubtype.MULTIVARIATE.name},
             "taskType": TaskType.REGRESSION.name,
-            "inputType": "table",  # See SEMANTIC_TYPES.keys() for range of values
+            "taskSubtype": {TaskSubtype.UNIVARIATE.name, TaskSubtype.MULTIVARIATE.name},
+            "inputType": "table",
             "output": "model_step",  # Name of the final step generating the prediction
             "target": "extract_target_step",  # Name of the step generating the ground truth
             "steps": [
