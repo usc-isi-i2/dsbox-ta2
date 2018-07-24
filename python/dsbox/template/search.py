@@ -8,7 +8,7 @@ import typing
 import logging
 import time
 import copy
-import pathos.pools as pp
+#import pathos.pools as pp
 
 from warnings import warn
 
@@ -241,7 +241,7 @@ class DimensionalSearch(typing.Generic[T]):
             sim_counter += len(new_candidates)
             # run all candidate pipelines in multi-processing mode
             try:
-                with pp.ProcessPool(self.num_workers) as p:
+                with Pool(self.num_workers) as p:
                     results = p.map(
                         self.evaluate,
                         map(lambda c: (c, cache), new_candidates)
@@ -532,8 +532,8 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
             # start training and testing
             fitted_pipeline = FittedPipeline(pipeline, self.train_dataset1.metadata.query(())['id'], 
                 log_dir=self.log_dir, metric_descriptions=self.performance_metrics)
-            #fitted_pipeline.fit(cache=cache, inputs=[self.train_dataset1])
-            fitted_pipeline.fit(inputs=[self.train_dataset1])
+            fitted_pipeline.fit(cache=cache, inputs=[self.train_dataset1])
+            # fitted_pipeline.fit(inputs=[self.train_dataset1])
             training_ground_truth = get_target_columns(self.train_dataset1,self.problem)
             training_prediction = fitted_pipeline.get_fit_step_output(
                 self.template.get_output_step_number())
@@ -565,8 +565,8 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
                 fitted_pipeline = FittedPipeline(pipeline, self.train_dataset2[each_repeat].metadata.query(())['id'], 
                     log_dir=self.log_dir, metric_descriptions=self.performance_metrics)
 
-                #fitted_pipeline.fit(cache=cache, inputs=[train_dataset2[each_repeat]])
-                fitted_pipeline.fit(inputs=[self.train_dataset2[each_repeat]])
+                fitted_pipeline.fit(cache=cache, inputs=[train_dataset2[each_repeat]])
+                #fitted_pipeline.fit(inputs=[self.train_dataset2[each_repeat]])
                 training_ground_truth = get_target_columns(self.train_dataset2[each_repeat],self.problem)
                 training_prediction = fitted_pipeline.get_fit_step_output(
                     self.template.get_output_step_number())
@@ -632,8 +632,8 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
                 fitted_pipeline2 = FittedPipeline(pipeline, self.train_dataset1.metadata.query(())['id'], 
                     log_dir=self.log_dir, metric_descriptions=self.performance_metrics)
                 # retrain and compute ranking/metric using self.train_dataset
-                fitted_pipeline2.fit(inputs = [self.train_dataset1])
-                #fitted_pipeline2.fit(cache=cache, inputs = [self.train_dataset1])
+                #fitted_pipeline2.fit(inputs = [self.train_dataset1])
+                fitted_pipeline2.fit(cache=cache, inputs = [self.train_dataset1])
 
             fitted_pipeline2.produce(inputs = [self.test_dataset1])
             test_ground_truth = get_target_columns(self.test_dataset1,self.problem)
@@ -648,8 +648,8 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
 
             # finally, fit the model with all data and save it
             print("[INFO] Now are training the pipeline with all dataset and saving the pipeline.")
-            #fitted_pipeline2.fit(cache=cache, inputs = [self.all_dataset])
-            fitted_pipeline2.fit(inputs = [self.all_dataset])
+            fitted_pipeline2.fit(cache=cache, inputs = [self.all_dataset])
+            #fitted_pipeline2.fit(inputs = [self.all_dataset])
             fitted_pipeline2.save(self.output_directory)
 
         # still return the original fitted_pipeline with relation to train_dataset1
