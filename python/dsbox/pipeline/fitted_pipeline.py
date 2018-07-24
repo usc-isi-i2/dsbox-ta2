@@ -57,6 +57,8 @@ class FittedPipeline:
 
         self.metric: typing.Dict = {}
 
+        self.auxiliary: typing.Dict = {}
+
     def _set_fitted(self, fitted_pipe: typing.List[StepBase]) -> None:
         self.runtime.pipeline = fitted_pipe
 
@@ -136,6 +138,9 @@ class FittedPipeline:
         structure['pipeline_rank'] = rank
         structure['metric'] = metric
         structure['metric_value'] = value
+
+        # FIXME: this is here for testing purposes
+        # structure['runtime_stats'] = str(self.auxiliary)
 
         # save the pipeline with json format
         json_loc = os.path.join(pipeline_dir, self.id + '.json')
