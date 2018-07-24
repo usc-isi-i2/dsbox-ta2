@@ -673,16 +673,6 @@ class Controller:
         # shutdown the cache manager
         manager.shutdown()
 
-        try:
-            # pipeline = FittedPipeline.create(configuration=candidate,
-            #                                  dataset=self.dataset)
-            candidate = best_report['candidate']
-            fitted_pipeline = candidate.data['fitted_pipeline']
-            fitted_pipeline.save(self.output_directory)
-        except:
-            self._logger.exception("No suitable pipelines converged. Nothing to save.")
-            raise NotSupportedError('[ERROR] Save Failed!')
-
     # def train(self) -> Status:
     #     """
     #     Generate and train pipelines.
