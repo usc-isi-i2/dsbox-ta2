@@ -684,7 +684,7 @@ class Controller:
         print("[INFO] testing data:")
         # pprint(self.test_dataset.head())
         # pipeline_load.runtime.produce(inputs=[self.test_dataset])
-        run.produce(inputs=[self.test_dataset])
+        run.produce(inputs=[self.all_dataset])
         try:
             step_number_output = int(pipeline_load.pipeline.outputs[0]['data'].split('.')[1])
         except:
@@ -709,7 +709,7 @@ class Controller:
 
         # if the prediction results do not have d3m_index column
         if 'd3mIndex' not in prediction.columns:
-            d3m_index = get_target_columns(self.test_dataset, self.problem_doc_metadata)["d3mIndex"]
+            d3m_index = get_target_columns(self.all_dataset, self.problem_doc_metadata)["d3mIndex"]
             d3m_index = d3m_index.reset_index().drop(columns=['index'])
             prediction_col_name = prediction.columns[0]
             prediction['d3mIndex'] = d3m_index
