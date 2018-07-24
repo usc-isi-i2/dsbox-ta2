@@ -60,11 +60,50 @@ CONSOLE_LOGGING_LEVEL = logging.INFO
 CONSOLE_FORMATTER = "[%(levelname)s] - %(name)s - %(message)s"
 
 
-def split_dataset(dataset, problem_info: typing.Dict, problem_loc=None, *, random_state=42, test_size=0.2, n_splits = 1):
+def auto_regress_convert(dataset: "Dataset", problem: "Metadata"):
+
+    targets = problem["inputs"]["data"][0]["targets"]
+    resID = targets[0]["resID"]
+    colIndex = targets[0]["colIndex"]
+    import pdb
+    pdb.set_trace()
+    if problem["about"]["taskType"] == "timeSeriesForecasting":
+        dataset[resID].iloc[:, colIndex].astype(float)
+    meta = dict(dataset.metadata.query((resID, ALL_ELEMENTS, colIndex)))
+    meta["structural_type"] = float
+    dataset.metadata = dataset.metadata.update((resID, ALL_ELEMENTS, colIndex), meta)
+    pprint.pprint(dict(dataset.metadata.query((resID, ALL_ELEMENTS, colIndex))))
+    return dataset
+
+
+def remove_empty_targets(dataset: "Dataset", problem: "Metadata"):
+
+    targets = problem["inputs"]["data"][0]["targets"]
+    resID = targets[0]["resID"]
+    colIndex = targets[0]["colIndex"]
+    # dataset_actual = dataset[resID]
+
+    droplist = []
+    for i, v in dataset[resID].iterrows():
+        if v[colIndex] == "":
+            droplist.append(i)
+    if droplist != []:
+        dataset[resID] = dataset[resID].drop(dataset[resID].index[droplist])
+        meta = dict(dataset.metadata.query((resID,)))
+        dimension = dict(meta['dimension'])
+        meta['dimension'] = dimension
+        dimension['length'] = dataset[resID].shape[0]
+        dataset.metadata = dataset.metadata.update((resID,), meta)
+        pprint.pprint(dict(dataset.metadata.query((resID,))))
+
+    return dataset
+
+
+def split_dataset(dataset, problem_info: typing.Dict, problem_loc=None, *, random_state=42, test_size=0.2, n_splits=1):
     '''
     Split dataset into training and test
     '''
-    task_type = problem_info["task_type"]#['problem']['task_type'].name  # 'classification' 'regression'
+    task_type = problem_info["task_type"]  # ['problem']['task_type'].name  # 'classification' 'regression'
     res_id = problem_info["res_id"]
     target_index = problem_info["target_index"]
 
@@ -75,9 +114,9 @@ def split_dataset(dataset, problem_info: typing.Dict, problem_loc=None, *, rando
     # res_id = problem['inputs'][i]['targets'][0]['resource_id']
     # target_index = problem['inputs'][i]['targets'][0]['column_index']
 
-    def generate_split_data(dataset,res_id):
-        train = dataset[res_id].iloc[train_index,:]
-        test = dataset[res_id].iloc[test_index,:]
+    def generate_split_data(dataset, res_id):
+        train = dataset[res_id].iloc[train_index, :]
+        test = dataset[res_id].iloc[test_index, :]
         # Generate training dataset
         train_dataset = copy.copy(dataset)
         train_dataset[res_id] = train
@@ -85,9 +124,9 @@ def split_dataset(dataset, problem_info: typing.Dict, problem_loc=None, *, rando
         dimension = dict(meta['dimension'])
         meta['dimension'] = dimension
         dimension['length'] = train.shape[0]
-        #print(meta)
+        # print(meta)
         train_dataset.metadata = train_dataset.metadata.update((res_id,), meta)
-        #pprint(dict(train_dataset.metadata.query((res_id,))))
+        # pprint(dict(train_dataset.metadata.query((res_id,))))
         # Generate testing dataset
         test_dataset = copy.copy(dataset)
         test_dataset[res_id] = test
@@ -95,10 +134,10 @@ def split_dataset(dataset, problem_info: typing.Dict, problem_loc=None, *, rando
         dimension = dict(meta['dimension'])
         meta['dimension'] = dimension
         dimension['length'] = test.shape[0]
-        #print(meta)
+        # print(meta)
         test_dataset.metadata = test_dataset.metadata.update((res_id,), meta)
-        #pprint(dict(test_dataset.metadata.query((res_id,))))
-        return (train_dataset,test_dataset)
+        # pprint(dict(test_dataset.metadata.query((res_id,))))
+        return (train_dataset, test_dataset)
 
     train_return = []
     test_return = []
@@ -107,7 +146,7 @@ def split_dataset(dataset, problem_info: typing.Dict, problem_loc=None, *, rando
         sss = StratifiedShuffleSplit(n_splits=n_splits, test_size=test_size, random_state=random_state)
         sss.get_n_splits(dataset[res_id], dataset[res_id].iloc[:, target_index])
         for train_index, test_index in sss.split(dataset[res_id], dataset[res_id].iloc[:, target_index]):
-            train_dataset,test_dataset = generate_split_data(dataset,res_id)
+            train_dataset, test_dataset = generate_split_data(dataset, res_id)
             train_return.append(train_dataset)
             test_return.append(test_dataset)
     else:
@@ -117,7 +156,7 @@ def split_dataset(dataset, problem_info: typing.Dict, problem_loc=None, *, rando
         ss = ShuffleSplit(n_splits=n_splits, test_size=test_size, random_state=random_state)
         ss.get_n_splits(dataset[res_id])
         for train_index, test_index in ss.split(dataset[res_id]):
-            train_dataset,test_dataset = generate_split_data(dataset,res_id)
+            train_dataset, test_dataset = generate_split_data(dataset, res_id)
             train_return.append(train_dataset)
             test_return.append(test_dataset)
 
@@ -152,7 +191,7 @@ class Controller:
         self.test_dataset1: Dataset = None
         self.test_dataset2: typing.List[Dataset] = None
         self.all_dataset: Dataset = None
-        self.taskSourceType: typing.Set[str]  = set()  # str from SEMANTIC_TYPES
+        self.taskSourceType: typing.Set[str] = set()  # str from SEMANTIC_TYPES
 
         # Resource limits
         self.num_cpus: int = 0
@@ -204,6 +243,10 @@ class Controller:
     #     # Templates
     #     self.load_templates()
 
+        # self.dataset = remove_empty_targets(self.dataset, self.problem_doc_metadata.query(()))  # auto remove empty target
+        # self.dataset = auto_regress_convert(self.dataset, self.problem_doc_metadata.query(()))  # auto convert float for regression problem
+        # Templates
+
     def initialize_from_config_train_test(self, config: typing.Dict) -> None:
 
         self._load_schema(config)
@@ -216,14 +259,10 @@ class Controller:
         all_dataset_uri = 'file://{}'.format(json_file)
         self.all_dataset = loader.load(dataset_uri=all_dataset_uri)
 
-
         # self.dataset, self.test_dataset = split_dataset(self.all_dataset, self.problem, config['problem_schema'])
-
         # self.dataset = runtime.add_target_columns_metadata(self.dataset, self.problem_doc_metadata)
         # self.test_dataset = runtime.add_target_columns_metadata(self.test_dataset, self.problem_doc_metadata)
-
-        #self.test_dataset = runtime.add_target_columns_metadata(self.test_dataset, self.problem_doc_metadata)
-
+        # self.test_dataset = runtime.add_target_columns_metadata(self.test_dataset, self.problem_doc_metadata)
 
         # Templates
         self.load_templates()
@@ -249,7 +288,7 @@ class Controller:
             self._logger.error("[Warning] Config does not have saved_pipeline_ID. Using '' instead (empty str)")
             self.saved_pipeline_id = ""
 
-    #def _generate_problem_info(self,problem):
+    # def _generate_problem_info(self,problem):
         for i in range(len(self.problem['inputs'])):
             if 'targets' in self.problem['inputs'][i]:
                 break

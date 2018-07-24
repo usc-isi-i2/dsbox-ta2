@@ -5,7 +5,7 @@ import typing
 from d3m import index
 from d3m.container.dataset import SEMANTIC_TYPES
 from d3m.metadata.problem import TaskType, TaskSubtype
-
+from d3m.container.list import List
 from dsbox.template.template import TemplatePipeline, DSBoxTemplate
 
 
@@ -138,8 +138,8 @@ class TemplateLibrary:
         self.templates.append(TA1Classification_3)
         self.templates.append(MuxinTA1ClassificationTemplate1)
         self.templates.append(dsboxClassificationTemplate)
-        # self.templates.append(SRIGraphMatchingTemplate)
-        # self.templates.append(SRIVertexNominationTemplate)
+        self.templates.append(SRIGraphMatchingTemplate)
+        self.templates.append(SRIVertexNominationTemplate)
         self.templates.append(TA1ClassificationTemplate1)
 
         # Image Regression
