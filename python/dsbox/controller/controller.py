@@ -15,9 +15,9 @@ WARNING = ""
 if spam_spec is not None:
     from colorama import Fore, Back, init
     # STYLE = Fore.BLUE + Back.GREEN
-    STYLE = Fore.BLACK+Back.GREEN
-    ERROR = Fore.WHITE+Back.RED
-    WARNING = Fore.BLACK+Back.YELLOW
+    STYLE = Fore.BLACK + Back.GREEN
+    ERROR = Fore.WHITE + Back.RED
+    WARNING = Fore.BLACK + Back.YELLOW
     init(autoreset=True)
 
 import numpy as np
@@ -59,24 +59,67 @@ LOG_FILENAME = 'dsbox.log'
 CONSOLE_LOGGING_LEVEL = logging.INFO
 CONSOLE_FORMATTER = "[%(levelname)s] - %(name)s - %(message)s"
 
-def split_dataset(dataset, problem_info: typing.Dict, problem_loc=None, *, random_state=42, test_size=0.2, n_splits = 1):
+
+def auto_regress_convert(dataset: "Dataset", problem: "Metadata"):
+
+    problem = problem.query(())
+    targets = problem["inputs"]["data"][0]["targets"]
+    resID = targets[0]["resID"]
+    colIndex = targets[0]["colIndex"]
+
+    if problem["about"]["taskType"] == "timeSeriesForecasting":
+        dataset[resID].iloc[:, colIndex].astype(float)
+    meta = dict(dataset.metadata.query((resID, ALL_ELEMENTS, colIndex)))
+    meta["structural_type"] = float
+    dataset.metadata = dataset.metadata.update((resID, ALL_ELEMENTS, colIndex), meta)
+    pprint.pprint(dict(dataset.metadata.query((resID, ALL_ELEMENTS, colIndex))))
+    return dataset
+
+
+def remove_empty_targets(dataset: "Dataset", problem: "Metadata"):
+    '''
+    will automatically remove empty targets in training
+    '''
+    problem = problem.query(())
+    targets = problem["inputs"]["data"][0]["targets"]
+    resID = targets[0]["resID"]
+    colIndex = targets[0]["colIndex"]
+    # dataset_actual = dataset[resID]
+
+    droplist = []
+    for i, v in dataset[resID].iterrows():
+        if v[colIndex] == "":
+            droplist.append(i)
+    if droplist != []:
+        dataset[resID] = dataset[resID].drop(dataset[resID].index[droplist])
+        meta = dict(dataset.metadata.query((resID,)))
+        dimension = dict(meta['dimension'])
+        meta['dimension'] = dimension
+        dimension['length'] = dataset[resID].shape[0]
+        dataset.metadata = dataset.metadata.update((resID,), meta)
+        pprint.pprint(dict(dataset.metadata.query((resID,))))
+
+    return dataset
+
+
+def split_dataset(dataset, problem_info: typing.Dict, problem_loc=None, *, random_state=42, test_size=0.2, n_splits=1):
     '''
     Split dataset into training and test
     '''
+
+    # hard coded unsplit dataset type
+    # TODO: check whether "speech" type should be put into this list or not
+    list_cannot_split = ["graph","edgeList"]
+    
     task_type = problem_info["task_type"]#['problem']['task_type'].name  # 'classification' 'regression'
+
     res_id = problem_info["res_id"]
     target_index = problem_info["target_index"]
+    data_type = problem_info["data_type"]
 
-    # for i in range(len(problem['inputs'])):
-    #     if 'targets' in problem['inputs'][i]:
-    #         break
-    # task_type : str = problem['problem']['task_type'].name  # 'classification' 'regression'
-    # res_id = problem['inputs'][i]['targets'][0]['resource_id']
-    # target_index = problem['inputs'][i]['targets'][0]['column_index']
-
-    def generate_split_data(dataset,res_id):
-        train = dataset[res_id].iloc[train_index,:]
-        test = dataset[res_id].iloc[test_index,:]
+    def generate_split_data(dataset, res_id):
+        train = dataset[res_id].iloc[train_index, :]
+        test = dataset[res_id].iloc[test_index, :]
         # Generate training dataset
         train_dataset = copy.copy(dataset)
         train_dataset[res_id] = train
@@ -84,9 +127,9 @@ def split_dataset(dataset, problem_info: typing.Dict, problem_loc=None, *, rando
         dimension = dict(meta['dimension'])
         meta['dimension'] = dimension
         dimension['length'] = train.shape[0]
-        #print(meta)
+        # print(meta)
         train_dataset.metadata = train_dataset.metadata.update((res_id,), meta)
-        #pprint(dict(train_dataset.metadata.query((res_id,))))
+        # pprint(dict(train_dataset.metadata.query((res_id,))))
         # Generate testing dataset
         test_dataset = copy.copy(dataset)
         test_dataset[res_id] = test
@@ -94,33 +137,49 @@ def split_dataset(dataset, problem_info: typing.Dict, problem_loc=None, *, rando
         dimension = dict(meta['dimension'])
         meta['dimension'] = dimension
         dimension['length'] = test.shape[0]
-        #print(meta)
+        # print(meta)
         test_dataset.metadata = test_dataset.metadata.update((res_id,), meta)
-        #pprint(dict(test_dataset.metadata.query((res_id,))))
-        return (train_dataset,test_dataset)
+        # pprint(dict(test_dataset.metadata.query((res_id,))))
+        return (train_dataset, test_dataset)
 
     train_return = []
     test_return = []
-    if task_type == 'CLASSIFICATION':
-        # Use stratified sample to split the dataset
-        sss = StratifiedShuffleSplit(n_splits=n_splits, test_size=test_size, random_state=random_state)
-        sss.get_n_splits(dataset[res_id], dataset[res_id].iloc[:, target_index])
-        for train_index, test_index in sss.split(dataset[res_id], dataset[res_id].iloc[:, target_index]):
-            train_dataset,test_dataset = generate_split_data(dataset,res_id)
-            train_return.append(train_dataset)
-            test_return.append(test_dataset)
+
+    cannot_split = False
+    
+    for each in data_type:
+        if each in list_cannot_split:
+            cannot_split = True
+
+    # if the dataset type in the list that we should not split     
+    if cannot_split:
+        for i in range(n_splits):
+        # just return all dataset to train part
+            train_return.append(dataset)
+            test_return.append(None)
+    # if the dataset type can be split
     else:
-        # Use random split
-        if not task_type == "REGRESSION":
-            print('USING Random Split to split task type: {}'.format(task_type))
-        ss = ShuffleSplit(n_splits=n_splits, test_size=test_size, random_state=random_state)
-        ss.get_n_splits(dataset[res_id])
-        for train_index, test_index in ss.split(dataset[res_id]):
-            train_dataset,test_dataset = generate_split_data(dataset,res_id)
-            train_return.append(train_dataset)
-            test_return.append(test_dataset)
+        if task_type == 'CLASSIFICATION':
+            # Use stratified sample to split the dataset
+            sss = StratifiedShuffleSplit(n_splits=n_splits, test_size=test_size, random_state=random_state)
+            sss.get_n_splits(dataset[res_id], dataset[res_id].iloc[:, target_index])
+            for train_index, test_index in sss.split(dataset[res_id], dataset[res_id].iloc[:, target_index]):
+                train_dataset,test_dataset = generate_split_data(dataset,res_id)
+                train_return.append(train_dataset)
+                test_return.append(test_dataset)
+        else:
+            # Use random split
+            if not task_type == "REGRESSION":
+                print('USING Random Split to split task type: {}'.format(task_type))
+            ss = ShuffleSplit(n_splits=n_splits, test_size=test_size, random_state=random_state)
+            ss.get_n_splits(dataset[res_id])
+            for train_index, test_index in ss.split(dataset[res_id]):
+                train_dataset,test_dataset = generate_split_data(dataset,res_id)
+                train_return.append(train_dataset)
+                test_return.append(test_dataset)
 
     return (train_return, test_return)
+
 
 class Status(enum.Enum):
     OK = 0
@@ -150,7 +209,7 @@ class Controller:
         self.test_dataset1: Dataset = None
         self.test_dataset2: typing.List[Dataset] = None
         self.all_dataset: Dataset = None
-        self.taskSourceType: typing.Set[str]  = set()  # str from SEMANTIC_TYPES
+        self.taskSourceType: typing.Set[str] = set()  # str from SEMANTIC_TYPES
 
         # Resource limits
         self.num_cpus: int = 0
@@ -202,6 +261,10 @@ class Controller:
     #     # Templates
     #     self.load_templates()
 
+        # self.dataset = remove_empty_targets(self.dataset, self.problem_doc_metadata.query(()))  # auto remove empty target
+        # self.dataset = auto_regress_convert(self.dataset, self.problem_doc_metadata.query(()))  # auto convert float for regression problem
+        # Templates
+
     def initialize_from_config_train_test(self, config: typing.Dict) -> None:
 
         self._load_schema(config)
@@ -214,7 +277,10 @@ class Controller:
         all_dataset_uri = 'file://{}'.format(json_file)
         self.all_dataset = loader.load(dataset_uri=all_dataset_uri)
 
-        #self.test_dataset = runtime.add_target_columns_metadata(self.test_dataset, self.problem_doc_metadata)
+        # self.dataset, self.test_dataset = split_dataset(self.all_dataset, self.problem, config['problem_schema'])
+        # self.dataset = runtime.add_target_columns_metadata(self.dataset, self.problem_doc_metadata)
+        # self.test_dataset = runtime.add_target_columns_metadata(self.test_dataset, self.problem_doc_metadata)
+        # self.test_dataset = runtime.add_target_columns_metadata(self.test_dataset, self.problem_doc_metadata)
 
         # Templates
         self.load_templates()
@@ -240,10 +306,11 @@ class Controller:
             self._logger.error("[Warning] Config does not have saved_pipeline_ID. Using '' instead (empty str)")
             self.saved_pipeline_id = ""
 
-    #def _generate_problem_info(self,problem):
+    # def _generate_problem_info(self,problem):
         for i in range(len(self.problem['inputs'])):
             if 'targets' in self.problem['inputs'][i]:
                 break
+
         self.problem_info["task_type"] = self.problem['problem']['task_type'].name  # 'classification' 'regression'
         self.problem_info["res_id"] = self.problem['inputs'][i]['targets'][0]['resource_id']
         self.problem_info["target_index"] = self.problem['inputs'][i]['targets'][0]['column_index']
@@ -255,11 +322,11 @@ class Controller:
         For the Summer 2018 evaluation the top-level output dir is '/output'
         '''
 
-        #### Official config entry for Evaluation
+        # Official config entry for Evaluation
         self.output_pipelines_dir = os.path.abspath(config['pipeline_logs_root'])
         self.output_executables_dir = os.path.abspath(config['executables_root'])
         self.output_supporting_files_dir = os.path.abspath(config['temp_storage_root'])
-        #### End: Official config entry for Evaluation
+        # End: Official config entry for Evaluation
 
         self.output_directory = os.path.split(self.output_pipelines_dir)[0]
 
@@ -299,18 +366,18 @@ class Controller:
         console.setLevel(logging.INFO)
         self._logger.addHandler(console)
 
-
     def load_templates(self) -> None:
         self.task_type = self.problem['problem']['task_type']
         self.task_subtype = self.problem['problem']['task_subtype']
         # find the data resources type
-        self.taskSourceType = set() # set the type to be set so that we can ignore the repeat elements
-        with open(self.dataset_schema_file,'r') as dataset_description_file:
+        self.taskSourceType = set()  # set the type to be set so that we can ignore the repeat elements
+        with open(self.dataset_schema_file, 'r') as dataset_description_file:
             dataset_description = json.load(dataset_description_file)
             for each_type in dataset_description["dataResources"]:
                 self.taskSourceType.add(each_type["resType"])
-        self.template = self.template_library.get_templates(self.task_type, self.task_subtype, self.taskSourceType)
 
+        self.template = self.template_library.get_templates(self.task_type, self.task_subtype, self.taskSourceType)
+        self.problem_info["data_type"] = self.taskSourceType
         # find the maximum dataset split requirements
         for each_template in self.template:
             for each_step in each_template.template['steps']:
@@ -338,7 +405,8 @@ class Controller:
             exec_pipelines.append(pipeline_load)
 
 
-        self._logger.info("[INFO] wtr:",exec_pipelines)
+
+        self._logger.info("[INFO] wtr: %s",exec_pipelines)
         # sort the pipelins
         # TODO add the sorter method
         # self.exec_pipelines = self.get_pipeline_sorter().sort_pipelines(self.exec_pipelines)
@@ -359,7 +427,7 @@ class Controller:
         pipelinesfile.close()
 
     def search_template(self, template: DSBoxTemplate, candidate: typing.Dict=None,
-                        cache_bundle:typing.Tuple[typing.Dict, typing.Dict]=(None, None)) \
+                        cache_bundle: typing.Tuple[typing.Dict, typing.Dict]=(None, None)) \
             -> typing.Dict:
 
         space = template.generate_configuration_space()
@@ -391,7 +459,7 @@ class Controller:
         else:
             self._logger.info("******************\n[INFO] Writing results")
             pprint.pprint(candidate.data)
-            self._logger.info(candidate, value)
+            self._logger.info(str(candidate.data)+ " "+ str(value))
             if candidate.data['training_metrics']:
                 self._logger.info('Training {} = {}'.format(
                     candidate.data['training_metrics'][0]['metric'],
@@ -413,7 +481,7 @@ class Controller:
             # save_location = os.path.join(self.output_logs_dir, dataset_name + ".txt")
             save_location = self.output_directory + ".txt"
 
-            self._logger.info("******************\n[INFO] Saving training results in", save_location)
+            self._logger.info("******************\n[INFO] Saving training results in %s", save_location)
             try:
                 f = open(save_location, "w+")
                 f.write(str(metrics) + "\n")
@@ -455,15 +523,15 @@ class Controller:
 
         alpha = 0.01
         self.normalize = self.exec_history[['reward', 'exe_time', 'trial']]
-        self.normalize = (self.normalize - self.normalize.min()) / \
-                         (self.normalize.max() - self.normalize.min())
-
+        scale = (self.normalize.max() - self.normalize.min())
+        scale.replace(to_replace=0, value=1, inplace=True)
+        self.normalize = (self.normalize - self.normalize.min()) / scale
         self.normalize.clip(lower=0.01, upper=1, inplace=True)
 
         for i in range(len(self.uct_score)):
             self.uct_score[i] = self.compute_UCT(i)
 
-        self._logger.info(STYLE+"[INFO] UCT updated:", self.uct_score)
+        self._logger.info(STYLE+"[INFO] UCT updated: %s", self.uct_score)
 
     def update_history(self, index, report):
         self.total_run += report['sim_count']
@@ -472,14 +540,14 @@ class Controller:
 
         update = {
             'reward': (
-                (row['reward']*row['trial'] + report['reward'] * report['sim_count']) /
+                (row['reward'] * row['trial'] + report['reward'] * report['sim_count']) /
                 (row['trial'] + report['sim_count'])
             ),
             'trial': row['trial'] + report['sim_count'],
             'exe_time': row['exe_time'] + report['time'],
             'candidate': report['candidate'],
             'best_value': max(report['reward'], row['best_value'])
-         }
+        }
         for k in update:
             self.exec_history.iloc[index][k] = update[k]
 
@@ -489,8 +557,10 @@ class Controller:
         delta = 4
         history = self.normalize.iloc[index]
         try:
+
             reward = history['reward']
             # / history['trial']
+
             return (beta * (reward) * max(log(10*history['trial']), 1) +
                 gamma * sqrt(2 * log(self.total_run) / history['trial']) +
                 delta * sqrt(2 * log(self.total_time) / history['exe_time']))
@@ -507,8 +577,8 @@ class Controller:
         #     len(self.template)
 
         self.exec_history = pd.DataFrame(None,
-            index=map(lambda s: s.template["name"], self.template),
-            columns=['reward', 'exe_time', 'trial', 'candidate', 'best_value'])
+                                         index=map(lambda s: s.template["name"], self.template),
+                                         columns=['reward', 'exe_time', 'trial', 'candidate', 'best_value'])
         self.exec_history[['reward', 'exe_time', 'trial']] = 0
         self.exec_history[['best_value']] = float('-inf')
 
@@ -538,13 +608,23 @@ class Controller:
         # TODO: sample based on DSBoxTemplate.importance()
         # template = self.template[0]
         best_report = None
-
+        self.all_dataset = remove_empty_targets(self.all_dataset, self.problem_doc_metadata)
+        self.all_dataset = auto_regress_convert(self.all_dataset, self.problem_doc_metadata)
+        runtime.add_target_columns_metadata(self.all_dataset, self.problem_doc_metadata)        
         # split the dataset first time
         self.train_dataset1, self.test_dataset1 = split_dataset(dataset = self.all_dataset, 
             problem_info = self.problem_info, problem_loc = self.config['problem_schema'])
         # here we only split one times, so no need to use list to include the dataset
-        self.train_dataset1 = self.train_dataset1[0]
-        self.test_dataset1 = self.test_dataset1[0]
+        if len(self.train_dataset1) == 1:
+            self.train_dataset1 = self.train_dataset1[0]
+        else:
+            self._logger.error("Some error happend with all_dataset split: The length of splitted dataset is not 1 but %s",len(self.train_dataset1))
+
+        if len(self.test_dataset1) == 1:
+            self.test_dataset1 = self.test_dataset1[0]
+        else:
+            self._logger.error("Split failed on all_dataset.")
+            self.test_dataset1 = None
 
         # if necessary, we need to make a second split
         if self.max_split_times > 0:
@@ -552,6 +632,11 @@ class Controller:
             self.train_dataset2, self.test_dataset2 = split_dataset(dataset = self.train_dataset1, 
                 problem_info = self.problem_info, problem_loc = self.config['problem_schema'],
                 test_size = 0.1, n_splits = self.max_split_times)
+            if len(self.train_dataset2) < 1:
+                self._logger.error("Some error happend with train_dataset1 split: The length of splitted dataset is less than 1")
+            if len(self.test_dataset2) < 1:
+                self._logger.error("Split failed on train_dataset1.")
+                self.test_dataset2 = None
         else:
             self.train_dataset2 = None
             self.test_dataset2 = None
@@ -574,10 +659,10 @@ class Controller:
 
                 }
                 continue
-            self._logger.info(STYLE + "[INFO] report:", report['best_val'])
+            self._logger.info(STYLE + "[INFO] report: %s", report['best_val'])
             self.update_UCT_score(index=idx, report=report)
-            self._logger.info(STYLE+"[INFO] cache size:", len(cache),
-                  STYLE+", candidates:", len(candidate_cache))
+            self._logger.info(STYLE+"[INFO] cache size: " + str(len(cache))+
+                  ", candidates: " + str(len(candidate_cache)))
 
             # break
 
@@ -587,17 +672,6 @@ class Controller:
 
         # shutdown the cache manager
         manager.shutdown()
-
-        try:
-            # pipeline = FittedPipeline.create(configuration=candidate,
-            #                                  dataset=self.dataset)
-            candidate = best_report['candidate']
-            fitted_pipeline = candidate.data['fitted_pipeline']
-            fitted_pipeline.save(self.output_directory)
-        except:
-            self._logger.exception("No suitable pipelines converged. Nothing to save.")
-            raise NotSupportedError('[ERROR] Save Failed!')
-
 
     # def train(self) -> Status:
     #     """
@@ -707,7 +781,7 @@ class Controller:
 
         # get the target column name
         try:
-            with open(self.dataset_schema_file,'r') as dataset_description_file:
+            with open(self.dataset_schema_file, 'r') as dataset_description_file:
                 dataset_description = json.load(dataset_description_file)
                 for each_resource in dataset_description["dataResources"]:
                     if "columns" in each_resource:
