@@ -134,6 +134,7 @@ class TemplateLibrary:
 
         # Tabular Regression
         self.templates.append(DefaultClassificationTemplate)
+        self.templates.append(RandomForestTemplate)
         self.templates.append(dsboxClassificationTemplate)
         self.templates.append(TA1Classification_3)
         self.templates.append(MuxinTA1ClassificationTemplate1)
@@ -234,15 +235,18 @@ def dimensionality_reduction(feature_name: str = "impute_step",
                 "name": dim_reduce_name,
                 "primitives": [
                     {
+                        "primitive": "d3m.primitives.dsbox.DoNothing",
+                    },
+                    {
                         "primitive": "d3m.primitives.sklearn_wrap.SKPCA",
                         "hyperparameters":
-                            {'n_components': [(8), (16), (32), (64), (128)], }
+                            {'n_components': [(2), (4), (8), (16), (32), (64), (128)], }
                     },
                     {
                         "primitive": "d3m.primitives.sklearn_wrap.SKKernelPCA",
                         "hyperparameters":
                             {
-                                'n_components': [(8), (16), (32), (64), (128)],
+                                'n_components': [(2), (4), (8), (16), (32), (64), (128)],
                                 'kernel': [('rbf'), ('sigmoid'), ('cosine')]
                             }
                     },
@@ -250,7 +254,7 @@ def dimensionality_reduction(feature_name: str = "impute_step",
                         "primitive": "d3m.primitives.sklearn_wrap.SKKernelPCA",
                         "hyperparameters":
                             {
-                                'n_components': [(8), (16), (32), (64), (128)],
+                                'n_components': [(2), (4), (8), (16), (32), (64), (128)],
                                 'kernel': [('poly')],
                                 'degree': [(2), (3), (4)],
                             }
@@ -258,7 +262,7 @@ def dimensionality_reduction(feature_name: str = "impute_step",
                     {
                         "primitive": "d3m.primitives.sklearn_wrap.SKVarianceThreshold",
                         "hyperparameters":
-                            {'threshold': [(0), (0.01), (0.1), (0.15)], }
+                            {'threshold': [(0.01), (0.01), (0.05), (0.1)], }
                     },
                 ],
                 "inputs": [feature_name]
@@ -282,7 +286,7 @@ def classifier_model(feature_name: str = "impute_step",
                     "hyperparameters":
                         {
                             'max_depth': [(2), (4), (8)],  # (10), #
-                            'n_estimators': [(10), (20), (30)]
+                            'n_estimators': [(2), (5), (10), (20), (30), (40)]
                         }
                 },
                     {
@@ -458,7 +462,7 @@ def dsbox_imputer(encoded_name: str = "cast_1_step",
                 "name": "base_impute_step",
                 "primitives": [
                     {"primitive": "d3m.primitives.sklearn_wrap.SKImputer", },
-                    {"primitive": "d3m.primitives.dsbox.GreedyImputation", },
+                    # {"primitive": "d3m.primitives.dsbox.GreedyImputation", },
                     {"primitive": "d3m.primitives.dsbox.MeanImputation", },
                     {"primitive": "d3m.primitives.dsbox.IterativeRegressionImputation", },
                     #{"primitive": "d3m.primitives.dsbox.DoNothing", },
@@ -749,14 +753,11 @@ class dsboxClassificationTemplate(DSBoxTemplate):
                 *dsbox_encoding(clean_name="clean_step",
                                 encoded_name="encoder_step"),
 
-                # {
-                #     "name": "columns_parser_step",
-                #     "primitives": ["d3m.primitives.data.ColumnParser"],
-                #     "inputs": ["encoder_step"]
-                # },
-
                 *dsbox_imputer(encoded_name="encoder_step",
                                impute_name="impute_step"),
+
+                # *dimensionality_reduction(feature_name="impute_step",
+                #                           dim_reduce_name="dim_reduce_step"),
 
                 *classifier_model(feature_name="impute_step",
                                   target_name='extract_target_step'),

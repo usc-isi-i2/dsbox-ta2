@@ -62,11 +62,11 @@ CONSOLE_FORMATTER = "[%(levelname)s] - %(name)s - %(message)s"
 
 def auto_regress_convert(dataset: "Dataset", problem: "Metadata"):
 
+    problem = problem.query(())
     targets = problem["inputs"]["data"][0]["targets"]
     resID = targets[0]["resID"]
     colIndex = targets[0]["colIndex"]
-    import pdb
-    pdb.set_trace()
+
     if problem["about"]["taskType"] == "timeSeriesForecasting":
         dataset[resID].iloc[:, colIndex].astype(float)
     meta = dict(dataset.metadata.query((resID, ALL_ELEMENTS, colIndex)))
@@ -78,6 +78,7 @@ def auto_regress_convert(dataset: "Dataset", problem: "Metadata"):
 
 def remove_empty_targets(dataset: "Dataset", problem: "Metadata"):
 
+    problem = problem.query(())
     targets = problem["inputs"]["data"][0]["targets"]
     resID = targets[0]["resID"]
     colIndex = targets[0]["colIndex"]
@@ -258,7 +259,9 @@ class Controller:
         json_file = os.path.abspath(self.dataset_schema_file)
         all_dataset_uri = 'file://{}'.format(json_file)
         self.all_dataset = loader.load(dataset_uri=all_dataset_uri)
-
+        self.all_dataset = remove_empty_targets(self.all_dataset, self.problem_doc_metadata)
+        self.all_dataset = auto_regress_convert(self.all_dataset, self.problem_doc_metadata)
+        self._check_and_set_dataset_metadata()
         # self.dataset, self.test_dataset = split_dataset(self.all_dataset, self.problem, config['problem_schema'])
         # self.dataset = runtime.add_target_columns_metadata(self.dataset, self.problem_doc_metadata)
         # self.test_dataset = runtime.add_target_columns_metadata(self.test_dataset, self.problem_doc_metadata)
@@ -488,12 +491,15 @@ class Controller:
         for i in choices:
             yield i
 
-        # print("[INFO] Choices:", choices)
-        # UCT based evaluation
-        for i in range(max_iter):
-            weights = self.uct_score
-            selected = random_choices_without_replacement(choices, self.uct_score, 1)
-            yield selected[0]
+        # # print("[INFO] Choices:", choices)
+        # # UCT based evaluation
+        # for i in range(max_iter):
+        #     valids = list(filter(lambda t: t[1] is not None,
+        #                          zip(choices, self.uct_score)))
+        #     _choices = list(map(lambda t: t[0], valids))
+        #     _weights = list(map(lambda t: t[1], valids))
+        #     selected = random_choices_without_replacement(_choices, _weights, 1)
+        #     yield selected[0]
 
     def update_UCT_score(self, index: int, report: typing.Dict):
         self.update_history(index, report)
@@ -537,13 +543,14 @@ class Controller:
 
             reward = history['reward']
             # / history['trial']
-            return (beta * (reward) * log(history['trial']) +
-                    gamma * sqrt(2 * log(self.total_run) / history['trial']) +
-                    delta * sqrt(2 * log(self.total_time) / history['exe_time']))
+
+            return (beta * (reward) * max(log(10*history['trial']), 1) +
+                gamma * sqrt(2 * log(self.total_run) / history['trial']) +
+                delta * sqrt(2 * log(self.total_time) / history['exe_time']))
         except:
             self._logger.error('Failed to compute UCT. Defaulting to 100.0')
             # print(STYLE+"[WARN] compute UCT failed:", history.tolist())
-            return 100.0
+            return None
 
     def initialize_uct(self):
         self.total_run = 0
@@ -562,7 +569,7 @@ class Controller:
         self.exec_history['candidate'] = None
 
         # print(self.exec_history.to_string())
-        self.uct_score = [100.0] * len(self.template)
+        self.uct_score = [None] * len(self.template)
 
     def train(self) -> Status:
         """
@@ -616,6 +623,9 @@ class Controller:
                 self._logger.exception("search_template failed on {} with UCT: {}".format(
                     template.template['name'], self.uct_score))
                 traceback.print_exc()
+                report = {
+
+                }
                 continue
             self._logger.info(STYLE + "[INFO] report:", report['best_val'])
             self.update_UCT_score(index=idx, report=report)
