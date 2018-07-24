@@ -63,8 +63,6 @@ class TemplateLibrary:
             "TA1_classification_template_1": TA1ClassificationTemplate1,
             "MuxinTA1ClassificationTemplate1": MuxinTA1ClassificationTemplate1,
             "MuxinTA1ClassificationTemplate2": MuxinTA1ClassificationTemplate2,
-            "MuxinTA1ClassificationTemplate3": MuxinTA1ClassificationTemplate3,
-            "MuxinTA1ClassificationTemplate4": MuxinTA1ClassificationTemplate4,
             "UU3_Test_Template": UU3TestTemplate,
             "TA1Classification_2": TA1Classification_2,
             "TA1Classification_3": TA1Classification_3,
@@ -75,9 +73,8 @@ class TemplateLibrary:
             "SRI_Vertex_Nomination_Template":SRIVertexNominationTemplate, 
             "SRI_Collaborative_Filtering_Template":SRICollaborativeFilteringTemplate, 
             "SRI_Community_Detection_Template":SRICommunityDetectionTemplate, 
-            "UCHI_Time_Series_Classification_Template":UCHITimeSeriesClassificationTemplate, 
-            # "JHU_Graph_Matching_Template":JHUGraphMatchingTemplate, 
-            # "JHU_Vertex_Nomination_Template":JHUVertexNominationTemplate, 
+            "JHU_Graph_Matching_Template":JHUGraphMatchingTemplate, 
+            "JHU_Vertex_Nomination_Template":JHUVertexNominationTemplate, 
             "Default_Time_Series_Forcasting_Template":DefaultTimeSeriesForcastingTemplate
         }
 
@@ -155,7 +152,6 @@ class TemplateLibrary:
         self.templates.append(JHUGraphMatchingTemplate)
         self.templates.append(BBNAudioClassificationTemplate)
         self.templates.append(SRICollaborativeFilteringTemplate)
-        self.templates.append(UCHITimeSeriesClassificationTemplate)
         self.templates.append(DefaultTimeSeriesForcastingTemplate)
 
     def _load_single_inline_templates(self, template_name):
@@ -1575,184 +1571,6 @@ class MuxinTA1ClassificationTemplate2(DSBoxTemplate):
         return 7
 
 
-class MuxinTA1ClassificationTemplate3(DSBoxTemplate):
-    def __init__(self):
-        DSBoxTemplate.__init__(self)
-        self.template = {
-            "name": "MuxinTA1ClassificationTemplate3",
-            "taskSubtype": {TaskSubtype.BINARY.name, TaskSubtype.MULTICLASS.name},
-            "taskType": TaskType.CLASSIFICATION.name,
-            "inputType": "table",  # See SEMANTIC_TYPES.keys() for range of values
-            "output": "model_step",  # Name of the final step generating the prediction
-            "target": "extract_target_step",  # Name of the step generating the ground truth
-            "steps": [
-                {
-                    "name": "denormalize_step",
-                    "primitives": ["d3m.primitives.dsbox.Denormalize"],
-                    "inputs": ["template_input"]
-                },
-                {
-                    "name": "to_dataframe_step",
-                    "primitives": ["d3m.primitives.datasets.DatasetToDataFrame"],
-                    "inputs": ["denormalize_step"]
-                },
-                {
-                    "name": "extract_attribute_step",
-                    "primitives": [{
-                        "primitive": "d3m.primitives.data.ExtractColumnsBySemanticTypes",
-                        "hyperparameters":
-                            {
-                                'semantic_types': ('https://metadata.datadrivendiscovery.org/types/Attribute',),
-                                'use_columns': (),
-                                'exclude_columns': ()
-                            }
-                    }],
-                    "inputs": ["to_dataframe_step"]
-                },
-                {
-                    "name": "no_op_step",
-                    "primitives": ["d3m.primitives.dsbox.DoNothing"],
-                    "inputs":["to_dataframe_step"]
-                },
-                {
-                    "name": "extract_target_step",
-                    "primitives": [{
-                        "primitive": "d3m.primitives.data.ExtractColumnsBySemanticTypes",
-                        "hyperparameters":
-                            {'semantic_types': ('https://metadata.datadrivendiscovery.org/types/Target',
-                                                'https://metadata.datadrivendiscovery.org/types/SuggestedTarget',),
-                             'use_columns': (),
-                             'exclude_columns': ()
-                             }
-                    }],
-                    "inputs": ["no_op_step"]
-                },
-                {
-                    "name": "encode_step",
-                    "primitives": ["d3m.primitives.dsbox.Encoder"],
-                    "inputs": ["extract_attribute_step"]
-                },
-                {
-                    "name": "impute_step",
-                    "primitives": ["d3m.primitives.dsbox.IterativeRegressionImputation"],
-                    "inputs": ["encode_step"]
-                },
-                # {
-                #     "name": "corex_step",
-                #     "primitives": ["d3m.primitives.dsbox.CorexText"],
-                #     "inputs": ["cast_1_step"]
-                # },
-                {
-                    "name": "cast_1_step",
-                    "primitives": [
-                        {
-                            "primitive": "d3m.primitives.data.CastToType",
-                            "hyperparameters": {"type_to_cast": ["float"]}
-                        }
-                    ],
-                    "inputs": ["impute_step"]
-                },
-                {
-                    "name": "model_step",
-                    "primitives": ["d3m.primitives.sklearn_wrap.SKRandomForestClassifier"],
-                    "runtime": {
-                        "cross_validation": 10,
-                        "stratified": False
-                    },
-                    "inputs": ["cast_1_step", "extract_target_step"]
-                }
-            ]
-        }
-    # @override
-
-    def importance(datset, problem_description):
-        return 7
-
-
-class MuxinTA1ClassificationTemplate4(DSBoxTemplate):
-    def __init__(self):
-        DSBoxTemplate.__init__(self)
-        self.template = {
-            "name": "MuxinTA1ClassificationTemplate4",
-            "taskSubtype": {TaskSubtype.BINARY.name, TaskSubtype.MULTICLASS.name},
-            "taskType": TaskType.CLASSIFICATION.name,
-            "inputType": "table",  # See SEMANTIC_TYPES.keys() for range of values
-            "output": "model_step",  # Name of the final step generating the prediction
-            "target": "extract_target_step",  # Name of the step generating the ground truth
-            "steps": [
-                {
-                    "name": "denormalize_step",
-                    "primitives": ["d3m.primitives.dsbox.Denormalize"],
-                    "inputs": ["template_input"]
-                },
-                {
-                    "name": "to_dataframe_step",
-                    "primitives": ["d3m.primitives.datasets.DatasetToDataFrame"],
-                    "inputs": ["denormalize_step"]
-                },
-                {
-                    "name": "extract_attribute_step",
-                    "primitives": [{
-                        "primitive": "d3m.primitives.data.ExtractColumnsBySemanticTypes",
-                        "hyperparameters":
-                            {
-                                'semantic_types': ('https://metadata.datadrivendiscovery.org/types/Attribute',),
-                                'use_columns': (),
-                                'exclude_columns': ()
-                            }
-                    }],
-                    "inputs": ["to_dataframe_step"]
-                },
-                {
-                    "name": "extract_target_step",
-                    "primitives": [{
-                        "primitive": "d3m.primitives.data.ExtractColumnsBySemanticTypes",
-                        "hyperparameters":
-                            {'semantic_types': ('https://metadata.datadrivendiscovery.org/types/Target',
-                                                'https://metadata.datadrivendiscovery.org/types/SuggestedTarget',),
-                             'use_columns': (),
-                             'exclude_columns': ()
-                             }
-                    }],
-                    "inputs": ["to_dataframe_step"]
-                },
-                {
-                    "name": "encode1_step",
-                    "primitives": ["d3m.primitives.dsbox.UnaryEncoder"],
-                    "inputs": ["extract_attribute_step"]
-                },
-                {
-                    "name": "encode2_step",
-                    "primitives": ["d3m.primitives.dsbox.Encoder"],
-                    "inputs":["encode1_step"]
-                },
-                {
-                    "name": "impute_step",
-                    "primitives": ["d3m.primitives.dsbox.MeanImputation"],
-                    "inputs": ["encode2_step"]
-                },
-                # {
-                #     "name": "corex_step",
-                #     "primitives": ["d3m.primitives.dsbox.CorexText"],
-                #     "inputs": ["cast_1_step"]
-                # },
-                {
-                    "name": "model_step",
-                    "primitives": [
-                        "d3m.primitives.sklearn_wrap.SKRandomForestClassifier"],
-                    "runtime": {
-                        "cross_validation": 10,
-                        "stratified": False
-                    },
-                    "inputs": ["impute_step", "extract_target_step"]
-                }
-            ]
-        }
-    # @override
-
-    def importance(datset, problem_description):
-        return 7
-
 
 class UU3TestTemplate(DSBoxTemplate):
     def __init__(self):
@@ -2392,60 +2210,6 @@ class BBNAudioClassificationTemplate(DSBoxTemplate):
     def importance(datset, problem_description):
         return 7
 
-
-
-class UCHITimeSeriesClassificationTemplate(DSBoxTemplate):
-    def __init__(self):
-        DSBoxTemplate.__init__(self)
-        self.template = {
-            "name": "UCHI_Time_Series_Classification_Template",
-            "taskType": TaskType.CLASSIFICATION.name,
-        # See TaskType, range include 'CLASSIFICATION', 'CLUSTERING', 'COLLABORATIVE_FILTERING',
-            # 'COMMUNITY_DETECTION', 'GRAPH_CLUSTERING', 'GRAPH_MATCHING', 'LINK_PREDICTION',
-            # 'REGRESSION', 'TIME_SERIES_FORECASTING', 'VERTEX_NOMINATION'
-            "taskSubtype": {TaskSubtype.BINARY.name, TaskSubtype.MULTICLASS.name},
-            "inputType": "timeseries",  # See SEMANTIC_TYPES.keys() for range of values
-            "output": "model_step",  # Name of the final step generating the prediction
-            "target": "extract_target_step",  # Name of the step generating the ground truth
-            "steps": [
-                # {
-                #     "name": "denormalize_step",
-                #     "primitives": ["d3m.primitives.dsbox.Denormalize"],
-                #     "inputs": ["template_input"]
-                # },
-                # {
-                #     "name": "to_dataframe_step",
-                #     "primitives": ["d3m.primitives.datasets.DatasetToDataFrame"],
-                #     "inputs": ["denormalize_step"]
-                # },
-                # # read Y value
-                # {
-                #     "name": "extract_target_step",
-                #     "primitives": [{
-                #         "primitive": "d3m.primitives.data.ExtractColumnsBySemanticTypes",
-                #         "hyperparameters":
-                #             {
-                #                 'semantic_types': (
-                #                 'https://metadata.datadrivendiscovery.org/types/Target',
-                #                 'https://metadata.datadrivendiscovery.org/types/SuggestedTarget',),
-                #                 'use_columns': (),
-                #                 'exclude_columns': ()
-                #             }
-                #     }],
-                #     "inputs": ["to_dataframe_step"]
-                # },
-
-            {
-                "name":"model_step", 
-                "primitives":["d3m.primitives.datasmash.d3m_XG2"], 
-                "inputs":["template_input", "template_input"]
-            }
-            ]
-        }
-
-    # @override
-    def importance(datset, problem_description):
-        return 7
 
 
 class DefaultTimeSeriesForcastingTemplate(DSBoxTemplate):
