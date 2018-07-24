@@ -237,6 +237,7 @@ class Controller:
         try:
             self.saved_pipeline_id = config['saved_pipeline_ID']
         except:
+            self._logger.error("[Warning] Config does not have saved_pipeline_ID. Using '' instead (empty str)")
             self.saved_pipeline_id = ""
 
     #def _generate_problem_info(self,problem):
@@ -283,7 +284,7 @@ class Controller:
         logging.basicConfig(
             level=FILE_LOGGING_LEVEL,
             format=FILE_FORMATTER,
-            datefmt='%m-%d %H:%M',
+            datefmt='%m-%d %H:%M:%S',
             filename=os.path.join(self.output_logs_dir, LOG_FILENAME),
             filemode='w'
         )
@@ -320,7 +321,7 @@ class Controller:
 
     def write_training_results(self):
         # load trained pipelines
-        print("[WARN] write_training_results")
+        self._logger.info("[WARN] write_training_results")
 
         return None
 
@@ -337,14 +338,14 @@ class Controller:
             exec_pipelines.append(pipeline_load)
 
 
-        print("[INFO] wtr:",exec_pipelines)
+        self._logger.info("[INFO] wtr:",exec_pipelines)
         # sort the pipelins
         # TODO add the sorter method
         # self.exec_pipelines = self.get_pipeline_sorter().sort_pipelines(self.exec_pipelines)
 
         # write the results
         pipelinesfile = open("somefile.ext",'W+') # TODO check this address
-        print("Found total %d successfully executing pipeline(s)..." % len(exec_pipelines))
+        self._logger.info("Found total %d successfully executing pipeline(s)..." % len(exec_pipelines))
         pipelinesfile.write("# Pipelines ranked by (adjusted) metrics (%s)\n" % self.problem.metrics)
         for pipe in exec_pipelines:
             metric_values = []
@@ -385,22 +386,22 @@ class Controller:
         value = report['best_val']
         # assert "fitted_pipe" in candidate, "argument error!"
         if candidate is None:
-            print("[ERROR] not candidate!")
+            self._logger.error("[ERROR] not candidate!")
             return Status.PROBLEM_NOT_IMPLEMENT
         else:
-            print("******************\n[INFO] Writing results")
+            self._logger.info("******************\n[INFO] Writing results")
             pprint.pprint(candidate.data)
-            print(candidate, value)
+            self._logger.info(candidate, value)
             if candidate.data['training_metrics']:
-                print('Training {} = {}'.format(
+                self._logger.info('Training {} = {}'.format(
                     candidate.data['training_metrics'][0]['metric'],
                     candidate.data['training_metrics'][0]['value']))
             if candidate.data['cross_validation_metrics']:
-                print('CV {} = {}'.format(
+                self._logger.info('CV {} = {}'.format(
                     candidate.data['cross_validation_metrics'][0]['metric'],
                     candidate.data['cross_validation_metrics'][0]['value']))
             if candidate.data['test_metrics']:
-                print('Validation {} = {}'.format(
+                self._logger.info('Validation {} = {}'.format(
                     candidate.data['test_metrics'][0]['metric'],
                     candidate.data['test_metrics'][0]['value']))
 
@@ -412,7 +413,7 @@ class Controller:
             # save_location = os.path.join(self.output_logs_dir, dataset_name + ".txt")
             save_location = self.output_directory + ".txt"
 
-            print("******************\n[INFO] Saving training results in", save_location)
+            self._logger.info("******************\n[INFO] Saving training results in", save_location)
             try:
                 f = open(save_location, "w+")
                 f.write(str(metrics) + "\n")
@@ -425,6 +426,7 @@ class Controller:
                 # f.write(str(candidate.data['test_metrics'][0]['value']) + "\n")
                 f.close()
             except:
+                self._logger.exception('[ERROR] Save training results Failed!')
                 raise NotSupportedError(
                     '[ERROR] Save training results Failed!')
 
@@ -458,7 +460,7 @@ class Controller:
         for i in range(len(self.uct_score)):
             self.uct_score[i] = self.compute_UCT(i)
 
-        print(STYLE+"[INFO] UCT updated:", self.uct_score)
+        self._logger.info(STYLE+"[INFO] UCT updated:", self.uct_score)
 
     def update_history(self, index, report):
         self.total_run += report['sim_count']
@@ -490,6 +492,7 @@ class Controller:
                 gamma * sqrt(2 * log(self.total_run) / history['trial']) +
                 delta * sqrt(2 * log(self.total_time) / history['exe_time']))
         except:
+            self._logger.error('Failed to compute UCT. Defaulting to 100.0')
             # print(STYLE+"[WARN] compute UCT failed:", history.tolist())
             return 100.0
 
@@ -552,7 +555,7 @@ class Controller:
 
         for idx in self.select_next_template(max_iter=5):
             template = self.template[idx]
-            print(STYLE+"[INFO] Template {}:{} Selected. UCT:{}".format(idx, template.template['name'], self.uct_score))
+            self._logger.info(STYLE+"[INFO] Template {}:{} Selected. UCT:{}".format(idx, template.template['name'], self.uct_score))
 
             try:
                 report = self.search_template(
@@ -561,11 +564,13 @@ class Controller:
                     )
 
             except:
+                self._logger.exception("search_template failed on {} with UCT: {}".format(
+                    template.template['name'], self.uct_score))
                 traceback.print_exc()
                 continue
-            print(STYLE + "[INFO] report:", report['best_val'])
+            self._logger.info(STYLE + "[INFO] report:", report['best_val'])
             self.update_UCT_score(index=idx, report=report)
-            print(STYLE+"[INFO] cache size:", len(cache),
+            self._logger.info(STYLE+"[INFO] cache size:", len(cache),
                   STYLE+", candidates:", len(candidate_cache))
 
             # break
@@ -584,6 +589,7 @@ class Controller:
             fitted_pipeline = candidate.data['fitted_pipeline']
             fitted_pipeline.save(self.output_directory)
         except:
+            self._logger.exception("No suitable pipelines converged. Nothing to save.")
             raise NotSupportedError('[ERROR] Save Failed!')
 
 
@@ -675,20 +681,21 @@ class Controller:
         """
         First read the fitted pipeline and then run trained pipeline on test data.
         """
-        print("[INFO] Start test function")
+        self._logger.info("[INFO] Start test function")
         outputs_loc, pipeline_load, read_pipeline_id, run = \
             self.load_pipe_runtime()
 
-        print("[INFO] Pipeline load finished")
+        self._logger.info("[INFO] Pipeline load finished")
 
-        print("[INFO] testing data:")
+        self._logger.info("[INFO] testing data:")
         # pprint(self.test_dataset.head())
         # pipeline_load.runtime.produce(inputs=[self.test_dataset])
         run.produce(inputs=[self.all_dataset])
         try:
             step_number_output = int(pipeline_load.pipeline.outputs[0]['data'].split('.')[1])
         except:
-            print("Warning: searching the output step number failed! Will use the last step's output of the pipeline.")
+            self._logger.error("Warning: searching the output step number failed! "
+                               "Will use the last step's output of the pipeline.")
             # step_number_output = len(pipeline_load.runtime.produce_outputs) - 1
             step_number_output = len(run.produce_outputs) - 1
 
@@ -702,7 +709,7 @@ class Controller:
                             if "suggestedTarget" in each_column["role"] or "target" in each_column["role"]:
                                 prediction_class_name = each_column["colName"]
         except:
-            print("[Warning] Can't find the prediction class name, will use default name.")
+            self._logger.error("[Warning] Can't find the prediction class name, will use default name 'prediction'.")
             prediction_class_name = "prediction"
 
         prediction = run.produce_outputs[step_number_output]
@@ -720,15 +727,15 @@ class Controller:
         if not folder:
             os.makedirs(prediction_folder_loc)
         prediction.to_csv(prediction_folder_loc + "/predictions.csv", index=False)
-        print("[INFO] Finished: prediction results saving finished")
-        print("[INFO] The prediction results is stored at: ", prediction_folder_loc)
+        self._logger.info("[INFO] Finished: prediction results saving finished")
+        self._logger.info("[INFO] The prediction results is stored at: {}".format(prediction_folder_loc))
         return Status.OK
 
     def load_pipe_runtime(self):
         d = os.path.expanduser(self.output_directory + '/pipelines')
         read_pipeline_id = self.saved_pipeline_id
         if read_pipeline_id == "":
-            print(
+            self._logger.info(
                 "[INFO] No specified pipeline ID found, will load the latest "
                 "crated pipeline.")
             # if no pipeline ID given, load the newest created file in the
@@ -757,7 +764,7 @@ class Controller:
         # print(mapper_to_primitives.mapper)
         values = mapper_to_primitives.create_configuration_space(template_desc.template)
         # print(template_desc.template.template_nodes.items())
-        print(values)
+        self._logger.info("Values: {}".format(values))
         # values: typing.Dict[DimensionName, typing.List] = {}
         return SimpleConfigurationSpace(values)
 
