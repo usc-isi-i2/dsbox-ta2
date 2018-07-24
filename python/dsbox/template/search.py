@@ -8,7 +8,7 @@ import typing
 import logging
 import time
 import copy
-import pathos.pools as pp
+#import pathos.pools as pp
 
 from warnings import warn
 
@@ -241,7 +241,7 @@ class DimensionalSearch(typing.Generic[T]):
             sim_counter += len(new_candidates)
             # run all candidate pipelines in multi-processing mode
             try:
-                with pp.ProcessPool(self.num_workers) as p:
+                with Pool(self.num_workers) as p:
                     results = p.map(
                         self.evaluate,
                         map(lambda c: (c, cache), new_candidates)
@@ -532,8 +532,8 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
             # start training and testing
             fitted_pipeline = FittedPipeline(pipeline, self.train_dataset1.metadata.query(())['id'], 
                 log_dir=self.log_dir, metric_descriptions=self.performance_metrics)
-            #fitted_pipeline.fit(cache=cache, inputs=[self.train_dataset1])
-            fitted_pipeline.fit(inputs=[self.train_dataset1])
+            fitted_pipeline.fit(cache=cache, inputs=[self.train_dataset1])
+            # fitted_pipeline.fit(inputs=[self.train_dataset1])
             training_ground_truth = get_target_columns(self.train_dataset1,self.problem)
             training_prediction = fitted_pipeline.get_fit_step_output(
                 self.template.get_output_step_number())
@@ -565,19 +565,31 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
                 fitted_pipeline = FittedPipeline(pipeline, self.train_dataset2[each_repeat].metadata.query(())['id'], 
                     log_dir=self.log_dir, metric_descriptions=self.performance_metrics)
 
-                #fitted_pipeline.fit(cache=cache, inputs=[train_dataset2[each_repeat]])
-                fitted_pipeline.fit(inputs=[self.train_dataset2[each_repeat]])
+                fitted_pipeline.fit(cache=cache, inputs=[self.train_dataset2[each_repeat]])
+                #fitted_pipeline.fit(inputs=[self.train_dataset2[each_repeat]])
                 training_ground_truth = get_target_columns(self.train_dataset2[each_repeat],self.problem)
                 training_prediction = fitted_pipeline.get_fit_step_output(
                     self.template.get_output_step_number())
-                results = fitted_pipeline.produce(inputs=[self.test_dataset2[each_repeat]])
-                test_ground_truth = get_target_columns(self.test_dataset2[each_repeat],self.problem)
-
-                # Note: results == test_prediction
-                test_prediction = fitted_pipeline.get_produce_step_output(self.template.get_output_step_number())
-
+                # only do test if the test_dataset exist
+                if self.test_dataset2[each_repeat] is not None:
+                    results = fitted_pipeline.produce(inputs=[self.test_dataset2[each_repeat]])
+                    test_ground_truth = get_target_columns(self.test_dataset2[each_repeat],self.problem)
+                    # Note: results == test_prediction
+                    test_prediction = fitted_pipeline.get_produce_step_output(self.template.get_output_step_number())
+                else:
+                    test_ground_truth = None
+                    test_prediction = None
                 training_metrics_each, test_metrics_each = self._calculate_score(
                     training_ground_truth,training_prediction,test_ground_truth,test_prediction)
+                
+                # if no test_dataset exist, we need to give it with a default value
+                if len(test_metrics_each) == 0:
+                    test_metrics_each = copy.deepcopy(training_metrics_each)
+                    if larger_is_better(training_metrics):
+                        test_metrics_each[0]["value"] = 0
+                    else:
+                        test_metrics_each[0]["value"] = sys.float_info.max
+
                 training_metrics.append(training_metrics_each)
                 test_metrics.append(test_metrics_each)
             # sample format of the output
@@ -621,6 +633,13 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
             # print("!!!!")
 
         # Save results
+        if self.test_dataset1 is None:
+            print("The dataset no need to split of split failed, will not train again.")
+            fitted_pipeline2 = fitted_pipeline
+            # set the metric for calculating the rank
+            fitted_pipeline2.set_metric(training_metrics[0])
+            
+        else:
             if self.quick_mode:
                 print("[INFO] Now in quick mode, will skip training with train_dataset1")
                 # if in quick mode, we did not fit the model with dataset_train1 again
@@ -632,8 +651,8 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
                 fitted_pipeline2 = FittedPipeline(pipeline, self.train_dataset1.metadata.query(())['id'], 
                     log_dir=self.log_dir, metric_descriptions=self.performance_metrics)
                 # retrain and compute ranking/metric using self.train_dataset
-                fitted_pipeline2.fit(inputs = [self.train_dataset1])
-                #fitted_pipeline2.fit(cache=cache, inputs = [self.train_dataset1])
+                #fitted_pipeline2.fit(inputs = [self.train_dataset1])
+                fitted_pipeline2.fit(cache=cache, inputs = [self.train_dataset1])
 
             fitted_pipeline2.produce(inputs = [self.test_dataset1])
             test_ground_truth = get_target_columns(self.test_dataset1,self.problem)
@@ -648,11 +667,9 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
 
             # finally, fit the model with all data and save it
             print("[INFO] Now are training the pipeline with all dataset and saving the pipeline.")
-            #fitted_pipeline2.fit(cache=cache, inputs = [self.all_dataset])
-            fitted_pipeline2.fit(inputs = [self.all_dataset])
-            fitted_pipeline2.save(self.output_directory)
+            fitted_pipeline2.fit(cache=cache, inputs = [self.all_dataset])
+            #fitted_pipeline2.fit(inputs = [self.all_dataset])
 
-        # still return the original fitted_pipeline with relation to train_dataset1
         if self.output_directory is not None and dump2disk:
             fitted_pipeline2.save(self.output_directory)
 
@@ -662,7 +679,7 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
             #                                test_metrics=test_metrics,
             #                                test_ground_truth=test_ground_truth)
 
-
+        # still return the original fitted_pipeline with relation to train_dataset1
         return data
 
     def _calculate_score(self, training_ground_truth, training_prediction, test_ground_truth, test_prediction):
