@@ -13,9 +13,9 @@ from dsbox.controller.controller import Status
 def main():
     timeout = 0
     if os.environ["D3MRUN"] == "search":
-        config = json.load(open('/input/search_config.json', 'r'))
+        config = json.load(open(os.path.join(os.environ["D3MINPUTDIR"], "search_config.json"), 'r'))
     else:
-        config = json.load(open('/input/test_config.json', 'r'))
+        config = json.load(open(os.path.join(os.environ["D3MINPUTDIR"], "test_config.json"), 'r'))
 
     config["cpus"] = os.environ["D3MCPU"]
     config["ram"] = os.environ["D3MRAM"]
