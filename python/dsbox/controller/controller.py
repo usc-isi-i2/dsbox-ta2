@@ -24,6 +24,7 @@ import numpy as np
 import d3m
 import dsbox.template.runtime as runtime
 
+from d3m.metadata.problem import TaskType
 from d3m.container.dataset import Dataset
 from d3m.container.dataset import D3MDatasetLoader
 from d3m.exceptions import NotSupportedError
@@ -367,23 +368,6 @@ class Controller:
         # search = TemplateDimensionalSearch(template, space, d3m.index.search(), self.dataset,
         # self.dataset, metrics)
 
-        # split the dataset first time
-        self.train_dataset1, self.test_dataset1 = split_dataset(dataset = self.all_dataset, 
-            problem_info = self.problem_info, problem_loc = self.config['problem_schema'])
-        # here we only split one times, so no need to use list to include the dataset
-        self.train_dataset1 = self.train_dataset1[0]
-        self.test_dataset1 = self.test_dataset1[0]
-
-        # if necessary, we need to make a second split
-        if self.max_split_times > 0:
-            # make n times of different spliting results
-            self.train_dataset2, self.test_dataset2 = split_dataset(dataset = self.train_dataset1, 
-                problem_info = self.problem_info, problem_loc = self.config['problem_schema'],
-                test_size = 0.1, n_splits = self.max_split_times)
-        else:
-            self.train_dataset2 = None
-            self.test_dataset2 = None
-
         # setup the dimensional search configs
         search = TemplateDimensionalSearch(
             template = template, configuration_space = space, problem = self.problem_doc_metadata,
@@ -391,7 +375,7 @@ class Controller:
             test_dataset2 = self.test_dataset2, train_dataset2 = self.train_dataset2,
             all_dataset = self.all_dataset, performance_metrics = metrics, 
             output_directory=self.output_directory, log_dir=self.output_logs_dir, 
-            num_workers=self.num_cpus, config = self.config
+            num_workers=self.num_cpus
             )
 
         self.minimize = search.minimize
@@ -548,6 +532,23 @@ class Controller:
         # TODO: sample based on DSBoxTemplate.importance()
         # template = self.template[0]
         best_report = None
+
+        # split the dataset first time
+        self.train_dataset1, self.test_dataset1 = split_dataset(dataset = self.all_dataset, 
+            problem_info = self.problem_info, problem_loc = self.config['problem_schema'])
+        # here we only split one times, so no need to use list to include the dataset
+        self.train_dataset1 = self.train_dataset1[0]
+        self.test_dataset1 = self.test_dataset1[0]
+
+        # if necessary, we need to make a second split
+        if self.max_split_times > 0:
+            # make n times of different spliting results
+            self.train_dataset2, self.test_dataset2 = split_dataset(dataset = self.train_dataset1, 
+                problem_info = self.problem_info, problem_loc = self.config['problem_schema'],
+                test_size = 0.1, n_splits = self.max_split_times)
+        else:
+            self.train_dataset2 = None
+            self.test_dataset2 = None
 
         for idx in self.select_next_template(max_iter=5):
             template = self.template[idx]

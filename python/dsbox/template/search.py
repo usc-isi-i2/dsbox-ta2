@@ -432,7 +432,7 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
 
     def __init__(self, 
                  template: DSBoxTemplate,
-                 config: typing.Dict,
+                 #config: typing.Dict,
                  #problem_dict: typing.Dict,
                  configuration_space: ConfigurationSpace[PrimitiveDescription],
                  problem: Metadata,
@@ -451,7 +451,7 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
         super().__init__(self.evaluate_pipeline, configuration_space, minimize)
 
         self.template = template
-        self.config = config
+        #self.config = config
         # self.configuration_space = configuration_space
         #self.primitive_index: typing.List[str] = primitive_index
         self.problem = problem
