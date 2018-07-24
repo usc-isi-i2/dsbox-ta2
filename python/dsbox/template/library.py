@@ -1410,12 +1410,14 @@ class MuxinTA1ClassificationTemplate1(DSBoxTemplate):
                 },
                 {
                     "name": "encode1_step",
+                    #"primitives": ["d3m.primitives.dsbox.UnaryEncoder","d3m.primitives.dsbox.DoNothing"],
                     "primitives": ["d3m.primitives.dsbox.UnaryEncoder"],
                     "inputs": ["extract_attribute_step"]
                 },
                 {
                     "name": "encode2_step",
-                    "primitives": ["d3m.primitives.dsbox.Encoder"],
+                    "primitives": ["d3m.primitives.dsbox.Encoder","d3m.primitives.dsbox.DoNothing"],
+                    #"primitives": ["d3m.primitives.dsbox.Encoder"],
                     "inputs":["encode1_step"]
                 },
                 {
@@ -1431,33 +1433,36 @@ class MuxinTA1ClassificationTemplate1(DSBoxTemplate):
                 {
                     "name": "model_step",
                     "runtime": {
-                        "cross_validation": 10,
+                        "cross_validation": 2,
+                        #"test_validation":1,
                         "stratified": True
                     },
-                    "primitives": [{
+                    "primitives": [
+                    {
                         "primitive":
                             "d3m.primitives.sklearn_wrap.SKRandomForestClassifier",
                         "hyperparameters":
                             {
-                                'max_depth': [(2), (4), (8)],  # (10), #
-                                'n_estimators':[(10), (20), (30)]
+                                'max_depth': [(2), (4)],  # (10), #
+                                'n_estimators':[(10), (30)]
                             }
                     },
-                        {
-                        "primitive":
-                            "d3m.primitives.sklearn_wrap.SKLinearSVC",
-                        "hyperparameters":
-                            {
-                                'C': [(1), (10), (100)],  # (10), #
-                            }
-                    }, {
-                        "primitive":
-                            "d3m.primitives.sklearn_wrap.SKMultinomialNB",
-                        "hyperparameters":
-                            {
-                                'alpha': [(1)],
-                            }
-                    },
+                    # {
+                    #     "primitive":
+                    #         "d3m.primitives.sklearn_wrap.SKLinearSVC",
+                    #     "hyperparameters":
+                    #         {
+                    #             'C': [(1), (10)],  # (10), #
+                    #         }
+                    # }, 
+                    # {
+                    #     "primitive":
+                    #         "d3m.primitives.sklearn_wrap.SKMultinomialNB",
+                    #     "hyperparameters":
+                    #         {
+                    #             'alpha': [(1)],
+                    #         }
+                    # },
                     ],
                     "inputs": ["impute_step", "extract_target_step"]
                 }
