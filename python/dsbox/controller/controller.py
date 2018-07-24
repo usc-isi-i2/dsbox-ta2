@@ -459,8 +459,6 @@ class Controller:
         else:
             self._logger.info("******************\n[INFO] Writing results")
             pprint.pprint(candidate.data)
-            import pdb
-            pdb.set_trace()
             self._logger.info(str(candidate.data)+ " "+ str(value))
             if candidate.data['training_metrics']:
                 self._logger.info('Training {} = {}'.format(

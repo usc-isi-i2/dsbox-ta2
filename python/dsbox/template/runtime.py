@@ -142,8 +142,6 @@ class Runtime:
         for i in range(0, len(self.execution_order)):
             primitive_arguments: typing.Dict[str, typing.Any] = {}
             n_step = self.execution_order[i]
-            import pdb
-            pdb.set_trace()
             for argument, value in self.primitives_arguments[n_step].items():
                 if value['origin'] == 'steps':
                     primitive_arguments[argument] = primitives_outputs[value['source']]

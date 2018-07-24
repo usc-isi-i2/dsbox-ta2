@@ -60,6 +60,7 @@ def get_target_columns(dataset: 'Dataset', problem_doc_metadata: 'Metadata'):
     targetcol = dataset[resID].iloc[:, targetlist]
     return targetcol
 
+
 class DimensionalSearch(typing.Generic[T]):
     """
     Search configuration space on dimension at a time.
@@ -212,7 +213,7 @@ class DimensionalSearch(typing.Generic[T]):
             # generate the candidates choices list
             selected = random_choices_without_replacement(choices, weights, max_per_dimension)
 
-            score_values =[]
+            score_values = []
             sucessful_candidates = []
 
             # No need to evaluate if value is already known
@@ -430,10 +431,10 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
         Performance metrics from parse_problem_description()['problem']['performance_metrics']
     """
 
-    def __init__(self, 
+    def __init__(self,
                  template: DSBoxTemplate,
-                 #config: typing.Dict,
-                 #problem_dict: typing.Dict,
+                 # config: typing.Dict,
+                 # problem_dict: typing.Dict,
                  configuration_space: ConfigurationSpace[PrimitiveDescription],
                  problem: Metadata,
                  train_dataset1: Dataset,
@@ -455,7 +456,7 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
         # self.configuration_space = configuration_space
         #self.primitive_index: typing.List[str] = primitive_index
         self.problem = problem
-        #self.problem_info = problem_info self._generate_problem_info(problem_dict)
+        # self.problem_info = problem_info self._generate_problem_info(problem_dict)
         self.train_dataset1 = train_dataset1
         self.train_dataset2 = train_dataset2
         self.test_dataset1 = test_dataset1
@@ -481,7 +482,7 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
         # TODO: add some function to determine whether to go quick mode or not
 
         self.quick_mode = False
-        self.testing_mode = 0 # set default to not use cross validation mode
+        self.testing_mode = 0  # set default to not use cross validation mode
         # testing_mode = 0: normal testing mode with test only 1 time
         # testing_mode = 1: cross validation mode
         # testing_mode = 2: multiple testing mode with testing with random split data n times
@@ -493,7 +494,6 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
                     self.testing_mode = 1
                 else:
                     self.testing_mode = 2
-
 
         # if not set(self.template.template_nodes.keys()) <= set(configuration_space.get_dimensions()):
         #     raise exceptions.InvalidArgumentValueError(
@@ -528,21 +528,21 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
         # if in cross validation mode
         if self.testing_mode == 1:
             repeat_times = int(self.validation_config['cross_validation'])
-            print("[INFO] Will use cross validation( n =", repeat_times,") to choose best primitives.")
+            print("[INFO] Will use cross validation( n =", repeat_times, ") to choose best primitives.")
             # start training and testing
-            fitted_pipeline = FittedPipeline(pipeline, self.train_dataset1.metadata.query(())['id'], 
-                log_dir=self.log_dir, metric_descriptions=self.performance_metrics)
+            fitted_pipeline = FittedPipeline(pipeline, self.train_dataset1.metadata.query(())['id'],
+                                             log_dir=self.log_dir, metric_descriptions=self.performance_metrics)
             fitted_pipeline.fit(cache=cache, inputs=[self.train_dataset1])
             # fitted_pipeline.fit(inputs=[self.train_dataset1])
-            training_ground_truth = get_target_columns(self.train_dataset1,self.problem)
+            training_ground_truth = get_target_columns(self.train_dataset1, self.problem)
             training_prediction = fitted_pipeline.get_fit_step_output(
                 self.template.get_output_step_number())
 
             training_metrics, test_metrics = self._calculate_score(
-                    training_ground_truth,training_prediction,None,None)
+                training_ground_truth, training_prediction, None, None)
 
             # copy the cross validation score here to test_metrics for return
-            test_metrics = copy.deepcopy(training_metrics) #fitted_pipeline.get_cross_validation_metrics()
+            test_metrics = copy.deepcopy(training_metrics)  # fitted_pipeline.get_cross_validation_metrics()
             # generate a test matrics results with score = worst value
             if larger_is_better(training_metrics):
                 test_metrics[0]["value"] = 0
@@ -556,32 +556,32 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
                 repeat_times = int(self.validation_config['test_validation'])
             else:
                 repeat_times = 1
-            print("[INFO] Will use normal train-test mode ( n =", repeat_times,") to choose best primitives.")
+            print("[INFO] Will use normal train-test mode ( n =", repeat_times, ") to choose best primitives.")
             training_metrics = []
             test_metrics = []
 
             for each_repeat in range(repeat_times):
                 # start training and testing
-                fitted_pipeline = FittedPipeline(pipeline, self.train_dataset2[each_repeat].metadata.query(())['id'], 
-                    log_dir=self.log_dir, metric_descriptions=self.performance_metrics)
+                fitted_pipeline = FittedPipeline(pipeline, self.train_dataset2[each_repeat].metadata.query(())['id'],
+                                                 log_dir=self.log_dir, metric_descriptions=self.performance_metrics)
 
                 fitted_pipeline.fit(cache=cache, inputs=[self.train_dataset2[each_repeat]])
-                #fitted_pipeline.fit(inputs=[self.train_dataset2[each_repeat]])
-                training_ground_truth = get_target_columns(self.train_dataset2[each_repeat],self.problem)
+                # fitted_pipeline.fit(inputs=[self.train_dataset2[each_repeat]])
+                training_ground_truth = get_target_columns(self.train_dataset2[each_repeat], self.problem)
                 training_prediction = fitted_pipeline.get_fit_step_output(
                     self.template.get_output_step_number())
                 # only do test if the test_dataset exist
                 if self.test_dataset2[each_repeat] is not None:
                     results = fitted_pipeline.produce(inputs=[self.test_dataset2[each_repeat]])
-                    test_ground_truth = get_target_columns(self.test_dataset2[each_repeat],self.problem)
+                    test_ground_truth = get_target_columns(self.test_dataset2[each_repeat], self.problem)
                     # Note: results == test_prediction
                     test_prediction = fitted_pipeline.get_produce_step_output(self.template.get_output_step_number())
                 else:
                     test_ground_truth = None
                     test_prediction = None
                 training_metrics_each, test_metrics_each = self._calculate_score(
-                    training_ground_truth,training_prediction,test_ground_truth,test_prediction)
-                
+                    training_ground_truth, training_prediction, test_ground_truth, test_prediction)
+
                 # if no test_dataset exist, we need to give it with a default value
                 if len(test_metrics_each) == 0:
                     test_metrics_each = copy.deepcopy(training_metrics_each)
@@ -638,7 +638,7 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
             fitted_pipeline2 = fitted_pipeline
             # set the metric for calculating the rank
             fitted_pipeline2.set_metric(training_metrics[0])
-            
+
         else:
             if self.quick_mode:
                 print("[INFO] Now in quick mode, will skip training with train_dataset1")
@@ -648,14 +648,14 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
             else:
                 print("[INFO] Now in normal mode, will add extra train with train_dataset1")
                 # otherwise train again with dataset_train1 and get the rank
-                fitted_pipeline2 = FittedPipeline(pipeline, self.train_dataset1.metadata.query(())['id'], 
-                    log_dir=self.log_dir, metric_descriptions=self.performance_metrics)
+                fitted_pipeline2 = FittedPipeline(pipeline, self.train_dataset1.metadata.query(())['id'],
+                                                  log_dir=self.log_dir, metric_descriptions=self.performance_metrics)
                 # retrain and compute ranking/metric using self.train_dataset
                 #fitted_pipeline2.fit(inputs = [self.train_dataset1])
-                fitted_pipeline2.fit(cache=cache, inputs = [self.train_dataset1])
+                fitted_pipeline2.fit(cache=cache, inputs=[self.train_dataset1])
 
-            fitted_pipeline2.produce(inputs = [self.test_dataset1])
-            test_ground_truth = get_target_columns(self.test_dataset1,self.problem)
+            fitted_pipeline2.produce(inputs=[self.test_dataset1])
+            test_ground_truth = get_target_columns(self.test_dataset1, self.problem)
             # Note: results == test_prediction
             test_prediction = fitted_pipeline2.get_produce_step_output(self.template.get_output_step_number())
 
@@ -667,7 +667,7 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
 
             # finally, fit the model with all data and save it
             print("[INFO] Now are training the pipeline with all dataset and saving the pipeline.")
-            fitted_pipeline2.fit(cache=cache, inputs = [self.all_dataset])
+            fitted_pipeline2.fit(cache=cache, inputs=[self.all_dataset])
             #fitted_pipeline2.fit(inputs = [self.all_dataset])
 
         if self.output_directory is not None and dump2disk:
@@ -693,9 +693,9 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
             metric: typing.Callable = metricDesc.get_function()
             params: typing.Dict = metric_description['params']
             regression_mode = metric_description["metric"] in self.regression_metric
-            try: 
-                # generate the metrics for training results           
-                if training_ground_truth is not None and training_prediction is not None: # if training data exist    
+            try:
+                # generate the metrics for training results
+                if training_ground_truth is not None and training_prediction is not None:  # if training data exist
                     if regression_mode:
                         training_metrics.append({
                             'metric': metric_description['metric'],
@@ -706,7 +706,7 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
                             )
                         })
                     else:
-                        if training_ground_truth is not None and training_prediction is not None: # if training data exist
+                        if training_ground_truth is not None and training_prediction is not None:  # if training data exist
                             training_metrics.append({
                                 'metric': metric_description['metric'],
                                 'value': metric(
@@ -715,8 +715,8 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
                                     **params
                                 )
                             })
-                # generate the metrics for testing results  
-                if test_ground_truth is not None and test_prediction is not None: # if testing data exist
+                # generate the metrics for testing results
+                if test_ground_truth is not None and test_prediction is not None:  # if testing data exist
                     # if the test_ground_truth do not have results
                     if regression_mode:
                         if test_ground_truth.iloc[0, -1] == '':
@@ -753,7 +753,7 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
         # el
         if len(test_metrics) > 1:
             print("[WARN] More than one test metrics found in one evaluation.")
-        
+
         # return the training and test metrics
         return (training_metrics, test_metrics)
 
