@@ -222,8 +222,6 @@ class Runtime:
                                 except:
                                     pass
 
-
-
         # kyao!!!!
         self.fit_outputs = primitives_outputs
 
@@ -270,7 +268,10 @@ class Runtime:
             model = primitive(hyperparams=primitive_hyperparams(primitive_hyperparams.defaults()))
 
         # kyao!!!!
-        if 'runtime' in step.primitive_description:
+        # now only run when "cross_validation" was found
+        # TODO: add one more "if" to restrict runtime to run cross validation only for tuning steps
+        # if step_number == pass_in_number
+        if 'runtime' in step.primitive_description and "cross_validation" in step.primitive_description['runtime']:
             self.cross_validation_result = self._cross_validation(
                 primitive, training_arguments, produce_params, primitive_hyperparams, custom_hyperparams,
                 step.primitive_description['runtime'])
