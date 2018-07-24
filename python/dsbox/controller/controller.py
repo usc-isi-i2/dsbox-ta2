@@ -469,9 +469,9 @@ class Controller:
 
         alpha = 0.01
         self.normalize = self.exec_history[['reward', 'exe_time', 'trial']]
-        self.normalize = (self.normalize - self.normalize.min()) / \
-                         (self.normalize.max() - self.normalize.min())
-
+        scale = (self.normalize.max() - self.normalize.min())
+        scale.replace(to_replace=0, value=1, inplace=True)
+        self.normalize = (self.normalize - self.normalize.min()) / scale
         self.normalize.clip(lower=0.01, upper=1, inplace=True)
 
         for i in range(len(self.uct_score)):
