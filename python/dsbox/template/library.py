@@ -130,9 +130,9 @@ class TemplateLibrary:
         self.templates.append(dsboxRegressionTemplate)
 
         # Tabular Regression
-        self.templates.append(dsboxClassificationTemplate)
         self.templates.append(DefaultClassificationTemplate)
         self.templates.append(RandomForestTemplate)
+        self.templates.append(dsboxClassificationTemplate)
         self.templates.append(TA1Classification_3)
         self.templates.append(MuxinTA1ClassificationTemplate1)
         self.templates.append(TA1ClassificationTemplate1)
