@@ -76,8 +76,8 @@ class TemplateLibrary:
             "SRI_Collaborative_Filtering_Template":SRICollaborativeFilteringTemplate, 
             "SRI_Community_Detection_Template":SRICommunityDetectionTemplate, 
             "UCHI_Time_Series_Classification_Template":UCHITimeSeriesClassificationTemplate, 
-            # "JHU_Graph_Matching_Template":JHUGraphMatchingTemplate, 
-            # "JHU_Vertex_Nomination_Template":JHUVertexNominationTemplate, 
+            "JHU_Graph_Matching_Template":JHUGraphMatchingTemplate, 
+            "JHU_Vertex_Nomination_Template":JHUVertexNominationTemplate, 
             "Default_Time_Series_Forcasting_Template":DefaultTimeSeriesForcastingTemplate
         }
 
