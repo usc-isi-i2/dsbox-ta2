@@ -91,7 +91,11 @@ class TemplateLibrary:
             -> \
                     typing.List[DSBoxTemplate]:
         results = []
+<<<<<<< HEAD
         results.append(SRIMeanBaselineTemplate())  # put the meanbaseline here so whatever dataset will have a result
+=======
+        results.append(SRIMeanBaselineTemplate())#put the meanbaseline here so whatever dataset will have a result
+>>>>>>> 6440f9eb990af1389f0f3dc6cea085676500349d
         for template_class in self.templates:
             template = template_class()
             # sourceType refer to d3m/container/dataset.py ("SEMANTIC_TYPES" as line 40-70)
