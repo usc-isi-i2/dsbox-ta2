@@ -95,7 +95,6 @@ def main(args):
     if 'test_data_schema' in config and config['test_data_schema'] != '':
         print("[INFO] Test data config found! Will use given test data.")
         controller.initialize_from_config(config)
-        # controller.initialize_from_config_train_test(config)
     else:
         print("[INFO] No test data config found! Will split the data.")
         controller.initialize_from_config_train_test(config)

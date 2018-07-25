@@ -768,9 +768,6 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
         # return the training and test metrics
         return (training_metrics, test_metrics)
 
-    def retrain(self,fitted_pipeline:FittedPipeline) -> FittedPipeline:
-        return fitted_pipeline
-
     def test_pickled_pipeline(self,
                               folder_loc: str,
                               pipeline_id: str,

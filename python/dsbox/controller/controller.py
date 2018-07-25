@@ -344,12 +344,12 @@ class Controller:
             self.output_logs_dir = os.path.join(self.output_supporting_files_dir, 'logs')
 
         # Make directories if they do not exist
-        if self.output_directory and not os.path.exists(self.output_directory):
+        if not os.path.exists(self.output_directory):
             os.makedirs(self.output_directory)
 
         for path in [self.output_pipelines_dir, self.output_executables_dir,
                      self.output_supporting_files_dir, self.output_logs_dir]:
-            if path and not os.path.exists(path):
+            if not os.path.exists(path):
                 os.makedirs(path)
 
         self._log_init()
@@ -404,7 +404,7 @@ class Controller:
         # if best_info and best_info['best_val']:
         best_template, best_report = max(self.exec_history.iterrows(),
                                          key=lambda r: r[1]['best_value'])
-        
+
         if best_template:
             self._logger.info("[INFO] Best template name:{}".format(best_template))
             self._logger.info("[INFO] Best value:{}".format(best_report['best_value']))
@@ -863,7 +863,7 @@ class Controller:
         d = os.path.expanduser(self.output_directory + '/pipelines')
         read_pipeline_id = self.saved_pipeline_id
         if read_pipeline_id == "":
-            self._logger.error(
+            self._logger.info(
                 "[INFO] No specified pipeline ID found, will load the latest "
                 "crated pipeline.")
             # if no pipeline ID given, load the newest created file in the
