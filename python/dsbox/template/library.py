@@ -75,6 +75,7 @@ class TemplateLibrary:
             "SRI_Vertex_Nomination_Template":SRIVertexNominationTemplate, 
             "SRI_Collaborative_Filtering_Template":SRICollaborativeFilteringTemplate, 
             "SRI_Community_Detection_Template":SRICommunityDetectionTemplate, 
+            "SRI_Mean_BaseLine_Template":SRIMeanBaselineTemplate,
             "UCHI_Time_Series_Classification_Template":UCHITimeSeriesClassificationTemplate, 
             "JHU_Graph_Matching_Template":JHUGraphMatchingTemplate, 
             "JHU_Vertex_Nomination_Template":JHUVertexNominationTemplate, 
@@ -157,6 +158,7 @@ class TemplateLibrary:
         self.templates.append(SRICollaborativeFilteringTemplate)
         self.templates.append(UCHITimeSeriesClassificationTemplate)
         self.templates.append(DefaultTimeSeriesForcastingTemplate)
+        self.templates.append(SRIMeanBaselineTemplate)
 
     def _load_single_inline_templates(self, template_name):
         if template_name in self.all_templates:
@@ -2512,3 +2514,27 @@ class DefaultTimeSeriesForcastingTemplate(DSBoxTemplate):
     # @override
     def importance(datset, problem_description):
         return 7
+
+
+
+def SRIMeanBaselineTemplate(DSBoxTemplate):
+    def __init__(self):
+        DSBoxTemplate.__init__(self)
+        self.template = {
+            "name": "SRI_Mean_Baseline_Template",
+            "taskType": "NONE",
+            "taskSubtype": "NONE",
+            "inputType": "NONE",
+            "output": "model_step",
+            "steps": [
+                {
+                    "name": "model_step",
+                    "primitives": ["d3m.primitives.sri.baseline.MeanBaseline"],
+                    "inputs": ["template_input"]
+
+                }
+            ]
+        }
+
+    def importance(dataset, problem_description):
+        return 10    
