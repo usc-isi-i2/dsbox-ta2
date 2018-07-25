@@ -70,7 +70,7 @@ def main():
         # print("*+"*10)
     elif 'test_data_root' in config:
         print("[INFO] Now in testing process")
-        controller.initialize_from_test_config_for_evaluation(config)
+        controller.initialize_from_config_for_evaluation(config)
         fitted_pipeline_id = json.load(open(os.environ["D3MTESTOPT"], 'r'))["fitted_pipeline_id"]
         status = controller.test_fitted_pipeline(fitted_pipeline_id=fitted_pipeline_id)
         print("[INFO] Testing Done")

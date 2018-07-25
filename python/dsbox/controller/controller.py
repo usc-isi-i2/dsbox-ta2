@@ -240,20 +240,6 @@ class Controller:
 
         self._logger = None
 
-    def initialize_from_test_config_for_evaluation(self, config: typing.Dict) -> None:
-        '''
-            This function for running ta2_evaluation
-        '''
-        self._load_schema(config)
-        self._create_output_directory(config)
-
-        # Dataset
-        loader = D3MDatasetLoader()
-        json_file = os.path.abspath(self.dataset_schema_file)
-        dataset_uri = 'file://{}'.format(json_file)
-        self.test_dataset = loader.load(dataset_uri=dataset_uri)
-        self.load_templates()
-
     def initialize_from_config_for_evaluation(self, config: typing.Dict) -> None:
         '''
             This function for running ta2_evaluation
@@ -266,10 +252,7 @@ class Controller:
         json_file = os.path.abspath(self.dataset_schema_file)
         all_dataset_uri = 'file://{}'.format(json_file)
         self.all_dataset = loader.load(dataset_uri=all_dataset_uri)
-        # here we still need to split the dataset to ensure we are doing right things, but we will not use dataSplits.csv to split
-        self.dataset, self.test_dataset = split_dataset(self.all_dataset, self.problem, config['problem_schema'],
-                                                        development_mode=self.development_mode)
-        self.test_dataset = runtime.add_target_columns_metadata(self.test_dataset, self.problem_doc_metadata)
+
         # load templates
         self.load_templates()
 
@@ -765,7 +748,7 @@ class Controller:
         print("[INFO] testing data:")
         # pprint(self.test_dataset.head())
         # pipeline_load.runtime.produce(inputs=[self.test_dataset])
-        run.produce(inputs=[self.test_dataset])
+        run.produce(inputs=[self.all_dataset])
         try:
             step_number_output = int(pipeline_load.pipeline.outputs[0]['data'].split('.')[1])
         except:
@@ -816,8 +799,7 @@ class Controller:
         self._logger.info("[INFO] Pipeline load finished")
 
         self._logger.info("[INFO] testing data")
-        # pprint(self.test_dataset.head())
-        # pipeline_load.runtime.produce(inputs=[self.test_dataset])
+
         run.produce(inputs=[self.all_dataset])
         try:
             step_number_output = int(pipeline_load.pipeline.outputs[0]['data'].split('.')[1])
