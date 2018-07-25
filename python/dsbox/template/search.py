@@ -188,8 +188,19 @@ class DimensionalSearch(typing.Generic[T]):
         #  dataset. In case that failed we repeat the sampling process one
         # more time to guarantee robustness on error reporting
 
-        candidate, candidate_value = \
-            self.setup_initial_candidate(candidate_in, cache, candidate_cache)
+        try:
+            candidate, candidate_value = \
+                self.setup_initial_candidate(candidate_in, cache, candidate_cache)
+        except:
+            UCT_failed = {
+                'reward': None,
+                'time': time.clock() - start_time,
+                'sim_count': 3,
+                'candidate': None,
+                'best_val': float('-inf')
+            }
+            # return (candidate, candidate_value)
+            return UCT_failed
 
         sim_counter += 1
         # generate an executable pipeline with random steps from conf. space.

@@ -62,7 +62,7 @@ CONSOLE_FORMATTER = "[%(levelname)s] - %(name)s - %(message)s"
 
 def auto_regress_convert(dataset: "Dataset", problem: "Metadata"):
     '''
-        do auto convert for timeseriesforecasting prob
+    do auto convert for timeseriesforecasting prob
     '''
     problem = problem.query(())
     targets = problem["inputs"]["data"][0]["targets"]
@@ -74,7 +74,6 @@ def auto_regress_convert(dataset: "Dataset", problem: "Metadata"):
         meta = dict(dataset.metadata.query((resID, ALL_ELEMENTS, colIndex)))
         meta["structural_type"] = float
         dataset.metadata = dataset.metadata.update((resID, ALL_ELEMENTS, colIndex), meta)
-
     return dataset
 
 
@@ -311,10 +310,7 @@ class Controller:
         self.num_cpus = int(config.get('cpus', 0))
         self.ram = config.get('ram', 0)
         self.timeout = (config.get('timeout', self.TIMEOUT)) * 60
-        try:
-            self.saved_pipeline_id = config['saved_pipeline_ID']
-        except:
-            self.saved_pipeline_id = ""
+        self.saved_pipeline_id = config.get('saved_pipeline_ID', "")
 
     # def _generate_problem_info(self,problem):
         for i in range(len(self.problem['inputs'])):
@@ -402,39 +398,21 @@ class Controller:
         # load trained pipelines
         self._logger.info("[WARN] write_training_results")
 
+        if len(self.exec_history) == 0:
+            return None
+
+        # if best_info and best_info['best_val']:
+        best_template, best_report = max(self.exec_history.iterrows(),
+                                         key=lambda r: r[1]['best_value'])
+        
+        if best_template:
+            self._logger.info("[INFO] Best template name:{}".format(best_template))
+            self._logger.info("[INFO] Best value:{}".format(best_report['best_value']))
+            self._logger.info("[INFO] Best Candidate:{}".format(
+                pprint.pformat(best_report['candidate'])))
         return None
 
-        d = self.output_pipelines_dir
-        # for now, the program will automatically load the newest created file in the folder
-        files = [os.path.join(d, f) for f in os.listdir(d)]
-        exec_pipelines = []
-        for f in files:
-            fname = f.split('/')[-1].split('.')[0]
-            pipeline_load = FittedPipeline.load(folder_loc=self.output_executables_dir,
-                                                pipeline_id=fname,
-                                                dataset=self.dataset,
-                                                log_dir=self.output_logs_dir)
-            exec_pipelines.append(pipeline_load)
 
-        self._logger.info("[INFO] wtr: %s",exec_pipelines)
-        # sort the pipelins
-        # TODO add the sorter method
-        # self.exec_pipelines = self.get_pipeline_sorter().sort_pipelines(self.exec_pipelines)
-
-        # write the results
-        pipelinesfile = open("somefile.ext",'W+') # TODO check this address
-        self._logger.info("Found total %d successfully executing pipeline(s)..." % len(exec_pipelines))
-        pipelinesfile.write("# Pipelines ranked by (adjusted) metrics (%s)\n" % self.problem.metrics)
-        for pipe in exec_pipelines:
-            metric_values = []
-            for metric in pipe.planner_result.metric_values.keys():
-                metric_value = pipe.planner_result.metric_values[metric]
-                metric_values.append("%s = %2.4f" % (metric, metric_value))
-
-            pipelinesfile.write("%s ( %s ) : %s\n" % (pipe.id, pipe, metric_values))
-
-        pipelinesfile.flush()
-        pipelinesfile.close()
 
     def search_template(self, template: DSBoxTemplate, candidate: typing.Dict=None,
                         cache_bundle: typing.Tuple[typing.Dict, typing.Dict]=(None, None)) \
@@ -462,7 +440,7 @@ class Controller:
         # assert "fitted_pipe" in candidate, "argument error!"
         if candidate is None:
             self._logger.error("[ERROR] not candidate!")
-            return Status.PROBLEM_NOT_IMPLEMENT
+            return report  # return Status.PROBLEM_NOT_IMPLEMENT
         else:
             self._logger.info("******************\n[INFO] Writing results")
             pprint.pprint(candidate.data)
@@ -515,15 +493,15 @@ class Controller:
         for i in choices:
             yield i
 
-        # # print("[INFO] Choices:", choices)
-        # # UCT based evaluation
-        # for i in range(max_iter):
-        #     valids = list(filter(lambda t: t[1] is not None,
-        #                          zip(choices, self.uct_score)))
-        #     _choices = list(map(lambda t: t[0], valids))
-        #     _weights = list(map(lambda t: t[1], valids))
-        #     selected = random_choices_without_replacement(_choices, _weights, 1)
-        #     yield selected[0]
+        # print("[INFO] Choices:", choices)
+        # UCT based evaluation
+        for i in range(max_iter):
+            valids = list(filter(lambda t: t[1] is not None,
+                                 zip(choices, self.uct_score)))
+            _choices = list(map(lambda t: t[0], valids))
+            _weights = list(map(lambda t: t[1], valids))
+            selected = random_choices_without_replacement(_choices, _weights, 1)
+            yield selected[0]
 
     def update_UCT_score(self, index: int, report: typing.Dict):
         self.update_history(index, report)
@@ -544,17 +522,18 @@ class Controller:
         self.total_run += report['sim_count']
         self.total_time += report['time']
         row = self.exec_history.iloc[index]
-
         update = {
-            'reward': (
-                (row['reward'] * row['trial'] + report['reward'] * report['sim_count']) /
-                (row['trial'] + report['sim_count'])
-            ),
             'trial': row['trial'] + report['sim_count'],
             'exe_time': row['exe_time'] + report['time'],
             'candidate': report['candidate'],
-            'best_value': max(report['reward'], row['best_value'])
         }
+        if report['reward'] is not None:
+            update['reward'] = (
+                    (row['reward'] * row['trial'] + report['reward'] * report['sim_count']) /
+                    (row['trial'] + report['sim_count'])
+            )
+            update['best_value'] = max(report['reward'], row['best_value'])
+
         for k in update:
             self.exec_history.iloc[index][k] = update[k]
 
@@ -614,7 +593,6 @@ class Controller:
         # For now just use the first template
         # TODO: sample based on DSBoxTemplate.importance()
         # template = self.template[0]
-        best_report = None
         self.all_dataset = remove_empty_targets(self.all_dataset, self.problem_doc_metadata)
         self.all_dataset = auto_regress_convert(self.all_dataset, self.problem_doc_metadata)
         runtime.add_target_columns_metadata(self.all_dataset, self.problem_doc_metadata)        
@@ -625,7 +603,9 @@ class Controller:
         if len(self.train_dataset1) == 1:
             self.train_dataset1 = self.train_dataset1[0]
         else:
-            self._logger.error("Some error happend with all_dataset split: The length of splitted dataset is not 1 but %s",len(self.train_dataset1))
+            self._logger.error("Some error happend with all_dataset split: "
+                               "The length of splitted dataset is not 1 but %s",
+                               len(self.train_dataset1))
 
         if len(self.test_dataset1) == 1:
             self.test_dataset1 = self.test_dataset1[0]
@@ -662,20 +642,18 @@ class Controller:
                 self._logger.exception("search_template failed on {} with UCT: {}".format(
                     template.template['name'], self.uct_score))
                 traceback.print_exc()
-                report = {
-
-                }
+                # report = {
+                #
+                # }
                 continue
-            self._logger.info(STYLE + "[INFO] report: %s", report['best_val'])
+            self._logger.info(STYLE + "[INFO] report: %s" + str(report['best_val']))
             self.update_UCT_score(index=idx, report=report)
             self._logger.info(STYLE+"[INFO] cache size: " + str(len(cache))+
                   ", candidates: " + str(len(candidate_cache)))
 
             # break
 
-        # if best_info and best_info['best_val']:
-        best_template, best_report = max(self.exec_history.iterrows(),
-                                         key=lambda r: r[1]['best_value'])
+
 
         # shutdown the cache manager
         manager.shutdown()
