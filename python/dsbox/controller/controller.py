@@ -151,6 +151,7 @@ def split_dataset(dataset, problem_info: typing.Dict, problem_loc=None, *, rando
     for each in data_type:
         if each in list_cannot_split:
             cannot_split = True
+            break
 
     # if the dataset type in the list that we should not split     
     if cannot_split:
@@ -158,6 +159,7 @@ def split_dataset(dataset, problem_info: typing.Dict, problem_loc=None, *, rando
         # just return all dataset to train part
             train_return.append(dataset)
             test_return.append(None)
+            
     # if the dataset type can be split
     else:
         if task_type == 'CLASSIFICATION':
@@ -312,7 +314,6 @@ class Controller:
         try:
             self.saved_pipeline_id = config['saved_pipeline_ID']
         except:
-            self._logger.error("[Warning] Config does not have saved_pipeline_ID. Using '' instead (empty str)")
             self.saved_pipeline_id = ""
 
     # def _generate_problem_info(self,problem):
@@ -836,7 +837,7 @@ class Controller:
 
         self._logger.info("[INFO] Pipeline load finished")
 
-        self._logger.info("[INFO] testing data:")
+        self._logger.info("[INFO] testing data")
         # pprint(self.test_dataset.head())
         # pipeline_load.runtime.produce(inputs=[self.test_dataset])
         run.produce(inputs=[self.all_dataset])
@@ -884,7 +885,7 @@ class Controller:
         d = os.path.expanduser(self.output_directory + '/pipelines')
         read_pipeline_id = self.saved_pipeline_id
         if read_pipeline_id == "":
-            self._logger.info(
+            self._logger.error(
                 "[INFO] No specified pipeline ID found, will load the latest "
                 "crated pipeline.")
             # if no pipeline ID given, load the newest created file in the
