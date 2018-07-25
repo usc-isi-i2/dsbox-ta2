@@ -432,7 +432,7 @@ class Controller:
         # assert "fitted_pipe" in candidate, "argument error!"
         if candidate is None:
             self._logger.error("[ERROR] not candidate!")
-            return Status.PROBLEM_NOT_IMPLEMENT
+            return report  # return Status.PROBLEM_NOT_IMPLEMENT
         else:
             self._logger.info("******************\n[INFO] Writing results")
             pprint.pprint(candidate.data)
@@ -514,17 +514,18 @@ class Controller:
         self.total_run += report['sim_count']
         self.total_time += report['time']
         row = self.exec_history.iloc[index]
-
         update = {
-            'reward': (
-                (row['reward'] * row['trial'] + report['reward'] * report['sim_count']) /
-                (row['trial'] + report['sim_count'])
-            ),
             'trial': row['trial'] + report['sim_count'],
             'exe_time': row['exe_time'] + report['time'],
             'candidate': report['candidate'],
-            'best_value': max(report['reward'], row['best_value'])
         }
+        if report['reward'] is not None:
+            update['reward'] = (
+                    (row['reward'] * row['trial'] + report['reward'] * report['sim_count']) /
+                    (row['trial'] + report['sim_count'])
+            )
+            update['best_value'] = max(report['reward'], row['best_value'])
+
         for k in update:
             self.exec_history.iloc[index][k] = update[k]
 
@@ -633,11 +634,11 @@ class Controller:
                 self._logger.exception("search_template failed on {} with UCT: {}".format(
                     template.template['name'], self.uct_score))
                 traceback.print_exc()
-                report = {
-
-                }
+                # report = {
+                #
+                # }
                 continue
-            self._logger.info(STYLE + "[INFO] report: %s", report['best_val'])
+            self._logger.info(STYLE + "[INFO] report: %s" + str(report['best_val']))
             self.update_UCT_score(index=idx, report=report)
             self._logger.info(STYLE+"[INFO] cache size: " + str(len(cache))+
                   ", candidates: " + str(len(candidate_cache)))
