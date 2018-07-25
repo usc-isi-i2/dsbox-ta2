@@ -106,6 +106,32 @@ def main(args):
     return status.value
 
 
+class StdoutLogger(object):
+    def __init__(self, f):
+        self.terminal = sys.stdout
+        self.log = f
+
+    def write(self, message):
+        self.terminal.write(message)
+        self.log.write(message)
+
+    def flush(self):
+        self.log.flush()
+
+
+class StderrLogger(object):
+    def __init__(self, f):
+        self.err = sys.stderr
+        self.log = f
+
+    def write(self, message):
+        self.err.write(message)
+        self.log.write(message)
+
+    def flush(self):
+        self.log.flush()
+
+
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(
@@ -126,8 +152,26 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
+    config = json.load(open(args.configuration_file, "r"))
+    if 'logs_root' in config:
+        std_dir = os.path.abspath(config['logs_root'])
+    else:
+        std_dir = os.path.join(config['temp_storage_root'], 'logs')
+
+    orig_stdout = sys.stdout
+    orig_stderr = sys.stderr
+    f = open(os.path.join(std_dir, 'out.txt'), 'w')
+
+    sys.stdout = StdoutLogger(f)
+    sys.stderr = StderrLogger(f)
+
     print(args)
 
     result = main(args)
+    sys.stdout = orig_stdout
+    sys.stderr = orig_stderr
+
+    f.close()
+
     os._exit(result)
 _exit(result)
