@@ -91,6 +91,7 @@ class TemplateLibrary:
             -> \
     typing.List[DSBoxTemplate]:
         results = []
+        results.append(SRIMeanBaselineTemplate())#put the meanbaseline here so whatever dataset will have a result
         for template_class in self.templates:
             template = template_class()
             # sourceType refer to d3m/container/dataset.py ("SEMANTIC_TYPES" as line 40-70)
@@ -119,6 +120,7 @@ class TemplateLibrary:
             for each_template in results:
                 print("Template '", each_template.template["name"],
                       "' has been added to template base.")
+
         return results
 
     def _load_library(self):
@@ -2517,7 +2519,7 @@ class DefaultTimeSeriesForcastingTemplate(DSBoxTemplate):
 
 
 
-def SRIMeanBaselineTemplate(DSBoxTemplate):
+class SRIMeanBaselineTemplate(DSBoxTemplate):
     def __init__(self):
         DSBoxTemplate.__init__(self)
         self.template = {
