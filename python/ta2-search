@@ -158,6 +158,8 @@ if __name__ == "__main__":
     else:
         std_dir = os.path.join(config['temp_storage_root'], 'logs')
 
+    os.makedirs(std_dir, exist_ok=True)
+
     orig_stdout = sys.stdout
     orig_stderr = sys.stderr
     f = open(os.path.join(std_dir, 'out.txt'), 'w')
