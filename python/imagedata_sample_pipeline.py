@@ -76,9 +76,9 @@ step_3.add_argument('inputs', ArgumentType.CONTAINER, to_tensor_produce)
 to_vgg_produce = step_3.add_output('produce')
 '''
 # define the location of the description file of the dataset which should be a json
-# dataset_file_path = '/Users/minazuki/Desktop/studies/master/2018Summer/DSBOX/data/datasets/seed_datasets_current/22_handgeometry/22_handgeometry_dataset/datasetDoc.json'
-dataset_file_path =  '/Users/minazuki/Desktop/studies/master/2018Summer/data/66_chlorineConcentration/TRAIN/dataset_TRAIN/datasetDoc.json'
-#dataset_file_path = '/Users/minazuki/Desktop/studies/master/2018Summer/data/38_sick_new/38_sick_dataset/datasetDoc.json'
+#dataset_file_path = '/Users/minazuki/Desktop/studies/master/2018Summer/DSBOX/data/datasets/seed_datasets_current/22_handgeometry/22_handgeometry_dataset/datasetDoc.json'
+#dataset_file_path =  '/Users/minazuki/Desktop/studies/master/2018Summer/data/66_chlorineConcentration/TRAIN/dataset_TRAIN/datasetDoc.json'
+dataset_file_path = '/Users/minazuki/Desktop/studies/master/2018Summer/data/datasets/seed_datasets_current/38_sick/38_sick_dataset/datasetDoc.json'
 
 # step 0: load the dataset description file
 dataset = D3MDatasetLoader()
