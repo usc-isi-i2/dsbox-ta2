@@ -387,41 +387,21 @@ class Controller:
         # load trained pipelines
         self._logger.info("[WARN] write_training_results")
 
+        if len(self.exec_history) == 0:
+            return None
+
+        # if best_info and best_info['best_val']:
+        best_template, best_report = max(self.exec_history.iterrows(),
+                                         key=lambda r: r[1]['best_value'])
+
+        if best_template:
+            self._logger.info("[INFO] Best template name:{}".format(best_template))
+            self._logger.info("[INFO] Best value:{}".format(best_report['best_value']))
+            self._logger.info("[INFO] Best Candidate:{}".format(
+                pprint.pformat(best_report['candidate'])))
         return None
 
-        d = self.output_pipelines_dir
-        # for now, the program will automatically load the newest created file in the folder
-        files = [os.path.join(d, f) for f in os.listdir(d)]
-        exec_pipelines = []
-        for f in files:
-            fname = f.split('/')[-1].split('.')[0]
-            pipeline_load = FittedPipeline.load(folder_loc=self.output_executables_dir,
-                                                pipeline_id=fname,
-                                                dataset=self.dataset,
-                                                log_dir=self.output_logs_dir)
-            exec_pipelines.append(pipeline_load)
 
-
-
-        self._logger.info("[INFO] wtr: %s",exec_pipelines)
-        # sort the pipelins
-        # TODO add the sorter method
-        # self.exec_pipelines = self.get_pipeline_sorter().sort_pipelines(self.exec_pipelines)
-
-        # write the results
-        pipelinesfile = open("somefile.ext",'W+') # TODO check this address
-        self._logger.info("Found total %d successfully executing pipeline(s)..." % len(exec_pipelines))
-        pipelinesfile.write("# Pipelines ranked by (adjusted) metrics (%s)\n" % self.problem.metrics)
-        for pipe in exec_pipelines:
-            metric_values = []
-            for metric in pipe.planner_result.metric_values.keys():
-                metric_value = pipe.planner_result.metric_values[metric]
-                metric_values.append("%s = %2.4f" % (metric, metric_value))
-
-            pipelinesfile.write("%s ( %s ) : %s\n" % (pipe.id, pipe, metric_values))
-
-        pipelinesfile.flush()
-        pipelinesfile.close()
 
     def search_template(self, template: DSBoxTemplate, candidate: typing.Dict=None,
                         cache_bundle: typing.Tuple[typing.Dict, typing.Dict]=(None, None)) \
@@ -505,15 +485,15 @@ class Controller:
         for i in choices:
             yield i
 
-        # # print("[INFO] Choices:", choices)
-        # # UCT based evaluation
-        # for i in range(max_iter):
-        #     valids = list(filter(lambda t: t[1] is not None,
-        #                          zip(choices, self.uct_score)))
-        #     _choices = list(map(lambda t: t[0], valids))
-        #     _weights = list(map(lambda t: t[1], valids))
-        #     selected = random_choices_without_replacement(_choices, _weights, 1)
-        #     yield selected[0]
+        # print("[INFO] Choices:", choices)
+        # UCT based evaluation
+        for i in range(max_iter):
+            valids = list(filter(lambda t: t[1] is not None,
+                                 zip(choices, self.uct_score)))
+            _choices = list(map(lambda t: t[0], valids))
+            _weights = list(map(lambda t: t[1], valids))
+            selected = random_choices_without_replacement(_choices, _weights, 1)
+            yield selected[0]
 
     def update_UCT_score(self, index: int, report: typing.Dict):
         self.update_history(index, report)
@@ -604,7 +584,6 @@ class Controller:
         # For now just use the first template
         # TODO: sample based on DSBoxTemplate.importance()
         # template = self.template[0]
-        best_report = None
         self.all_dataset = remove_empty_targets(self.all_dataset, self.problem_doc_metadata)
         self.all_dataset = auto_regress_convert(self.all_dataset, self.problem_doc_metadata)
         runtime.add_target_columns_metadata(self.all_dataset, self.problem_doc_metadata)        
@@ -615,7 +594,9 @@ class Controller:
         if len(self.train_dataset1) == 1:
             self.train_dataset1 = self.train_dataset1[0]
         else:
-            self._logger.error("Some error happend with all_dataset split: The length of splitted dataset is not 1 but %s",len(self.train_dataset1))
+            self._logger.error("Some error happend with all_dataset split: "
+                               "The length of splitted dataset is not 1 but %s",
+                               len(self.train_dataset1))
 
         if len(self.test_dataset1) == 1:
             self.test_dataset1 = self.test_dataset1[0]
@@ -663,9 +644,7 @@ class Controller:
 
             # break
 
-        # if best_info and best_info['best_val']:
-        best_template, best_report = max(self.exec_history.iterrows(),
-                                         key=lambda r: r[1]['best_value'])
+
 
         # shutdown the cache manager
         manager.shutdown()
