@@ -61,6 +61,9 @@ CONSOLE_FORMATTER = "[%(levelname)s] - %(name)s - %(message)s"
 
 
 def auto_regress_convert(dataset: "Dataset", problem: "Metadata"):
+    '''
+    do auto convert for timeseriesforecasting prob
+    '''
 
     problem = problem.query(())
     targets = problem["inputs"]["data"][0]["targets"]
@@ -69,10 +72,9 @@ def auto_regress_convert(dataset: "Dataset", problem: "Metadata"):
 
     if problem["about"]["taskType"] == "timeSeriesForecasting":
         dataset[resID].iloc[:, colIndex].astype(float)
-    meta = dict(dataset.metadata.query((resID, ALL_ELEMENTS, colIndex)))
-    meta["structural_type"] = float
-    dataset.metadata = dataset.metadata.update((resID, ALL_ELEMENTS, colIndex), meta)
-    pprint.pprint(dict(dataset.metadata.query((resID, ALL_ELEMENTS, colIndex))))
+        meta = dict(dataset.metadata.query((resID, ALL_ELEMENTS, colIndex)))
+        meta["structural_type"] = float
+        dataset.metadata = dataset.metadata.update((resID, ALL_ELEMENTS, colIndex), meta)
     return dataset
 
 
@@ -97,7 +99,6 @@ def remove_empty_targets(dataset: "Dataset", problem: "Metadata"):
         meta['dimension'] = dimension
         dimension['length'] = dataset[resID].shape[0]
         dataset.metadata = dataset.metadata.update((resID,), meta)
-        pprint.pprint(dict(dataset.metadata.query((resID,))))
 
     return dataset
 
@@ -300,11 +301,7 @@ class Controller:
         self.num_cpus = int(config.get('cpus', 0))
         self.ram = config.get('ram', 0)
         self.timeout = (config.get('timeout', self.TIMEOUT)) * 60
-        try:
-            self.saved_pipeline_id = config['saved_pipeline_ID']
-        except:
-            self._logger.error("[Warning] Config does not have saved_pipeline_ID. Using '' instead (empty str)")
-            self.saved_pipeline_id = ""
+        self.saved_pipeline_id = config.get('saved_pipeline_ID', "")
 
     # def _generate_problem_info(self,problem):
         for i in range(len(self.problem['inputs'])):
