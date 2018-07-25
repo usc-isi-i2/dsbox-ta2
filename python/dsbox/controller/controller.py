@@ -21,6 +21,7 @@ if spam_spec is not None:
     init(autoreset=True)
 
 import numpy as np
+import pandas as pd
 import d3m
 import dsbox.template.runtime as runtime
 
@@ -70,8 +71,8 @@ def auto_regress_convert(dataset: "Dataset", problem: "Metadata"):
     resID = targets[0]["resID"]
     colIndex = targets[0]["colIndex"]
 
-    if problem["about"]["taskType"] == "timeSeriesForecasting":
-        dataset[resID].iloc[:, colIndex].astype(float)
+    if problem["about"]["taskType"] == "timeSeriesForecasting" or problem["about"]["taskType"] == "regression":
+        dataset[resID].iloc[:, colIndex] = pd.to_numeric(dataset[resID].iloc[:, colIndex], downcast = "float", errors = "coerce")
         meta = dict(dataset.metadata.query((resID, ALL_ELEMENTS, colIndex)))
         meta["structural_type"] = float
         dataset.metadata = dataset.metadata.update((resID, ALL_ELEMENTS, colIndex), meta)
@@ -638,7 +639,7 @@ class Controller:
                 #
                 # }
                 continue
-            self._logger.info(STYLE + "[INFO] report: %s" + str(report['best_val']))
+            self._logger.info(STYLE + "[INFO] report: " + str(report['best_val']))
             self.update_UCT_score(index=idx, report=report)
             self._logger.info(STYLE+"[INFO] cache size: " + str(len(cache))+
                   ", candidates: " + str(len(candidate_cache)))

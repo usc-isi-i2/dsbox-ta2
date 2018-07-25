@@ -54,6 +54,7 @@ class TemplateLibrary:
             'random_forest_template': RandomForestTemplate,
             "Default_classification_template": DefaultClassificationTemplate,
             "dsbox_classification_template": dsboxClassificationTemplate,
+            "DSBox_regression_template": dsboxRegressionTemplate,
             "Default_regression_template": DefaultRegressionTemplate,
             "Default_timeseries_collection_template": DefaultTimeseriesCollectionTemplate,
             "Default_image_processing_regression_template":
