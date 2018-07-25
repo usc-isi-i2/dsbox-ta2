@@ -276,7 +276,7 @@ class Controller:
         # self.test_dataset = runtime.add_target_columns_metadata(self.test_dataset, self.problem_doc_metadata)
 
         # Templates
-        self.load_templates()
+        #self.load_templates()
 
     def _load_schema(self, config):
         # config
@@ -332,7 +332,7 @@ class Controller:
 
         for path in [self.output_pipelines_dir, self.output_executables_dir,
                      self.output_supporting_files_dir, self.output_logs_dir]:
-            if not os.path.exists(path):
+            if not os.path.exists(path) and path != '':
                 os.makedirs(path)
 
         self._log_init()
@@ -773,7 +773,7 @@ class Controller:
 
         # if the prediction results do not have d3m_index column
         if 'd3mIndex' not in prediction.columns:
-            d3m_index = get_target_columns(self.test_dataset, self.problem_doc_metadata)["d3mIndex"]
+            d3m_index = get_target_columns(self.all_dataset, self.problem_doc_metadata)["d3mIndex"]
             d3m_index = d3m_index.reset_index().drop(columns=['index'])
             prediction_col_name = prediction.columns[0]
             prediction['d3mIndex'] = d3m_index
