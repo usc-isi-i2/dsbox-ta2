@@ -301,11 +301,7 @@ class Controller:
         self.num_cpus = int(config.get('cpus', 0))
         self.ram = config.get('ram', 0)
         self.timeout = (config.get('timeout', self.TIMEOUT)) * 60
-        try:
-            self.saved_pipeline_id = config['saved_pipeline_ID']
-        except:
-            self._logger.error("[Warning] Config does not have saved_pipeline_ID. Using '' instead (empty str)")
-            self.saved_pipeline_id = ""
+        self.saved_pipeline_id = config.get('saved_pipeline_ID', "")
 
     # def _generate_problem_info(self,problem):
         for i in range(len(self.problem['inputs'])):

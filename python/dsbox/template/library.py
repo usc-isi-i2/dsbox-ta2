@@ -75,9 +75,10 @@ class TemplateLibrary:
             "SRI_Vertex_Nomination_Template": SRIVertexNominationTemplate,
             "SRI_Collaborative_Filtering_Template": SRICollaborativeFilteringTemplate,
             "SRI_Community_Detection_Template": SRICommunityDetectionTemplate,
+            "SRI_Mean_BaseLine_Template": SRIMeanBaselineTemplate,
             "UCHI_Time_Series_Classification_Template": UCHITimeSeriesClassificationTemplate,
-            # "JHU_Graph_Matching_Template":JHUGraphMatchingTemplate, 
-            # "JHU_Vertex_Nomination_Template":JHUVertexNominationTemplate, 
+            "JHU_Graph_Matching_Template": JHUGraphMatchingTemplate,
+            "JHU_Vertex_Nomination_Template": JHUVertexNominationTemplate,
             "Default_Time_Series_Forcasting_Template": DefaultTimeSeriesForcastingTemplate
         }
 
@@ -90,6 +91,7 @@ class TemplateLibrary:
             -> \
                     typing.List[DSBoxTemplate]:
         results = []
+        results.append(SRIMeanBaselineTemplate())  # put the meanbaseline here so whatever dataset will have a result
         for template_class in self.templates:
             template = template_class()
             # sourceType refer to d3m/container/dataset.py ("SEMANTIC_TYPES" as line 40-70)
@@ -118,6 +120,7 @@ class TemplateLibrary:
             for each_template in results:
                 print("Template '", each_template.template["name"],
                       "' has been added to template base.")
+
         return results
 
     def _load_library(self):
@@ -157,6 +160,7 @@ class TemplateLibrary:
         self.templates.append(SRICollaborativeFilteringTemplate)
         self.templates.append(UCHITimeSeriesClassificationTemplate)
         self.templates.append(DefaultTimeSeriesForcastingTemplate)
+        self.templates.append(SRIMeanBaselineTemplate)
 
     def _load_single_inline_templates(self, template_name):
         if template_name in self.all_templates:
@@ -2519,3 +2523,26 @@ class DefaultTimeSeriesForcastingTemplate(DSBoxTemplate):
     # @override
     def importance(datset, problem_description):
         return 7
+
+
+class SRIMeanBaselineTemplate(DSBoxTemplate):
+    def __init__(self):
+        DSBoxTemplate.__init__(self)
+        self.template = {
+            "name": "SRI_Mean_Baseline_Template",
+            "taskType": "NONE",
+            "taskSubtype": "NONE",
+            "inputType": "NONE",
+            "output": "model_step",
+            "steps": [
+                {
+                    "name": "model_step",
+                    "primitives": ["d3m.primitives.sri.baseline.MeanBaseline"],
+                    "inputs": ["template_input"]
+
+                }
+            ]
+        }
+
+    def importance(dataset, problem_description):
+        return 10    
