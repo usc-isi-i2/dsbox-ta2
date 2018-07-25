@@ -277,7 +277,7 @@ class Controller:
         # self.test_dataset = runtime.add_target_columns_metadata(self.test_dataset, self.problem_doc_metadata)
 
         # Templates
-        #self.load_templates()
+        self.load_templates()
 
     def _load_schema(self, config):
         # config
