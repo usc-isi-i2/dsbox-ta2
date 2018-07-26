@@ -154,13 +154,13 @@ def split_dataset(dataset, problem_info: typing.Dict, problem_loc=None, *, rando
             cannot_split = True
             break
 
-    if !cannot_split:    
+    if not cannot_split:    
     # check second time if the program think we still can split    
         for each in task_type:
             if each not in task_type_can_split:
                 cannot_split = True
                 break
-                
+
     # if the dataset type in the list that we should not split
     if cannot_split:
         for i in range(n_splits):
