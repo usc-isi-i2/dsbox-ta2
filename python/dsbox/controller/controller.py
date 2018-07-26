@@ -105,12 +105,13 @@ def remove_empty_targets(dataset: "Dataset", problem: "Metadata"):
 
 def split_dataset(dataset, problem_info: typing.Dict, problem_loc=None, *, random_state=42, test_size=0.2, n_splits=1):
     '''
-    Split dataset into training and test
+        Split dataset into training and test
     '''
 
     # hard coded unsplit dataset type
     # TODO: check whether "speech" type should be put into this list or not
-    list_cannot_split = ["graph","edgeList", "audio"]
+    data_type_cannot_split = ["graph","edgeList", "audio"]
+    task_type_can_split = ["classification","regression"]
 
     task_type = problem_info["task_type"]#['problem']['task_type'].name  # 'classification' 'regression'
 
@@ -149,10 +150,17 @@ def split_dataset(dataset, problem_info: typing.Dict, problem_loc=None, *, rando
     cannot_split = False
 
     for each in data_type:
-        if each in list_cannot_split:
+        if each in data_type_cannot_split:
             cannot_split = True
             break
 
+    if !cannot_split:    
+    # check second time if the program think we still can split    
+        for each in task_type:
+            if each not in task_type_can_split:
+                cannot_split = True
+                break
+                
     # if the dataset type in the list that we should not split
     if cannot_split:
         for i in range(n_splits):
@@ -198,7 +206,7 @@ class Status(enum.Enum):
 class Controller:
     TIMEOUT = 59  # in minutes
 
-    def __init__(self, development_mode: bool = False, run_single_template_name: str = "") -> None:
+    def __init__(self, development_mode: bool = False, run_single_template_name: str = "dsboxClassificationTemplate") -> None:
         self.development_mode: bool = development_mode
 
         self.run_single_template_name = run_single_template_name
