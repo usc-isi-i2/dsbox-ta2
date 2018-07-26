@@ -89,13 +89,13 @@ class TemplateLibrary:
     def get_templates(self, task: TaskType, subtype: TaskSubtype, taskSourceType: SEMANTIC_TYPES)\
             -> typing.List[DSBoxTemplate]:
         results = []
-        results.append(SRIMeanBaselineTemplate())  # put the meanbaseline here so whatever dataset will have a result
+        # results.append(SRIMeanBaselineTemplate())  # put the meanbaseline here so whatever dataset will have a result
         for template_class in self.templates:
             template = template_class()
             # sourceType refer to d3m/container/dataset.py ("SEMANTIC_TYPES" as line 40-70)
             # taskType and taskSubtype refer to d3m/
             if task.name in template.template['taskType'] and subtype.name in template.template[
-                'taskSubtype']:
+                    'taskSubtype']:
                 # if there is only one task source type which is table, we don't need to check
                 # other things
                 if {"table"} == taskSourceType and template.template['inputType'] == "table":
@@ -130,19 +130,17 @@ class TemplateLibrary:
 
         # self.templates.append(RandomForestTemplate)
         # Tabular Classification
-        self.templates.append(DefaultRegressionTemplate)
-        self.templates.append(dsboxRegressionTemplate)
-        self.templates.append(UU3TestTemplate)
-
-        # Tabular Regression
         self.templates.append(DefaultClassificationTemplate)
         self.templates.append(RandomForestTemplate)
         self.templates.append(dsboxClassificationTemplate)
         self.templates.append(TA1Classification_3)
         self.templates.append(MuxinTA1ClassificationTemplate1)
-        self.templates.append(SRIGraphMatchingTemplate)
-        self.templates.append(SRIVertexNominationTemplate)
+        self.templates.append(UU3TestTemplate)
         self.templates.append(TA1ClassificationTemplate1)
+
+        # Tabular Regression
+        self.templates.append(dsboxRegressionTemplate)
+        self.templates.append(DefaultRegressionTemplate)
 
         # Image Regression
         self.templates.append(DefaultImageProcessingRegressionTemplate)
@@ -152,6 +150,8 @@ class TemplateLibrary:
         self.templates.append(DefaultTimeseriesCollectionTemplate)
         self.templates.append(DefaultTextClassificationTemplate)
         self.templates.append(SRICommunityDetectionTemplate)
+        self.templates.append(SRIGraphMatchingTemplate)
+        self.templates.append(SRIVertexNominationTemplate)
         self.templates.append(JHUVertexNominationTemplate)
         self.templates.append(JHUGraphMatchingTemplate)
         self.templates.append(BBNAudioClassificationTemplate)
@@ -297,14 +297,14 @@ def classifier_model(feature_name: str = "impute_step",
                             {
                                 'C': [(1), (10), (100)],  # (10), #
                             }
-                    }, {
+                }, {
                         "primitive":
                             "d3m.primitives.sklearn_wrap.SKMultinomialNB",
                         "hyperparameters":
                             {
                                 'alpha': [(1)],
                             }
-                    },
+                },
                 ],
                 "inputs": [feature_name, target_name]
             }
@@ -1017,7 +1017,7 @@ class TA1VggImageProcessingRegressionTemplate(DSBoxTemplate):
         self.template = {
             "name": "TA1VggImageProcessingRegressionTemplate",
             "taskType": TaskType.REGRESSION.name,
-        # See TaskType, range include 'CLASSIFICATION', 'CLUSTERING', 'COLLABORATIVE_FILTERING', 'COMMUNITY_DETECTION', 'GRAPH_CLUSTERING', 'GRAPH_MATCHING', 'LINK_PREDICTION', 'REGRESSION', 'TIME_SERIES_FORECASTING', 'VERTEX_NOMINATION'
+            # See TaskType, range include 'CLASSIFICATION', 'CLUSTERING', 'COLLABORATIVE_FILTERING', 'COMMUNITY_DETECTION', 'GRAPH_CLUSTERING', 'GRAPH_MATCHING', 'LINK_PREDICTION', 'REGRESSION', 'TIME_SERIES_FORECASTING', 'VERTEX_NOMINATION'
             "taskSubtype": {TaskSubtype.UNIVARIATE.name, TaskSubtype.MULTIVARIATE.name},
             "inputType": "image",  # See SEMANTIC_TYPES.keys() for range of values
             "output": "regressor_step",  # Name of the final step generating the prediction
@@ -1183,6 +1183,11 @@ class TA1ClassificationTemplate1(DSBoxTemplate):
                     "inputs": ["denormalize_step"]
                 },
                 {
+                    "name": "encode_step",
+                    "primitives": ["d3m.primitives.data.UnseenLabelEncoder"],  # modified for UnseenLabelEncoder
+                    "inputs": ["to_dataframe_step"]
+                },
+                {
                     "name": "extract_attribute_step",
                     "primitives": [{
                         "primitive": "d3m.primitives.data.ExtractColumnsBySemanticTypes",
@@ -1194,7 +1199,7 @@ class TA1ClassificationTemplate1(DSBoxTemplate):
                                 'exclude_columns': ()
                             }
                     }],
-                    "inputs": ["to_dataframe_step"]
+                    "inputs": ["encode_step"]
                 },
                 {
                     "name": "extract_target_step",
@@ -1209,17 +1214,17 @@ class TA1ClassificationTemplate1(DSBoxTemplate):
                                 'exclude_columns': ()
                             }
                     }],
-                    "inputs": ["to_dataframe_step"]
+                    "inputs": ["encode_step"]
                 },
-                {
-                    "name": "encode_step",
-                    "primitives": ["d3m.primitives.dsbox.Encoder"],
-                    "inputs": ["extract_attribute_step"]
-                },
+                # {
+                #     "name": "encode_step",
+                #     "primitives": ["d3m.primitives.data.UnseenLabelEncoder"],  # modified for UnseenLabelEncoder
+                #     "inputs": ["extract_attribute_step"]
+                # },
                 {
                     "name": "impute_step",
                     "primitives": ["d3m.primitives.dsbox.MeanImputation"],
-                    "inputs": ["encode_step"]
+                    "inputs": ["extract_attribute_step"]
                 },
                 # {
                 #     "name": "corex_step",
@@ -1757,6 +1762,7 @@ class MuxinTA1ClassificationTemplate4(DSBoxTemplate):
     def importance(datset, problem_description):
         return 7
 
+
 class UU3TestTemplate(DSBoxTemplate):
     def __init__(self):
         DSBoxTemplate.__init__(self)
@@ -2011,7 +2017,7 @@ class DefaultImageProcessingRegressionTemplate(DSBoxTemplate):
         self.template = {
             "name": "Default_image_processing_regression_template",
             "taskType": TaskType.REGRESSION.name,
-        # See TaskType, range include 'CLASSIFICATION', 'CLUSTERING', 'COLLABORATIVE_FILTERING', 'COMMUNITY_DETECTION', 'GRAPH_CLUSTERING', 'GRAPH_MATCHING', 'LINK_PREDICTION', 'REGRESSION', 'TIME_SERIES_FORECASTING', 'VERTEX_NOMINATION'
+            # See TaskType, range include 'CLASSIFICATION', 'CLUSTERING', 'COLLABORATIVE_FILTERING', 'COMMUNITY_DETECTION', 'GRAPH_CLUSTERING', 'GRAPH_MATCHING', 'LINK_PREDICTION', 'REGRESSION', 'TIME_SERIES_FORECASTING', 'VERTEX_NOMINATION'
             "taskSubtype": {TaskSubtype.UNIVARIATE.name, TaskSubtype.MULTIVARIATE.name},
             "inputType": "image",  # See SEMANTIC_TYPES.keys() for range of values
             "output": "regressor_step",  # Name of the final step generating the prediction
@@ -2400,6 +2406,7 @@ class BBNAudioClassificationTemplate(DSBoxTemplate):
     def importance(datset, problem_description):
         return 7
 
+
 class UCHITimeSeriesClassificationTemplate(DSBoxTemplate):
     def __init__(self):
         DSBoxTemplate.__init__(self)
@@ -2452,6 +2459,7 @@ class UCHITimeSeriesClassificationTemplate(DSBoxTemplate):
     # @override
     def importance(datset, problem_description):
         return 7
+
 
 class DefaultTimeSeriesForcastingTemplate(DSBoxTemplate):
     def __init__(self):
@@ -2539,4 +2547,4 @@ class SRIMeanBaselineTemplate(DSBoxTemplate):
         }
 
     def importance(dataset, problem_description):
-        return 10    
+        return 10
