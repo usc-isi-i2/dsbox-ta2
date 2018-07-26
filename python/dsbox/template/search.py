@@ -478,8 +478,8 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
             lambda d: {'metric': d['metric'].unparse(), 'params': d['params']},
             performance_metrics
         ))
-        self.classification_metric = ('accuracy', 'precision', 'recall', 'f1', 'f1Micro', 'f1Macro', 'rocAuc', 'rocAucMicro', 'rocAucMacro')
-        self.regression_metric = ('meanSquaredError', 'rootMeanSquaredError', 'rootMeanSquaredErrorAvg', 'meanAbsoluteError', 'rSquared', 'normalizedMutualInformation', 'jaccardSimilarityScore', 'precisionAtTopK', 'objectDetectionAP')
+        self.classification_metric = ('accuracy', 'precision', 'normalizedMutualInformation', 'recall', 'f1', 'f1Micro', 'f1Macro', 'rocAuc', 'rocAucMicro', 'rocAucMacro')
+        self.regression_metric = ('meanSquaredError', 'rootMeanSquaredError', 'rootMeanSquaredErrorAvg', 'meanAbsoluteError', 'rSquared', 'jaccardSimilarityScore', 'precisionAtTopK', 'objectDetectionAP')
 
         self.output_directory = output_directory
         self.log_dir = log_dir
