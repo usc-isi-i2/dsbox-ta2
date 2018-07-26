@@ -111,7 +111,7 @@ def split_dataset(dataset, problem_info: typing.Dict, problem_loc=None, *, rando
     # hard coded unsplit dataset type
     # TODO: check whether "speech" type should be put into this list or not
     list_cannot_split = ["graph","edgeList", "audio"]
-    
+
     task_type = problem_info["task_type"]#['problem']['task_type'].name  # 'classification' 'regression'
 
     res_id = problem_info["res_id"]
@@ -147,29 +147,36 @@ def split_dataset(dataset, problem_info: typing.Dict, problem_loc=None, *, rando
     test_return = []
 
     cannot_split = False
-    
+
     for each in data_type:
         if each in list_cannot_split:
             cannot_split = True
             break
 
-    # if the dataset type in the list that we should not split     
+    # if the dataset type in the list that we should not split
     if cannot_split:
         for i in range(n_splits):
         # just return all dataset to train part
             train_return.append(dataset)
             test_return.append(None)
-            
+
     # if the dataset type can be split
     else:
         if task_type == 'CLASSIFICATION':
-            # Use stratified sample to split the dataset
-            sss = StratifiedShuffleSplit(n_splits=n_splits, test_size=test_size, random_state=random_state)
-            sss.get_n_splits(dataset[res_id], dataset[res_id].iloc[:, target_index])
-            for train_index, test_index in sss.split(dataset[res_id], dataset[res_id].iloc[:, target_index]):
-                train_dataset,test_dataset = generate_split_data(dataset,res_id)
-                train_return.append(train_dataset)
-                test_return.append(test_dataset)
+            try:
+                # Use stratified sample to split the dataset
+                sss = StratifiedShuffleSplit(n_splits=n_splits, test_size=test_size, random_state=random_state)
+                sss.get_n_splits(dataset[res_id], dataset[res_id].iloc[:, target_index])
+                for train_index, test_index in sss.split(dataset[res_id], dataset[res_id].iloc[:, target_index]):
+                    train_dataset,test_dataset = generate_split_data(dataset,res_id)
+                    train_return.append(train_dataset)
+                    test_return.append(test_dataset)
+            except:
+                # Do not split stratified shuffle fails
+                print('[Info] Not splitting dataset. Stratified shuffle failed')
+                for i in range(n_splits):
+                    train_return.append(dataset)
+                    test_return.append(None)
         else:
             # Use random split
             if not task_type == "REGRESSION":
@@ -411,8 +418,8 @@ class Controller:
             template = template, configuration_space = space, problem = self.problem_doc_metadata,
             test_dataset1 = self.test_dataset1, train_dataset1 = self.train_dataset1,
             test_dataset2 = self.test_dataset2, train_dataset2 = self.train_dataset2,
-            all_dataset = self.all_dataset, performance_metrics = metrics, 
-            output_directory=self.output_directory, log_dir=self.output_logs_dir, 
+            all_dataset = self.all_dataset, performance_metrics = metrics,
+            output_directory=self.output_directory, log_dir=self.output_logs_dir,
             num_workers=self.num_cpus
             )
 
@@ -579,9 +586,9 @@ class Controller:
         # template = self.template[0]
         self.all_dataset = remove_empty_targets(self.all_dataset, self.problem_doc_metadata)
         self.all_dataset = auto_regress_convert(self.all_dataset, self.problem_doc_metadata)
-        runtime.add_target_columns_metadata(self.all_dataset, self.problem_doc_metadata)        
+        runtime.add_target_columns_metadata(self.all_dataset, self.problem_doc_metadata)
         # split the dataset first time
-        self.train_dataset1, self.test_dataset1 = split_dataset(dataset = self.all_dataset, 
+        self.train_dataset1, self.test_dataset1 = split_dataset(dataset = self.all_dataset,
             problem_info = self.problem_info, problem_loc = self.config['problem_schema'])
         # here we only split one times, so no need to use list to include the dataset
         if len(self.train_dataset1) == 1:
@@ -600,7 +607,7 @@ class Controller:
         # if necessary, we need to make a second split
         if self.max_split_times > 0:
             # make n times of different spliting results
-            self.train_dataset2, self.test_dataset2 = split_dataset(dataset = self.train_dataset1, 
+            self.train_dataset2, self.test_dataset2 = split_dataset(dataset = self.train_dataset1,
                 problem_info = self.problem_info, problem_loc = self.config['problem_schema'],
                 test_size = 0.1, n_splits = self.max_split_times)
             if len(self.train_dataset2) < 1:
