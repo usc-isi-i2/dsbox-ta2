@@ -89,7 +89,7 @@ class TemplateLibrary:
     def get_templates(self, task: TaskType, subtype: TaskSubtype, taskSourceType: SEMANTIC_TYPES)\
             -> typing.List[DSBoxTemplate]:
         results = []
-        # results.append(SRIMeanBaselineTemplate())  # put the meanbaseline here so whatever dataset will have a result
+        results.append(SRIMeanBaselineTemplate())  # put the meanbaseline here so whatever dataset will have a result
         for template_class in self.templates:
             template = template_class()
             # sourceType refer to d3m/container/dataset.py ("SEMANTIC_TYPES" as line 40-70)
@@ -1183,11 +1183,6 @@ class TA1ClassificationTemplate1(DSBoxTemplate):
                     "inputs": ["denormalize_step"]
                 },
                 {
-                    "name": "encode_step",
-                    "primitives": ["d3m.primitives.data.UnseenLabelEncoder"],  # modified for UnseenLabelEncoder
-                    "inputs": ["to_dataframe_step"]
-                },
-                {
                     "name": "extract_attribute_step",
                     "primitives": [{
                         "primitive": "d3m.primitives.data.ExtractColumnsBySemanticTypes",
@@ -1199,7 +1194,7 @@ class TA1ClassificationTemplate1(DSBoxTemplate):
                                 'exclude_columns': ()
                             }
                     }],
-                    "inputs": ["encode_step"]
+                    "inputs": ["to_dataframe_step"]
                 },
                 {
                     "name": "extract_target_step",
@@ -1214,17 +1209,17 @@ class TA1ClassificationTemplate1(DSBoxTemplate):
                                 'exclude_columns': ()
                             }
                     }],
-                    "inputs": ["encode_step"]
+                    "inputs": ["to_dataframe_step"]
                 },
-                # {
-                #     "name": "encode_step",
-                #     "primitives": ["d3m.primitives.data.UnseenLabelEncoder"],  # modified for UnseenLabelEncoder
-                #     "inputs": ["extract_attribute_step"]
-                # },
+                {
+                    "name": "encode_step",
+                    "primitives": ["d3m.primitives.dsbox.Encoder"],
+                    "inputs": ["extract_attribute_step"]
+                },
                 {
                     "name": "impute_step",
                     "primitives": ["d3m.primitives.dsbox.MeanImputation"],
-                    "inputs": ["extract_attribute_step"]
+                    "inputs": ["encode_step"]
                 },
                 # {
                 #     "name": "corex_step",
