@@ -413,7 +413,6 @@ def dsbox_encoding(clean_name: str = "clean_step",
                         "hyperparameters":
                             {
                                 'n_hidden': [(10)],
-                                'threshold': [(0)],
                                 'threshold': [(0), (500)],
                                 'n_grams': [(1), (5)],
                                 'max_df': [(.9)],
