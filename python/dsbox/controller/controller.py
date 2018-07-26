@@ -207,7 +207,7 @@ class Status(enum.Enum):
 class Controller:
     TIMEOUT = 59  # in minutes
 
-    def __init__(self, development_mode: bool = False, run_single_template_name: str = "dsbox_classification_template") -> None:
+    def __init__(self, development_mode: bool = False, run_single_template_name: str = "") -> None:
         self.development_mode: bool = development_mode
 
         self.run_single_template_name = run_single_template_name

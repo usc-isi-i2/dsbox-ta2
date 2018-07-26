@@ -55,6 +55,7 @@ class TemplateLibrary:
             "Default_classification_template": DefaultClassificationTemplate,
             "dsbox_classification_template": dsboxClassificationTemplate,
             "DSBox_regression_template": dsboxRegressionTemplate,
+            "CMU_Clustering_Template": CMUClusteringTemplate,
             "Default_regression_template": DefaultRegressionTemplate,
             "Default_timeseries_collection_template": DefaultTimeseriesCollectionTemplate,
             "Default_image_processing_regression_template":
@@ -158,6 +159,7 @@ class TemplateLibrary:
         self.templates.append(SRICollaborativeFilteringTemplate)
         self.templates.append(DefaultTimeSeriesForcastingTemplate)
         self.templates.append(SRIMeanBaselineTemplate)
+        self.templates.append(CMUClusteringTemplate)
 
     def _load_single_inline_templates(self, template_name):
         if template_name in self.all_templates:
@@ -2543,3 +2545,64 @@ class SRIMeanBaselineTemplate(DSBoxTemplate):
 
     def importance(dataset, problem_description):
         return 10
+
+
+class CMUClusteringTemplate(DSBoxTemplate):
+    def __init__(self):
+        DSBoxTemplate.__init__(self)
+        self.template = {
+            "name": "CMU_Clustering_Template",
+            "taskType": TaskType.CLUSTERING.name,
+            "taskSubtype": "NONE",
+            "inputType": "table",
+            "output": "model_step",
+            "steps": [
+                {
+                    "name": "denormalize_step",
+                    "primitives": ["d3m.primitives.dsbox.Denormalize"],
+                    "inputs": ["template_input"]
+                },
+                {
+                    "name": "to_dataframe_step",
+                    "primitives": ["d3m.primitives.datasets.DatasetToDataFrame"],
+                    "inputs":["denormalize_step"]
+                },
+                {
+                    "name":"column_parser_step",
+                    "primitives":["d3m.primitives.data.ColumnParser"],
+                    "inputs":["to_dataframe_step"]
+                },
+                {
+                    "name": "extract_attribute_step",
+                    "primitives": [{
+                        "primitive": "d3m.primitives.data.ExtractColumnsBySemanticTypes",
+                        "hyperparameters":
+                            {
+                                'semantic_types': (
+                                    'https://metadata.datadrivendiscovery.org/types/Attribute',),
+                                'use_columns': (),
+                                'exclude_columns': ()
+                            }
+                    }],
+                    "inputs": ["column_parser_step"]
+                },
+                {
+                    "name": "model_step",
+                    "primitives": [
+                        {
+                            "primitive":"d3m.primitives.cmu.fastlvm.GMM", 
+                            "hyperparameters":{
+                                "k":[(4), (6), (8), (10), (12)]
+                            }
+                        }
+                    ],
+                    "inputs": ["extract_attribute_step"]
+                }
+            ]
+        }
+
+    def importance(datset, problem_description):
+        return 7
+
+
+
