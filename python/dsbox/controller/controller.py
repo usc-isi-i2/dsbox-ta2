@@ -111,7 +111,7 @@ def split_dataset(dataset, problem_info: typing.Dict, problem_loc=None, *, rando
 
     # hard coded unsplit dataset type
     # TODO: check whether "speech" type should be put into this list or not
-    list_cannot_split = ["graph","edgeList"]
+    list_cannot_split = ["graph","edgeList", "audio"]
     
     task_type = problem_info["task_type"]#['problem']['task_type'].name  # 'classification' 'regression'
 
