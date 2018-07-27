@@ -59,7 +59,8 @@ import pandas as pd
 FILE_FORMATTER = "[%(levelname)s] - %(asctime)s - %(name)s - %(message)s"
 FILE_LOGGING_LEVEL = logging.DEBUG
 LOG_FILENAME = 'dsbox.log'
-CONSOLE_LOGGING_LEVEL = logging.INFO
+#CONSOLE_LOGGING_LEVEL = logging.INFO
+CONSOLE_LOGGING_LEVEL = logging.DEBUG
 CONSOLE_FORMATTER = "[%(levelname)s] - %(name)s - %(message)s"
 
 
@@ -384,7 +385,7 @@ class Controller:
 
         console = logging.StreamHandler()
         console.setFormatter(logging.Formatter(CONSOLE_FORMATTER))
-        console.setLevel(logging.INFO)
+        console.setLevel(CONSOLE_LOGGING_LEVEL)
         self._logger.addHandler(console)
 
     def load_templates(self) -> None:
@@ -449,6 +450,7 @@ class Controller:
 
         self.minimize = search.minimize
         # candidate, value = search.search_one_iter()
+        self._logger.info('cache size = {}'.format(len(cache_bundle[0])))
         report = search.search_one_iter(candidate_in=candidate, cache_bundle=cache_bundle)
         candidate = report['candidate']
         value = report['best_val']

@@ -151,7 +151,7 @@ class Runtime:
             if isinstance(self.pipeline_description.steps[n_step], PrimitiveStep):
                 # first we need to compute the key to query in cache. For the key we use a hashed combination of the primitive name,
                 # its hyperparameters and its input dataset hash.
-                hyperparam_hash = hash(str(self.pipeline_description.steps[n_step].hyperparams.items()))
+                hyperparam_hash = hash(str(self.pipeline_description.steps[n_step]))
 
                 dataset_id = ""
                 dataset_digest = ""
@@ -206,6 +206,11 @@ class Runtime:
                     cache[(prim_name, prim_hash)] = (
                         primitives_outputs[n_step].copy(), model)
                     if _logger.getEffectiveLevel() <= 10:
+
+                        _logger.debug('cache keys')
+                        for key in sorted(cache.keys()):
+                            _logger.debug('   {}'.format(key))
+
                         debug_file = os.path.join(
                             self.log_dir, 'dfs',
                             'fit_{}_{}_{:02}_{}'.format(self.pipeline_description.id, self.fitted_pipeline_id, n_step, primitive_step.primitive))
