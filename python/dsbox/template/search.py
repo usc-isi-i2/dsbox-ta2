@@ -652,6 +652,15 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
             # set the metric for calculating the rank
             fitted_pipeline2.set_metric(training_metrics[0])
 
+            if self.output_directory is not None and dump2disk:
+                fitted_pipeline2.save(self.output_directory)
+
+                _logger.info("Test pickled pipeline. id: {}".format(fitted_pipeline2.id))
+                self.test_pickled_pipeline(folder_loc=self.output_directory,
+                                           pipeline_id=fitted_pipeline2.id,
+                                           test_dataset=self.train_dataset2[0],
+                                           test_metrics=training_metrics[0],
+                                           test_ground_truth=get_target_columns(self.train_dataset2[each_repeat], self.problem))
         else:
             if self.quick_mode:
                 print("[INFO] Now in quick mode, will skip training with train_dataset1")
@@ -683,13 +692,14 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
             fitted_pipeline2.fit(cache=cache, inputs=[self.all_dataset])
             #fitted_pipeline2.fit(inputs = [self.all_dataset])
 
-        if self.output_directory is not None and dump2disk:
-            fitted_pipeline2.save(self.output_directory)
+            if self.output_directory is not None and dump2disk:
+                fitted_pipeline2.save(self.output_directory)
 
-            _logger.info("Test pickled pipeline. id: {}".format(fitted_pipeline2.id))
-            self.test_pickled_pipeline(folder_loc=self.output_directory,
+                _logger.info("Test pickled pipeline. id: {}".format(fitted_pipeline2.id))
+                self.test_pickled_pipeline(folder_loc=self.output_directory,
                                            pipeline_id=fitted_pipeline2.id,
-                                           test_metrics=test_metrics,
+                                           test_dataset=self.test_dataset1,
+                                           test_metrics=test_metrics2,
                                            test_ground_truth=test_ground_truth)
 
         # still return the original fitted_pipeline with relation to train_dataset1
@@ -773,11 +783,13 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
     def test_pickled_pipeline(self,
                               folder_loc: str,
                               pipeline_id: str,
+                              test_dataset: Dataset,
                               test_metrics: typing.List,
                               test_ground_truth) -> None:
 
         fitted_pipeline, run = FittedPipeline.load(folder_loc=folder_loc, pipeline_id=pipeline_id, log_dir=self.log_dir)
-        results = fitted_pipeline.produce(inputs=[self.test_dataset1])
+        results = fitted_pipeline.produce(inputs=[test_dataset])
+
         pipeline_pridiction = fitted_pipeline.get_produce_step_output(self.template.get_output_step_number())
 
         test_pipeline_metrics = list()
