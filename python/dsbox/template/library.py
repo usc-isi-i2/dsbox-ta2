@@ -1122,7 +1122,7 @@ class DefaultTextClassificationTemplate(DSBoxTemplate):
             # See TaskType, range include 'CLASSIFICATION', 'CLUSTERING', 'COLLABORATIVE_FILTERING',
             # 'COMMUNITY_DETECTION', 'GRAPH_CLUSTERING', 'GRAPH_MATCHING', 'LINK_PREDICTION',
             # 'REGRESSION', 'TIME_SERIES_FORECASTING', 'VERTEX_NOMINATION'
-            "inputType": {"text", "table"},  # See SEMANTIC_TYPES.keys() for range of values
+            "inputType": "text",  # See SEMANTIC_TYPES.keys() for range of values
             "output": "model_step",  # Name of the final step generating the prediction
             "target": "extract_target_step",  # Name of the step generating the ground truth
             "steps": [
