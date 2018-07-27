@@ -65,7 +65,7 @@ class TemplateLibrary:
 
             # older templates
             "dsbox_classification_template": dsboxClassificationTemplate,
-            "DSBox_regression_template": dsboxRegressionTemplate,
+            "dsbox_regression_template": dsboxRegressionTemplate,
             "CMU_Clustering_Template": CMUClusteringTemplate,
             "Default_timeseries_collection_template": DefaultTimeseriesCollectionTemplate,
             "Default_image_processing_regression_template":
@@ -148,7 +148,6 @@ class TemplateLibrary:
         # self.templates.append(MuxinTA1ClassificationTemplate1)
         self.templates.append(UU3TestTemplate)
         # self.templates.append(TA1ClassificationTemplate1)
-        # move dsboxClassificationTemplate to last excution because sometimes this template have bugs
 
         # Image Regression
         self.templates.append(DefaultImageProcessingRegressionTemplate)
@@ -168,19 +167,20 @@ class TemplateLibrary:
         self.templates.append(CMUClusteringTemplate)
         self.templates.append(MichiganVideoClassificationTemplate)
 
+        # new tabular classification
         self.templates.append(RandomForestClassificationTemplate)
         self.templates.append(ExtraTreesClassificationTemplate)
         self.templates.append(GradientBoostingClassificationTemplate)
-        self.templates.append(SVCClassificationTemplate)
+        # self.templates.append(SVCClassificationTemplate)  # takes too long on large datasets
 
-        # new regression
+        # new tabular regression
         self.templates.append(RandomForestRegressionTemplate)
         self.templates.append(ExtraTreesRegressionTemplate)
         self.templates.append(GradientBoostingRegressionTemplate)
-        self.templates.append(SVRRegressionTemplate)
+        # self.templates.append(SVRRegressionTemplate)
 
+        # dsbox all in one templates
         self.templates.append(dsboxClassificationTemplate)
-        # Tabular Regression
         self.templates.append(dsboxRegressionTemplate)
 
     def _load_single_inline_templates(self, template_name):
@@ -517,7 +517,7 @@ class dsboxClassificationTemplate(DSBoxTemplate):
     def __init__(self):
         DSBoxTemplate.__init__(self)
         self.template = {
-            "name": "DSBox_classification_template",
+            "name": "dsbox_classification_template",
             "taskSubtype": {TaskSubtype.BINARY.name, TaskSubtype.MULTICLASS.name},
             "taskType": TaskType.CLASSIFICATION.name,
             # See TaskType, range include 'CLASSIFICATION', 'CLUSTERING',
@@ -555,7 +555,7 @@ class dsboxRegressionTemplate(DSBoxTemplate):
     def __init__(self):
         DSBoxTemplate.__init__(self)
         self.template = {
-            "name": "DSBox_regression_template",
+            "name": "dsbox_regression_template",
             "taskType": TaskType.REGRESSION.name,
             "taskSubtype": {TaskSubtype.UNIVARIATE.name, TaskSubtype.MULTIVARIATE.name},
             # See TaskType, range include 'CLASSIFICATION', 'CLUSTERING', 'COLLABORATIVE_FILTERING',
@@ -2686,7 +2686,6 @@ class GradientBoostingClassificationTemplate(DSBoxTemplate):
                             'learning_rate': [0.1, 0.3, 0.5],
                             'min_samples_split': [1, 2, 3],
                             'min_samples_leaf': [1, 2],
-                            'max_features': [None, 'auto', 'sqrt']
                             }
                         },
                     ],
