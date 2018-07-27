@@ -4,6 +4,8 @@ import logging
 import os
 import random
 import typing
+import uuid
+
 from multiprocessing import Pool, current_process, Manager
 from math import sqrt, log
 import traceback
@@ -121,8 +123,13 @@ def split_dataset(dataset, problem_info: typing.Dict, problem_loc=None, *, rando
     def generate_split_data(dataset, res_id):
         train = dataset[res_id].iloc[train_index, :]
         test = dataset[res_id].iloc[test_index, :]
+
         # Generate training dataset
         train_dataset = copy.copy(dataset)
+        dataset_metadata = dict(train_dataset.metadata.query(()))
+        dataset_metadata['id'] = dataset_metadata['id'] + '_' + str(uuid.uuid4())
+        train_dataset.metadata = train_dataset.metadata.update((), dataset_metadata)
+
         train_dataset[res_id] = train
         meta = dict(train_dataset.metadata.query((res_id,)))
         dimension = dict(meta['dimension'])
@@ -131,9 +138,14 @@ def split_dataset(dataset, problem_info: typing.Dict, problem_loc=None, *, rando
         # print(meta)
         train_dataset.metadata = train_dataset.metadata.update((res_id,), meta)
         # pprint(dict(train_dataset.metadata.query((res_id,))))
+
         # Generate testing dataset
         test_dataset = copy.copy(dataset)
         test_dataset[res_id] = test
+        dataset_metadata = dict(test_dataset.metadata.query(()))
+        dataset_metadata['id'] = dataset_metadata['id'] + '_' + str(uuid.uuid4())
+        test_dataset.metadata = dataset.metadata.update((), dataset_metadata)
+
         meta = dict(test_dataset.metadata.query((res_id,)))
         dimension = dict(meta['dimension'])
         meta['dimension'] = dimension
@@ -602,6 +614,7 @@ class Controller:
         # split the dataset first time
         self.train_dataset1, self.test_dataset1 = split_dataset(dataset = self.all_dataset,
             problem_info = self.problem_info, problem_loc = self.config['problem_schema'])
+
         # here we only split one times, so no need to use list to include the dataset
         if len(self.train_dataset1) == 1:
             self.train_dataset1 = self.train_dataset1[0]
