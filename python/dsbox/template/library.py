@@ -107,7 +107,7 @@ class TemplateLibrary:
     def get_templates(self, task: TaskType, subtype: TaskSubtype, taskSourceType: SEMANTIC_TYPES)\
             -> typing.List[DSBoxTemplate]:
         results = []
-        results.append(SRIMeanBaselineTemplate())  # put the meanbaseline here so whatever dataset will have a result
+        # results.append(SRIMeanBaselineTemplate())  # put the meanbaseline here so whatever dataset will have a result
         for template_class in self.templates:
             template = template_class()
             # sourceType refer to d3m/container/dataset.py ("SEMANTIC_TYPES" as line 40-70)
@@ -191,14 +191,14 @@ class TemplateLibrary:
         self.templates.append(SRICommunityDetectionTemplate)
         self.templates.append(SRIGraphMatchingTemplate)
         self.templates.append(SRIVertexNominationTemplate)
-        self.templates.append(JHUVertexNominationTemplate)
-        self.templates.append(JHUGraphMatchingTemplate)
         self.templates.append(BBNAudioClassificationTemplate)
         self.templates.append(SRICollaborativeFilteringTemplate)
         self.templates.append(DefaultTimeSeriesForcastingTemplate)
         self.templates.append(CMUClusteringTemplate)
         self.templates.append(MichiganVideoClassificationTemplate)
-
+        self.templates.append(JHUVertexNominationTemplate)
+        self.templates.append(JHUGraphMatchingTemplate)
+        
         # dsbox all in one templates
         self.templates.append(dsboxClassificationTemplate)
         self.templates.append(dsboxRegressionTemplate)
