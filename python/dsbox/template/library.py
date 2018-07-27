@@ -144,11 +144,12 @@ class TemplateLibrary:
         # Tabular Classification
         self.templates.append(DefaultClassificationTemplate)
         self.templates.append(RandomForestTemplate)
-        self.templates.append(dsboxClassificationTemplate)
         self.templates.append(TA1Classification_3)
         self.templates.append(MuxinTA1ClassificationTemplate1)
         self.templates.append(UU3TestTemplate)
         self.templates.append(TA1ClassificationTemplate1)
+        # move dsboxClassificationTemplate to last excution because sometimes this template have bugs
+        self.templates.append(dsboxClassificationTemplate)
 
         # Tabular Regression
         self.templates.append(dsboxRegressionTemplate)
@@ -383,7 +384,17 @@ def d3m_preprocessing(attribute_name: str = "cast_1_step",
             },
             {
                 "name": attribute_name,
-                "primitives": ["d3m.primitives.data.CastToType"],
+                "primitives": [
+                    {
+                        "primitive":"d3m.primitives.data.CastToType",
+                        "hyperparameters": {"type_to_cast": ["float"]} 
+                    },
+                    {
+                        "primitive": "d3m.primitives.dsbox.DoNothing",  
+                        "hyperparameters": {} 
+                    }
+
+                ],
                 "inputs": ["column_parser_step"]
             },
         ]
@@ -425,7 +436,6 @@ def dsbox_encoding(clean_name: str = "clean_step",
                         "hyperparameters":
                             {
                                 'n_hidden': [(10)],
-                                'threshold': [(0)],
                                 'threshold': [(0), (500)],
                                 'n_grams': [(1), (5)],
                                 'max_df': [(.9)],
@@ -931,7 +941,16 @@ class DefaultTextClassificationTemplate(DSBoxTemplate):
                 },
                 {
                     "name": "cast_1_step",
-                    "primitives": ["d3m.primitives.data.CastToType"],
+                    "primitives": [
+                    {
+                        "primitive":"d3m.primitives.data.CastToType",
+                        "hyperparameters": {"type_to_cast": ["float"]} 
+                    },
+                    {
+                        "primitive": "d3m.primitives.dsbox.DoNothing",  
+                        "hyperparameters": {} 
+                    }
+                    ],
                     "inputs": ["column_parser_step"]
                 },
                 {
@@ -1186,10 +1205,14 @@ class MuxinTA1ClassificationTemplate2(DSBoxTemplate):
                 {
                     "name": "cast_1_step",
                     "primitives": [
-                        {
-                            "primitive": "d3m.primitives.data.CastToType",
-                            "hyperparameters": {"type_to_cast": ["float"]}
-                        }
+                    {
+                        "primitive":"d3m.primitives.data.CastToType",
+                        "hyperparameters": {"type_to_cast": ["float"]} 
+                    },
+                    {
+                        "primitive": "d3m.primitives.dsbox.DoNothing",  
+                        "hyperparameters": {} 
+                    }
                     ],
                     "inputs": ["impute_step"]
                 },
@@ -1281,10 +1304,14 @@ class MuxinTA1ClassificationTemplate3(DSBoxTemplate):
                 {
                     "name": "cast_1_step",
                     "primitives": [
-                        {
-                            "primitive": "d3m.primitives.data.CastToType",
-                            "hyperparameters": {"type_to_cast": ["float"]}
-                        }
+                    {
+                        "primitive":"d3m.primitives.data.CastToType",
+                        "hyperparameters": {"type_to_cast": ["float"]} 
+                    },
+                    {
+                        "primitive": "d3m.primitives.dsbox.DoNothing",  
+                        "hyperparameters": {} 
+                    }
                     ],
                     "inputs": ["impute_step"]
                 },
@@ -1452,9 +1479,14 @@ class UU3TestTemplate(DSBoxTemplate):
                 {
                     "name": "cast_step",
                     "primitives": [
-                        {"primitive": "d3m.primitives.data.CastToType",
-                         "hyperparameters": {"type_to_cast": ["float"]}
-                         }
+                    {
+                        "primitive":"d3m.primitives.data.CastToType",
+                        "hyperparameters": {"type_to_cast": ["float"]} 
+                    },
+                    {
+                        "primitive": "d3m.primitives.dsbox.DoNothing",  
+                        "hyperparameters": {} 
+                    }
                     ],
                     "inputs": ["impute_step"]
                 },
