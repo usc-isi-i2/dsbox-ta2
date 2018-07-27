@@ -67,14 +67,14 @@ def auto_regress_convert(dataset: "Dataset", problem: "Metadata"):
     '''
     problem = problem.query(())
     targets = problem["inputs"]["data"][0]["targets"]
-    resID = targets[0]["resID"]
-    colIndex = targets[0]["colIndex"]
-
-    if problem["about"]["taskType"] == "timeSeriesForecasting" or problem["about"]["taskType"] == "regression":
-        dataset[resID].iloc[:, colIndex] = pd.to_numeric(dataset[resID].iloc[:, colIndex], downcast = "float", errors = "coerce")
-        meta = dict(dataset.metadata.query((resID, ALL_ELEMENTS, colIndex)))
-        meta["structural_type"] = float
-        dataset.metadata = dataset.metadata.update((resID, ALL_ELEMENTS, colIndex), meta)
+    for each_target in range(len(targets)):
+        resID = targets[each_target]["resID"]
+        colIndex = targets[each_target]["colIndex"]
+        if problem["about"]["taskType"] == "timeSeriesForecasting" or problem["about"]["taskType"] == "regression":
+            dataset[resID].iloc[:, colIndex] = pd.to_numeric(dataset[resID].iloc[:, colIndex], downcast = "float", errors = "coerce")
+            meta = dict(dataset.metadata.query((resID, ALL_ELEMENTS, colIndex)))
+            meta["structural_type"] = float
+            dataset.metadata = dataset.metadata.update((resID, ALL_ELEMENTS, colIndex), meta)
     return dataset
 
 
