@@ -153,7 +153,7 @@ class Runtime:
             if isinstance(self.pipeline_description.steps[n_step], PrimitiveStep):
                 # first we need to compute the key to query in cache. For the key we use a hashed combination of the primitive name,
                 # its hyperparameters and its input dataset hash.
-                hyperparam_hash = hash(str(self.pipeline_description.steps[n_step]))
+                hyperparam_hash = hash(str(self.pipeline_description.steps[n_step].hyperparams.items()))
 
                 dataset_id = ""
                 dataset_digest = ""
