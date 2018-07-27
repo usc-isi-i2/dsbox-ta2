@@ -56,6 +56,7 @@ class TemplateLibrary:
             "extra_trees_classification_template": ExtraTreesClassificationTemplate,
             "gradient_boosting_classification_template": GradientBoostingClassificationTemplate,
             "svc_classification_template": SVCClassificationTemplate,
+            "naive_bayes_classification_template": NaiveBayesClassificationTemplate,
 
             # new regression
             "random_forest_regression_template": RandomForestRegressionTemplate,
@@ -142,46 +143,47 @@ class TemplateLibrary:
 
     def _load_inline_templates(self):
 
-        # self.templates.append(RandomForestTemplate)
-        # Tabular Classification
-        # self.templates.append(TA1Classification_3)
-        # self.templates.append(MuxinTA1ClassificationTemplate1)
-        self.templates.append(UU3TestTemplate)
-        # self.templates.append(TA1ClassificationTemplate1)
+        # # self.templates.append(RandomForestTemplate)
+        # # Tabular Classification
+        # # self.templates.append(TA1Classification_3)
+        # # self.templates.append(MuxinTA1ClassificationTemplate1)
+        # self.templates.append(UU3TestTemplate)
+        # # self.templates.append(TA1ClassificationTemplate1)
 
-        # Image Regression
-        self.templates.append(DefaultImageProcessingRegressionTemplate)
+        # # Image Regression
+        # self.templates.append(DefaultImageProcessingRegressionTemplate)
 
-        # Others
-        self.templates.append(DefaultTimeseriesCollectionTemplate)
-        self.templates.append(DefaultTextClassificationTemplate)
-        self.templates.append(SRICommunityDetectionTemplate)
-        self.templates.append(SRIGraphMatchingTemplate)
-        self.templates.append(SRIVertexNominationTemplate)
-        self.templates.append(JHUVertexNominationTemplate)
-        self.templates.append(JHUGraphMatchingTemplate)
-        self.templates.append(BBNAudioClassificationTemplate)
-        self.templates.append(SRICollaborativeFilteringTemplate)
-        self.templates.append(DefaultTimeSeriesForcastingTemplate)
-        self.templates.append(SRIMeanBaselineTemplate)
-        self.templates.append(CMUClusteringTemplate)
-        self.templates.append(MichiganVideoClassificationTemplate)
+        # # Others
+        # self.templates.append(DefaultTimeseriesCollectionTemplate)
+        # self.templates.append(DefaultTextClassificationTemplate)
+        # self.templates.append(SRICommunityDetectionTemplate)
+        # self.templates.append(SRIGraphMatchingTemplate)
+        # self.templates.append(SRIVertexNominationTemplate)
+        # self.templates.append(JHUVertexNominationTemplate)
+        # self.templates.append(JHUGraphMatchingTemplate)
+        # self.templates.append(BBNAudioClassificationTemplate)
+        # self.templates.append(SRICollaborativeFilteringTemplate)
+        # self.templates.append(DefaultTimeSeriesForcastingTemplate)
+        # self.templates.append(SRIMeanBaselineTemplate)
+        # self.templates.append(CMUClusteringTemplate)
+        # self.templates.append(MichiganVideoClassificationTemplate)
 
-        # new tabular classification
-        self.templates.append(RandomForestClassificationTemplate)
-        self.templates.append(ExtraTreesClassificationTemplate)
-        self.templates.append(GradientBoostingClassificationTemplate)
-        # self.templates.append(SVCClassificationTemplate)  # takes too long on large datasets
+        # # new tabular classification
+        # self.templates.append(RandomForestClassificationTemplate)
+        # self.templates.append(ExtraTreesClassificationTemplate)
+        # self.templates.append(GradientBoostingClassificationTemplate)
+        self.templates.append(NaiveBayesClassificationTemplate)
+        # # self.templates.append(SVCClassificationTemplate)  # takes too long on large datasets
 
-        # new tabular regression
-        self.templates.append(RandomForestRegressionTemplate)
-        self.templates.append(ExtraTreesRegressionTemplate)
-        self.templates.append(GradientBoostingRegressionTemplate)
-        # self.templates.append(SVRRegressionTemplate)
+        # # new tabular regression
+        # self.templates.append(RandomForestRegressionTemplate)
+        # self.templates.append(ExtraTreesRegressionTemplate)
+        # self.templates.append(GradientBoostingRegressionTemplate)
+        # # self.templates.append(SVRRegressionTemplate)
 
-        # dsbox all in one templates
-        self.templates.append(dsboxClassificationTemplate)
-        self.templates.append(dsboxRegressionTemplate)
+        # # dsbox all in one templates
+        # self.templates.append(dsboxClassificationTemplate)
+        # self.templates.append(dsboxRegressionTemplate)
 
     def _load_single_inline_templates(self, template_name):
         if template_name in self.all_templates:
@@ -3269,3 +3271,132 @@ class RandomForestRegressionTemplate(DSBoxTemplate):
     # @override
     def importance(datset, problem_description):
         return 7
+
+
+# a template encompassing several NB methods
+class NaiveBayesClassificationTemplate(DSBoxTemplate):
+    def __init__(self):
+        DSBoxTemplate.__init__(self)
+        self.template = {
+            "name": "naive_bayes_classification_template",
+            "taskSubtype": {TaskSubtype.BINARY.name, TaskSubtype.MULTICLASS.name},
+            "taskType": TaskType.CLASSIFICATION.name,
+        # See TaskType, range include 'CLASSIFICATION', 'CLUSTERING', 'COLLABORATIVE_FILTERING',
+            # 'COMMUNITY_DETECTION', 'GRAPH_CLUSTERING', 'GRAPH_MATCHING', 'LINK_PREDICTION',
+            # 'REGRESSION', 'TIME_SERIES_FORECASTING', 'VERTEX_NOMINATION'
+            "inputType": "table",  # See SEMANTIC_TYPES.keys() for range of values
+            "output": "model_step",  # Name of the final step generating the prediction
+            "target": "extract_target_step",  # Name of the step generating the ground truth
+            "steps": [
+                {
+                    "name": "denormalize_step",
+                    "primitives": ["d3m.primitives.dsbox.Denormalize"],
+                    "inputs": ["template_input"]
+                },
+                {
+                    "name": "to_dataframe_step",
+                    "primitives": ["d3m.primitives.datasets.DatasetToDataFrame"],
+                    "inputs": ["denormalize_step"]
+                },
+                {
+                    "name": "extract_attribute_step",
+                    "primitives": [{
+                        "primitive": "d3m.primitives.data.ExtractColumnsBySemanticTypes",
+                        "hyperparameters":
+                            {
+                                'semantic_types': (
+                                'https://metadata.datadrivendiscovery.org/types/Attribute',),
+                                'use_columns': (),
+                                'exclude_columns': ()
+                            }
+                    }],
+                    "inputs": ["to_dataframe_step"]
+                },
+                {
+                    "name": "profiler_step",
+                    "primitives": ["d3m.primitives.dsbox.Profiler"],
+                    "inputs": ["extract_attribute_step"]
+                },
+                {
+                    "name": "clean_step",
+                    "primitives": ["d3m.primitives.dsbox.CleaningFeaturizer"],
+                    "inputs": ["profiler_step"]
+                },
+                {
+                    "name": "corex_step",
+                    "primitives": [
+                        {
+                            "primitive": "d3m.primitives.dsbox.CorexText",
+                            "hyperparameters":
+                                {
+                                }
+                        },
+                    ],
+                    "inputs": ["clean_step"]
+                },
+                {
+                    "name": "encoder_step",
+                    "primitives": ["d3m.primitives.dsbox.Encoder"],
+                    "inputs": ["corex_step"]
+                },
+                {
+                    "name": "impute_step",
+                    "primitives": ["d3m.primitives.sklearn_wrap.SKImputer"],
+                    "inputs": ["encoder_step"]
+                },
+                {
+                    "name": "extract_target_step",
+                    "primitives": [{
+                        "primitive": "d3m.primitives.data.ExtractColumnsBySemanticTypes",
+                        "hyperparameters":
+                            {
+                                'semantic_types': (
+                                'https://metadata.datadrivendiscovery.org/types/Target',
+                                'https://metadata.datadrivendiscovery.org/types/SuggestedTarget',),
+                                'use_columns': (),
+                                'exclude_columns': ()
+                            }
+                    }],
+                    "inputs": ["to_dataframe_step"]
+                },
+                {
+                    "name": "model_step",
+                    "runtime": {
+                        "cross_validation": 10,
+                        "stratified": True
+                    },
+                    "primitives": [
+                        {
+                            "primitive":
+                                "d3m.primitives.sklearn_wrap.SKBernoulliNB",
+                            "hyperparameters":
+                                {
+                                    'alpha': [0, .5, 1],
+                                }
+                        },
+                        {
+                            "primitive":
+                                "d3m.primitives.sklearn_wrap.SKGaussianNB",
+                            "hyperparameters":
+                                {
+                                }
+                        },
+                        {
+                            "primitive":
+                                "d3m.primitives.sklearn_wrap.SKMultinomialNB",
+                            "hyperparameters":
+                                {
+                                    'alpha': [0, .5, 1]
+                                }
+                        },
+                    ],
+                    "inputs": ["impute_step", "extract_target_step"]
+                }
+            ]
+        }
+
+    # @override
+    def importance(datset, problem_description):
+        return 7
+
+
