@@ -21,7 +21,7 @@ def main(args):
 
     template_name = args.template
 
-    controller = Controller(development_mode=debug, run_single_template=template_name)
+    controller = Controller(development_mode=debug, run_single_template_name=template_name)
 
     with open(configuration_file) as data:
         config = json.load(data)
