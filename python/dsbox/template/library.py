@@ -220,8 +220,6 @@ def regression_model(feature_name: str = "impute_step",
             {
                 "name": "model_step",
                 "primitives": [
-                    # Bayesian ARD regression: based on Serban's work it's the most stable model
-                    {"primitive": "d3m.primitives.sklearn_wrap.SKARDRegression", },
                     # linear ridge : simplistic linear regression with L2 regularization
                     {"primitive": "d3m.primitives.sklearn_wrap.SKRidge", },
                     # Least-angle regression: (1 / (2 * n_samples)) * |y - Xw|^2_2 + alpha * |w|_1
@@ -2177,7 +2175,7 @@ class DefaultTimeSeriesForcastingTemplate(DSBoxTemplate):
                 },
                 {
                     "name": "model_step",
-                    "primitives": ["d3m.primitives.sklearn_wrap.SKARDRegression"],
+                    "primitives": ["d3m.primitives.sklearn_wrap.SKExtraTreesRegressor"],
                     "inputs": ["extract_attribute_step", "extract_target_step"]
                 },
             ]
