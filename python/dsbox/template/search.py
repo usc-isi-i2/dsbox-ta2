@@ -261,7 +261,6 @@ class DimensionalSearch(typing.Generic[T]):
                         self.evaluate,
                         map(lambda c: (c, cache), new_candidates)
                     )
-                self._logger.info('cache size = {}'.format(len(cache[0])))
                 for res, x in zip(results, new_candidates):
                     self._push_candidate(res, x, candidate_cache)
                     if not res:
