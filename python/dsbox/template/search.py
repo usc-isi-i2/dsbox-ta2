@@ -8,6 +8,7 @@ import typing
 import logging
 import time
 import copy
+import sys
 #import pathos.pools as pp
 
 from warnings import warn
@@ -60,6 +61,7 @@ def get_target_columns(dataset: 'Dataset', problem_doc_metadata: 'Metadata'):
     targetcol = dataset[resID].iloc[:, targetlist]
     return targetcol
 
+_logger = logging.getLogger(__name__)
 
 class DimensionalSearch(typing.Generic[T]):
     """
@@ -146,7 +148,6 @@ class DimensionalSearch(typing.Generic[T]):
         return hash(str(candidate)) in cand_cache
 
     def search_one_iter(self, candidate_in: ConfigurationPoint[T] = None,
-
                         max_per_dimension: int=50,
                         cache_bundle: typing.Tuple[typing.Dict, typing.Dict]=(None, None)) -> \
             typing.Dict:
@@ -177,6 +178,7 @@ class DimensionalSearch(typing.Generic[T]):
             cache = manager.dict()
             candidate_cache = manager.dict()
         else:
+            print("[INFO] Using Global Cache")
             cache, candidate_cache = cache_bundle
 
         # initialize the simulation counter
@@ -266,12 +268,16 @@ class DimensionalSearch(typing.Generic[T]):
                         print("-" * 10)
                         continue
 
-                    if len(res['cross_validation_metrics']) > 0:
-                        cross_validation_mode = True
-                        score_values.append(res['cross_validation_metrics'][0]['value'])
-                    else:
-                        score_values.append(res['test_metrics'][0]['value'])
-                        cross_validation_mode = False
+                    ## Always use 'test_metrics' since it is generated using test_dataset1
+                    # if len(res['cross_validation_metrics']) > 0:
+                    #     cross_validation_mode = True
+                    #     score_values.append(res['cross_validation_metrics'][0]['value'])
+                    # else:
+                    #     score_values.append(res['test_metrics'][0]['value'])
+                    #     cross_validation_mode = False
+                    score_values.append(res['test_metrics'][0]['value'])
+                    cross_validation_mode = False
+
                     # pipeline = self.template.to_pipeline(x)
                     # res['pipeline'] = pipeline
 
@@ -407,7 +413,7 @@ class DimensionalSearch(typing.Generic[T]):
         #         result = self.evaluate(candidate)
         # return (candidate, result['test_metrics'][0]['value'])
 
-    def search(self, candidate: ConfigurationPoint[T] = None, candidate_value: float = None, num_iter=3, max_per_dimension=10):
+    def search(self, candidate: ConfigurationPoint[T] = None, candidate_value: float = None, num_iter=3, max_per_dimension=50):
         for i in range(num_iter):
             candidate, candidate_value = self.search_one_iter(candidate, candidate_value, max_per_dimension=max_per_dimension)
             if candidate is None:
@@ -478,8 +484,8 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
             lambda d: {'metric': d['metric'].unparse(), 'params': d['params']},
             performance_metrics
         ))
-        self.classification_metric = ('accuracy', 'precision', 'recall', 'f1', 'f1Micro', 'f1Macro', 'rocAuc', 'rocAucMicro', 'rocAucMacro')
-        self.regression_metric = ('meanSquaredError', 'rootMeanSquaredError', 'rootMeanSquaredErrorAvg', 'meanAbsoluteError', 'rSquared', 'normalizedMutualInformation', 'jaccardSimilarityScore', 'precisionAtTopK', 'objectDetectionAP')
+        self.classification_metric = ('accuracy', 'precision', 'normalizedMutualInformation', 'recall', 'f1', 'f1Micro', 'f1Macro', 'rocAuc', 'rocAucMicro', 'rocAucMacro')
+        self.regression_metric = ('meanSquaredError', 'rootMeanSquaredError', 'rootMeanSquaredErrorAvg', 'meanAbsoluteError', 'rSquared', 'jaccardSimilarityScore', 'precisionAtTopK', 'objectDetectionAP')
 
         self.output_directory = output_directory
         self.log_dir = log_dir
@@ -629,19 +635,6 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
                     training_metrics = training_metrics[0]
         # END evaluation part
 
-        if self.output_directory is not None:
-            data = {
-                'fitted_pipeline': fitted_pipeline,
-                'training_metrics': training_metrics,
-                'cross_validation_metrics': fitted_pipeline.get_cross_validation_metrics(),
-                'test_metrics': test_metrics,
-                'total_runtime': time.time() - start_time
-            }
-            fitted_pipeline.auxiliary = dict(data)
-
-            # print("!!!!")
-            # pprint(data)
-            # print("!!!!")
 
         # Save results
         if self.test_dataset1 is None:
@@ -650,6 +643,28 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
             # set the metric for calculating the rank
             fitted_pipeline2.set_metric(training_metrics[0])
 
+            data = {
+                'fitted_pipeline': fitted_pipeline2,
+                'training_metrics': training_metrics,
+                'cross_validation_metrics': fitted_pipeline2.get_cross_validation_metrics(),
+                'test_metrics': training_metrics,
+                'total_runtime': time.time() - start_time
+            }
+            fitted_pipeline.auxiliary = dict(data)
+
+            print("!!!! No test_dataset1")
+            pprint(data)
+            print("!!!!")
+
+            if self.output_directory is not None and dump2disk:
+                fitted_pipeline2.save(self.output_directory)
+
+                _logger.info("Test pickled pipeline. id: {}".format(fitted_pipeline2.id))
+                self.test_pickled_pipeline(folder_loc=self.output_directory,
+                                           pipeline_id=fitted_pipeline2.id,
+                                           test_dataset=self.train_dataset2[0],
+                                           test_metrics=training_metrics,
+                                           test_ground_truth=get_target_columns(self.train_dataset2[each_repeat], self.problem))
         else:
             if self.quick_mode:
                 print("[INFO] Now in quick mode, will skip training with train_dataset1")
@@ -679,16 +694,34 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
             # finally, fit the model with all data and save it
             print("[INFO] Now are training the pipeline with all dataset and saving the pipeline.")
             fitted_pipeline2.fit(cache=cache, inputs=[self.all_dataset])
-            #fitted_pipeline2.fit(inputs = [self.all_dataset])
+            # fitted_pipeline2.fit(inputs = [self.all_dataset])
 
-        if self.output_directory is not None and dump2disk:
-            fitted_pipeline2.save(self.output_directory)
+            data = {
+                'fitted_pipeline': fitted_pipeline2,
+                'training_metrics': training_metrics,
+                'cross_validation_metrics': fitted_pipeline2.get_cross_validation_metrics(),
+                'test_metrics': test_metrics2,
+                'total_runtime': time.time() - start_time
+            }
+            fitted_pipeline.auxiliary = dict(data)
 
-            # _logger.info("Test pickled pipeline. id: {}".format(fitted_pipeline.id))
-            # self.test_pickled_pipeline(folder_loc=self.output_directory,
-            #                                pipeline_id=fitted_pipeline.id,
-            #                                test_metrics=test_metrics,
-            #                                test_ground_truth=test_ground_truth)
+            print("!!!!!! TEST_DATASET1")
+            pprint(data)
+            print("!!!!")
+
+            if self.output_directory is not None and dump2disk:
+                _ = fitted_pipeline2.produce(inputs=[self.test_dataset1])
+                test_prediction3 = fitted_pipeline2.get_produce_step_output(self.template.get_output_step_number())
+                _, test_metrics3 = self._calculate_score(None, None, test_ground_truth, test_prediction3)
+
+                fitted_pipeline2.save(self.output_directory)
+
+                _logger.info("Test pickled pipeline. id: {}".format(fitted_pipeline2.id))
+                self.test_pickled_pipeline(folder_loc=self.output_directory,
+                                           pipeline_id=fitted_pipeline2.id,
+                                           test_dataset=self.test_dataset1,
+                                           test_metrics=test_metrics3,
+                                           test_ground_truth=test_ground_truth)
 
         # still return the original fitted_pipeline with relation to train_dataset1
         return data
@@ -771,13 +804,15 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
     def test_pickled_pipeline(self,
                               folder_loc: str,
                               pipeline_id: str,
+                              test_dataset: Dataset,
                               test_metrics: typing.List,
                               test_ground_truth) -> None:
-
         fitted_pipeline, run = FittedPipeline.load(folder_loc=folder_loc, pipeline_id=pipeline_id, log_dir=self.log_dir)
-        results = fitted_pipeline.produce(inputs=[self.test_dataset])
-        pipeline_pridiction = fitted_pipeline.get_produce_step_output(self.template.get_output_step_number())
+        results = fitted_pipeline.produce(inputs=[test_dataset])
 
+        pipeline_prediction = fitted_pipeline.get_produce_step_output(self.template.get_output_step_number())
+
+        test_pipeline_metrics2 = self._calculate_score(None, None, test_ground_truth, pipeline_prediction)
         test_pipeline_metrics = list()
         for metric_description in self.performance_metrics:
             metricDesc = PerformanceMetric.parse(metric_description['metric'])
@@ -793,7 +828,7 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
                         'metric': metric_description['metric'],
                         'value': metric(
                             test_ground_truth.iloc[:, -1].astype(float),
-                            pipeline_pridiction.iloc[:, -1].astype(float),
+                            pipeline_prediction.iloc[:, -1].astype(float),
                             **params
                         )
                     })
@@ -802,13 +837,20 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
                         'metric': metric_description['metric'],
                         'value': metric(
                             test_ground_truth.iloc[:, -1].astype(str),
-                            pipeline_pridiction.iloc[:, -1].astype(str),
+                            pipeline_prediction.iloc[:, -1].astype(str),
                             **params
                         )
                     })
             except:
                 raise NotSupportedError(
                     '[ERROR] metric calculation failed in test pickled pipeline')
+
+        print('=== original')
+        pprint(test_metrics)
+        print('=== test')
+        print(test_pipeline_metrics)
+        print('=== test2')
+        print(test_pipeline_metrics2)
 
         pairs = zip(test_metrics, test_pipeline_metrics)
         if any(x != y for x, y in pairs):
@@ -839,6 +881,7 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
 PythonPathWithHyperaram = typing.Tuple[PythonPath, int, HyperparamDirective]
 
 
+# Not used? Mypy error
 def generate_hyperparam_configuration_space(space: ConfigurationSpace[PythonPath]) -> ConfigurationSpace[PythonPathWithHyperaram]:
     new_space = {}
     for name in space.get_dimensions():
