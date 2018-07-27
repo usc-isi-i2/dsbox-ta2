@@ -79,7 +79,8 @@ class TemplateLibrary:
             "UCHI_Time_Series_Classification_Template": UCHITimeSeriesClassificationTemplate,
             "JHU_Graph_Matching_Template": JHUGraphMatchingTemplate,
             "JHU_Vertex_Nomination_Template": JHUVertexNominationTemplate,
-            "Default_Time_Series_Forcasting_Template": DefaultTimeSeriesForcastingTemplate
+            "Default_Time_Series_Forcasting_Template": DefaultTimeSeriesForcastingTemplate,
+            "Michigan_Video_Classification_Template":MichiganVideoClassificationTemplate
         }
 
         if run_single_template:
@@ -133,12 +134,11 @@ class TemplateLibrary:
         # Tabular Classification
         self.templates.append(DefaultClassificationTemplate)
         self.templates.append(RandomForestTemplate)
+        self.templates.append(dsboxClassificationTemplate)
         self.templates.append(TA1Classification_3)
         self.templates.append(MuxinTA1ClassificationTemplate1)
         self.templates.append(UU3TestTemplate)
         self.templates.append(TA1ClassificationTemplate1)
-        # move dsboxClassificationTemplate to last excution because sometimes this template have bugs
-        self.templates.append(dsboxClassificationTemplate)
 
         # Tabular Regression
         self.templates.append(dsboxRegressionTemplate)
@@ -161,6 +161,7 @@ class TemplateLibrary:
         self.templates.append(DefaultTimeSeriesForcastingTemplate)
         self.templates.append(SRIMeanBaselineTemplate)
         self.templates.append(CMUClusteringTemplate)
+        self.templates.append(MichiganVideoClassificationTemplate)
 
     def _load_single_inline_templates(self, template_name):
         if template_name in self.all_templates:
@@ -372,16 +373,7 @@ def d3m_preprocessing(attribute_name: str = "cast_1_step",
             },
             {
                 "name": attribute_name,
-                "primitives": [
-                        {
-                         "primitive": "d3m.primitives.data.CastToType",
-                         "hyperparameters": {"type_to_cast": ["float"]}
-                         },
-                         {
-                         "primitive": "d3m.primitives.dsbox.DoNothing",
-                         "hyperparameters": {}
-                         }
-                    ],
+                "primitives": ["d3m.primitives.data.CastToType"],
                 "inputs": ["column_parser_step"]
             },
         ]
@@ -423,6 +415,7 @@ def dsbox_encoding(clean_name: str = "clean_step",
                         "hyperparameters":
                             {
                                 'n_hidden': [(10)],
+                                'threshold': [(0)],
                                 'threshold': [(0), (500)],
                                 'n_grams': [(1), (5)],
                                 'max_df': [(.9)],
@@ -1308,16 +1301,7 @@ class DefaultTextClassificationTemplate(DSBoxTemplate):
                 },
                 {
                     "name": "cast_1_step",
-                    "primitives": [
-                        {
-                         "primitive": "d3m.primitives.data.CastToType",
-                         "hyperparameters": {"type_to_cast": ["float"]}
-                         },
-                         {
-                         "primitive": "d3m.primitives.dsbox.DoNothing",
-                         "hyperparameters": {}
-                         }
-                    ],
+                    "primitives": ["d3m.primitives.data.CastToType"],
                     "inputs": ["column_parser_step"]
                 },
                 {
@@ -1573,13 +1557,9 @@ class MuxinTA1ClassificationTemplate2(DSBoxTemplate):
                     "name": "cast_1_step",
                     "primitives": [
                         {
-                         "primitive": "d3m.primitives.data.CastToType",
-                         "hyperparameters": {"type_to_cast": ["float"]}
-                         },
-                         {
-                         "primitive": "d3m.primitives.dsbox.DoNothing",
-                         "hyperparameters": {}
-                         }
+                            "primitive": "d3m.primitives.data.CastToType",
+                            "hyperparameters": {"type_to_cast": ["float"]}
+                        }
                     ],
                     "inputs": ["impute_step"]
                 },
@@ -1672,13 +1652,9 @@ class MuxinTA1ClassificationTemplate3(DSBoxTemplate):
                     "name": "cast_1_step",
                     "primitives": [
                         {
-                         "primitive": "d3m.primitives.data.CastToType",
-                         "hyperparameters": {"type_to_cast": ["float"]}
-                         },
-                         {
-                         "primitive": "d3m.primitives.dsbox.DoNothing",
-                         "hyperparameters": {}
-                         }
+                            "primitive": "d3m.primitives.data.CastToType",
+                            "hyperparameters": {"type_to_cast": ["float"]}
+                        }
                     ],
                     "inputs": ["impute_step"]
                 },
@@ -1846,13 +1822,8 @@ class UU3TestTemplate(DSBoxTemplate):
                 {
                     "name": "cast_step",
                     "primitives": [
-                        {
-                         "primitive": "d3m.primitives.data.CastToType",
+                        {"primitive": "d3m.primitives.data.CastToType",
                          "hyperparameters": {"type_to_cast": ["float"]}
-                         },
-                         {
-                         "primitive": "d3m.primitives.dsbox.DoNothing",
-                         "hyperparameters": {}
                          }
                     ],
                     "inputs": ["impute_step"]
@@ -2637,3 +2608,70 @@ class CMUClusteringTemplate(DSBoxTemplate):
 
 
 
+
+class MichiganVideoClassificationTemplate(DSBoxTemplate):
+    def __init__(self):
+        DSBoxTemplate.__init__(self)
+        self.template = {
+            "name": "Michigan_Video_Classification_Template",
+            "taskType": TaskType.CLASSIFICATION.name,
+            # See TaskType, range include 'CLASSIFICATION', 'CLUSTERING', 'COLLABORATIVE_FILTERING',
+            # 'COMMUNITY_DETECTION', 'GRAPH_CLUSTERING', 'GRAPH_MATCHING', 'LINK_PREDICTION',
+            # 'REGRESSION', 'TIME_SERIES_FORECASTING', 'VERTEX_NOMINATION'
+            "taskSubtype": TaskSubtype.MULTICLASS.name,
+            "inputType": "video",  # See SEMANTIC_TYPES.keys() for range of values
+            "output": "model_step",  # Name of the final step generating the prediction
+            "target": "extract_target_step",  # Name of the step generating the ground truth            
+            "steps" : [
+                {
+                    "name":"denormalize_step", 
+                    "primitives":["d3m.primitives.dsbox.Denormalize"], 
+                    "inputs":["template_input"]
+                },
+                {
+                    "name":"to_dataframe_step",
+                    "primitives":["d3m.primitives.datasets.DatasetToDataFrame"], 
+                    "inputs":["denormalize_step"]
+                },
+                {
+                    "name": "extract_target_step",
+                    "primitives": [{
+                        "primitive": "d3m.primitives.data.ExtractColumnsBySemanticTypes",
+                        "hyperparameters":
+                            {
+                                'semantic_types': (
+                                    'https://metadata.datadrivendiscovery.org/types/TrueTarget',),
+                                'use_columns': (),
+                                'exclude_columns': ()
+                            }
+                    }],
+                    "inputs": ["to_dataframe_step"]
+                },
+                {
+                    "name":"read_video_step", 
+                    "primitives":["d3m.primitives.data.VideoReader"], 
+                    "inputs":["to_dataframe_step"]
+                },
+                {
+                    "name":"featurize_step", 
+                    "primitives":["d3m.primitives.spider.featurization.I3D"], 
+                    "inputs":["read_video_step"]
+
+                },
+                {
+                    "name":"convert_step",
+                    "primitives":["d3m.primitives.data.NDArrayToDataFrame"],
+                    "inputs":["featurize_step"]
+
+                },
+                {
+                    "name":"model_step",
+                    "primitives":["d3m.primitives.classifier.RandomForest"],
+                    "inputs":["convert_step", "extract_target_step"]
+                },
+            ]
+        }    
+
+    # @override
+    def importance(datset, problem_description):
+        return 7
