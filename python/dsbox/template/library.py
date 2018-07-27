@@ -1226,7 +1226,7 @@ class DefaultTextClassificationTemplate(DSBoxTemplate):
                                 "d3m.primitives.sklearn_wrap.SKMultinomialNB",
                             "hyperparameters":
                                 {
-                                    'alpha': [(0, .5, .8, 1)],
+                                    'alpha': [0, .5, .8, 1],
                                 }
                         },
                         {
