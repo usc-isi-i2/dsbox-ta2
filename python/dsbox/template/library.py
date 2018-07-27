@@ -151,6 +151,22 @@ class TemplateLibrary:
 
     def _load_inline_templates(self):
 
+        self.templates.append(SRIMeanBaselineTemplate)
+
+        # new tabular classification
+        self.templates.append(RandomForestClassificationTemplate)
+        self.templates.append(ExtraTreesClassificationTemplate)
+        self.templates.append(GradientBoostingClassificationTemplate)
+        self.templates.append(NaiveBayesClassificationTemplate)
+        # self.templates.append(SVCClassificationTemplate)  # takes too long on large datasets
+
+        # new tabular regression
+        self.templates.append(RandomForestRegressionTemplate)
+        self.templates.append(ExtraTreesRegressionTemplate)
+        self.templates.append(GradientBoostingRegressionTemplate)
+        # self.templates.append(SVRRegressionTemplate)
+
+
         # self.templates.append(RandomForestTemplate)
         # Tabular Classification
         # self.templates.append(TA1Classification_3)
@@ -176,22 +192,8 @@ class TemplateLibrary:
         self.templates.append(BBNAudioClassificationTemplate)
         self.templates.append(SRICollaborativeFilteringTemplate)
         self.templates.append(DefaultTimeSeriesForcastingTemplate)
-        self.templates.append(SRIMeanBaselineTemplate)
         self.templates.append(CMUClusteringTemplate)
         self.templates.append(MichiganVideoClassificationTemplate)
-
-        # new tabular classification
-        self.templates.append(RandomForestClassificationTemplate)
-        self.templates.append(ExtraTreesClassificationTemplate)
-        self.templates.append(GradientBoostingClassificationTemplate)
-        self.templates.append(NaiveBayesClassificationTemplate)
-        # self.templates.append(SVCClassificationTemplate)  # takes too long on large datasets
-
-        # new tabular regression
-        self.templates.append(RandomForestRegressionTemplate)
-        self.templates.append(ExtraTreesRegressionTemplate)
-        self.templates.append(GradientBoostingRegressionTemplate)
-        # self.templates.append(SVRRegressionTemplate)
 
         # dsbox all in one templates
         self.templates.append(dsboxClassificationTemplate)
@@ -270,7 +272,7 @@ def dsbox_generic_steps():
         {
             "name": "clean_step",
             "primitives": [
-                "d3m.primitives.dsbox.CleaningFeaturizer",                    
+                "d3m.primitives.dsbox.CleaningFeaturizer",
                 "d3m.primitives.dsbox.DoNothing",
             ],
             "inputs": ["profiler_step"]
@@ -839,11 +841,11 @@ class DefaultTimeseriesRegressionTemplate(DSBoxTemplate):
                     "primitives": [
                     {
                         "primitive":"d3m.primitives.data.CastToType",
-                        "hyperparameters": {"type_to_cast": ["float"]} 
+                        "hyperparameters": {"type_to_cast": ["float"]}
                     },
                     {
-                        "primitive": "d3m.primitives.dsbox.DoNothing",  
-                        "hyperparameters": {} 
+                        "primitive": "d3m.primitives.dsbox.DoNothing",
+                        "hyperparameters": {}
                     }
                     ],
                     "inputs": ["extract_target_step"]
@@ -2944,5 +2946,3 @@ class NaiveBayesClassificationTemplate(DSBoxTemplate):
     # @override
     def importance(datset, problem_description):
         return 7
-
-
