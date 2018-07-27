@@ -61,7 +61,7 @@ from sklearn.model_selection import StratifiedShuffleSplit, ShuffleSplit
 import pandas as pd
 
 FILE_FORMATTER = "[%(levelname)s] - %(asctime)s - %(name)s - %(message)s"
-FILE_LOGGING_LEVEL = logging.DEBUG
+FILE_LOGGING_LEVEL = logging.WARNING
 LOG_FILENAME = 'dsbox.log'
 #CONSOLE_LOGGING_LEVEL = logging.INFO
 CONSOLE_LOGGING_LEVEL = logging.DEBUG
@@ -225,7 +225,7 @@ class Status(enum.Enum):
 class Controller:
     TIMEOUT = 59  # in minutes
 
-    def __init__(self, development_mode: bool = False, run_single_template_name: str = "random_forest_classification_template") -> None:
+    def __init__(self, development_mode: bool = False, run_single_template_name: str = "") -> None:
         self.development_mode: bool = development_mode
 
         self.run_single_template_name = run_single_template_name
@@ -553,6 +553,7 @@ class Controller:
         # print("[INFO] Choices:", choices)
         # UCT based evaluation
         for i in range(max_iter):
+        #while True:
             valids = list(filter(lambda t: t[1] is not None,
                                  zip(choices, self.uct_score)))
             _choices = list(map(lambda t: t[0], valids))
@@ -855,7 +856,7 @@ class Controller:
             lastmodified = files[-1]
             fitted_pipeline_id = lastmodified.split('/')[-1].split('.')[0]
 
-        pipeline_load, run = FittedPipeline.load(folder_loc=self.output_directory,
+        pipeline_load, run_test = FittedPipeline.load(folder_loc=self.output_directory,
                                                  pipeline_id=fitted_pipeline_id,
                                                  log_dir=self.output_logs_dir)
 
@@ -863,17 +864,22 @@ class Controller:
 
         print("[INFO] testing data:")
         # pprint(self.test_dataset.head())
+        
         # pipeline_load.runtime.produce(inputs=[self.test_dataset])
         self.all_dataset = auto_regress_convert(self.all_dataset, self.problem_doc_metadata)
-        run.produce(inputs=[self.all_dataset])
+        runtime.add_target_columns_metadata(self.all_dataset, self.problem_doc_metadata)
+        run_test.produce(inputs=[self.all_dataset])
+
         try:
             step_number_output = int(pipeline_load.pipeline.outputs[0]['data'].split('.')[1])
         except:
-            print("Warning: searching the output step number failed! Will use the last step's output of the pipeline.")
+            self._logger.error("Warning: searching the output step number failed! "
+                               "Will use the last step's output of the pipeline.")
             # step_number_output = len(pipeline_load.runtime.produce_outputs) - 1
-            step_number_output = len(run.produce_outputs) - 1
+            step_number_output = len(run_test.produce_outputs) - 1
 
         # get the target column name
+        prediction_class_name = []
         try:
             with open(self.dataset_schema_file, 'r') as dataset_description_file:
                 dataset_description = json.load(dataset_description_file)
@@ -881,28 +887,31 @@ class Controller:
                     if "columns" in each_resource:
                         for each_column in each_resource["columns"]:
                             if "suggestedTarget" in each_column["role"] or "target" in each_column["role"]:
-                                prediction_class_name = each_column["colName"]
+                                prediction_class_name.append(each_column["colName"])
         except:
-            print("[Warning] Can't find the prediction class name, will use default name.")
-            prediction_class_name = "prediction"
+            self._logger.error("[Warning] Can't find the prediction class name, will use default name 'prediction'.")
+            prediction_class_name.append("prediction")
 
-        prediction = run.produce_outputs[step_number_output]
-
+        prediction = run_test.produce_outputs[step_number_output]
         # if the prediction results do not have d3m_index column
         if 'd3mIndex' not in prediction.columns:
             d3m_index = get_target_columns(self.all_dataset, self.problem_doc_metadata)["d3mIndex"]
             d3m_index = d3m_index.reset_index().drop(columns=['index'])
-            prediction_col_name = prediction.columns[0]
+            prediction_col_name = ['d3mIndex']
+            for each in prediction.columns:
+                prediction_col_name.append(each)
             prediction['d3mIndex'] = d3m_index
-            prediction = prediction[['d3mIndex', prediction_col_name]]
-            prediction = prediction.rename(columns={prediction_col_name: prediction_class_name})
-        prediction_folder_loc = self.output_directory + "/predictions/" + fitted_pipeline_id
+            prediction = prediction[prediction_col_name]
+            prediction_col_name.remove('d3mIndex')
+            for i in range(len(prediction_class_name)):
+                prediction = prediction.rename(columns={prediction_col_name[i]: prediction_class_name[i]})
+        prediction_folder_loc = outputs_loc + "/predictions/" + read_pipeline_id
         folder = os.path.exists(prediction_folder_loc)
         if not folder:
             os.makedirs(prediction_folder_loc)
         prediction.to_csv(prediction_folder_loc + "/predictions.csv", index=False)
-        print("[INFO] Finished: prediction results saving finished")
-        print("[INFO] The prediction results is stored at: ", prediction_folder_loc)
+        self._logger.info("[INFO] Finished: prediction results saving finished")
+        self._logger.info("[INFO] The prediction results is stored at: {}".format(prediction_folder_loc))
         return Status.OK
 
     def test(self) -> Status:
@@ -920,6 +929,7 @@ class Controller:
         self.all_dataset = auto_regress_convert(self.all_dataset, self.problem_doc_metadata)
         runtime.add_target_columns_metadata(self.all_dataset, self.problem_doc_metadata)
         run_test.produce(inputs=[self.all_dataset])
+
         try:
             step_number_output = int(pipeline_load.pipeline.outputs[0]['data'].split('.')[1])
         except:
