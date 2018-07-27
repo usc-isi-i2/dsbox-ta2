@@ -154,7 +154,7 @@ class TemplateLibrary:
 
     def _load_inline_templates(self):
         self.templates.append(SRIMeanBaselineTemplate)
-
+        self.templates.append(NaiveBayesClassificationTemplate)
         # default tabular templates, encompassing many of the templates below
         self.templates.append(DefaultClassificationTemplate)
         self.templates.append(DefaultRegressionTemplate)
@@ -163,7 +163,7 @@ class TemplateLibrary:
         # self.templates.append(RandomForestClassificationTemplate)
         # self.templates.append(ExtraTreesClassificationTemplate)
         # self.templates.append(GradientBoostingClassificationTemplate)
-        self.templates.append(NaiveBayesClassificationTemplate)
+
         # takes too long to run self.templates.append(SVCClassificationTemplate)
 
         # new tabular regression
