@@ -2660,7 +2660,7 @@ class GradientBoostingClassificationTemplate(DSBoxTemplate):
                             'max_depth': [2,3,5],
                             'n_estimators': [50, 75, 100],
                             'learning_rate': [0.1, 0.3, 0.5],
-                            'min_samples_split': [1, 2, 3],
+                            'min_samples_split': [2, 3],
                             'min_samples_leaf': [1, 2],
                             }
                         },
@@ -2787,7 +2787,7 @@ class GradientBoostingRegressionTemplate(DSBoxTemplate):
                             'max_depth': [2,3,5],
                             'n_estimators': [100, 150, 200],
                             'learning_rate': [0.1, 0.3, 0.5],
-                            'min_samples_split': [1, 2, 3],
+                            'min_samples_split': [2, 3],
                             'min_samples_leaf': [1, 2],
                             'max_features': [None, 'auto', 'sqrt']
                             }
