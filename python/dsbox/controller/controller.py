@@ -3,6 +3,7 @@ import json
 import logging
 import os
 import random
+import sys
 import typing
 import uuid
 
@@ -38,6 +39,9 @@ from d3m.metadata.problem import TaskSubtype
 from d3m.metadata.problem import parse_problem_description
 
 from dsbox.pipeline.fitted_pipeline import FittedPipeline
+from dsbox.pipeline.utils import larger_is_better
+from dsbox.schema.problem import optimization_type
+from dsbox.schema.problem import OptimizationType
 from dsbox.template.library import TemplateDescription
 from dsbox.template.library import TemplateLibrary
 from dsbox.template.library import SemanticTypeDict
@@ -479,26 +483,26 @@ class Controller:
             # pipeline = FittedPipeline.create(configuration=candidate,
             #                             dataset=self.dataset)
 
-            dataset_name = self.output_executables_dir.rsplit("/", 2)[1]
-            # save_location = os.path.join(self.output_logs_dir, dataset_name + ".txt")
-            save_location = self.output_directory + ".txt"
+            # dataset_name = self.output_executables_dir.rsplit("/", 2)[1]
+            # # save_location = os.path.join(self.output_logs_dir, dataset_name + ".txt")
+            # save_location = self.output_directory + ".txt"
 
-            self._logger.info("******************\n[INFO] Saving training results in %s", save_location)
-            try:
-                f = open(save_location, "w+")
-                f.write(str(metrics) + "\n")
+            # self._logger.info("******************\n[INFO] Saving training results in %s", save_location)
+            # try:
+            #     f = open(save_location, "w+")
+            #     f.write(str(metrics) + "\n")
 
-                for m in ["training_metrics", "cross_validation_metrics", "test_metrics"]:
-                    if m in candidate.data and candidate.data[m]:
-                        f.write(m, str(candidate.data[m][0]['value']) + "\n")
-                # f.write(str(candidate.data['training_metrics'][0]['value']) + "\n")
-                # f.write(str(candidate.data['cross_validation_metrics'][0]['value']) + "\n")
-                # f.write(str(candidate.data['test_metrics'][0]['value']) + "\n")
-                f.close()
-            except:
-                self._logger.exception('[ERROR] Save training results Failed!')
-                raise NotSupportedError(
-                    '[ERROR] Save training results Failed!')
+            #     for m in ["training_metrics", "cross_validation_metrics", "test_metrics"]:
+            #         if m in candidate.data and candidate.data[m]:
+            #             f.write(m + ' ' +  str(candidate.data[m][0]['value']) + "\n")
+            #     # f.write(str(candidate.data['training_metrics'][0]['value']) + "\n")
+            #     # f.write(str(candidate.data['cross_validation_metrics'][0]['value']) + "\n")
+            #     # f.write(str(candidate.data['test_metrics'][0]['value']) + "\n")
+            #     f.close()
+            # except:
+            #     self._logger.exception('[ERROR] Save training results Failed!')
+            #     raise NotSupportedError(
+            #         '[ERROR] Save training results Failed!')
 
             return report
 
@@ -646,6 +650,9 @@ class Controller:
             self.train_dataset2 = None
             self.test_dataset2 = None
 
+        best_metric_value = None
+        best_report = None
+
         for idx in self.select_next_template(max_iter=5):
             template = self.template[idx]
             self._logger.info(STYLE+"[INFO] Template {}:{} Selected. UCT:{}".format(idx, template.template['name'], self.uct_score))
@@ -669,8 +676,46 @@ class Controller:
             self._logger.info(STYLE+"[INFO] cache size: " + str(len(cache))+
                   ", candidates: " + str(len(candidate_cache)))
 
-            # break
+            new_best = False
+            if best_report is None:
+                best_report = report
+                best_metric_value = best_report['best_val']
+                new_best = True
+            else:
+                if self.minimize and report['best_val'] < best_metric_value:
+                    best_report = report
+                    best_metric_value = report['best_val']
+                    new_best = True
+                if not self.minimize and report['best_val'] > best_metric_value:
+                    best_report = report
+                    best_metric_value = report['best_val']
+                    new_best = True
 
+            if new_best and best_report['candidate'] is not None:
+                self._logger.info('[INFO] New Best Value: ' + str(report['best_val']))
+
+                dataset_name = self.output_executables_dir.rsplit("/", 2)[1]
+                # save_location = os.path.join(self.output_logs_dir, dataset_name + ".txt")
+                save_location = self.output_directory + ".txt"
+
+                self._logger.info("******************\n[INFO] Saving training results in %s", save_location)
+                metrics = self.problem['problem']['performance_metrics']
+                candidate = best_report['candidate']
+                try:
+                    f = open(save_location, "w+")
+                    f.write(str(metrics) + "\n")
+
+                    for m in ["training_metrics", "cross_validation_metrics", "test_metrics"]:
+                        if m in candidate.data and candidate.data[m]:
+                            f.write(m + ' ' +  str(candidate.data[m][0]['value']) + "\n")
+                    # f.write(str(candidate.data['training_metrics'][0]['value']) + "\n")
+                    # f.write(str(candidate.data['cross_validation_metrics'][0]['value']) + "\n")
+                    # f.write(str(candidate.data['test_metrics'][0]['value']) + "\n")
+                    f.close()
+                except:
+                    self._logger.exception('[ERROR] Save training results Failed!')
+                    raise NotSupportedError(
+                        '[ERROR] Save training results Failed!')
 
 
         # shutdown the cache manager
@@ -911,7 +956,7 @@ class Controller:
         # print(mapper_to_primitives.mapper)
         values = mapper_to_primitives.create_configuration_space(template_desc.template)
         # print(template_desc.template.template_nodes.items())
-        self._logger.info("Values: {}".format(values))
+        print("[INFO] Values: {}".format(values))
         # values: typing.Dict[DimensionName, typing.List] = {}
         return SimpleConfigurationSpace(values)
 

@@ -269,12 +269,16 @@ class DimensionalSearch(typing.Generic[T]):
                         print("-" * 10)
                         continue
 
-                    if len(res['cross_validation_metrics']) > 0:
-                        cross_validation_mode = True
-                        score_values.append(res['cross_validation_metrics'][0]['value'])
-                    else:
-                        score_values.append(res['test_metrics'][0]['value'])
-                        cross_validation_mode = False
+                    ## Always use 'test_metrics' since it is generated using test_dataset1
+                    # if len(res['cross_validation_metrics']) > 0:
+                    #     cross_validation_mode = True
+                    #     score_values.append(res['cross_validation_metrics'][0]['value'])
+                    # else:
+                    #     score_values.append(res['test_metrics'][0]['value'])
+                    #     cross_validation_mode = False
+                    score_values.append(res['test_metrics'][0]['value'])
+                    cross_validation_mode = False
+
                     # pipeline = self.template.to_pipeline(x)
                     # res['pipeline'] = pipeline
 
@@ -632,19 +636,6 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
                     training_metrics = training_metrics[0]
         # END evaluation part
 
-        if self.output_directory is not None:
-            data = {
-                'fitted_pipeline': fitted_pipeline,
-                'training_metrics': training_metrics,
-                'cross_validation_metrics': fitted_pipeline.get_cross_validation_metrics(),
-                'test_metrics': test_metrics,
-                'total_runtime': time.time() - start_time
-            }
-            fitted_pipeline.auxiliary = dict(data)
-
-            # print("!!!!")
-            # pprint(data)
-            # print("!!!!")
 
         # Save results
         if self.test_dataset1 is None:
@@ -652,6 +643,19 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
             fitted_pipeline2 = fitted_pipeline
             # set the metric for calculating the rank
             fitted_pipeline2.set_metric(training_metrics[0])
+
+            data = {
+                'fitted_pipeline': fitted_pipeline2,
+                'training_metrics': training_metrics[0],
+                'cross_validation_metrics': fitted_pipeline2.get_cross_validation_metrics(),
+                'test_metrics': training_metrics[0],
+                'total_runtime': time.time() - start_time
+            }
+            fitted_pipeline.auxiliary = dict(data)
+
+            print("!!!! No test_dataset1")
+            pprint(data)
+            print("!!!!")
 
             if self.output_directory is not None and dump2disk:
                 fitted_pipeline2.save(self.output_directory)
@@ -692,6 +696,19 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
             print("[INFO] Now are training the pipeline with all dataset and saving the pipeline.")
             fitted_pipeline2.fit(cache=cache, inputs=[self.all_dataset])
             # fitted_pipeline2.fit(inputs = [self.all_dataset])
+
+            data = {
+                'fitted_pipeline': fitted_pipeline2,
+                'training_metrics': training_metrics,
+                'cross_validation_metrics': fitted_pipeline2.get_cross_validation_metrics(),
+                'test_metrics': test_metrics2,
+                'total_runtime': time.time() - start_time
+            }
+            fitted_pipeline.auxiliary = dict(data)
+
+            print("!!!!!! TEST_DATASET1")
+            pprint(data)
+            print("!!!!")
 
             if self.output_directory is not None and dump2disk:
                 fitted_pipeline2.save(self.output_directory)
