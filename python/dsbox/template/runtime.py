@@ -139,6 +139,8 @@ class Runtime:
 
         primitives_outputs: typing.List[typing.Optional[base.CallResult]] = [None] * len(self.execution_order)
 
+        hash_prefix = ""
+
         for i in range(0, len(self.execution_order)):
             primitive_arguments: typing.Dict[str, typing.Any] = {}
             n_step = self.execution_order[i]
@@ -163,8 +165,9 @@ class Runtime:
                 dataset_hash = hash(str(primitive_arguments) + dataset_id + dataset_digest)
 
                 prim_name = str(self.pipeline_description.steps[n_step].primitive)
-                prim_hash = hash(str([hyperparam_hash, dataset_hash]))
+                prim_hash = hash(str([hyperparam_hash, dataset_hash, hash_prefix]))
 
+                hash_prefix = prim_hash
 
                 _logger.info(
                     "Primitive Fit. 'id': '%(primitive_id)s', '(name, hash)': ('%(name)s', '%(hash)s'), 'worker_id': '%(worker_id)s'.",
