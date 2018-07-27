@@ -828,7 +828,9 @@ class Controller:
 
         print("[INFO] testing data:")
         # pprint(self.test_dataset.head())
+        
         # pipeline_load.runtime.produce(inputs=[self.test_dataset])
+        self.all_dataset = auto_regress_convert(self.all_dataset, self.problem_doc_metadata)
         run.produce(inputs=[self.all_dataset])
         try:
             step_number_output = int(pipeline_load.pipeline.outputs[0]['data'].split('.')[1])
@@ -880,7 +882,7 @@ class Controller:
         self._logger.info("[INFO] Pipeline load finished")
 
         self._logger.info("[INFO] testing data")
-
+        self.all_dataset = auto_regress_convert(self.all_dataset, self.problem_doc_metadata)
         run.produce(inputs=[self.all_dataset])
         try:
             step_number_output = int(pipeline_load.pipeline.outputs[0]['data'].split('.')[1])
