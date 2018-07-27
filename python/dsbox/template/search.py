@@ -60,6 +60,7 @@ def get_target_columns(dataset: 'Dataset', problem_doc_metadata: 'Metadata'):
     targetcol = dataset[resID].iloc[:, targetlist]
     return targetcol
 
+_logger = logging.getLogger(__name__)
 
 class DimensionalSearch(typing.Generic[T]):
     """
@@ -684,11 +685,11 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
         if self.output_directory is not None and dump2disk:
             fitted_pipeline2.save(self.output_directory)
 
-            # _logger.info("Test pickled pipeline. id: {}".format(fitted_pipeline.id))
-            # self.test_pickled_pipeline(folder_loc=self.output_directory,
-            #                                pipeline_id=fitted_pipeline.id,
-            #                                test_metrics=test_metrics,
-            #                                test_ground_truth=test_ground_truth)
+            _logger.info("Test pickled pipeline. id: {}".format(fitted_pipeline.id))
+            self.test_pickled_pipeline(folder_loc=self.output_directory,
+                                           pipeline_id=fitted_pipeline.id,
+                                           test_metrics=test_metrics,
+                                           test_ground_truth=test_ground_truth)
 
         # still return the original fitted_pipeline with relation to train_dataset1
         return data

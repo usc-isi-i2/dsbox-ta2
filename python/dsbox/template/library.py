@@ -142,22 +142,14 @@ class TemplateLibrary:
 
         # self.templates.append(RandomForestTemplate)
         # Tabular Classification
-        self.templates.append(DefaultClassificationTemplate)
-        self.templates.append(RandomForestTemplate)
-        self.templates.append(TA1Classification_3)
-        self.templates.append(MuxinTA1ClassificationTemplate1)
+        # self.templates.append(TA1Classification_3)
+        # self.templates.append(MuxinTA1ClassificationTemplate1)
         self.templates.append(UU3TestTemplate)
-        self.templates.append(TA1ClassificationTemplate1)
+        # self.templates.append(TA1ClassificationTemplate1)
         # move dsboxClassificationTemplate to last excution because sometimes this template have bugs
-        self.templates.append(dsboxClassificationTemplate)
-
-        # Tabular Regression
-        self.templates.append(dsboxRegressionTemplate)
-        self.templates.append(DefaultRegressionTemplate)
 
         # Image Regression
         self.templates.append(DefaultImageProcessingRegressionTemplate)
-        self.templates.append(TA1DefaultImageProcessingRegressionTemplate)
 
         # Others
         self.templates.append(DefaultTimeseriesCollectionTemplate)
@@ -173,6 +165,21 @@ class TemplateLibrary:
         self.templates.append(SRIMeanBaselineTemplate)
         self.templates.append(CMUClusteringTemplate)
         self.templates.append(MichiganVideoClassificationTemplate)
+
+        self.templates.append(RandomForestClassificationTemplate)
+        self.templates.append(ExtraTreesClassificationTemplate)
+        self.templates.append(GradientBoostingClassificationTemplate)
+        self.templates.append(SVCClassificationTemplate)
+
+        # new regression
+        self.templates.append(RandomForestRegressionTemplate)
+        self.templates.append(ExtraTreesRegressionTemplate)
+        self.templates.append(GradientBoostingRegressionTemplate)
+        self.templates.append(SVRRegressionTemplate)
+
+        self.templates.append(dsboxClassificationTemplate)
+        # Tabular Regression
+        self.templates.append(dsboxRegressionTemplate)
 
     def _load_single_inline_templates(self, template_name):
         if template_name in self.all_templates:
