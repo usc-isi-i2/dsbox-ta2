@@ -155,7 +155,7 @@ class TemplateLibrary:
 
         # if we solve text, we want to run these first, otherwise, we want to ignore them 
         self.templates.append(DefaultTextClassificationTemplate)
-        self.templates.append(DefaultTimeseriesRegressionTemplate)
+        self.templates.append(DefaultTextRegressionTemplate)
 
         # new tabular classification
         self.templates.append(RandomForestClassificationTemplate)
