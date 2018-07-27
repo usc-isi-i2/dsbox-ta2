@@ -148,7 +148,6 @@ class DimensionalSearch(typing.Generic[T]):
         return hash(str(candidate)) in cand_cache
 
     def search_one_iter(self, candidate_in: ConfigurationPoint[T] = None,
-
                         max_per_dimension: int=50,
                         cache_bundle: typing.Tuple[typing.Dict, typing.Dict]=(None, None)) -> \
             typing.Dict:
@@ -410,7 +409,7 @@ class DimensionalSearch(typing.Generic[T]):
         #         result = self.evaluate(candidate)
         # return (candidate, result['test_metrics'][0]['value'])
 
-    def search(self, candidate: ConfigurationPoint[T] = None, candidate_value: float = None, num_iter=3, max_per_dimension=10):
+    def search(self, candidate: ConfigurationPoint[T] = None, candidate_value: float = None, num_iter=3, max_per_dimension=50):
         for i in range(num_iter):
             candidate, candidate_value = self.search_one_iter(candidate, candidate_value, max_per_dimension=max_per_dimension)
             if candidate is None:
