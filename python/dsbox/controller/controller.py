@@ -490,7 +490,7 @@ class Controller:
 
                 for m in ["training_metrics", "cross_validation_metrics", "test_metrics"]:
                     if m in candidate.data and candidate.data[m]:
-                        f.write(m, str(candidate.data[m][0]['value']) + "\n")
+                        f.write(m + str(candidate.data[m][0]['value']) + "\n")
                 # f.write(str(candidate.data['training_metrics'][0]['value']) + "\n")
                 # f.write(str(candidate.data['cross_validation_metrics'][0]['value']) + "\n")
                 # f.write(str(candidate.data['test_metrics'][0]['value']) + "\n")
