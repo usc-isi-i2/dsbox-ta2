@@ -1222,19 +1222,19 @@ class DefaultTextClassificationTemplate(DSBoxTemplate):
                     },
                     "primitives": [
                         {
-                            "primitive":
-                                "d3m.primitives.sklearn_wrap.SKMultinomialNB",
-                            "hyperparameters":
-                                {
-                                    'alpha': [0, .5, .8, 1],
-                                }
-                        },
-                        {
                         "primitive":
                             "d3m.primitives.sklearn_wrap.SKGradientBoostingClassifier",
                         "hyperparameters":
                             {
                             }
+                        },
+                        {
+                            "primitive":
+                                "d3m.primitives.sklearn_wrap.SKMultinomialNB",
+                            "hyperparameters":
+                                {
+                                    'alpha': [0, .5, 1],
+                                }
                         },
                         {
                         "primitive":
