@@ -45,20 +45,32 @@ T = typing.TypeVar("T")
 
 
 def get_target_columns(dataset: 'Dataset', problem_doc_metadata: 'Metadata'):
+    targetcol = None
     problem = problem_doc_metadata.query(())["inputs"]["data"]
     datameta = dataset.metadata
     target = problem[0]["targets"]
-    resID = target[0]["resID"]
-    colIndex = target[0]["colIndex"]
-    datalength = datameta.query((resID, ALL_ELEMENTS,))["dimension"]['length']
+    resID_list = []
+    colIndex_list = []
     targetlist = []
+    # sometimes we will have multiple targets, so we need to add a for loop here
+    for i in range(len(target)):
+        resID_list.append(target[i]["resID"])
+        colIndex_list.append(target[i]["colIndex"])
+    if len(set(resID_list)) > 1:
+        print("[ERROR] Multiple targets in different dataset???")
+
+    datalength = datameta.query((resID_list[0], ALL_ELEMENTS,))["dimension"]['length']
+    
     for v in range(datalength):
-        types = datameta.query((resID, ALL_ELEMENTS, v))["semantic_types"]
+        types = datameta.query((resID_list[0], ALL_ELEMENTS, v))["semantic_types"]
         for t in types:
             if t == 'https://metadata.datadrivendiscovery.org/types/PrimaryKey':
                 targetlist.append(v)
-    targetlist.append(colIndex)
-    targetcol = dataset[resID].iloc[:, targetlist]
+    for each in targetlist:
+        colIndex_list.append(each)
+    colIndex_list.sort()
+
+    targetcol = dataset[resID_list[0]].iloc[:, colIndex_list]
     return targetcol
 
 _logger = logging.getLogger(__name__)
@@ -269,14 +281,17 @@ class DimensionalSearch(typing.Generic[T]):
                         continue
 
                     ## Always use 'test_metrics' since it is generated using test_dataset1
-                    # if len(res['cross_validation_metrics']) > 0:
-                    #     cross_validation_mode = True
+                    if len(res['cross_validation_metrics']) > 0:
+                        cross_validation_mode = True
                     #     score_values.append(res['cross_validation_metrics'][0]['value'])
-                    # else:
-                    #     score_values.append(res['test_metrics'][0]['value'])
-                    #     cross_validation_mode = False
-                    score_values.append(res['test_metrics'][0]['value'])
-                    cross_validation_mode = False
+                    else:
+                        # score_values.append(res['test_metrics'][0]['value'])
+                        cross_validation_mode = False
+                    target_amount = len(res['test_metrics'][0])
+                    combined_score = 0.0
+                    for each_target in res['test_metrics'][0]:
+                        combined_score = combined_score + combined_score / float(target_amount)
+                    score_values.append(combined_score)
 
                     # pipeline = self.template.to_pipeline(x)
                     # res['pipeline'] = pipeline
@@ -560,11 +575,12 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
 
             # copy the cross validation score here to test_metrics for return
             test_metrics = copy.deepcopy(training_metrics)  # fitted_pipeline.get_cross_validation_metrics()
-            # generate a test matrics results with score = worst value
             if larger_is_better(training_metrics):
-                test_metrics[0]["value"] = 0
+                for each in test_metrics:
+                    each["value"] = 0
             else:
-                test_metrics[0]["value"] = sys.float_info.max
+                for each in test_metrics:   
+                    each["value"] = sys.float_info.max
             print("[INFO] Testing finish.!!!")
 
         # if in normal testing mode(including default testing mode with train/test one time each)
@@ -602,10 +618,12 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
                 # if no test_dataset exist, we need to give it with a default value
                 if len(test_metrics_each) == 0:
                     test_metrics_each = copy.deepcopy(training_metrics_each)
-                    if larger_is_better(training_metrics):
-                        test_metrics_each[0]["value"] = 0
+                    if larger_is_better(training_metrics_each):
+                        for each in test_metrics_each:
+                            each["value"] = 0
                     else:
-                        test_metrics_each[0]["value"] = sys.float_info.max
+                        for each in test_metrics_each:   
+                            each["value"] = sys.float_info.max
 
                 training_metrics.append(training_metrics_each)
                 test_metrics.append(test_metrics_each)
@@ -614,25 +632,68 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
             # modify the test_metrics and training_metrics format to fit the requirements
             print("[INFO] Testing finish.!!!")
             if len(training_metrics) > 1:
-                training_value_list = []
-                test_value_list = []
+                training_value_dict = {}
+                 # convert for training matrics
                 for each in training_metrics:
-                    training_value_list.append(each['value'])
-                    test_value_list.append(each['value'])
+                    # for condition only one exist?
+                    if type(each) is dict:
+                        if each['column_name'] in training_value_dict:
+                            # if this key exist, we append it
+                            training_value_dict[each['column_name']].append(each['value'])
+                        else:
+                            # otherwise create a new key-value pair
+                            training_value_dict[each['column_name']] = [each['value']]
+                    else:
+                        for each_target in each:
+                            if each_target['column_name'] in training_value_dict:
+                                training_value_dict[each_target['column_name']].append(each_target['value'])
+                            else:
+                                training_value_dict[each_target['column_name']] = [each_target['value']]
                 # training_metrics part
+
                 training_metrics_new = training_metrics[0]
-                training_metrics_new['value'] = sum(training_value_list) / len(training_value_list)
-                training_metrics_new['values'] = training_value_list
+                count = 0
+                for (k,v) in  training_value_dict.items(): 
+                    training_metrics_new[count]['value'] = sum(v) / len(v)
+                    training_metrics_new[count]['values'] = v
+                    count += 1
                 training_metrics = [training_metrics_new]
+
+            else:
+                if type(training_metrics[0]) is list:
+                    training_metrics = training_metrics[0]
+
+            if len(test_metrics) > 1:      
+                test_value_dict = {}    
+                # convert for test matrics
+                for each in test_metrics:
+                    # for condition only one exist?
+                    if type(each) is dict:
+                        if each['column_name'] in test_value_dict:
+                            # if this key exist, we append it
+                            test_value_dict[each['column_name']].append(each['value'])
+                        else:
+                            # otherwise create a new key-value pair
+                            test_value_dict[each['column_name']] = [each['value']]
+                    else:
+                        for each_target in each:
+                            if each_target['column_name'] in test_value_dict:
+                                test_value_dict[each_target['column_name']].append(each_target['value'])
+                            else:
+                                test_value_dict[each_target['column_name']] = [each_target['value']]
+
                 # test_metrics part
                 test_metrics_new = test_metrics[0]
-                test_metrics_new['value'] = sum(test_value_list) / len(test_value_list)
-                test_metrics_new['values'] = test_value_list
+                count = 0
+                for (k,v) in  test_value_dict.items(): 
+                    test_metrics_new[count]['value'] = sum(v) / len(v)
+                    test_metrics_new[count]['values'] = v
+                    count += 1
                 test_metrics = [test_metrics_new]
+
             else:
                 if type(test_metrics[0]) is list:
                     test_metrics = test_metrics[0]
-                    training_metrics = training_metrics[0]
         # END evaluation part
 
 
@@ -728,6 +789,8 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
         '''
         training_metrics = []
         test_metrics = []
+        target_amount_train = 0
+        target_amount_test = 0
         for metric_description in self.performance_metrics:
             metricDesc = PerformanceMetric.parse(metric_description['metric'])
             metric: typing.Callable = metricDesc.get_function()
@@ -736,63 +799,78 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
             try:
                 # generate the metrics for training results
                 if training_ground_truth is not None and training_prediction is not None:  # if training data exist
-                    if regression_mode:
-                        training_metrics.append({
-                            'metric': metric_description['metric'],
-                            'value': metric(
-                                training_ground_truth.iloc[:, -1].astype(float),
-                                training_prediction.iloc[:, -1].astype(float),
-                                **params
-                            )
-                        })
+                    if "d3mIndex" not in training_prediction.columns:
+                        # for the condition that training_ground_truth have index but training_prediction don't have
+                        target_amount_train = len(training_prediction.columns)
                     else:
-                        if training_ground_truth is not None and training_prediction is not None:  # if training data exist
+                        target_amount_train = len(training_prediction.columns) - 1
+                    if regression_mode:
+                        for each_column in range( - target_amount_train, 0, 1):
                             training_metrics.append({
+                                'column_name': training_ground_truth.columns[each_column],
                                 'metric': metric_description['metric'],
                                 'value': metric(
-                                    training_ground_truth.iloc[:, -1].astype(str),
-                                    training_prediction.iloc[:, -1].astype(str),
+                                    training_ground_truth.iloc[:, each_column].astype(float),
+                                    training_prediction.iloc[:, each_column].astype(float),
                                     **params
                                 )
                             })
+                    else:
+                        if training_ground_truth is not None and training_prediction is not None:  # if training data exist
+                            for each_column in range( - target_amount_train, 0, 1):
+                                training_metrics.append({
+                                    'column_name': training_ground_truth.columns[each_column],
+                                    'metric': metric_description['metric'],
+                                    'value': metric(
+                                        training_ground_truth.iloc[:, each_column].astype(str),
+                                        training_prediction.iloc[:, each_column].astype(str),
+                                        **params
+                                    )
+                                })
                 # generate the metrics for testing results
                 if test_ground_truth is not None and test_prediction is not None:  # if testing data exist
+                    if "d3mIndex" not in test_prediction.columns:
+                        # for the condition that training_ground_truth have index but training_prediction don't have
+                        target_amount_test = len(test_prediction.columns)
+                    else:
+                        target_amount_test = len(test_prediction.columns) - 1
                     # if the test_ground_truth do not have results
                     if regression_mode:
-                        if test_ground_truth.iloc[0, -1] == '':
-                            test_ground_truth.iloc[:, -1] = 0
-                        test_metrics.append({
-                            'metric': metric_description['metric'],
-                            'value': metric(
-                                test_ground_truth.iloc[:, -1].astype(float),
-                                test_prediction.iloc[:, -1].astype(float),
-                                **params
-                            )
-                        })
+                        for each_column in range( - target_amount_test, 0, 1):
+                            if test_ground_truth.iloc[0, -1] == '':
+                                test_ground_truth.iloc[:, -1] = 0
+                            test_metrics.append({
+                                'column_name': test_ground_truth.columns[each_column],
+                                'metric': metric_description['metric'],
+                                'value': metric(
+                                    test_ground_truth.iloc[:, -1].astype(float),
+                                    test_prediction.iloc[:, -1].astype(float),
+                                    **params
+                                )
+                            })
 
                     else:
-                        test_metrics.append({
-                            'metric': metric_description['metric'],
-                            'value': metric(
-                                test_ground_truth.iloc[:, -1].astype(str),
-                                test_prediction.iloc[:, -1].astype(str),
-                                **params
-                            )
-                        })
+                        for each_column in range( - target_amount_test, 0, 1):
+                            test_metrics.append({
+                                'column_name': test_ground_truth.columns[each_column],
+                                'metric': metric_description['metric'],
+                                'value': metric(
+                                    test_ground_truth.iloc[:, -1].astype(str),
+                                    test_prediction.iloc[:, -1].astype(str),
+                                    **params
+                                )
+                            })
             except:
                 raise NotSupportedError('[ERROR] metric calculation failed')
         # END for loop
 
-        # if len(training_metrics) == 1:
-        #     training_metrics = training_metrics[0]
-        # el
-        if len(training_metrics) > 1:
-            print("[WARN] More than one training metrics found in one evaluation.")
+        if len(training_metrics) > target_amount_train:
+            print("[WARN] Training metrics's amount is larger than target amount.")
         # if len(test_metrics) == 1:
         #     test_metrics = test_metrics[0]
         # el
-        if len(test_metrics) > 1:
-            print("[WARN] More than one test metrics found in one evaluation.")
+        if len(test_metrics) > target_amount_test:
+            print("[WARN] Test metrics's amount is larger than target amount.")
 
         # return the training and test metrics
         return (training_metrics, test_metrics)
