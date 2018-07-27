@@ -516,7 +516,8 @@ class Controller:
 
         # print("[INFO] Choices:", choices)
         # UCT based evaluation
-        for i in range(max_iter):
+#         for i in range(max_iter):
+        while True:
             valids = list(filter(lambda t: t[1] is not None,
                                  zip(choices, self.uct_score)))
             _choices = list(map(lambda t: t[0], valids))
