@@ -52,7 +52,7 @@ class TemplateLibrary:
 
         self.all_templates = {
             # new classification
-            "random_forest_classification_template": RandomForestClassificationTemplate, 
+            "random_forest_classification_template": RandomForestClassificationTemplate,
             "extra_trees_classification_template": ExtraTreesClassificationTemplate,
             "gradient_boosting_classification_template": GradientBoostingClassificationTemplate,
             "svc_classification_template": SVCClassificationTemplate,
@@ -113,12 +113,14 @@ class TemplateLibrary:
                 if {"table"} == taskSourceType and template.template['inputType'] == "table":
                     results.append(template)
                 else:
-                    # otherwise, we need to process in another way because "table" source type
-                    # exist nearly in every dataset
-                    if "table" in taskSourceType:
-                        taskSourceType.remove("table")
+                    # # otherwise, we need to process in another way because "table" source type
+                    # # exist nearly in every dataset
+                    # if "table" in taskSourceType:
+                    #     taskSourceType.remove("table")
 
                     for each_source_type in taskSourceType:
+                        if each_source_type=="table":
+                            continue
                         if each_source_type in {template.template['inputType']}:
                             results.append(template)
         # if we finally did not find a proper template to use
@@ -392,11 +394,11 @@ def d3m_preprocessing(attribute_name: str = "cast_1_step",
                 "primitives": [
                     {
                         "primitive":"d3m.primitives.data.CastToType",
-                        "hyperparameters": {"type_to_cast": ["float"]} 
+                        "hyperparameters": {"type_to_cast": ["float"]}
                     },
                     {
-                        "primitive": "d3m.primitives.dsbox.DoNothing",  
-                        "hyperparameters": {} 
+                        "primitive": "d3m.primitives.dsbox.DoNothing",
+                        "hyperparameters": {}
                     }
 
                 ],
@@ -949,11 +951,11 @@ class DefaultTextClassificationTemplate(DSBoxTemplate):
                     "primitives": [
                     {
                         "primitive":"d3m.primitives.data.CastToType",
-                        "hyperparameters": {"type_to_cast": ["float"]} 
+                        "hyperparameters": {"type_to_cast": ["float"]}
                     },
                     {
-                        "primitive": "d3m.primitives.dsbox.DoNothing",  
-                        "hyperparameters": {} 
+                        "primitive": "d3m.primitives.dsbox.DoNothing",
+                        "hyperparameters": {}
                     }
                     ],
                     "inputs": ["column_parser_step"]
@@ -1212,11 +1214,11 @@ class MuxinTA1ClassificationTemplate2(DSBoxTemplate):
                     "primitives": [
                     {
                         "primitive":"d3m.primitives.data.CastToType",
-                        "hyperparameters": {"type_to_cast": ["float"]} 
+                        "hyperparameters": {"type_to_cast": ["float"]}
                     },
                     {
-                        "primitive": "d3m.primitives.dsbox.DoNothing",  
-                        "hyperparameters": {} 
+                        "primitive": "d3m.primitives.dsbox.DoNothing",
+                        "hyperparameters": {}
                     }
                     ],
                     "inputs": ["impute_step"]
@@ -1311,11 +1313,11 @@ class MuxinTA1ClassificationTemplate3(DSBoxTemplate):
                     "primitives": [
                     {
                         "primitive":"d3m.primitives.data.CastToType",
-                        "hyperparameters": {"type_to_cast": ["float"]} 
+                        "hyperparameters": {"type_to_cast": ["float"]}
                     },
                     {
-                        "primitive": "d3m.primitives.dsbox.DoNothing",  
-                        "hyperparameters": {} 
+                        "primitive": "d3m.primitives.dsbox.DoNothing",
+                        "hyperparameters": {}
                     }
                     ],
                     "inputs": ["impute_step"]
@@ -1486,11 +1488,11 @@ class UU3TestTemplate(DSBoxTemplate):
                     "primitives": [
                     {
                         "primitive":"d3m.primitives.data.CastToType",
-                        "hyperparameters": {"type_to_cast": ["float"]} 
+                        "hyperparameters": {"type_to_cast": ["float"]}
                     },
                     {
-                        "primitive": "d3m.primitives.dsbox.DoNothing",  
-                        "hyperparameters": {} 
+                        "primitive": "d3m.primitives.dsbox.DoNothing",
+                        "hyperparameters": {}
                     }
                     ],
                     "inputs": ["impute_step"]
@@ -2259,7 +2261,7 @@ class CMUClusteringTemplate(DSBoxTemplate):
                     "name": "model_step",
                     "primitives": [
                         {
-                            "primitive":"d3m.primitives.cmu.fastlvm.GMM", 
+                            "primitive":"d3m.primitives.cmu.fastlvm.GMM",
                             "hyperparameters":{
                                 "k":[(4), (6), (8), (10), (12)]
                             }
@@ -2288,16 +2290,16 @@ class MichiganVideoClassificationTemplate(DSBoxTemplate):
             "taskSubtype": TaskSubtype.MULTICLASS.name,
             "inputType": "video",  # See SEMANTIC_TYPES.keys() for range of values
             "output": "model_step",  # Name of the final step generating the prediction
-            "target": "extract_target_step",  # Name of the step generating the ground truth            
+            "target": "extract_target_step",  # Name of the step generating the ground truth
             "steps" : [
                 {
-                    "name":"denormalize_step", 
-                    "primitives":["d3m.primitives.dsbox.Denormalize"], 
+                    "name":"denormalize_step",
+                    "primitives":["d3m.primitives.dsbox.Denormalize"],
                     "inputs":["template_input"]
                 },
                 {
                     "name":"to_dataframe_step",
-                    "primitives":["d3m.primitives.datasets.DatasetToDataFrame"], 
+                    "primitives":["d3m.primitives.datasets.DatasetToDataFrame"],
                     "inputs":["denormalize_step"]
                 },
                 {
@@ -2315,13 +2317,13 @@ class MichiganVideoClassificationTemplate(DSBoxTemplate):
                     "inputs": ["to_dataframe_step"]
                 },
                 {
-                    "name":"read_video_step", 
-                    "primitives":["d3m.primitives.data.VideoReader"], 
+                    "name":"read_video_step",
+                    "primitives":["d3m.primitives.data.VideoReader"],
                     "inputs":["to_dataframe_step"]
                 },
                 {
-                    "name":"featurize_step", 
-                    "primitives":["d3m.primitives.spider.featurization.I3D"], 
+                    "name":"featurize_step",
+                    "primitives":["d3m.primitives.spider.featurization.I3D"],
                     "inputs":["read_video_step"]
 
                 },
@@ -2337,7 +2339,7 @@ class MichiganVideoClassificationTemplate(DSBoxTemplate):
                     "inputs":["convert_step", "extract_target_step"]
                 },
             ]
-        }    
+        }
 
     # @override
     def importance(datset, problem_description):

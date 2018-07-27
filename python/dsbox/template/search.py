@@ -8,6 +8,7 @@ import typing
 import logging
 import time
 import copy
+import sys
 #import pathos.pools as pp
 
 from warnings import warn
@@ -776,7 +777,7 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
                               test_ground_truth) -> None:
 
         fitted_pipeline, run = FittedPipeline.load(folder_loc=folder_loc, pipeline_id=pipeline_id, log_dir=self.log_dir)
-        results = fitted_pipeline.produce(inputs=[self.test_dataset])
+        results = fitted_pipeline.produce(inputs=[self.test_dataset1])
         pipeline_pridiction = fitted_pipeline.get_produce_step_output(self.template.get_output_step_number())
 
         test_pipeline_metrics = list()
