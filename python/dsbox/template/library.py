@@ -2828,7 +2828,7 @@ class ExtraTreesRegressionTemplate(DSBoxTemplate):
                             "d3m.primitives.sklearn_wrap.SKExtraTreesRegressor",
                         "hyperparameters":
                             {
-                            # 'bootstrap': [True, False],
+                            'bootstrap': [True, False],
                             'max_depth': [15, 30, None],
                             'min_samples_leaf': [1, 2, 4],
                             'min_samples_split': [2, 5, 10],
