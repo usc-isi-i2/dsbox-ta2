@@ -51,6 +51,19 @@ class TemplateLibrary:
             self._load_library()
 
         self.all_templates = {
+            # new classification
+            "random_forest_classification_template": RandomForestClassificationTemplate, 
+            "extra_trees_classification_template": ExtraTreesClassificationTemplate,
+            "gradient_boosting_classification_template": GradientBoostingClassificationTemplate,
+            "svc_classification_template": SVCClassificationTemplate,
+
+            # new regression
+            "random_forest_regression_template": RandomForestRegressionTemplate,
+            "extra_trees_regression_template": ExtraTreesRegressionTemplate,
+            "gradient_boosting_regression_template": GradientBoostingRegressionTemplate,
+            "svr_regression_template": SVRRegressionTemplate,
+
+            # older templates
             'random_forest_template': RandomForestTemplate,
             "Default_classification_template": DefaultClassificationTemplate,
             "dsbox_classification_template": dsboxClassificationTemplate,
@@ -2671,6 +2684,932 @@ class MichiganVideoClassificationTemplate(DSBoxTemplate):
                 },
             ]
         }    
+
+    # @override
+    def importance(datset, problem_description):
+        return 7
+
+
+
+
+class RandomForestClassificationTemplate(DSBoxTemplate):
+    def __init__(self):
+        DSBoxTemplate.__init__(self)
+        self.template = {
+            "name": "random_forest_classification_template",
+            "taskSubtype": {TaskSubtype.BINARY.name, TaskSubtype.MULTICLASS.name},
+            "taskType": TaskType.CLASSIFICATION.name,
+        # See TaskType, range include 'CLASSIFICATION', 'CLUSTERING', 'COLLABORATIVE_FILTERING',
+            # 'COMMUNITY_DETECTION', 'GRAPH_CLUSTERING', 'GRAPH_MATCHING', 'LINK_PREDICTION',
+            # 'REGRESSION', 'TIME_SERIES_FORECASTING', 'VERTEX_NOMINATION'
+            "inputType": "table",  # See SEMANTIC_TYPES.keys() for range of values
+            "output": "model_step",  # Name of the final step generating the prediction
+            "target": "extract_target_step",  # Name of the step generating the ground truth
+            "steps": [
+                {
+                    "name": "denormalize_step",
+                    "primitives": ["d3m.primitives.dsbox.Denormalize"],
+                    "inputs": ["template_input"]
+                },
+                {
+                    "name": "to_dataframe_step",
+                    "primitives": ["d3m.primitives.datasets.DatasetToDataFrame"],
+                    "inputs": ["denormalize_step"]
+                },
+                {
+                    "name": "extract_attribute_step",
+                    "primitives": [{
+                        "primitive": "d3m.primitives.data.ExtractColumnsBySemanticTypes",
+                        "hyperparameters":
+                            {
+                                'semantic_types': (
+                                'https://metadata.datadrivendiscovery.org/types/Attribute',),
+                                'use_columns': (),
+                                'exclude_columns': ()
+                            }
+                    }],
+                    "inputs": ["to_dataframe_step"]
+                },
+                {
+                    "name": "profiler_step",
+                    "primitives": ["d3m.primitives.dsbox.Profiler"],
+                    "inputs": ["extract_attribute_step"]
+                },
+                {
+                    "name": "clean_step",
+                    "primitives": ["d3m.primitives.dsbox.CleaningFeaturizer"],
+                    "inputs": ["profiler_step"]
+                },
+                {
+                    "name": "corex_step",
+                    "primitives": [
+                        {
+                            "primitive": "d3m.primitives.dsbox.CorexText",
+                            "hyperparameters":
+                                {
+                                    # 'n_hidden':[(10)],
+                                    # 'threshold':[(0)],
+                                    # # 'threshold':[(0), (500)],
+                                    # 'n_grams':[(1), (5)],
+                                    # 'max_df':[(.9)],
+                                    # 'min_df':[(.02)],
+                                }
+                        },
+                    ],
+                    "inputs": ["clean_step"]
+                },
+                {
+                    "name": "encoder_step",
+                    "primitives": ["d3m.primitives.dsbox.Encoder"],
+                    "inputs": ["corex_step"]
+                },
+                {
+                    "name": "impute_step",
+                    "primitives": ["d3m.primitives.sklearn_wrap.SKImputer"],
+                    "inputs": ["encoder_step"]
+                },
+                {
+                    "name": "extract_target_step",
+                    "primitives": [{
+                        "primitive": "d3m.primitives.data.ExtractColumnsBySemanticTypes",
+                        "hyperparameters":
+                            {
+                                'semantic_types': (
+                                'https://metadata.datadrivendiscovery.org/types/Target',
+                                'https://metadata.datadrivendiscovery.org/types/SuggestedTarget',),
+                                'use_columns': (),
+                                'exclude_columns': ()
+                            }
+                    }],
+                    "inputs": ["to_dataframe_step"]
+                },
+                {
+                    "name": "model_step",
+                    "runtime": {
+                        "cross_validation": 10,
+                        "stratified": True
+                    },
+                    "primitives": [
+                        {
+                        "primitive":
+                            "d3m.primitives.sklearn_wrap.SKRandomForestClassifier",
+                        "hyperparameters":
+                            {
+                            'bootstrap': [True, False],
+                            'max_depth': [15, 30, None],
+                            'min_samples_leaf': [1, 2, 4],
+                            'min_samples_split': [2, 5, 10],
+                            'max_features': ['auto', 'sqrt'],
+                            'n_estimators': [10, 50, 100]
+                            }
+                        },
+                    ],
+                    "inputs": ["impute_step", "extract_target_step"]
+                }
+            ]
+        }
+
+    # @override
+    def importance(datset, problem_description):
+        return 7
+
+class ExtraTreesClassificationTemplate(DSBoxTemplate):
+    def __init__(self):
+        DSBoxTemplate.__init__(self)
+        self.template = {
+            "name": "extra_trees_classification_template",
+            "taskSubtype": {TaskSubtype.BINARY.name, TaskSubtype.MULTICLASS.name},
+            "taskType": TaskType.CLASSIFICATION.name,
+        # See TaskType, range include 'CLASSIFICATION', 'CLUSTERING', 'COLLABORATIVE_FILTERING',
+            # 'COMMUNITY_DETECTION', 'GRAPH_CLUSTERING', 'GRAPH_MATCHING', 'LINK_PREDICTION',
+            # 'REGRESSION', 'TIME_SERIES_FORECASTING', 'VERTEX_NOMINATION'
+            "inputType": "table",  # See SEMANTIC_TYPES.keys() for range of values
+            "output": "model_step",  # Name of the final step generating the prediction
+            "target": "extract_target_step",  # Name of the step generating the ground truth
+            "steps": [
+                {
+                    "name": "denormalize_step",
+                    "primitives": ["d3m.primitives.dsbox.Denormalize"],
+                    "inputs": ["template_input"]
+                },
+                {
+                    "name": "to_dataframe_step",
+                    "primitives": ["d3m.primitives.datasets.DatasetToDataFrame"],
+                    "inputs": ["denormalize_step"]
+                },
+                {
+                    "name": "extract_attribute_step",
+                    "primitives": [{
+                        "primitive": "d3m.primitives.data.ExtractColumnsBySemanticTypes",
+                        "hyperparameters":
+                            {
+                                'semantic_types': (
+                                'https://metadata.datadrivendiscovery.org/types/Attribute',),
+                                'use_columns': (),
+                                'exclude_columns': ()
+                            }
+                    }],
+                    "inputs": ["to_dataframe_step"]
+                },
+                {
+                    "name": "profiler_step",
+                    "primitives": ["d3m.primitives.dsbox.Profiler"],
+                    "inputs": ["extract_attribute_step"]
+                },
+                {
+                    "name": "clean_step",
+                    "primitives": ["d3m.primitives.dsbox.CleaningFeaturizer"],
+                    "inputs": ["profiler_step"]
+                },
+                {
+                    "name": "corex_step",
+                    "primitives": [
+                        {
+                            "primitive": "d3m.primitives.dsbox.CorexText",
+                            "hyperparameters":
+                                {
+                                }
+                        },
+                    ],
+                    "inputs": ["clean_step"]
+                },
+                {
+                    "name": "encoder_step",
+                    "primitives": ["d3m.primitives.dsbox.Encoder"],
+                    "inputs": ["corex_step"]
+                },
+                {
+                    "name": "impute_step",
+                    "primitives": ["d3m.primitives.sklearn_wrap.SKImputer"],
+                    "inputs": ["encoder_step"]
+                },
+                {
+                    "name": "extract_target_step",
+                    "primitives": [{
+                        "primitive": "d3m.primitives.data.ExtractColumnsBySemanticTypes",
+                        "hyperparameters":
+                            {
+                                'semantic_types': (
+                                'https://metadata.datadrivendiscovery.org/types/Target',
+                                'https://metadata.datadrivendiscovery.org/types/SuggestedTarget',),
+                                'use_columns': (),
+                                'exclude_columns': ()
+                            }
+                    }],
+                    "inputs": ["to_dataframe_step"]
+                },
+                {
+                    "name": "model_step",
+                    "runtime": {
+                        "cross_validation": 10,
+                        "stratified": True
+                    },
+                    "primitives": [
+                        {
+                        "primitive":
+                            "d3m.primitives.sklearn_wrap.SKExtraTreesClassifier",
+                        "hyperparameters":
+                            {
+                            'bootstrap': [True, False],
+                            'max_depth': [15, 30, None],
+                            'min_samples_leaf': [1, 2, 4],
+                            'min_samples_split': [2, 5, 10],
+                            'max_features': ['auto', 'sqrt'],
+                            'n_estimators': [10, 50, 100]
+                            }
+                        },
+                    ],
+                    "inputs": ["impute_step", "extract_target_step"]
+                }
+            ]
+        }
+
+    # @override
+    def importance(datset, problem_description):
+        return 7
+
+class GradientBoostingClassificationTemplate(DSBoxTemplate):
+    def __init__(self):
+        DSBoxTemplate.__init__(self)
+        self.template = {
+            "name": "gradient_boosting_classification_template",
+            "taskSubtype": {TaskSubtype.BINARY.name, TaskSubtype.MULTICLASS.name},
+            "taskType": TaskType.CLASSIFICATION.name,
+        # See TaskType, range include 'CLASSIFICATION', 'CLUSTERING', 'COLLABORATIVE_FILTERING',
+            # 'COMMUNITY_DETECTION', 'GRAPH_CLUSTERING', 'GRAPH_MATCHING', 'LINK_PREDICTION',
+            # 'REGRESSION', 'TIME_SERIES_FORECASTING', 'VERTEX_NOMINATION'
+            "inputType": "table",  # See SEMANTIC_TYPES.keys() for range of values
+            "output": "model_step",  # Name of the final step generating the prediction
+            "target": "extract_target_step",  # Name of the step generating the ground truth
+            "steps": [
+                {
+                    "name": "denormalize_step",
+                    "primitives": ["d3m.primitives.dsbox.Denormalize"],
+                    "inputs": ["template_input"]
+                },
+                {
+                    "name": "to_dataframe_step",
+                    "primitives": ["d3m.primitives.datasets.DatasetToDataFrame"],
+                    "inputs": ["denormalize_step"]
+                },
+                {
+                    "name": "extract_attribute_step",
+                    "primitives": [{
+                        "primitive": "d3m.primitives.data.ExtractColumnsBySemanticTypes",
+                        "hyperparameters":
+                            {
+                                'semantic_types': (
+                                'https://metadata.datadrivendiscovery.org/types/Attribute',),
+                                'use_columns': (),
+                                'exclude_columns': ()
+                            }
+                    }],
+                    "inputs": ["to_dataframe_step"]
+                },
+                {
+                    "name": "profiler_step",
+                    "primitives": ["d3m.primitives.dsbox.Profiler"],
+                    "inputs": ["extract_attribute_step"]
+                },
+                {
+                    "name": "clean_step",
+                    "primitives": ["d3m.primitives.dsbox.CleaningFeaturizer"],
+                    "inputs": ["profiler_step"]
+                },
+                {
+                    "name": "corex_step",
+                    "primitives": [
+                        {
+                            "primitive": "d3m.primitives.dsbox.CorexText",
+                            "hyperparameters":
+                                {
+                                }
+                        },
+                    ],
+                    "inputs": ["clean_step"]
+                },
+                {
+                    "name": "encoder_step",
+                    "primitives": ["d3m.primitives.dsbox.Encoder"],
+                    "inputs": ["corex_step"]
+                },
+                {
+                    "name": "impute_step",
+                    "primitives": ["d3m.primitives.sklearn_wrap.SKImputer"],
+                    "inputs": ["encoder_step"]
+                },
+                {
+                    "name": "extract_target_step",
+                    "primitives": [{
+                        "primitive": "d3m.primitives.data.ExtractColumnsBySemanticTypes",
+                        "hyperparameters":
+                            {
+                                'semantic_types': (
+                                'https://metadata.datadrivendiscovery.org/types/Target',
+                                'https://metadata.datadrivendiscovery.org/types/SuggestedTarget',),
+                                'use_columns': (),
+                                'exclude_columns': ()
+                            }
+                    }],
+                    "inputs": ["to_dataframe_step"]
+                },
+                {
+                    "name": "model_step",
+                    "runtime": {
+                        "cross_validation": 10,
+                        "stratified": True
+                    },
+                    "primitives": [
+                        {
+                        "primitive":
+                            "d3m.primitives.sklearn_wrap.SKGradientBoostingClassifier",
+                        "hyperparameters":
+                            {
+                            'max_depth': [2,3,5],
+                            'n_estimators': [50, 75, 100],
+                            'learning_rate': [0.1, 0.3, 0.5],
+                            'min_samples_split': [1, 2, 3],
+                            'min_samples_leaf': [1, 2],
+                            'max_features': [None, 'auto', 'sqrt']
+                            }
+                        },
+                    ],
+                    "inputs": ["impute_step", "extract_target_step"]
+                }
+            ]
+        }
+
+    # @override
+    def importance(datset, problem_description):
+        return 7
+
+
+class SVCClassificationTemplate(DSBoxTemplate):
+    def __init__(self):
+        DSBoxTemplate.__init__(self)
+        self.template = {
+            "name": "svc_classification_template",
+            "taskSubtype": {TaskSubtype.BINARY.name, TaskSubtype.MULTICLASS.name},
+            "taskType": TaskType.CLASSIFICATION.name,
+        # See TaskType, range include 'CLASSIFICATION', 'CLUSTERING', 'COLLABORATIVE_FILTERING',
+            # 'COMMUNITY_DETECTION', 'GRAPH_CLUSTERING', 'GRAPH_MATCHING', 'LINK_PREDICTION',
+            # 'REGRESSION', 'TIME_SERIES_FORECASTING', 'VERTEX_NOMINATION'
+            "inputType": "table",  # See SEMANTIC_TYPES.keys() for range of values
+            "output": "model_step",  # Name of the final step generating the prediction
+            "target": "extract_target_step",  # Name of the step generating the ground truth
+            "steps": [
+                {
+                    "name": "denormalize_step",
+                    "primitives": ["d3m.primitives.dsbox.Denormalize"],
+                    "inputs": ["template_input"]
+                },
+                {
+                    "name": "to_dataframe_step",
+                    "primitives": ["d3m.primitives.datasets.DatasetToDataFrame"],
+                    "inputs": ["denormalize_step"]
+                },
+                {
+                    "name": "extract_attribute_step",
+                    "primitives": [{
+                        "primitive": "d3m.primitives.data.ExtractColumnsBySemanticTypes",
+                        "hyperparameters":
+                            {
+                                'semantic_types': (
+                                'https://metadata.datadrivendiscovery.org/types/Attribute',),
+                                'use_columns': (),
+                                'exclude_columns': ()
+                            }
+                    }],
+                    "inputs": ["to_dataframe_step"]
+                },
+                {
+                    "name": "profiler_step",
+                    "primitives": ["d3m.primitives.dsbox.Profiler"],
+                    "inputs": ["extract_attribute_step"]
+                },
+                {
+                    "name": "clean_step",
+                    "primitives": ["d3m.primitives.dsbox.CleaningFeaturizer"],
+                    "inputs": ["profiler_step"]
+                },
+                {
+                    "name": "corex_step",
+                    "primitives": [
+                        {
+                            "primitive": "d3m.primitives.dsbox.CorexText",
+                            "hyperparameters":
+                                {
+                                }
+                        },
+                    ],
+                    "inputs": ["clean_step"]
+                },
+                {
+                    "name": "encoder_step",
+                    "primitives": ["d3m.primitives.dsbox.Encoder"],
+                    "inputs": ["corex_step"]
+                },
+                {
+                    "name": "impute_step",
+                    "primitives": ["d3m.primitives.sklearn_wrap.SKImputer"],
+                    "inputs": ["encoder_step"]
+                },
+                {
+                    "name": "extract_target_step",
+                    "primitives": [{
+                        "primitive": "d3m.primitives.data.ExtractColumnsBySemanticTypes",
+                        "hyperparameters":
+                            {
+                                'semantic_types': (
+                                'https://metadata.datadrivendiscovery.org/types/Target',
+                                'https://metadata.datadrivendiscovery.org/types/SuggestedTarget',),
+                                'use_columns': (),
+                                'exclude_columns': ()
+                            }
+                    }],
+                    "inputs": ["to_dataframe_step"]
+                },
+                {
+                    "name": "model_step",
+                    "runtime": {
+                        "cross_validation": 10,
+                        "stratified": True
+                    },
+                    "primitives": [
+                        {
+                        "primitive":
+                            "d3m.primitives.sklearn_wrap.SKSVC",
+                        "hyperparameters":
+                            {
+                                'C': [0.8, 1.0, 1.2],
+                                'kernel': ['rbf', 'poly'],
+                                'degree': [2, 3, 4],
+                            }
+                        },
+                    ],
+                    "inputs": ["impute_step", "extract_target_step"]
+                }
+            ]
+        }
+
+    # @override
+    def importance(datset, problem_description):
+        return 7
+
+
+class SVRRegressionTemplate(DSBoxTemplate):
+    def __init__(self):
+        DSBoxTemplate.__init__(self)
+        self.template = {
+            "name": "svr_regression_template",
+            "taskSubtype": {TaskSubtype.UNIVARIATE.name, TaskSubtype.MULTIVARIATE.name},
+            "taskType": TaskType.REGRESSION.name,
+        # See TaskType, range include 'CLASSIFICATION', 'CLUSTERING', 'COLLABORATIVE_FILTERING',
+            # 'COMMUNITY_DETECTION', 'GRAPH_CLUSTERING', 'GRAPH_MATCHING', 'LINK_PREDICTION',
+            # 'REGRESSION', 'TIME_SERIES_FORECASTING', 'VERTEX_NOMINATION'
+            "inputType": "table",  # See SEMANTIC_TYPES.keys() for range of values
+            "output": "model_step",  # Name of the final step generating the prediction
+            "target": "extract_target_step",  # Name of the step generating the ground truth
+            "steps": [
+                {
+                    "name": "denormalize_step",
+                    "primitives": ["d3m.primitives.dsbox.Denormalize"],
+                    "inputs": ["template_input"]
+                },
+                {
+                    "name": "to_dataframe_step",
+                    "primitives": ["d3m.primitives.datasets.DatasetToDataFrame"],
+                    "inputs": ["denormalize_step"]
+                },
+                {
+                    "name": "extract_attribute_step",
+                    "primitives": [{
+                        "primitive": "d3m.primitives.data.ExtractColumnsBySemanticTypes",
+                        "hyperparameters":
+                            {
+                                'semantic_types': (
+                                'https://metadata.datadrivendiscovery.org/types/Attribute',),
+                                'use_columns': (),
+                                'exclude_columns': ()
+                            }
+                    }],
+                    "inputs": ["to_dataframe_step"]
+                },
+                {
+                    "name": "profiler_step",
+                    "primitives": ["d3m.primitives.dsbox.Profiler"],
+                    "inputs": ["extract_attribute_step"]
+                },
+                {
+                    "name": "clean_step",
+                    "primitives": ["d3m.primitives.dsbox.CleaningFeaturizer"],
+                    "inputs": ["profiler_step"]
+                },
+                {
+                    "name": "corex_step",
+                    "primitives": [
+                        {
+                            "primitive": "d3m.primitives.dsbox.CorexText",
+                            "hyperparameters":
+                                {
+                                }
+                        },
+                    ],
+                    "inputs": ["clean_step"]
+                },
+                {
+                    "name": "encoder_step",
+                    "primitives": ["d3m.primitives.dsbox.Encoder"],
+                    "inputs": ["corex_step"]
+                },
+                {
+                    "name": "impute_step",
+                    "primitives": ["d3m.primitives.sklearn_wrap.SKImputer"],
+                    "inputs": ["encoder_step"]
+                },
+                {
+                    "name": "extract_target_step",
+                    "primitives": [{
+                        "primitive": "d3m.primitives.data.ExtractColumnsBySemanticTypes",
+                        "hyperparameters":
+                            {
+                                'semantic_types': (
+                                'https://metadata.datadrivendiscovery.org/types/Target',
+                                'https://metadata.datadrivendiscovery.org/types/SuggestedTarget',),
+                                'use_columns': (),
+                                'exclude_columns': ()
+                            }
+                    }],
+                    "inputs": ["to_dataframe_step"]
+                },
+                {
+                    "name": "model_step",
+                    "runtime": {
+                        "cross_validation": 10,
+                        "stratified": True
+                    },
+                    "primitives": [
+                        {
+                        "primitive":
+                            "d3m.primitives.sklearn_wrap.SKSVR",
+                        "hyperparameters":
+                            {
+                                'C': [0.8, 1.0, 1.2],
+                                'kernel': ['rbf', 'poly'],
+                                'degree': [2, 3, 4, 5],
+                            }
+                        },
+                    ],
+                    "inputs": ["impute_step", "extract_target_step"]
+                }
+            ]
+        }
+
+    # @override
+    def importance(datset, problem_description):
+        return 7
+
+class GradientBoostingRegressionTemplate(DSBoxTemplate):
+    def __init__(self):
+        DSBoxTemplate.__init__(self)
+        self.template = {
+            "name": "gradient_boosting_regression_template",
+            "taskSubtype": {TaskSubtype.UNIVARIATE.name, TaskSubtype.MULTIVARIATE.name},
+            "taskType": TaskType.REGRESSION.name,
+        # See TaskType, range include 'CLASSIFICATION', 'CLUSTERING', 'COLLABORATIVE_FILTERING',
+            # 'COMMUNITY_DETECTION', 'GRAPH_CLUSTERING', 'GRAPH_MATCHING', 'LINK_PREDICTION',
+            # 'REGRESSION', 'TIME_SERIES_FORECASTING', 'VERTEX_NOMINATION'
+            "inputType": "table",  # See SEMANTIC_TYPES.keys() for range of values
+            "output": "model_step",  # Name of the final step generating the prediction
+            "target": "extract_target_step",  # Name of the step generating the ground truth
+            "steps": [
+                {
+                    "name": "denormalize_step",
+                    "primitives": ["d3m.primitives.dsbox.Denormalize"],
+                    "inputs": ["template_input"]
+                },
+                {
+                    "name": "to_dataframe_step",
+                    "primitives": ["d3m.primitives.datasets.DatasetToDataFrame"],
+                    "inputs": ["denormalize_step"]
+                },
+                {
+                    "name": "extract_attribute_step",
+                    "primitives": [{
+                        "primitive": "d3m.primitives.data.ExtractColumnsBySemanticTypes",
+                        "hyperparameters":
+                            {
+                                'semantic_types': (
+                                'https://metadata.datadrivendiscovery.org/types/Attribute',),
+                                'use_columns': (),
+                                'exclude_columns': ()
+                            }
+                    }],
+                    "inputs": ["to_dataframe_step"]
+                },
+                {
+                    "name": "profiler_step",
+                    "primitives": ["d3m.primitives.dsbox.Profiler"],
+                    "inputs": ["extract_attribute_step"]
+                },
+                {
+                    "name": "clean_step",
+                    "primitives": ["d3m.primitives.dsbox.CleaningFeaturizer"],
+                    "inputs": ["profiler_step"]
+                },
+                {
+                    "name": "corex_step",
+                    "primitives": [
+                        {
+                            "primitive": "d3m.primitives.dsbox.CorexText",
+                            "hyperparameters":
+                                {
+                                }
+                        },
+                    ],
+                    "inputs": ["clean_step"]
+                },
+                {
+                    "name": "encoder_step",
+                    "primitives": ["d3m.primitives.dsbox.Encoder"],
+                    "inputs": ["corex_step"]
+                },
+                {
+                    "name": "impute_step",
+                    "primitives": ["d3m.primitives.sklearn_wrap.SKImputer"],
+                    "inputs": ["encoder_step"]
+                },
+                {
+                    "name": "extract_target_step",
+                    "primitives": [{
+                        "primitive": "d3m.primitives.data.ExtractColumnsBySemanticTypes",
+                        "hyperparameters":
+                            {
+                                'semantic_types': (
+                                'https://metadata.datadrivendiscovery.org/types/Target',
+                                'https://metadata.datadrivendiscovery.org/types/SuggestedTarget',),
+                                'use_columns': (),
+                                'exclude_columns': ()
+                            }
+                    }],
+                    "inputs": ["to_dataframe_step"]
+                },
+                {
+                    "name": "model_step",
+                    "runtime": {
+                        "cross_validation": 10,
+                        "stratified": True
+                    },
+                    "primitives": [
+                        {
+                        "primitive":
+                            "d3m.primitives.sklearn_wrap.SKGradientBoostingRegressor",
+                        "hyperparameters":
+                            {
+                            'max_depth': [2,3,5],
+                            'n_estimators': [100, 150, 200],
+                            'learning_rate': [0.1, 0.3, 0.5],
+                            'min_samples_split': [1, 2, 3],
+                            'min_samples_leaf': [1, 2],
+                            'max_features': [None, 'auto', 'sqrt']
+                            }
+                        },
+                    ],
+                    "inputs": ["impute_step", "extract_target_step"]
+                }
+            ]
+        }
+
+    # @override
+    def importance(datset, problem_description):
+        return 7
+
+class ExtraTreesRegressionTemplate(DSBoxTemplate):
+    def __init__(self):
+        DSBoxTemplate.__init__(self)
+        self.template = {
+            "name": "extra_trees_regression_template",
+            "taskSubtype": {TaskSubtype.UNIVARIATE.name, TaskSubtype.MULTIVARIATE.name},
+            "taskType": TaskType.REGRESSION.name,
+        # See TaskType, range include 'CLASSIFICATION', 'CLUSTERING', 'COLLABORATIVE_FILTERING',
+            # 'COMMUNITY_DETECTION', 'GRAPH_CLUSTERING', 'GRAPH_MATCHING', 'LINK_PREDICTION',
+            # 'REGRESSION', 'TIME_SERIES_FORECASTING', 'VERTEX_NOMINATION'
+            "inputType": "table",  # See SEMANTIC_TYPES.keys() for range of values
+            "output": "model_step",  # Name of the final step generating the prediction
+            "target": "extract_target_step",  # Name of the step generating the ground truth
+            "steps": [
+                {
+                    "name": "denormalize_step",
+                    "primitives": ["d3m.primitives.dsbox.Denormalize"],
+                    "inputs": ["template_input"]
+                },
+                {
+                    "name": "to_dataframe_step",
+                    "primitives": ["d3m.primitives.datasets.DatasetToDataFrame"],
+                    "inputs": ["denormalize_step"]
+                },
+                {
+                    "name": "extract_attribute_step",
+                    "primitives": [{
+                        "primitive": "d3m.primitives.data.ExtractColumnsBySemanticTypes",
+                        "hyperparameters":
+                            {
+                                'semantic_types': (
+                                'https://metadata.datadrivendiscovery.org/types/Attribute',),
+                                'use_columns': (),
+                                'exclude_columns': ()
+                            }
+                    }],
+                    "inputs": ["to_dataframe_step"]
+                },
+                {
+                    "name": "profiler_step",
+                    "primitives": ["d3m.primitives.dsbox.Profiler"],
+                    "inputs": ["extract_attribute_step"]
+                },
+                {
+                    "name": "clean_step",
+                    "primitives": ["d3m.primitives.dsbox.CleaningFeaturizer"],
+                    "inputs": ["profiler_step"]
+                },
+                {
+                    "name": "corex_step",
+                    "primitives": [
+                        {
+                            "primitive": "d3m.primitives.dsbox.CorexText",
+                            "hyperparameters":
+                                {
+                                }
+                        },
+                    ],
+                    "inputs": ["clean_step"]
+                },
+                {
+                    "name": "encoder_step",
+                    "primitives": ["d3m.primitives.dsbox.Encoder"],
+                    "inputs": ["corex_step"]
+                },
+                {
+                    "name": "impute_step",
+                    "primitives": ["d3m.primitives.sklearn_wrap.SKImputer"],
+                    "inputs": ["encoder_step"]
+                },
+                {
+                    "name": "extract_target_step",
+                    "primitives": [{
+                        "primitive": "d3m.primitives.data.ExtractColumnsBySemanticTypes",
+                        "hyperparameters":
+                            {
+                                'semantic_types': (
+                                'https://metadata.datadrivendiscovery.org/types/Target',
+                                'https://metadata.datadrivendiscovery.org/types/SuggestedTarget',),
+                                'use_columns': (),
+                                'exclude_columns': ()
+                            }
+                    }],
+                    "inputs": ["to_dataframe_step"]
+                },
+                {
+                    "name": "model_step",
+                    "runtime": {
+                        "cross_validation": 10,
+                        "stratified": True
+                    },
+                    "primitives": [
+                        {
+                        "primitive":
+                            "d3m.primitives.sklearn_wrap.SKExtraTreesRegressor",
+                        "hyperparameters":
+                            {
+                            # 'bootstrap': [True, False],
+                            'max_depth': [15, 30, None],
+                            'min_samples_leaf': [1, 2, 4],
+                            'min_samples_split': [2, 5, 10],
+                            'max_features': ['auto', 'sqrt'],
+                            'n_estimators': [10, 50, 100]
+                            }
+                        },
+                    ],
+                    "inputs": ["impute_step", "extract_target_step"]
+                }
+            ]
+        }
+
+    # @override
+    def importance(datset, problem_description):
+        return 7
+
+
+class RandomForestRegressionTemplate(DSBoxTemplate):
+    def __init__(self):
+        DSBoxTemplate.__init__(self)
+        self.template = {
+            "name": "random_forest_regression_template",
+            "taskSubtype": {TaskSubtype.UNIVARIATE.name, TaskSubtype.MULTIVARIATE.name},
+            "taskType": TaskType.REGRESSION.name,
+        # See TaskType, range include 'CLASSIFICATION', 'CLUSTERING', 'COLLABORATIVE_FILTERING',
+            # 'COMMUNITY_DETECTION', 'GRAPH_CLUSTERING', 'GRAPH_MATCHING', 'LINK_PREDICTION',
+            # 'REGRESSION', 'TIME_SERIES_FORECASTING', 'VERTEX_NOMINATION'
+            "inputType": "table",  # See SEMANTIC_TYPES.keys() for range of values
+            "output": "model_step",  # Name of the final step generating the prediction
+            "target": "extract_target_step",  # Name of the step generating the ground truth
+            "steps": [
+                {
+                    "name": "denormalize_step",
+                    "primitives": ["d3m.primitives.dsbox.Denormalize"],
+                    "inputs": ["template_input"]
+                },
+                {
+                    "name": "to_dataframe_step",
+                    "primitives": ["d3m.primitives.datasets.DatasetToDataFrame"],
+                    "inputs": ["denormalize_step"]
+                },
+                {
+                    "name": "extract_attribute_step",
+                    "primitives": [{
+                        "primitive": "d3m.primitives.data.ExtractColumnsBySemanticTypes",
+                        "hyperparameters":
+                            {
+                                'semantic_types': (
+                                'https://metadata.datadrivendiscovery.org/types/Attribute',),
+                                'use_columns': (),
+                                'exclude_columns': ()
+                            }
+                    }],
+                    "inputs": ["to_dataframe_step"]
+                },
+                {
+                    "name": "profiler_step",
+                    "primitives": ["d3m.primitives.dsbox.Profiler"],
+                    "inputs": ["extract_attribute_step"]
+                },
+                {
+                    "name": "clean_step",
+                    "primitives": ["d3m.primitives.dsbox.CleaningFeaturizer"],
+                    "inputs": ["profiler_step"]
+                },
+                {
+                    "name": "corex_step",
+                    "primitives": [
+                        {
+                            "primitive": "d3m.primitives.dsbox.CorexText",
+                            "hyperparameters":
+                                {
+                                }
+                        },
+                    ],
+                    "inputs": ["clean_step"]
+                },
+                {
+                    "name": "encoder_step",
+                    "primitives": ["d3m.primitives.dsbox.Encoder"],
+                    "inputs": ["corex_step"]
+                },
+                {
+                    "name": "impute_step",
+                    "primitives": ["d3m.primitives.sklearn_wrap.SKImputer"],
+                    "inputs": ["encoder_step"]
+                },
+                {
+                    "name": "extract_target_step",
+                    "primitives": [{
+                        "primitive": "d3m.primitives.data.ExtractColumnsBySemanticTypes",
+                        "hyperparameters":
+                            {
+                                'semantic_types': (
+                                'https://metadata.datadrivendiscovery.org/types/Target',
+                                'https://metadata.datadrivendiscovery.org/types/SuggestedTarget',),
+                                'use_columns': (),
+                                'exclude_columns': ()
+                            }
+                    }],
+                    "inputs": ["to_dataframe_step"]
+                },
+                {
+                    "name": "model_step",
+                    "runtime": {
+                        "cross_validation": 10,
+                        "stratified": True
+                    },
+                    "primitives": [
+                        {
+                        "primitive":
+                            "d3m.primitives.sklearn_wrap.SKRandomForestRegressor",
+                        "hyperparameters":
+                            {
+                            'bootstrap': [True, False],
+                            'max_depth': [15, 30, None],
+                            'min_samples_leaf': [1, 2, 4],
+                            'min_samples_split': [2, 5, 10],
+                            'max_features': ['auto', 'sqrt'],
+                            'n_estimators': [10, 50, 100]
+                            }
+                        },
+                    ],
+                    "inputs": ["impute_step", "extract_target_step"]
+                }
+            ]
+        }
 
     # @override
     def importance(datset, problem_description):
