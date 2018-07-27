@@ -61,7 +61,7 @@ from sklearn.model_selection import StratifiedShuffleSplit, ShuffleSplit
 import pandas as pd
 
 FILE_FORMATTER = "[%(levelname)s] - %(asctime)s - %(name)s - %(message)s"
-FILE_LOGGING_LEVEL = logging.DEBUG
+FILE_LOGGING_LEVEL = logging.WARNING
 LOG_FILENAME = 'dsbox.log'
 #CONSOLE_LOGGING_LEVEL = logging.INFO
 CONSOLE_LOGGING_LEVEL = logging.DEBUG
@@ -516,7 +516,8 @@ class Controller:
 
         # print("[INFO] Choices:", choices)
         # UCT based evaluation
-        for i in range(max_iter):
+#         for i in range(max_iter):
+        while True:
             valids = list(filter(lambda t: t[1] is not None,
                                  zip(choices, self.uct_score)))
             _choices = list(map(lambda t: t[0], valids))
