@@ -659,12 +659,12 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
             if self.output_directory is not None and dump2disk:
                 fitted_pipeline2.save(self.output_directory)
 
-                # _logger.info("Test pickled pipeline. id: {}".format(fitted_pipeline2.id))
-                # self.test_pickled_pipeline(folder_loc=self.output_directory,
-                #                            pipeline_id=fitted_pipeline2.id,
-                #                            test_dataset=self.train_dataset2[0],
-                #                            test_metrics=training_metrics[0],
-                #                            test_ground_truth=get_target_columns(self.train_dataset2[each_repeat], self.problem))
+                _logger.info("Test pickled pipeline. id: {}".format(fitted_pipeline2.id))
+                self.test_pickled_pipeline(folder_loc=self.output_directory,
+                                           pipeline_id=fitted_pipeline2.id,
+                                           test_dataset=self.train_dataset2[0],
+                                           test_metrics=training_metrics,
+                                           test_ground_truth=get_target_columns(self.train_dataset2[each_repeat], self.problem))
         else:
             if self.quick_mode:
                 print("[INFO] Now in quick mode, will skip training with train_dataset1")
@@ -710,14 +710,18 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
             print("!!!!")
 
             if self.output_directory is not None and dump2disk:
+                _ = fitted_pipeline2.produce(inputs=[self.test_dataset1])
+                test_prediction3 = fitted_pipeline2.get_produce_step_output(self.template.get_output_step_number())
+                _, test_metrics3 = self._calculate_score(None, None, test_ground_truth, test_prediction3)
+
                 fitted_pipeline2.save(self.output_directory)
 
-                # _logger.info("Test pickled pipeline. id: {}".format(fitted_pipeline2.id))
-                # self.test_pickled_pipeline(folder_loc=self.output_directory,
-                #                            pipeline_id=fitted_pipeline2.id,
-                #                            test_dataset=self.test_dataset1,
-                #                            test_metrics=test_metrics2,
-                #                            test_ground_truth=test_ground_truth)
+                _logger.info("Test pickled pipeline. id: {}".format(fitted_pipeline2.id))
+                self.test_pickled_pipeline(folder_loc=self.output_directory,
+                                           pipeline_id=fitted_pipeline2.id,
+                                           test_dataset=self.test_dataset1,
+                                           test_metrics=test_metrics3,
+                                           test_ground_truth=test_ground_truth)
 
         # still return the original fitted_pipeline with relation to train_dataset1
         return data
@@ -803,12 +807,12 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
                               test_dataset: Dataset,
                               test_metrics: typing.List,
                               test_ground_truth) -> None:
-
         fitted_pipeline, run = FittedPipeline.load(folder_loc=folder_loc, pipeline_id=pipeline_id, log_dir=self.log_dir)
         results = fitted_pipeline.produce(inputs=[test_dataset])
 
-        pipeline_pridiction = fitted_pipeline.get_produce_step_output(self.template.get_output_step_number())
+        pipeline_prediction = fitted_pipeline.get_produce_step_output(self.template.get_output_step_number())
 
+        test_pipeline_metrics2 = self._calculate_score(None, None, test_ground_truth, pipeline_prediction)
         test_pipeline_metrics = list()
         for metric_description in self.performance_metrics:
             metricDesc = PerformanceMetric.parse(metric_description['metric'])
@@ -824,7 +828,7 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
                         'metric': metric_description['metric'],
                         'value': metric(
                             test_ground_truth.iloc[:, -1].astype(float),
-                            pipeline_pridiction.iloc[:, -1].astype(float),
+                            pipeline_prediction.iloc[:, -1].astype(float),
                             **params
                         )
                     })
@@ -833,13 +837,20 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
                         'metric': metric_description['metric'],
                         'value': metric(
                             test_ground_truth.iloc[:, -1].astype(str),
-                            pipeline_pridiction.iloc[:, -1].astype(str),
+                            pipeline_prediction.iloc[:, -1].astype(str),
                             **params
                         )
                     })
             except:
                 raise NotSupportedError(
                     '[ERROR] metric calculation failed in test pickled pipeline')
+
+        print('=== original')
+        pprint(test_metrics)
+        print('=== test')
+        print(test_pipeline_metrics)
+        print('=== test2')
+        print(test_pipeline_metrics2)
 
         pairs = zip(test_metrics, test_pipeline_metrics)
         if any(x != y for x, y in pairs):
@@ -870,6 +881,7 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
 PythonPathWithHyperaram = typing.Tuple[PythonPath, int, HyperparamDirective]
 
 
+# Not used? Mypy error
 def generate_hyperparam_configuration_space(space: ConfigurationSpace[PythonPath]) -> ConfigurationSpace[PythonPathWithHyperaram]:
     new_space = {}
     for name in space.get_dimensions():
