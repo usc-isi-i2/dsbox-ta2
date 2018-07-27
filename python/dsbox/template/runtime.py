@@ -149,16 +149,22 @@ class Runtime:
                     primitive_arguments[argument] = arguments[argument][value['source']]
 
             if isinstance(self.pipeline_description.steps[n_step], PrimitiveStep):
-                # first we need to compute the key to query in cache. For the
-                #  key we use a hashed combination of the primitive name,
+                # first we need to compute the key to query in cache. For the key we use a hashed combination of the primitive name,
                 # its hyperparameters and its input dataset hash.
-                prim_name = str(self.pipeline_description
-                                .steps[n_step].primitive)
-                hyperparam_hash = hash(str(self.pipeline_description.steps[
-                    n_step].hyperparams.items()))
-                dataset_hash = hash(str(primitive_arguments))
+                hyperparam_hash = hash(str(self.pipeline_description.steps[n_step].hyperparams.items()))
 
+                dataset_id = ""
+                dataset_digest = ""
+                try:
+                    dataset_id = str(primitive_arguments['inputs'].metadata.query(())['id'])
+                    dataset_digest = str(primitive_arguments['inputs'].metadata.query(())['digest'])
+                except:
+                    pass
+                dataset_hash = hash(str(primitive_arguments) + dataset_id + dataset_digest)
+
+                prim_name = str(self.pipeline_description.steps[n_step].primitive)
                 prim_hash = hash(str([hyperparam_hash, dataset_hash]))
+
 
                 _logger.info(
                     "Primitive Fit. 'id': '%(primitive_id)s', '(name, hash)': ('%(name)s', '%(hash)s'), 'worker_id': '%(worker_id)s'.",
