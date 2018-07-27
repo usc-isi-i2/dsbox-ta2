@@ -106,7 +106,7 @@ def remove_empty_targets(dataset: "Dataset", problem: "Metadata"):
 def split_dataset(dataset, problem_info: typing.Dict, problem_loc=None, *, random_state=42, test_size=0.2, n_splits=1):
     '''
         Split dataset into training and test
-    ''' 
+    '''
 
     # hard coded unsplit dataset type
     # TODO: check whether "speech" type should be put into this list or not
@@ -153,11 +153,12 @@ def split_dataset(dataset, problem_info: typing.Dict, problem_loc=None, *, rando
             cannot_split = True
             break
 
-    if not cannot_split:    
+    # check second time if the program think we still can split
+    if not cannot_split:
         if task_type is not list:
-            task_type = [task_type]
-    # check second time if the program think we still can split    
-        for each in task_type:
+            task_type_check = [task_type]
+
+        for each in task_type_check:
             if each not in task_type_can_split:
                 cannot_split = True
                 break
@@ -417,6 +418,8 @@ class Controller:
     def search_template(self, template: DSBoxTemplate, candidate: typing.Dict=None,
                         cache_bundle: typing.Tuple[typing.Dict, typing.Dict]=(None, None)) \
             -> typing.Dict:
+
+        self._logger.info('Searching template %s', template.template['name'])
 
         space = template.generate_configuration_space()
 
