@@ -54,8 +54,6 @@ class TemplateLibrary:
             "default_classification_template": DefaultClassificationTemplate,
             "default_regression_template": DefaultRegressionTemplate,
 
-            "fast_classification_template": FastClassificationTemplate,
-
             # new classification
             "random_forest_classification_template": RandomForestClassificationTemplate,
             "extra_trees_classification_template": ExtraTreesClassificationTemplate,
@@ -156,10 +154,7 @@ class TemplateLibrary:
 
     def _load_inline_templates(self):
         self.templates.append(SRIMeanBaselineTemplate)
-
-        # a faster classification template that shouldn't do so well
-        self.templates.append(FastClassificationTemplate)
-
+        self.templates.append(NaiveBayesClassificationTemplate)
         # default tabular templates, encompassing many of the templates below
         self.templates.append(DefaultClassificationTemplate)
         self.templates.append(DefaultRegressionTemplate)
@@ -168,7 +163,6 @@ class TemplateLibrary:
         # self.templates.append(RandomForestClassificationTemplate)
         # self.templates.append(ExtraTreesClassificationTemplate)
         # self.templates.append(GradientBoostingClassificationTemplate)
-        self.templates.append(NaiveBayesClassificationTemplate)
 
         # takes too long to run self.templates.append(SVCClassificationTemplate)
 
@@ -209,7 +203,7 @@ class TemplateLibrary:
         self.templates.append(MichiganVideoClassificationTemplate)
         self.templates.append(JHUVertexNominationTemplate)
         self.templates.append(JHUGraphMatchingTemplate)
-        
+
         # dsbox all in one templates
         self.templates.append(dsboxClassificationTemplate)
         self.templates.append(dsboxRegressionTemplate)
@@ -251,67 +245,6 @@ class SemanticTypeDict(object):
 
         # return SimpleConfigurationSpace(definition)
         return definition
-
-
-# Returns a fast template
-def dsbox_fast_steps():
-    return [
-        {
-            "name": "denormalize_step",
-            "primitives": ["d3m.primitives.dsbox.Denormalize"],
-            "inputs": ["template_input"]
-        },
-        {
-            "name": "to_dataframe_step",
-            "primitives": ["d3m.primitives.datasets.DatasetToDataFrame"],
-            "inputs": ["denormalize_step"]
-        },
-        {
-            "name": "extract_attribute_step",
-            "primitives": [{
-                "primitive": "d3m.primitives.data.ExtractColumnsBySemanticTypes",
-                "hyperparameters":
-                    {
-                        'semantic_types': (
-                        'https://metadata.datadrivendiscovery.org/types/Attribute',),
-                        'use_columns': (),
-                        'exclude_columns': ()
-                    }
-            }],
-            "inputs": ["to_dataframe_step"]
-        },
-        {
-            "name": "impute_step",
-            "primitives": ["d3m.primitives.dsbox.MeanImputation"],
-            "inputs": ["extract_attribute_step"]
-        },
-        {
-            "name": "cast_1_step",
-            "primitives": [
-                {
-                    "primitive":"d3m.primitives.data.CastToType",
-                    "hyperparameters": {"type_to_cast": ["float"]}
-                },
-                "d3m.primitives.dsbox.DoNothing",
-            ],
-            "inputs": ["impute_step"]
-        },
-        {
-            "name": "extract_target_step",
-            "primitives": [{
-                "primitive": "d3m.primitives.data.ExtractColumnsBySemanticTypes",
-                "hyperparameters":
-                    {
-                        'semantic_types': (
-                        'https://metadata.datadrivendiscovery.org/types/Target',
-                        'https://metadata.datadrivendiscovery.org/types/SuggestedTarget',),
-                        'use_columns': (),
-                        'exclude_columns': ()
-                    }
-            }],
-            "inputs": ["to_dataframe_step"]
-        },
-        ]
 
 # Returns a list of dicts with the most common steps
 def dsbox_generic_steps():
@@ -3254,60 +3187,6 @@ class NaiveBayesClassificationTemplate(DSBoxTemplate):
                             "hyperparameters":
                                 {
                                     'alpha': [0, .5, 1]
-                                }
-                        },
-                    ],
-                    "inputs": ["cast_1_step", "extract_target_step"]
-                }
-            ]
-        }
-
-    # @override
-    def importance(datset, problem_description):
-        return 7
-
-
-# a template that skips some steps but should be faster
-class FastClassificationTemplate(DSBoxTemplate):
-    def __init__(self):
-        DSBoxTemplate.__init__(self)
-        self.template = {
-            "name": "fast_classification_template",
-            "taskSubtype": {TaskSubtype.BINARY.name, TaskSubtype.MULTICLASS.name},
-            "taskType": TaskType.CLASSIFICATION.name,
-        # See TaskType, range include 'CLASSIFICATION', 'CLUSTERING', 'COLLABORATIVE_FILTERING',
-            # 'COMMUNITY_DETECTION', 'GRAPH_CLUSTERING', 'GRAPH_MATCHING', 'LINK_PREDICTION',
-            # 'REGRESSION', 'TIME_SERIES_FORECASTING', 'VERTEX_NOMINATION'
-            "inputType": "table",  # See SEMANTIC_TYPES.keys() for range of values
-            "output": "model_step",  # Name of the final step generating the prediction
-            "target": "extract_target_step",  # Name of the step generating the ground truth
-            "steps": dsbox_fast_steps() + [
-                {
-                    "name": "model_step",
-                    "runtime": {
-                        "cross_validation": 10,
-                        "stratified": True
-                    },
-                    "primitives": [
-                        {
-                            "primitive":
-                                "d3m.primitives.sklearn_wrap.SKBernoulliNB",
-                            "hyperparameters":
-                                {
-                                }
-                        },
-                        {
-                            "primitive":
-                                "d3m.primitives.sklearn_wrap.SKGaussianNB",
-                            "hyperparameters":
-                                {
-                                }
-                        },
-                        {
-                            "primitive":
-                                "d3m.primitives.sklearn_wrap.SKMultinomialNB",
-                            "hyperparameters":
-                                {
                                 }
                         },
                     ],
