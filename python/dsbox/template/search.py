@@ -656,8 +656,8 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
             pprint(data)
             print("!!!!")
 
-            # if self.output_directory is not None and dump2disk:
-            #     fitted_pipeline2.save(self.output_directory)
+            if self.output_directory is not None and dump2disk:
+                fitted_pipeline2.save(self.output_directory)
 
             #     _logger.info("Test pickled pipeline. id: {}".format(fitted_pipeline2.id))
             #     self.test_pickled_pipeline(folder_loc=self.output_directory,
@@ -709,12 +709,13 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
             pprint(data)
             print("!!!!")
 
-            # if self.output_directory is not None and dump2disk:
-            #     _ = fitted_pipeline2.produce(inputs=[self.test_dataset1])
-            #     test_prediction3 = fitted_pipeline2.get_produce_step_output(self.template.get_output_step_number())
-            #     _, test_metrics3 = self._calculate_score(None, None, test_ground_truth, test_prediction3)
+            if self.output_directory is not None and dump2disk:
+                fitted_pipeline2.save(self.output_directory)
 
-            #     fitted_pipeline2.save(self.output_directory)
+                # _ = fitted_pipeline2.produce(inputs=[self.test_dataset1])
+                # test_prediction3 = fitted_pipeline2.get_produce_step_output(self.template.get_output_step_number())
+                # _, test_metrics3 = self._calculate_score(None, None, test_ground_truth, test_prediction3)
+
 
             #     _logger.info("Test pickled pipeline. id: {}".format(fitted_pipeline2.id))
             #     self.test_pickled_pipeline(folder_loc=self.output_directory,
