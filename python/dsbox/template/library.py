@@ -168,6 +168,7 @@ class TemplateLibrary:
         # self.templates.append(RandomForestClassificationTemplate)
         # self.templates.append(ExtraTreesClassificationTemplate)
         # self.templates.append(GradientBoostingClassificationTemplate)
+        self.templates.append(NaiveBayesClassificationTemplate)
 
         # takes too long to run self.templates.append(SVCClassificationTemplate)
 
