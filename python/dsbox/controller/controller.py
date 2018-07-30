@@ -63,8 +63,8 @@ import pandas as pd
 FILE_FORMATTER = "[%(levelname)s] - %(asctime)s - %(name)s - %(message)s"
 FILE_LOGGING_LEVEL = logging.WARNING
 LOG_FILENAME = 'dsbox.log'
-#CONSOLE_LOGGING_LEVEL = logging.INFO
-CONSOLE_LOGGING_LEVEL = logging.DEBUG
+CONSOLE_LOGGING_LEVEL = logging.INFO
+# CONSOLE_LOGGING_LEVEL = logging.DEBUG
 CONSOLE_FORMATTER = "[%(levelname)s] - %(name)s - %(message)s"
 
 
@@ -516,8 +516,8 @@ class Controller:
 
         # print("[INFO] Choices:", choices)
         # UCT based evaluation
-        for i in range(max_iter):
-        #while True:
+        # for i in range(max_iter):
+        while True:
             valids = list(filter(lambda t: t[1] is not None,
                                  zip(choices, self.uct_score)))
             _choices = list(map(lambda t: t[0], valids))
@@ -828,7 +828,7 @@ class Controller:
 
         print("[INFO] testing data:")
         # pprint(self.test_dataset.head())
-        
+
         # pipeline_load.runtime.produce(inputs=[self.test_dataset])
         self.all_dataset = auto_regress_convert(self.all_dataset, self.problem_doc_metadata)
         run.produce(inputs=[self.all_dataset])
