@@ -156,21 +156,22 @@ class TemplateLibrary:
         pass
 
     def _load_inline_templates(self):
+        # template that gives us the mean baseline as a result
         self.templates.append(SRIMeanBaselineTemplate)
 
-        # a faster classification template that shouldn't do so well
+        # a classification template that skips a couple of steps but shouldn't do so well
         self.templates.append(FastClassificationTemplate)
 
         # default tabular templates, encompassing many of the templates below
         self.templates.append(DefaultClassificationTemplate)
+        self.templates.append(NaiveBayesClassificationTemplate)
+
         self.templates.append(DefaultRegressionTemplate)
 
         # new tabular classification
         # self.templates.append(RandomForestClassificationTemplate)
         # self.templates.append(ExtraTreesClassificationTemplate)
         # self.templates.append(GradientBoostingClassificationTemplate)
-        self.templates.append(NaiveBayesClassificationTemplate)
-
         # takes too long to run self.templates.append(SVCClassificationTemplate)
 
         # new tabular regression
@@ -188,8 +189,6 @@ class TemplateLibrary:
         # self.templates.append(MuxinTA1ClassificationTemplate1)
         self.templates.append(UU3TestTemplate)
         # self.templates.append(TA1ClassificationTemplate1)
-
-        # move dsboxClassificationTemplate to last excution because sometimes this template have bugs
 
         # Image Regression
         self.templates.append(DefaultImageProcessingRegressionTemplate)
@@ -209,6 +208,7 @@ class TemplateLibrary:
         self.templates.append(JHUVertexNominationTemplate)
         self.templates.append(JHUGraphMatchingTemplate)
 
+        # move dsboxClassificationTemplate to last excution because sometimes this template have bugs
         # dsbox all in one templates
         self.templates.append(dsboxClassificationTemplate)
         self.templates.append(dsboxRegressionTemplate)
@@ -376,6 +376,11 @@ def dsbox_generic_steps():
             "inputs": ["encoder_step"]
         },
         {
+            "name": "scaler_step",
+            "primitives": "d3m.primitives.sklearn_wrap.SKMaxAbsScaler",
+            "inputs": ["impute_step"]
+        },
+        {
             "name": "cast_1_step",
             "primitives": [
                 {
@@ -384,7 +389,7 @@ def dsbox_generic_steps():
                 },
                 "d3m.primitives.dsbox.DoNothing",
             ],
-            "inputs": ["impute_step"]
+            "inputs": ["scaler_step"]
         },
         {
             "name": "extract_target_step",
