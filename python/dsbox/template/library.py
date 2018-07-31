@@ -160,7 +160,7 @@ class TemplateLibrary:
         self.templates.append(SRIMeanBaselineTemplate)
 
         # a classification template that skips a couple of steps but shouldn't do so well
-        self.templates.append(FastClassificationTemplate)
+        # self.templates.append(FastClassificationTemplate)
 
         # default tabular templates, encompassing many of the templates below
         self.templates.append(DefaultClassificationTemplate)
@@ -377,7 +377,7 @@ def dsbox_generic_steps():
         },
         {
             "name": "scaler_step",
-            "primitives": "d3m.primitives.sklearn_wrap.SKMaxAbsScaler",
+            "primitives": ["d3m.primitives.dsbox.IQRScaler"],
             "inputs": ["impute_step"]
         },
         {
@@ -475,6 +475,11 @@ def dsbox_generic_text_steps():
             "inputs": ["encoder_step"]
         },
         {
+            "name": "scaler_step",
+            "primitives": ["d3m.primitives.dsbox.IQRScaler"],
+            "inputs": ["impute_step"]
+        },
+        {
             "name": "cast_1_step",
             "primitives": [
                 {
@@ -483,7 +488,7 @@ def dsbox_generic_text_steps():
                 },
                 "d3m.primitives.dsbox.DoNothing",
             ],
-            "inputs": ["impute_step"]
+            "inputs": ["scaler_step"]
         },
         {
             "name": "extract_target_step",
