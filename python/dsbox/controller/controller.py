@@ -3,11 +3,10 @@ import json
 import logging
 import os
 import random
-import sys
 import typing
 import uuid
 
-from multiprocessing import Pool, current_process, Manager
+from multiprocessing import Manager
 from math import sqrt, log
 import traceback
 import importlib
@@ -23,7 +22,6 @@ if spam_spec is not None:
     WARNING = Fore.BLACK + Back.YELLOW
     init(autoreset=True)
 
-import numpy as np
 import pandas as pd
 import d3m
 import dsbox.template.runtime as runtime
@@ -39,9 +37,6 @@ from d3m.metadata.problem import TaskSubtype
 from d3m.metadata.problem import parse_problem_description
 
 from dsbox.pipeline.fitted_pipeline import FittedPipeline
-from dsbox.pipeline.utils import larger_is_better
-from dsbox.schema.problem import optimization_type
-from dsbox.schema.problem import OptimizationType
 from dsbox.template.library import TemplateDescription
 from dsbox.template.library import TemplateLibrary
 from dsbox.template.library import SemanticTypeDict
@@ -110,7 +105,7 @@ def remove_empty_targets(dataset: "Dataset", problem: "Metadata"):
     return dataset
 
 
-def split_dataset(dataset, problem_info: typing.Dict, problem_loc=None, *, random_state=42, test_size=0.2, n_splits=1):
+def split_dataset(dataset, problem_info: typing.Dict, *, random_state=42, test_size=0.2, n_splits=1):
     '''
         Split dataset into training and test
     '''
@@ -230,7 +225,9 @@ class Controller:
 
         self.run_single_template_name = run_single_template_name
 
-        self.config: typing.Dict = {}
+        # Do not use, should use parsed results from key/value pairs of config
+        # TA3 API may not provid the same information
+        # self.config: typing.Dict = {}
 
         # Problem
         self.problem: typing.Dict = {}
@@ -238,8 +235,8 @@ class Controller:
         self.task_subtype: TaskSubtype = None
         self.problem_doc_metadata: Metadata = None
         self.problem_info = {}
-        # Dataset
 
+        # Dataset
         self.dataset_schema_file: str = ""
         self.train_dataset1: Dataset = None
         self.train_dataset2: typing.List[Dataset] = None
@@ -260,6 +257,7 @@ class Controller:
             self.template_library = TemplateLibrary()
         self.template: typing.List[DSBoxTemplate] = []
         self.max_split_times = 1
+
         # Primitives
         self.primitive: typing.Dict = d3m.index.search()
 
@@ -314,8 +312,8 @@ class Controller:
         self.load_templates()
 
     def _load_schema(self, config):
-        # config
-        self.config = config
+        # Do not use
+        # self.config = config
 
         # Problem
         self.problem = parse_problem_description(config['problem_schema'])
@@ -354,7 +352,10 @@ class Controller:
             self.output_supporting_files_dir = os.path.abspath(config['temp_storage_root'])
         #### End: Official config entry for Evaluation
 
-        self.output_directory = os.path.split(self.output_executables_dir)[0]
+        if 'D3MOUTPUTDIR' in os.environ:
+            self.output_directory = os.path.abspath(os.environ['D3MOUTPUTDIR'])
+        else:
+            self.output_directory = os.path.split(self.output_executables_dir)[0]
 
         if 'logs_root' in config:
             self.output_logs_dir = os.path.abspath(config['logs_root'])
@@ -620,7 +621,7 @@ class Controller:
         runtime.add_target_columns_metadata(self.all_dataset, self.problem_doc_metadata)
         # split the dataset first time
         self.train_dataset1, self.test_dataset1 = split_dataset(dataset = self.all_dataset,
-            problem_info = self.problem_info, problem_loc = self.config['problem_schema'])
+            problem_info = self.problem_info)
 
         # here we only split one times, so no need to use list to include the dataset
         if len(self.train_dataset1) == 1:
@@ -640,8 +641,7 @@ class Controller:
         if self.max_split_times > 0:
             # make n times of different spliting results
             self.train_dataset2, self.test_dataset2 = split_dataset(dataset = self.train_dataset1,
-                problem_info = self.problem_info, problem_loc = self.config['problem_schema'],
-                test_size = 0.1, n_splits = self.max_split_times)
+                problem_info = self.problem_info, test_size = 0.1, n_splits = self.max_split_times)
             if len(self.train_dataset2) < 1:
                 self._logger.error("Some error happend with train_dataset1 split: The length of splitted dataset is less than 1")
             if len(self.test_dataset2) < 1:
