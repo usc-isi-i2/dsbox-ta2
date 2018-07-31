@@ -96,7 +96,7 @@ class TemplateLibrary:
             "SRI_Vertex_Nomination_Template": SRIVertexNominationTemplate,
             "SRI_Collaborative_Filtering_Template": SRICollaborativeFilteringTemplate,
             "SRI_Community_Detection_Template": SRICommunityDetectionTemplate,
-            "SRI_Mean_BaseLine_Template": SRIMeanBaselineTemplate,
+            # "SRI_Mean_BaseLine_Template": SRIMeanBaselineTemplate,
             "UCHI_Time_Series_Classification_Template": UCHITimeSeriesClassificationTemplate,
             "JHU_Graph_Matching_Template": JHUGraphMatchingTemplate,
             "JHU_Vertex_Nomination_Template": JHUVertexNominationTemplate,
@@ -113,7 +113,7 @@ class TemplateLibrary:
     def get_templates(self, task: TaskType, subtype: TaskSubtype, taskSourceType: SEMANTIC_TYPES) \
             -> typing.List[DSBoxTemplate]:
         results = []
-        results.append(SRIMeanBaselineTemplate())  # put the meanbaseline here so whatever dataset will have a result
+        # results.append(SRIMeanBaselineTemplate())  # put the meanbaseline here so whatever dataset will have a result
         for template_class in self.templates:
             template = template_class()
             # sourceType refer to d3m/container/dataset.py ("SEMANTIC_TYPES" as line 40-70)
@@ -156,7 +156,7 @@ class TemplateLibrary:
         pass
 
     def _load_inline_templates(self):
-        self.templates.append(SRIMeanBaselineTemplate)
+        # self.templates.append(SRIMeanBaselineTemplate)
 
         # a faster classification template that shouldn't do so well
         self.templates.append(FastClassificationTemplate)

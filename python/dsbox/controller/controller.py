@@ -45,10 +45,11 @@ from dsbox.schema.problem import OptimizationType
 from dsbox.template.library import TemplateDescription
 from dsbox.template.library import TemplateLibrary
 from dsbox.template.library import SemanticTypeDict
-from dsbox.template.search import ConfigurationSpace
-from dsbox.template.search import SimpleConfigurationSpace
-from dsbox.template.search import TemplateDimensionalSearch
-from dsbox.template.search import get_target_columns, random_choices_without_replacement
+from dsbox.template.configuration_space import ConfigurationSpace
+from dsbox.template.configuration_space import SimpleConfigurationSpace
+from dsbox.combinatorial_search.dimensional_search import TemplateDimensionalSearch
+from dsbox.combinatorial_search.search_utils import get_target_columns
+from dsbox.combinatorial_search.search_utils import random_choices_without_replacement
 from dsbox.template.template import DSBoxTemplate
 
 __all__ = ['Status', 'Controller']
@@ -516,8 +517,8 @@ class Controller:
 
         # print("[INFO] Choices:", choices)
         # UCT based evaluation
-        # for i in range(max_iter):
-        while True:
+        for i in range(max_iter):
+        # while True:
             valids = list(filter(lambda t: t[1] is not None,
                                  zip(choices, self.uct_score)))
             _choices = list(map(lambda t: t[0], valids))
@@ -573,7 +574,7 @@ class Controller:
                 gamma * sqrt(2 * log(self.total_run) / history['trial']) +
                 delta * sqrt(2 * log(self.total_time) / history['exe_time']))
         except:
-            self._logger.error('Failed to compute UCT. Defaulting to 100.0')
+            self._logger.error('Failed to compute UCT. Defaulting to None')
             # print(STYLE+"[WARN] compute UCT failed:", history.tolist())
             return None
 
@@ -613,8 +614,6 @@ class Controller:
         candidate_cache = manager.dict()
 
         # For now just use the first template
-        # TODO: sample based on DSBoxTemplate.importance()
-        # template = self.template[0]
         self.all_dataset = remove_empty_targets(self.all_dataset, self.problem_doc_metadata)
         self.all_dataset = auto_regress_convert(self.all_dataset, self.problem_doc_metadata)
         runtime.add_target_columns_metadata(self.all_dataset, self.problem_doc_metadata)
