@@ -164,7 +164,7 @@ class TemplateLibrary:
 
         # default tabular templates, encompassing many of the templates below
         self.templates.append(DefaultClassificationTemplate)
-        self.templates.append(NaiveBayesClassificationTemplate)
+        # self.templates.append(NaiveBayesClassificationTemplate)
 
         self.templates.append(DefaultRegressionTemplate)
 
