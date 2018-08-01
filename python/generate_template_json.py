@@ -35,7 +35,7 @@ for v in tmplist.templates:
     # pdb.set_trace()
     v = v()
     space = v.generate_configuration_space()
-    point = space.get_point_using_first_value()
+    point = space.get_first_assignment()
     # point = c.generate_configuration_space()
 # print(point.space)
 # print(point.data)

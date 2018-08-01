@@ -48,6 +48,7 @@ from dsbox.template.library import SemanticTypeDict
 from dsbox.template.configuration_space import ConfigurationSpace
 from dsbox.template.configuration_space import SimpleConfigurationSpace
 from dsbox.combinatorial_search.dimensional_search import TemplateDimensionalSearch
+from dsbox.combinatorial_search.TemplateSpaceBaseSearch import TemplateSpaceBaseSearch
 from dsbox.combinatorial_search.search_utils import get_target_columns
 from dsbox.combinatorial_search.search_utils import random_choices_without_replacement
 from dsbox.template.template import DSBoxTemplate
@@ -606,21 +607,115 @@ class Controller:
 
         # self._check_and_set_dataset_metadata()
 
-        self.initialize_uct()
+        # self.initialize_uct()
 
         # setup the output cache
         manager = Manager()
         cache = manager.dict()
         candidate_cache = manager.dict()
 
+        self.generate_dataset_splits()
+
+        searchMethod = TemplateSpaceBaseSearch(
+            template_list=self.template,
+            performance_metrics=self.problem['problem']['performance_metrics'],
+            problem=self.problem_doc_metadata,
+            test_dataset1=self.test_dataset1,
+            train_dataset1=self.train_dataset1,
+            test_dataset2=self.test_dataset2,
+            train_dataset2=self.train_dataset2,
+            all_dataset=self.all_dataset,
+            output_directory=self.output_directory,
+            log_dir=self.output_logs_dir,
+        )
+
+        report = searchMethod.search(num_iter=1, cache=cache)
+
+        candidate = report['configuration']
+        value = report['cross_validation_metrics'][0]['value']
+
+        print("-"*20)
+        print("[INFO] Final Search Results:")
+        pprint.pprint(candidate)
+        print("[INFO] cross_validation_metrics:",value)
+        # for idx in self.select_next_template(max_iter=5):
+        #     template = self.template[idx]
+        #     self._logger.info(STYLE+"[INFO] Template {}:{} Selected. UCT:{}".format(idx, template.template['name'], self.uct_score))
+        #
+        #     try:
+        #         report = self.search_template(
+        #             template, candidate=self.exec_history.iloc[idx]['candidate'],
+        #             cache_bundle=(cache, candidate_cache),
+        #             )
+        #
+        #     except:
+        #         self._logger.exception("search_template failed on {} with UCT: {}".format(
+        #             template.template['name'], self.uct_score))
+        #         traceback.print_exc()
+        #         # report = {
+        #         #
+        #         # }
+        #         continue
+        #     self._logger.info(STYLE + "[INFO] report: " + str(report['best_val']))
+        #     self.update_UCT_score(index=idx, report=report)
+        #     self._logger.info(STYLE+"[INFO] cache size: " + str(len(cache))+
+        #           ", candidates: " + str(len(candidate_cache)))
+        #
+        #     new_best = False
+        #     if best_report is None:
+        #         best_report = report
+        #         best_metric_value = best_report['best_val']
+        #         new_best = True
+        #     else:
+        #         if self.minimize and report['best_val'] < best_metric_value:
+        #             best_report = report
+        #             best_metric_value = report['best_val']
+        #             new_best = True
+        #         if not self.minimize and report['best_val'] > best_metric_value:
+        #             best_report = report
+        #             best_metric_value = report['best_val']
+        #             new_best = True
+        #
+        #     if new_best and best_report['candidate'] is not None:
+        #         self._logger.info('[INFO] New Best Value: ' + str(report['best_val']))
+        #
+        #         dataset_name = self.output_executables_dir.rsplit("/", 2)[1]
+        #         # save_location = os.path.join(self.output_logs_dir, dataset_name + ".txt")
+        #         save_location = self.output_directory + ".txt"
+        #
+        #         self._logger.info("******************\n[INFO] Saving training results in %s", save_location)
+        #         metrics = self.problem['problem']['performance_metrics']
+        #         candidate = best_report['candidate']
+        #         try:
+        #             f = open(save_location, "w+")
+        #             f.write(str(metrics) + "\n")
+        #
+        #             for m in ["training_metrics", "cross_validation_metrics", "test_metrics"]:
+        #                 if m in candidate.data and candidate.data[m]:
+        #                     f.write(m + ' ' +  str(candidate.data[m][0]['value']) + "\n")
+        #             # f.write(str(candidate.data['training_metrics'][0]['value']) + "\n")
+        #             # f.write(str(candidate.data['cross_validation_metrics'][0]['value']) + "\n")
+        #             # f.write(str(candidate.data['test_metrics'][0]['value']) + "\n")
+        #             f.close()
+        #         except:
+        #             self._logger.exception('[ERROR] Save training results Failed!')
+        #             raise NotSupportedError(
+        #                 '[ERROR] Save training results Failed!')
+
+
+        # shutdown the cache manager
+        manager.shutdown()
+
+    def generate_dataset_splits(self):
         # For now just use the first template
         self.all_dataset = remove_empty_targets(self.all_dataset, self.problem_doc_metadata)
         self.all_dataset = auto_regress_convert(self.all_dataset, self.problem_doc_metadata)
         runtime.add_target_columns_metadata(self.all_dataset, self.problem_doc_metadata)
         # split the dataset first time
-        self.train_dataset1, self.test_dataset1 = split_dataset(dataset = self.all_dataset,
-            problem_info = self.problem_info, problem_loc = self.config['problem_schema'])
-
+        self.train_dataset1, self.test_dataset1 = split_dataset(dataset=self.all_dataset,
+                                                                problem_info=self.problem_info,
+                                                                problem_loc=self.config[
+                                                                    'problem_schema'])
         # here we only split one times, so no need to use list to include the dataset
         if len(self.train_dataset1) == 1:
             self.train_dataset1 = self.train_dataset1[0]
@@ -628,98 +723,29 @@ class Controller:
             self._logger.error("Some error happend with all_dataset split: "
                                "The length of splitted dataset is not 1 but %s",
                                len(self.train_dataset1))
-
         if len(self.test_dataset1) == 1:
             self.test_dataset1 = self.test_dataset1[0]
         else:
             self._logger.error("Split failed on all_dataset.")
             self.test_dataset1 = None
-
         # if necessary, we need to make a second split
         if self.max_split_times > 0:
             # make n times of different spliting results
-            self.train_dataset2, self.test_dataset2 = split_dataset(dataset = self.train_dataset1,
-                problem_info = self.problem_info, problem_loc = self.config['problem_schema'],
-                test_size = 0.1, n_splits = self.max_split_times)
+            self.train_dataset2, self.test_dataset2 = split_dataset(dataset=self.train_dataset1,
+                                                                    problem_info=self.problem_info,
+                                                                    problem_loc=self.config[
+                                                                        'problem_schema'],
+                                                                    test_size=0.1,
+                                                                    n_splits=self.max_split_times)
             if len(self.train_dataset2) < 1:
-                self._logger.error("Some error happend with train_dataset1 split: The length of splitted dataset is less than 1")
+                self._logger.error(
+                    "Some error happend with train_dataset1 split: The length of splitted dataset is less than 1")
             if len(self.test_dataset2) < 1:
                 self._logger.error("Split failed on train_dataset1.")
                 self.test_dataset2 = None
         else:
             self.train_dataset2 = None
             self.test_dataset2 = None
-
-        best_metric_value = None
-        best_report = None
-
-        for idx in self.select_next_template(max_iter=5):
-            template = self.template[idx]
-            self._logger.info(STYLE+"[INFO] Template {}:{} Selected. UCT:{}".format(idx, template.template['name'], self.uct_score))
-
-            try:
-                report = self.search_template(
-                    template, candidate=self.exec_history.iloc[idx]['candidate'],
-                    cache_bundle=(cache, candidate_cache),
-                    )
-
-            except:
-                self._logger.exception("search_template failed on {} with UCT: {}".format(
-                    template.template['name'], self.uct_score))
-                traceback.print_exc()
-                # report = {
-                #
-                # }
-                continue
-            self._logger.info(STYLE + "[INFO] report: " + str(report['best_val']))
-            self.update_UCT_score(index=idx, report=report)
-            self._logger.info(STYLE+"[INFO] cache size: " + str(len(cache))+
-                  ", candidates: " + str(len(candidate_cache)))
-
-            new_best = False
-            if best_report is None:
-                best_report = report
-                best_metric_value = best_report['best_val']
-                new_best = True
-            else:
-                if self.minimize and report['best_val'] < best_metric_value:
-                    best_report = report
-                    best_metric_value = report['best_val']
-                    new_best = True
-                if not self.minimize and report['best_val'] > best_metric_value:
-                    best_report = report
-                    best_metric_value = report['best_val']
-                    new_best = True
-
-            if new_best and best_report['candidate'] is not None:
-                self._logger.info('[INFO] New Best Value: ' + str(report['best_val']))
-
-                dataset_name = self.output_executables_dir.rsplit("/", 2)[1]
-                # save_location = os.path.join(self.output_logs_dir, dataset_name + ".txt")
-                save_location = self.output_directory + ".txt"
-
-                self._logger.info("******************\n[INFO] Saving training results in %s", save_location)
-                metrics = self.problem['problem']['performance_metrics']
-                candidate = best_report['candidate']
-                try:
-                    f = open(save_location, "w+")
-                    f.write(str(metrics) + "\n")
-
-                    for m in ["training_metrics", "cross_validation_metrics", "test_metrics"]:
-                        if m in candidate.data and candidate.data[m]:
-                            f.write(m + ' ' +  str(candidate.data[m][0]['value']) + "\n")
-                    # f.write(str(candidate.data['training_metrics'][0]['value']) + "\n")
-                    # f.write(str(candidate.data['cross_validation_metrics'][0]['value']) + "\n")
-                    # f.write(str(candidate.data['test_metrics'][0]['value']) + "\n")
-                    f.close()
-                except:
-                    self._logger.exception('[ERROR] Save training results Failed!')
-                    raise NotSupportedError(
-                        '[ERROR] Save training results Failed!')
-
-
-        # shutdown the cache manager
-        manager.shutdown()
 
     # def train(self) -> Status:
     #     """

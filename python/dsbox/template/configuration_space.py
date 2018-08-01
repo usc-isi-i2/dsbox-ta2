@@ -4,7 +4,7 @@ import typing
 import pprint
 
 import d3m.exceptions as exceptions
-
+from random import choice
 T = typing.TypeVar('T')
 DimensionName = typing.NewType('DimensionName', str)
 
@@ -103,7 +103,7 @@ class SimpleConfigurationSpace(ConfigurationSpace[T]):
         # TODO: SimpleConfigurationSpace should manage and reuse ConfigurationPoints
         return ConfigurationPoint(self, values)
 
-    def get_point_using_first_value(self) -> typing.Dict[DimensionName, T]:
+    def get_first_assignment(self) -> typing.Dict[DimensionName, T]:
         '''
         Assign the first value for each dimension
         '''
@@ -113,6 +113,27 @@ class SimpleConfigurationSpace(ConfigurationSpace[T]):
             assignment[dimension] = self.get_values(dimension)[0]
             # print(dimension, self.get_values(dimension)[0])
         return ConfigurationPoint(self, assignment)
+
+    def get_random_assignment(self) -> typing.Dict[DimensionName, T]:
+        """
+        Randomly assigns a value for each dimension
+        """
+        assignment: typing.Dict[DimensionName, T] = {}
+        for dimension in self._dimension_ordering:
+            assignment[dimension] = choice(self.get_values(dimension))
+
+        return ConfigurationPoint(self, assignment)
+
+    def get_dimension_length(self, kw: DimensionName) -> int:
+        """
+        Return the length of the list a configuration point
+        Args:
+            kw:
+                name of the dimension
+        Returns:
+
+        """
+        return len(self.get_values(kw))
 
     def __str__(self):
         """

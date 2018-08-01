@@ -1,4 +1,5 @@
 import bisect
+import enum
 import operator
 import random
 from d3m.metadata.base import ALL_ELEMENTS
@@ -52,3 +53,8 @@ def get_target_columns(dataset: 'Dataset', problem_doc_metadata: 'Metadata'):
     targetlist.append(colIndex)
     targetcol = dataset[resID].iloc[:, targetlist]
     return targetcol
+
+
+class Status(enum.Enum):
+    OK = 0
+    PROBLEM_NOT_IMPLEMENT = 148

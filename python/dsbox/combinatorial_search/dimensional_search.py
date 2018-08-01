@@ -30,10 +30,25 @@ from dsbox.template.configuration_space import DimensionName
 from dsbox.template.configuration_space import ConfigurationPoint
 from dsbox.template.configuration_space import ConfigurationSpace
 
-from dsbox.combinatorial_search.search_utils import random_choices_without_replacement, \
-    get_target_columns
+from dsbox.combinatorial_search.search_utils import random_choices_without_replacement
+from dsbox.combinatorial_search.search_utils import get_target_columns
+from dsbox.combinatorial_search.search_utils import Status
 from dsbox.combinatorial_search.ConfigurationSpaceBaseSearch import ConfigurationSpaceBaseSearch
 from dsbox.template.pipeline_utilities import pipe2str
+
+import importlib
+colorama_spec = importlib.util.find_spec("colorama")
+STYLE = ""
+ERROR = ""
+WARNING = ""
+if colorama_spec is not None:
+    from colorama import Fore, Back, init
+
+    # STYLE = Fore.BLUE + Back.GREEN
+    STYLE = Fore.BLACK + Back.GREEN
+    ERROR = Fore.WHITE + Back.RED
+    WARNING = Fore.BLACK + Back.YELLOW
+    init(autoreset=True)
 
 
 T = typing.TypeVar("T")
@@ -66,7 +81,7 @@ class TemplateDimensionalSearch(ConfigurationSpaceBaseSearch[PrimitiveDescriptio
     """
 
     def __init__(self,
-                 template: DSBoxTemplate,
+                 template: typing.List[DSBoxTemplate],
                  configuration_space: ConfigurationSpace[PrimitiveDescription],
                  problem: Metadata,
                  train_dataset1: Dataset,
@@ -80,7 +95,7 @@ class TemplateDimensionalSearch(ConfigurationSpaceBaseSearch[PrimitiveDescriptio
                  num_workers: int = 0) -> None:
 
         # Use first metric from test
-        super().__init__(template=template, configuration_space=configuration_space,
+        super().__init__(template_list=template, configuration_space=configuration_space,
                          train_dataset1=train_dataset1, train_dataset2=train_dataset2,
                          test_dataset1=test_dataset1, test_dataset2=test_dataset2,
                          all_dataset=all_dataset, problem=problem,
@@ -172,9 +187,9 @@ class TemplateDimensionalSearch(ConfigurationSpaceBaseSearch[PrimitiveDescriptio
 
         try:
             candidate, candidate_value = \
-                self.setup_initial_candidate(candidate_in, cache, candidate_cache)
+                self._setup_initial_candidate(candidate_in, cache, candidate_cache)
         except:
-            UCT_failed = {
+            report_failed = {
                 'reward': None,
                 'time': time.clock() - start_time,
                 'sim_count': 3,
@@ -182,7 +197,7 @@ class TemplateDimensionalSearch(ConfigurationSpaceBaseSearch[PrimitiveDescriptio
                 'best_val': float('-inf')
             }
             # return (candidate, candidate_value)
-            return UCT_failed
+            return report_failed
 
         sim_counter += 1
         # generate an executable pipeline with random steps from conf. space.
@@ -303,7 +318,7 @@ class TemplateDimensionalSearch(ConfigurationSpaceBaseSearch[PrimitiveDescriptio
         if self.minimize:
             reward = -reward
 
-        UCT_report = {
+        report = {
             'reward': reward,
             'time': time.clock() - start_time,
             'sim_count': sim_counter,
@@ -311,12 +326,12 @@ class TemplateDimensionalSearch(ConfigurationSpaceBaseSearch[PrimitiveDescriptio
             'best_val': candidate_value
         }
         # return (candidate, candidate_value)
-        return UCT_report
+        return report
 
-    def setup_initial_candidate(self,
-                                candidate: ConfigurationPoint[T],
-                                cache: typing.Dict,
-                                candidate_cache: typing.Dict) -> \
+    def _setup_initial_candidate(self,
+                                 candidate: ConfigurationPoint[T],
+                                 cache: typing.Dict,
+                                 candidate_cache: typing.Dict) -> \
             typing.Tuple[ConfigurationPoint[T], float]:
         """
         we first need the baseline for searching the conf_space. For this
@@ -340,7 +355,8 @@ class TemplateDimensionalSearch(ConfigurationSpaceBaseSearch[PrimitiveDescriptio
             candidate, evaluate_value : ConfigurationPoint[T], float
         """
         if candidate is None:
-            candidate = ConfigurationPoint(self.configuration_space, self.first_assignment())
+            candidate = self.configuration_space.get_first_assignment()
+            #ConfigurationPoint(self.configuration_space, self.first_assignment())
         # first, then random, then another random
         for i in range(2):
             try:
@@ -370,9 +386,101 @@ class TemplateDimensionalSearch(ConfigurationSpaceBaseSearch[PrimitiveDescriptio
                 print("[ERROR] Initial Pipeline failed, Trying a random pipeline ...")
                 pprint(candidate)
                 print("-" * 20)
-                candidate = ConfigurationPoint(self.configuration_space,
-                                               self.random_assignment())
+                candidate = self.configuration_space.get_random_assignment()
+                #ConfigurationPoint(self.configuration_space, self.random_assignment())
         raise ValueError("Invalid initial candidate")
+
+    def search_template(self, template: DSBoxTemplate, candidate: typing.Dict = None,
+                        cache_bundle: typing.Tuple[typing.Dict, typing.Dict] = (None, None)) \
+            -> typing.Dict:
+
+        self._logger.info('Searching template %s', template.template['name'])
+
+        space = template.generate_configuration_space()
+
+        metrics = self.problem['problem']['performance_metrics']
+
+        # # setup the dimensional search configs
+        # search = TemplateDimensionalSearch(
+        #     template=template, configuration_space=space, problem=self.problem_doc_metadata,
+        #     test_dataset1=self.test_dataset1, train_dataset1=self.train_dataset1,
+        #     test_dataset2=self.test_dataset2, train_dataset2=self.train_dataset2,
+        #     all_dataset=self.all_dataset, performance_metrics=metrics,
+        #     output_directory=self.output_directory, log_dir=self.output_logs_dir,
+        #     num_workers=self.num_cpus
+        # )
+
+        self.minimize = search.minimize
+        # candidate, value = search.search_one_iter()
+        self._logger.info('cache size = {}'.format(len(cache_bundle[0])))
+        report = search.search_one_iter(candidate_in=candidate, cache_bundle=cache_bundle)
+        candidate = report['candidate']
+        value = report['best_val']
+        # assert "fitted_pipe" in candidate, "argument error!"
+        if candidate is None:
+            self._logger.error("[ERROR] not candidate!")
+            return report  # return Status.PROBLEM_NOT_IMPLEMENT
+        else:
+            self._logger.info("******************\n[INFO] Writing results")
+            pprint.pprint(candidate.data)
+            self._logger.info(str(candidate.data) + " " + str(value))
+            if candidate.data['training_metrics']:
+                self._logger.info('Training {} = {}'.format(
+                    candidate.data['training_metrics'][0]['metric'],
+                    candidate.data['training_metrics'][0]['value']))
+            if candidate.data['cross_validation_metrics']:
+                self._logger.info('CV {} = {}'.format(
+                    candidate.data['cross_validation_metrics'][0]['metric'],
+                    candidate.data['cross_validation_metrics'][0]['value']))
+            if candidate.data['test_metrics']:
+                self._logger.info('Validation {} = {}'.format(
+                    candidate.data['test_metrics'][0]['metric'],
+                    candidate.data['test_metrics'][0]['value']))
+
+            # FIXME: code used for doing experiments, want to make optionals
+            # pipeline = FittedPipeline.create(configuration=candidate,
+            #                             dataset=self.dataset)
+
+            # dataset_name = self.output_executables_dir.rsplit("/", 2)[1]
+            # # save_location = os.path.join(self.output_logs_dir, dataset_name + ".txt")
+            # save_location = self.output_directory + ".txt"
+
+            # self._logger.info("******************\n[INFO] Saving training results in %s",
+            # save_location)
+            # try:
+            #     f = open(save_location, "w+")
+            #     f.write(str(metrics) + "\n")
+
+            #     for m in ["training_metrics", "cross_validation_metrics", "test_metrics"]:
+            #         if m in candidate.data and candidate.data[m]:
+            #             f.write(m + ' ' +  str(candidate.data[m][0]['value']) + "\n")
+            #     # f.write(str(candidate.data['training_metrics'][0]['value']) + "\n")
+            #     # f.write(str(candidate.data['cross_validation_metrics'][0]['value']) + "\n")
+            #     # f.write(str(candidate.data['test_metrics'][0]['value']) + "\n")
+            #     f.close()
+            # except:
+            #     self._logger.exception('[ERROR] Save training results Failed!')
+            #     raise NotSupportedError(
+            #         '[ERROR] Save training results Failed!')
+
+            return report
+
+    def run(self):
+        """
+        runs the dim search for each compatible template and returns the best trained pipeline
+        for the problem.
+        Returns:
+            fittedPipeline: the best fittedpipeline
+        """
+        if not self.template:
+            return Status.PROBLEM_NOT_IMPLEMENT
+
+        # setup the output cache
+        manager = Manager()
+        cache = manager.dict()
+        candidate_cache = manager.dict()
+        for i in range(10):
+            pass
 
 
 

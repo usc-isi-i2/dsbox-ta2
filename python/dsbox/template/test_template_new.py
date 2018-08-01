@@ -145,7 +145,7 @@ def defaultregressoryaml():
 t = DefaultClassificationTemplate()
 
 c = t.generate_configuration_space()
-point = c.get_point_using_first_value()
+point = c.get_first_assignment()
 # print(point.space)
 # print(point.data)
 # pdb.set_trace()
