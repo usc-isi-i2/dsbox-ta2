@@ -61,7 +61,9 @@ def get_target_columns(dataset: 'Dataset', problem_doc_metadata: 'Metadata'):
     targetcol = dataset[resID].iloc[:, targetlist]
     return targetcol
 
+
 _logger = logging.getLogger(__name__)
+
 
 class DimensionalSearch(typing.Generic[T]):
     """
@@ -268,7 +270,7 @@ class DimensionalSearch(typing.Generic[T]):
                         print("-" * 10)
                         continue
 
-                    ## Always use 'test_metrics' since it is generated using test_dataset1
+                    # Always use 'test_metrics' since it is generated using test_dataset1
                     # if len(res['cross_validation_metrics']) > 0:
                     #     cross_validation_mode = True
                     #     score_values.append(res['cross_validation_metrics'][0]['value'])
@@ -554,7 +556,6 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
             training_ground_truth = get_target_columns(self.train_dataset1, self.problem)
             training_prediction = fitted_pipeline.get_fit_step_output(
                 self.template.get_output_step_number())
-
             training_metrics, test_metrics = self._calculate_score(
                 training_ground_truth, training_prediction, None, None)
 
@@ -635,7 +636,6 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
                     training_metrics = training_metrics[0]
         # END evaluation part
 
-
         # Save results
         if self.test_dataset1 is None:
             print("The dataset no need to split of split failed, will not train again.")
@@ -684,7 +684,6 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
             test_ground_truth = get_target_columns(self.test_dataset1, self.problem)
             # Note: results == test_prediction
             test_prediction = fitted_pipeline2.get_produce_step_output(self.template.get_output_step_number())
-
             training_metrics2, test_metrics2 = self._calculate_score(
                 None, None, test_ground_truth, test_prediction)
 
@@ -716,7 +715,6 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
                 # test_prediction3 = fitted_pipeline2.get_produce_step_output(self.template.get_output_step_number())
                 # _, test_metrics3 = self._calculate_score(None, None, test_ground_truth, test_prediction3)
 
-
             #     _logger.info("Test pickled pipeline. id: {}".format(fitted_pipeline2.id))
             #     self.test_pickled_pipeline(folder_loc=self.output_directory,
             #                                pipeline_id=fitted_pipeline2.id,
@@ -733,6 +731,11 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
         '''
         training_metrics = []
         test_metrics = []
+
+        if training_prediction is not None:
+            training_prediction = self.graph_problem_conversion(training_prediction)
+        if test_prediction is not None:
+            test_prediction = self.graph_problem_conversion(test_prediction)
         for metric_description in self.performance_metrics:
             metricDesc = PerformanceMetric.parse(metric_description['metric'])
             metric: typing.Callable = metricDesc.get_function()
@@ -812,7 +815,7 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
         results = fitted_pipeline.produce(inputs=[test_dataset])
 
         pipeline_prediction = fitted_pipeline.get_produce_step_output(self.template.get_output_step_number())
-
+        pipeline_prediction = self.graph_problem_conversion(prediction)
         test_pipeline_metrics2 = self._calculate_score(None, None, test_ground_truth, pipeline_prediction)
         test_pipeline_metrics = list()
         for metric_description in self.performance_metrics:
@@ -877,6 +880,17 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
             print("\n" * 5)
             print("Pickling succeeded")
             print("\n" * 5)
+
+    def graph_problem_conversion(self, prediction):
+        tasktype = self.template.template["taskType"]
+        if isinstance(tasktype, set):
+            for t in tasktype:
+                if t == "GRAPH_MATCHING" or t == "VERTEX_NOMINATION" or t == "LINK_PREDICTION":
+                    prediction.iloc[:, -1] = prediction.iloc[:, -1].astype(int)
+        else:
+            if tasktype == "GRAPH_MATCHING" or tasktype == "VERTEX_NOMINATION" or tasktype == "LINK_PREDICTION":
+                prediction.iloc[:, -1] = prediction.iloc[:, -1].astype(int)
+        return prediction
 
 
 PythonPathWithHyperaram = typing.Tuple[PythonPath, int, HyperparamDirective]

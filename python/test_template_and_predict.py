@@ -67,12 +67,13 @@ def run_pipeline_and_predict(pipeline, train_data, test_data, problem, outdir, d
     '''
     pipeline_runtime = Runtime(pipeline, fitted_pipeline_id="", log_dir=outdir)
     pipeline_runtime.fit(inputs=[train_data])
-    test_length = test_data.metadata.query(("0", ALL_ELEMENTS))["dimension"]["length"]
+    resID = problem.query(())["inputs"]["data"][0]["targets"][0]["resID"]
+    test_length = test_data.metadata.query((resID, ALL_ELEMENTS))["dimension"]["length"]
     for v in range(0, test_length):
-        types = test_data.metadata.query(("0", ALL_ELEMENTS, v))["semantic_types"]
+        types = test_data.metadata.query((resID, ALL_ELEMENTS, v))["semantic_types"]
         for t in types:
             if t == "https://metadata.datadrivendiscovery.org/types/TrueTarget":
-                target_col_name = test_data.metadata.query(("0", ALL_ELEMENTS, v))["name"]
+                target_col_name = test_data.metadata.query((resID, ALL_ELEMENTS, v))["name"]
                 break
 
     pipeline_runtime.produce(inputs=[test_data])
@@ -80,9 +81,10 @@ def run_pipeline_and_predict(pipeline, train_data, test_data, problem, outdir, d
 
     # prediction.to_csv(outdir)
     print(prediction.head())
+
     d3m_index = get_target_columns(test_data, problem)["d3mIndex"]
     d3m_index = d3m_index.reset_index().drop(columns=["index"])
-    prediction_col_name = prediction.columns[0]
+    prediction_col_name = prediction.columns[-1]
     prediction["d3mIndex"] = d3m_index
     prediction = prediction[["d3mIndex", prediction_col_name]]
     prediction = prediction.rename(columns={prediction_col_name: target_col_name})
