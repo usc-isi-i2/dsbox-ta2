@@ -376,9 +376,22 @@ def dsbox_generic_steps():
             "inputs": ["encoder_step"]
         },
         {
+            "name": "dim_red_step",
+            "primitives": [
+                {
+                    "primitive": "d3m.primitives.sklearn_wrap.SKPCA",
+                    "hyperparameters": 
+                    {
+                    }
+                },
+                "d3m.primitives.dsbox.DoNothing",
+            ],
+            "inputs": ["impute_step"]
+        },
+        {
             "name": "scaler_step",
             "primitives": ["d3m.primitives.dsbox.IQRScaler"],
-            "inputs": ["impute_step"]
+            "inputs": ["dim_red_step"]
         },
         {
             "name": "cast_1_step",
