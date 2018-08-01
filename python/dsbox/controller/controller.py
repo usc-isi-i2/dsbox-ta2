@@ -115,7 +115,7 @@ def split_dataset(dataset, problem_info: typing.Dict, *, random_state=42, test_s
     data_type_cannot_split = ["graph","edgeList", "audio"]
     task_type_can_split = ["CLASSIFICATION","REGRESSION"]
 
-    task_type = problem_info["task_type"]#['problem']['task_type'].name  # 'classification' 'regression'
+    task_type = problem_info["task_type"]  #['problem']['task_type'].name  # 'classification' 'regression'
     res_id = problem_info["res_id"]
     target_index = problem_info["target_index"]
     data_type = problem_info["data_type"]
@@ -318,9 +318,19 @@ class Controller:
         # Problem
         self.problem = parse_problem_description(config['problem_schema'])
         self.problem_doc_metadata = runtime.load_problem_doc(os.path.abspath(config['problem_schema']))
+        self.task_type = self.problem['problem']['task_type']
+        self.task_subtype = self.problem['problem']['task_subtype']
 
         # Dataset
         self.dataset_schema_file = config['dataset_schema']
+
+        # find the data resources type
+        self.taskSourceType = set()  # set the type to be set so that we can ignore the repeat elements
+        with open(self.dataset_schema_file, 'r') as dataset_description_file:
+            dataset_description = json.load(dataset_description_file)
+            for each_type in dataset_description["dataResources"]:
+                self.taskSourceType.add(each_type["resType"])
+        self.problem_info["data_type"] = self.taskSourceType
 
         # Resource limits
         self.num_cpus = int(config.get('cpus', 0))
@@ -394,17 +404,7 @@ class Controller:
         self._logger.addHandler(console)
 
     def load_templates(self) -> None:
-        self.task_type = self.problem['problem']['task_type']
-        self.task_subtype = self.problem['problem']['task_subtype']
-        # find the data resources type
-        self.taskSourceType = set()  # set the type to be set so that we can ignore the repeat elements
-        with open(self.dataset_schema_file, 'r') as dataset_description_file:
-            dataset_description = json.load(dataset_description_file)
-            for each_type in dataset_description["dataResources"]:
-                self.taskSourceType.add(each_type["resType"])
-
         self.template = self.template_library.get_templates(self.task_type, self.task_subtype, self.taskSourceType)
-        self.problem_info["data_type"] = self.taskSourceType
         # find the maximum dataset split requirements
         for each_template in self.template:
             for each_step in each_template.template['steps']:
