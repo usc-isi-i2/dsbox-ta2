@@ -467,18 +467,54 @@ class Controller:
             self._logger.info("******************\n[INFO] Writing results")
             pprint.pprint(candidate.data)
             self._logger.info(str(candidate.data)+ " "+ str(value))
+
             if candidate.data['training_metrics']:
-                self._logger.info('Training {} = {}'.format(
-                    candidate.data['training_metrics'][0]['metric'],
-                    candidate.data['training_metrics'][0]['value']))
+                if type(candidate.data['training_metrics'][0]) is dict:
+                    self._logger.info('Training {} = {}'.format(
+                        candidate.data['training_metrics'][0]['metric'],
+                        candidate.data['training_metrics'][0]['value']))
+                else:
+                    for each in candidate.data['training_metrics'][0]:
+                        self._logger.info('Training  {} in {} = {}'.format(
+                            each['column_name'],
+                            each['metric'],
+                            each['value']))
             if candidate.data['cross_validation_metrics']:
-                self._logger.info('CV {} = {}'.format(
-                    candidate.data['cross_validation_metrics'][0]['metric'],
-                    candidate.data['cross_validation_metrics'][0]['value']))
+                if tpye(candidate.data['cross_validation_metrics'][0]) is dict:
+                    self._logger.info('CV {} = {}'.format(
+                        candidate.data['cross_validation_metrics'][0]['metric'],
+                        candidate.data['cross_validation_metrics'][0]['value']))
+                else:
+                    for each in candidate.data['cross_validation_metrics'][0]:
+                        self._logger.info('CV  {} in {} = {}'.format(
+                            each['column_name'],
+                            each['metric'],
+                            each['value']))
             if candidate.data['test_metrics']:
-                self._logger.info('Validation {} = {}'.format(
-                    candidate.data['test_metrics'][0]['metric'],
-                    candidate.data['test_metrics'][0]['value']))
+                if type(candidate.data['test_metrics'][0]) is dict:
+                    self._logger.info('Validation {} = {}'.format(
+                        candidate.data['test_metrics'][0]['metric'],
+                        candidate.data['test_metrics'][0]['value']))
+                else:
+                    for each in candidate.data['test_metrics'][0]:
+                        self._logger.info('Validation of {} in {} = {}'.format(
+                            each['column_name'],
+                            each['metric'],
+                            each['value']))
+
+
+            # if candidate.data['training_metrics']:
+            #     self._logger.info('Training {} = {}'.format(
+            #         candidate.data['training_metrics'][0]['metric'],
+            #         candidate.data['training_metrics'][0]['value']))
+            # if candidate.data['cross_validation_metrics']:
+            #     self._logger.info('CV {} = {}'.format(
+            #         candidate.data['cross_validation_metrics'][0]['metric'],
+            #         candidate.data['cross_validation_metrics'][0]['value']))
+            # if candidate.data['test_metrics']:
+            #     self._logger.info('Validation {} = {}'.format(
+            #         candidate.data['test_metrics'][0]['metric'],
+            #         candidate.data['test_metrics'][0]['value']))
 
             # FIXME: code used for doing experiments, want to make optionals
             # pipeline = FittedPipeline.create(configuration=candidate,
@@ -820,7 +856,7 @@ class Controller:
             lastmodified = files[-1]
             fitted_pipeline_id = lastmodified.split('/')[-1].split('.')[0]
 
-        pipeline_load, run = FittedPipeline.load(folder_loc=self.output_directory,
+        pipeline_load, run_test = FittedPipeline.load(folder_loc=self.output_directory,
                                                  pipeline_id=fitted_pipeline_id,
                                                  log_dir=self.output_logs_dir)
 
@@ -831,15 +867,19 @@ class Controller:
 
         # pipeline_load.runtime.produce(inputs=[self.test_dataset])
         self.all_dataset = auto_regress_convert(self.all_dataset, self.problem_doc_metadata)
-        run.produce(inputs=[self.all_dataset])
+        runtime.add_target_columns_metadata(self.all_dataset, self.problem_doc_metadata)
+        run_test.produce(inputs=[self.all_dataset])
+
         try:
             step_number_output = int(pipeline_load.pipeline.outputs[0]['data'].split('.')[1])
         except:
-            print("Warning: searching the output step number failed! Will use the last step's output of the pipeline.")
+            self._logger.error("Warning: searching the output step number failed! "
+                               "Will use the last step's output of the pipeline.")
             # step_number_output = len(pipeline_load.runtime.produce_outputs) - 1
-            step_number_output = len(run.produce_outputs) - 1
+            step_number_output = len(run_test.produce_outputs) - 1
 
         # get the target column name
+        prediction_class_name = []
         try:
             with open(self.dataset_schema_file, 'r') as dataset_description_file:
                 dataset_description = json.load(dataset_description_file)
@@ -847,28 +887,31 @@ class Controller:
                     if "columns" in each_resource:
                         for each_column in each_resource["columns"]:
                             if "suggestedTarget" in each_column["role"] or "target" in each_column["role"]:
-                                prediction_class_name = each_column["colName"]
+                                prediction_class_name.append(each_column["colName"])
         except:
-            print("[Warning] Can't find the prediction class name, will use default name.")
-            prediction_class_name = "prediction"
+            self._logger.error("[Warning] Can't find the prediction class name, will use default name 'prediction'.")
+            prediction_class_name.append("prediction")
 
-        prediction = run.produce_outputs[step_number_output]
-
+        prediction = run_test.produce_outputs[step_number_output]
         # if the prediction results do not have d3m_index column
         if 'd3mIndex' not in prediction.columns:
             d3m_index = get_target_columns(self.all_dataset, self.problem_doc_metadata)["d3mIndex"]
             d3m_index = d3m_index.reset_index().drop(columns=['index'])
-            prediction_col_name = prediction.columns[0]
+            prediction_col_name = ['d3mIndex']
+            for each in prediction.columns:
+                prediction_col_name.append(each)
             prediction['d3mIndex'] = d3m_index
-            prediction = prediction[['d3mIndex', prediction_col_name]]
-            prediction = prediction.rename(columns={prediction_col_name: prediction_class_name})
-        prediction_folder_loc = self.output_directory + "/predictions/" + fitted_pipeline_id
+            prediction = prediction[prediction_col_name]
+            prediction_col_name.remove('d3mIndex')
+            for i in range(len(prediction_class_name)):
+                prediction = prediction.rename(columns={prediction_col_name[i]: prediction_class_name[i]})
+        prediction_folder_loc = outputs_loc + "/predictions/" + read_pipeline_id
         folder = os.path.exists(prediction_folder_loc)
         if not folder:
             os.makedirs(prediction_folder_loc)
         prediction.to_csv(prediction_folder_loc + "/predictions.csv", index=False)
-        print("[INFO] Finished: prediction results saving finished")
-        print("[INFO] The prediction results is stored at: ", prediction_folder_loc)
+        self._logger.info("[INFO] Finished: prediction results saving finished")
+        self._logger.info("[INFO] The prediction results is stored at: {}".format(prediction_folder_loc))
         return Status.OK
 
     def test(self) -> Status:
@@ -876,23 +919,27 @@ class Controller:
         First read the fitted pipeline and then run trained pipeline on test data.
         """
         self._logger.info("[INFO] Start test function")
-        outputs_loc, pipeline_load, read_pipeline_id, run = \
+        outputs_loc, pipeline_load, read_pipeline_id, run_test = \
             self.load_pipe_runtime()
 
         self._logger.info("[INFO] Pipeline load finished")
 
         self._logger.info("[INFO] testing data")
+
         self.all_dataset = auto_regress_convert(self.all_dataset, self.problem_doc_metadata)
-        run.produce(inputs=[self.all_dataset])
+        runtime.add_target_columns_metadata(self.all_dataset, self.problem_doc_metadata)
+        run_test.produce(inputs=[self.all_dataset])
+
         try:
             step_number_output = int(pipeline_load.pipeline.outputs[0]['data'].split('.')[1])
         except:
             self._logger.error("Warning: searching the output step number failed! "
                                "Will use the last step's output of the pipeline.")
             # step_number_output = len(pipeline_load.runtime.produce_outputs) - 1
-            step_number_output = len(run.produce_outputs) - 1
+            step_number_output = len(run_test.produce_outputs) - 1
 
         # get the target column name
+        prediction_class_name = []
         try:
             with open(self.dataset_schema_file, 'r') as dataset_description_file:
                 dataset_description = json.load(dataset_description_file)
@@ -900,21 +947,24 @@ class Controller:
                     if "columns" in each_resource:
                         for each_column in each_resource["columns"]:
                             if "suggestedTarget" in each_column["role"] or "target" in each_column["role"]:
-                                prediction_class_name = each_column["colName"]
+                                prediction_class_name.append(each_column["colName"])
         except:
             self._logger.error("[Warning] Can't find the prediction class name, will use default name 'prediction'.")
-            prediction_class_name = "prediction"
+            prediction_class_name.append("prediction")
 
-        prediction = run.produce_outputs[step_number_output]
-
+        prediction = run_test.produce_outputs[step_number_output]
         # if the prediction results do not have d3m_index column
         if 'd3mIndex' not in prediction.columns:
             d3m_index = get_target_columns(self.all_dataset, self.problem_doc_metadata)["d3mIndex"]
             d3m_index = d3m_index.reset_index().drop(columns=['index'])
-            prediction_col_name = prediction.columns[0]
+            prediction_col_name = ['d3mIndex']
+            for each in prediction.columns:
+                prediction_col_name.append(each)
             prediction['d3mIndex'] = d3m_index
-            prediction = prediction[['d3mIndex', prediction_col_name]]
-            prediction = prediction.rename(columns={prediction_col_name: prediction_class_name})
+            prediction = prediction[prediction_col_name]
+            prediction_col_name.remove('d3mIndex')
+            for i in range(len(prediction_class_name)):
+                prediction = prediction.rename(columns={prediction_col_name[i]: prediction_class_name[i]})
         prediction_folder_loc = outputs_loc + "/predictions/" + read_pipeline_id
         folder = os.path.exists(prediction_folder_loc)
         if not folder:
