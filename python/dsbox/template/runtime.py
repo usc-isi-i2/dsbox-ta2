@@ -22,6 +22,7 @@ from d3m.metadata.base import Metadata
 from d3m.metadata.pipeline import Pipeline, PrimitiveStep, Resolver
 from d3m.primitive_interfaces import base
 from multiprocessing import current_process
+from dsbox.combinatorial_search.cache import CandidateCache, PrimitivesCache
 
 _logger = logging.getLogger(__name__)
 
@@ -133,9 +134,9 @@ class Runtime:
             Arguments required to train the Pipeline
         """
         if 'cache' in arguments:
-            cache = arguments['cache']
+            cache: PrimitivesCache = arguments['cache']
         else:
-            cache = {}
+            cache = PrimitivesCache()
 
         primitives_outputs: typing.List[typing.Optional[base.CallResult]] = [None] * len(self.execution_order)
 
@@ -152,21 +153,14 @@ class Runtime:
 
             if isinstance(self.pipeline_description.steps[n_step], PrimitiveStep):
                 # first we need to compute the key to query in cache. For the key we use a hashed combination of the primitive name,
-                # its hyperparameters and its input dataset hash.
-                hyperparam_hash = hash(str(self.pipeline_description.steps[n_step].hyperparams.items()))
 
-                dataset_id = ""
-                dataset_digest = ""
-                try:
-                    dataset_id = str(primitive_arguments['inputs'].metadata.query(())['id'])
-                    dataset_digest = str(primitive_arguments['inputs'].metadata.query(())['digest'])
-                except:
-                    pass
-                dataset_hash = hash(str(primitive_arguments) + dataset_id + dataset_digest)
+                # get the hyperparam hash
+                pipe_step = self.pipeline_description.steps[n_step]
 
-                prim_name = str(self.pipeline_description.steps[n_step].primitive)
-                prim_hash = hash(str([hyperparam_hash, dataset_hash, hash_prefix]))
-
+                prim_name, prim_hash = cache._get_hash(
+                    hash_prefix=hash_prefix, pipe_step=self.pipeline_description.steps[n_step],
+                    primitive_arguments=primitive_arguments)
+                # FIXME get rid of this loop as it completely ruins the cache
                 hash_prefix = prim_hash
 
                 _logger.info(
@@ -179,20 +173,20 @@ class Runtime:
                     },
                 )
 
-                if (prim_name, prim_hash) in cache:
+                # if (prim_name, prim_hash) in cache:
+                if cache.is_hit_key(prim_hash=prim_hash, prim_name=prim_name):
                     # primitives_outputs[n_step],model =
                     # self._primitive_step_fit(n_step,
                     # self.pipeline_description.steps[n_step],
                     # primitive_arguments)
-                    primitives_outputs[n_step], model = cache[
-                        (prim_name, prim_hash)]
+                    primitives_outputs[n_step], model = cache.lookup_key(prim_name=prim_name,
+                                                                         prim_hash=prim_hash)
                     self.pipeline[n_step] = model
-                    print("[INFO] Hit@cache:", (prim_name, prim_hash))
+
 
                     # assert type()
 
                 else:
-                    print("[INFO] Push@cache:", (prim_name, prim_hash))
                     primitive_step: PrimitiveStep = \
                         typing.cast(PrimitiveStep,
                                     self.pipeline_description.steps[n_step]
@@ -206,12 +200,13 @@ class Runtime:
 
                     # add the entry to cache:
                     # print("[INFO] Updating cache!")
-                    cache[(prim_name, prim_hash)] = (
-                        primitives_outputs[n_step].copy(), model)
+                    cache.push_key(prim_name=prim_name, prim_hash=prim_hash, model=model,
+                                   primitives_output=primitives_outputs[n_step].copy())
+
                     if _logger.getEffectiveLevel() <= 10:
 
                         _logger.debug('cache keys')
-                        for key in sorted(cache.keys()):
+                        for key in sorted(cache.storage.keys()):
                             _logger.debug('   {}'.format(key))
 
                         debug_file = os.path.join(
@@ -239,6 +234,7 @@ class Runtime:
 
         # kyao!!!!
         self.fit_outputs = primitives_outputs
+
 
     def _primitive_step_fit(self, n_step: int, step: PrimitiveStep, primitive_arguments: typing.Dict[str, typing.Any]) -> base.CallResult:
         """

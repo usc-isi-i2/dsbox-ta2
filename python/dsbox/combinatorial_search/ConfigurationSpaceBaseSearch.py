@@ -152,20 +152,22 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
         Note: This methods will modify the configuration point, by updating its data field.
         """
         configuration: ConfigurationPoint[PrimitiveDescription] = dict(args[0])
-        cache: typing.Dict = args[1]
+        cache: PrimitivesCache = args[1]
         dump2disk = args[2] if len(args) == 3 else True
         print("[INFO] Worker started, id:", current_process(), ",", dump2disk)
-        try:
-            evaluation_result = self._evaluate(configuration, cache, dump2disk)
-        except:
-            traceback.print_exc()
-            return None
+
+        evaluation_result = self._evaluate(configuration, cache, dump2disk)
+        # try:
+        #     evaluation_result = self._evaluate(configuration, cache, dump2disk)
+        # except:
+        #     traceback.print_exc()
+        #     return None
         # configuration.data.update(new_data)
         return evaluation_result
 
     def _evaluate(self,
                   configuration: ConfigurationPoint,
-                  cache: typing.Dict = {},
+                  cache: PrimitivesCache,
                   dump2disk: bool = True) -> typing.Dict:
 
         start_time = time.time()
@@ -307,13 +309,14 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
             #                                test_metrics=training_metrics,
             #                                test_ground_truth=get_target_columns(self.train_dataset2[each_repeat], self.problem))
         else:
-            if self.quick_mode:
+            if self.quick_mode or self.train_dataset1 is None:
                 print("[INFO] Now in quick mode, will skip training with train_dataset1")
                 # if in quick mode, we did not fit the model with dataset_train1 again
                 # just generate the predictions on dataset_test1 directly and get the rank
                 fitted_pipeline2 = fitted_pipeline
             else:
                 print("[INFO] Now in normal mode, will add extra train with train_dataset1")
+                # pipeline = self.template.to_pipeline(configuration)
                 # otherwise train again with dataset_train1 and get the rank
                 fitted_pipeline2 = FittedPipeline(pipeline,
                                                   self.train_dataset1.metadata.query(())['id'],

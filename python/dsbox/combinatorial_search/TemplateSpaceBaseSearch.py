@@ -11,7 +11,7 @@ from functools import reduce
 
 from warnings import warn
 
-from multiprocessing import Pool, current_process, Manager
+from multiprocessing import Pool, current_process, Manager, Process
 from pprint import pprint
 
 from d3m.exceptions import NotSupportedError
@@ -86,6 +86,10 @@ class TemplateSpaceBaseSearch(typing.Generic[T]):
         Definition of the configuration space
     confSpaceBaseSearch: List[ConfigurationSpaceBaseSearch]
         list of ConfigurationSpaceBaseSearch related to each template
+    cacheManager:  CacheManager
+        the object contains the two distributed cache and their associated methods
+    bestResult: typing.Dict
+        the dictinary containing the results of the best pipline
     """
 
     def __init__(self, template_list: typing.List[DSBoxTemplate],
@@ -115,29 +119,50 @@ class TemplateSpaceBaseSearch(typing.Generic[T]):
         )
 
         self.bestResult = None
-
-
+        self.best_20_results: typing.List = []
         self.cacheManager = CacheManager()
 
 
-    def search(self, num_iter=1, cache=None):
+    def search(self, num_iter=1):
+        """
+        This method implements the random search method with support of multiple templates. The
+        method incorporates the primitives cache and candidates cache to store the intermediate
+        results.
+        Args:
+            num_iter:
+                number of iterations of random sampling
+        Returns:
+
+        """
         for i in range(num_iter):
+            print("#"*50)
             search = random.choice(self.confSpaceBaseSearch)
             candidate = search.configuration_space.get_random_assignment()
             print(STYLE+"[INFO] Selecting Template:", search.template.template['name'])
-            try:
-                report = search.evaluate_pipeline(args=(candidate, cache, True))
-                self._update_best_result(report)
-            except:
-                traceback.print_exc()
-                print(ERROR+"[INFO] Search Failed")
-                pprint(candidate)
+
+            if self.cacheManager.candidate_cache.is_hit(candidate):
+                report = self.cacheManager.candidate_cache.lookup(candidate)
+                assert report is not None and 'configuration' in report, \
+                    'invalid candidate_cache line: {}->{}'.format(candidate, report)
+            else:
+                try:
+                    report = search.evaluate_pipeline(
+                        args=(candidate, self.cacheManager.primitive_cache, True))
+                    self._update_best_result(report)
+                    self.cacheManager.candidate_cache.push(report)
+                except:
+                    traceback.print_exc()
+                    print(ERROR + "[INFO] Search Failed on candidate")
+                    pprint(candidate)
+                    self.cacheManager.candidate_cache.push_None(candidate=candidate)
+
+        self.cacheManager.cleanup()
         return self.bestResult
 
     def _update_best_result(self, new_res: typing.Dict) -> None:
         if new_res is None:
             return
-        pprint(new_res)
+        # pprint(new_res)
         if self.bestResult is None or \
            TemplateSpaceBaseSearch._is_better(self.bestResult, new_res):
             self.bestResult = new_res
@@ -183,3 +208,5 @@ class TemplateSpaceBaseSearch(typing.Generic[T]):
 
         return operator.and_(comparison_results[0], comparison_results[1])
 
+    def _get_best_candidates(self, num: int = 20) -> typing.List[typing.Dict]:
+        pass

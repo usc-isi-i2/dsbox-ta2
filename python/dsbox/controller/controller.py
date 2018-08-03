@@ -418,18 +418,18 @@ class Controller:
         # load trained pipelines
         self._logger.info("[WARN] write_training_results")
 
-        if len(self.exec_history) == 0:
-            return None
-
-        # if best_info and best_info['best_val']:
-        best_template, best_report = max(self.exec_history.iterrows(),
-                                         key=lambda r: r[1]['best_value'])
-
-        if best_template:
-            self._logger.info("[INFO] Best template name:{}".format(best_template))
-            self._logger.info("[INFO] Best value:{}".format(best_report['best_value']))
-            self._logger.info("[INFO] Best Candidate:{}".format(
-                pprint.pformat(best_report['candidate'])))
+        # if len(self.exec_history) == 0:
+        #     return None
+        #
+        # # if best_info and best_info['best_val']:
+        # best_template, best_report = max(self.exec_history.iterrows(),
+        #                                  key=lambda r: r[1]['best_value'])
+        #
+        # if best_template:
+        #     self._logger.info("[INFO] Best template name:{}".format(best_template))
+        #     self._logger.info("[INFO] Best value:{}".format(best_report['best_value']))
+        #     self._logger.info("[INFO] Best Candidate:{}".format(
+        #         pprint.pformat(best_report['candidate'])))
         return None
 
 
@@ -609,11 +609,6 @@ class Controller:
 
         # self.initialize_uct()
 
-        # setup the output cache
-        manager = Manager()
-        cache = manager.dict()
-        candidate_cache = manager.dict()
-
         self.generate_dataset_splits()
 
         searchMethod = TemplateSpaceBaseSearch(
@@ -629,7 +624,7 @@ class Controller:
             log_dir=self.output_logs_dir,
         )
 
-        report = searchMethod.search(num_iter=1, cache=cache)
+        report = searchMethod.search(num_iter=10)
 
         candidate = report['configuration']
         value = report['cross_validation_metrics'][0]['value']
@@ -701,10 +696,6 @@ class Controller:
         #             self._logger.exception('[ERROR] Save training results Failed!')
         #             raise NotSupportedError(
         #                 '[ERROR] Save training results Failed!')
-
-
-        # shutdown the cache manager
-        manager.shutdown()
 
     def generate_dataset_splits(self):
         # For now just use the first template
