@@ -799,8 +799,7 @@ class Controller:
             # ignore the test part
             self.all_dataset, _ = self.split_dataset(dataset = self.all_dataset, test_size = index_removed_percent, need_test_dataset = False)
             self.all_dataset = self.all_dataset[0]
-        import pdb
-        pdb.set_trace()
+
         # split the dataset first time
         self.train_dataset1, self.test_dataset1 = self.split_dataset(dataset = self.all_dataset)
 
