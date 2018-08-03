@@ -3,11 +3,10 @@ import json
 import logging
 import os
 import random
-import sys
 import typing
 import uuid
 
-from multiprocessing import Pool, current_process, Manager
+from multiprocessing import Manager
 from math import sqrt, log
 import traceback
 import importlib
@@ -23,7 +22,6 @@ if spam_spec is not None:
     WARNING = Fore.BLACK + Back.YELLOW
     init(autoreset=True)
 
-import numpy as np
 import pandas as pd
 import d3m
 import dsbox.template.runtime as runtime
@@ -39,9 +37,6 @@ from d3m.metadata.problem import TaskSubtype
 from d3m.metadata.problem import parse_problem_description
 
 from dsbox.pipeline.fitted_pipeline import FittedPipeline
-from dsbox.pipeline.utils import larger_is_better
-from dsbox.schema.problem import optimization_type
-from dsbox.schema.problem import OptimizationType
 from dsbox.template.library import TemplateDescription
 from dsbox.template.library import TemplateLibrary
 from dsbox.template.library import SemanticTypeDict
@@ -110,7 +105,7 @@ def remove_empty_targets(dataset: "Dataset", problem: "Metadata"):
     return dataset
 
 
-def split_dataset(dataset, problem_info: typing.Dict, problem_loc=None, *, random_state=42, test_size=0.2, n_splits=1):
+def split_dataset(dataset, problem_info: typing.Dict, *, random_state=42, test_size=0.2, n_splits=1):
     '''
         Split dataset into training and test
     '''
@@ -120,7 +115,7 @@ def split_dataset(dataset, problem_info: typing.Dict, problem_loc=None, *, rando
     data_type_cannot_split = ["graph","edgeList", "audio"]
     task_type_can_split = ["CLASSIFICATION","REGRESSION"]
 
-    task_type = problem_info["task_type"]#['problem']['task_type'].name  # 'classification' 'regression'
+    task_type = problem_info["task_type"]  #['problem']['task_type'].name  # 'classification' 'regression'
     res_id = problem_info["res_id"]
     target_index = problem_info["target_index"]
     data_type = problem_info["data_type"]
@@ -230,7 +225,9 @@ class Controller:
 
         self.run_single_template_name = run_single_template_name
 
-        self.config: typing.Dict = {}
+        # Do not use, should use parsed results from key/value pairs of config
+        # TA3 API may not provid the same information
+        # self.config: typing.Dict = {}
 
         # Problem
         self.problem: typing.Dict = {}
@@ -238,8 +235,8 @@ class Controller:
         self.task_subtype: TaskSubtype = None
         self.problem_doc_metadata: Metadata = None
         self.problem_info = {}
-        # Dataset
 
+        # Dataset
         self.dataset_schema_file: str = ""
         self.train_dataset1: Dataset = None
         self.train_dataset2: typing.List[Dataset] = None
@@ -260,6 +257,7 @@ class Controller:
             self.template_library = TemplateLibrary()
         self.template: typing.List[DSBoxTemplate] = []
         self.max_split_times = 1
+
         # Primitives
         self.primitive: typing.Dict = d3m.index.search()
 
@@ -314,15 +312,25 @@ class Controller:
         self.load_templates()
 
     def _load_schema(self, config):
-        # config
-        self.config = config
+        # Do not use
+        # self.config = config
 
         # Problem
         self.problem = parse_problem_description(config['problem_schema'])
         self.problem_doc_metadata = runtime.load_problem_doc(os.path.abspath(config['problem_schema']))
+        self.task_type = self.problem['problem']['task_type']
+        self.task_subtype = self.problem['problem']['task_subtype']
 
         # Dataset
         self.dataset_schema_file = config['dataset_schema']
+
+        # find the data resources type
+        self.taskSourceType = set()  # set the type to be set so that we can ignore the repeat elements
+        with open(self.dataset_schema_file, 'r') as dataset_description_file:
+            dataset_description = json.load(dataset_description_file)
+            for each_type in dataset_description["dataResources"]:
+                self.taskSourceType.add(each_type["resType"])
+        self.problem_info["data_type"] = self.taskSourceType
 
         # Resource limits
         self.num_cpus = int(config.get('cpus', 0))
@@ -354,7 +362,10 @@ class Controller:
             self.output_supporting_files_dir = os.path.abspath(config['temp_storage_root'])
         #### End: Official config entry for Evaluation
 
-        self.output_directory = os.path.split(self.output_executables_dir)[0]
+        if 'D3MOUTPUTDIR' in os.environ:
+            self.output_directory = os.path.abspath(os.environ['D3MOUTPUTDIR'])
+        else:
+            self.output_directory = os.path.split(self.output_executables_dir)[0]
 
         if 'logs_root' in config:
             self.output_logs_dir = os.path.abspath(config['logs_root'])
@@ -393,17 +404,7 @@ class Controller:
         self._logger.addHandler(console)
 
     def load_templates(self) -> None:
-        self.task_type = self.problem['problem']['task_type']
-        self.task_subtype = self.problem['problem']['task_subtype']
-        # find the data resources type
-        self.taskSourceType = set()  # set the type to be set so that we can ignore the repeat elements
-        with open(self.dataset_schema_file, 'r') as dataset_description_file:
-            dataset_description = json.load(dataset_description_file)
-            for each_type in dataset_description["dataResources"]:
-                self.taskSourceType.add(each_type["resType"])
-
         self.template = self.template_library.get_templates(self.task_type, self.task_subtype, self.taskSourceType)
-        self.problem_info["data_type"] = self.taskSourceType
         # find the maximum dataset split requirements
         for each_template in self.template:
             for each_step in each_template.template['steps']:
@@ -466,18 +467,54 @@ class Controller:
             self._logger.info("******************\n[INFO] Writing results")
             pprint.pprint(candidate.data)
             self._logger.info(str(candidate.data)+ " "+ str(value))
+
             if candidate.data['training_metrics']:
-                self._logger.info('Training {} = {}'.format(
-                    candidate.data['training_metrics'][0]['metric'],
-                    candidate.data['training_metrics'][0]['value']))
+                if type(candidate.data['training_metrics'][0]) is dict:
+                    self._logger.info('Training {} = {}'.format(
+                        candidate.data['training_metrics'][0]['metric'],
+                        candidate.data['training_metrics'][0]['value']))
+                else:
+                    for each in candidate.data['training_metrics'][0]:
+                        self._logger.info('Training  {} in {} = {}'.format(
+                            each['column_name'],
+                            each['metric'],
+                            each['value']))
             if candidate.data['cross_validation_metrics']:
-                self._logger.info('CV {} = {}'.format(
-                    candidate.data['cross_validation_metrics'][0]['metric'],
-                    candidate.data['cross_validation_metrics'][0]['value']))
+                if tpye(candidate.data['cross_validation_metrics'][0]) is dict:
+                    self._logger.info('CV {} = {}'.format(
+                        candidate.data['cross_validation_metrics'][0]['metric'],
+                        candidate.data['cross_validation_metrics'][0]['value']))
+                else:
+                    for each in candidate.data['cross_validation_metrics'][0]:
+                        self._logger.info('CV  {} in {} = {}'.format(
+                            each['column_name'],
+                            each['metric'],
+                            each['value']))
             if candidate.data['test_metrics']:
-                self._logger.info('Validation {} = {}'.format(
-                    candidate.data['test_metrics'][0]['metric'],
-                    candidate.data['test_metrics'][0]['value']))
+                if type(candidate.data['test_metrics'][0]) is dict:
+                    self._logger.info('Validation {} = {}'.format(
+                        candidate.data['test_metrics'][0]['metric'],
+                        candidate.data['test_metrics'][0]['value']))
+                else:
+                    for each in candidate.data['test_metrics'][0]:
+                        self._logger.info('Validation of {} in {} = {}'.format(
+                            each['column_name'],
+                            each['metric'],
+                            each['value']))
+
+
+            # if candidate.data['training_metrics']:
+            #     self._logger.info('Training {} = {}'.format(
+            #         candidate.data['training_metrics'][0]['metric'],
+            #         candidate.data['training_metrics'][0]['value']))
+            # if candidate.data['cross_validation_metrics']:
+            #     self._logger.info('CV {} = {}'.format(
+            #         candidate.data['cross_validation_metrics'][0]['metric'],
+            #         candidate.data['cross_validation_metrics'][0]['value']))
+            # if candidate.data['test_metrics']:
+            #     self._logger.info('Validation {} = {}'.format(
+            #         candidate.data['test_metrics'][0]['metric'],
+            #         candidate.data['test_metrics'][0]['value']))
 
             # FIXME: code used for doing experiments, want to make optionals
             # pipeline = FittedPipeline.create(configuration=candidate,
@@ -620,7 +657,7 @@ class Controller:
         runtime.add_target_columns_metadata(self.all_dataset, self.problem_doc_metadata)
         # split the dataset first time
         self.train_dataset1, self.test_dataset1 = split_dataset(dataset = self.all_dataset,
-            problem_info = self.problem_info, problem_loc = self.config['problem_schema'])
+            problem_info = self.problem_info)
 
         # here we only split one times, so no need to use list to include the dataset
         if len(self.train_dataset1) == 1:
@@ -640,8 +677,7 @@ class Controller:
         if self.max_split_times > 0:
             # make n times of different spliting results
             self.train_dataset2, self.test_dataset2 = split_dataset(dataset = self.train_dataset1,
-                problem_info = self.problem_info, problem_loc = self.config['problem_schema'],
-                test_size = 0.1, n_splits = self.max_split_times)
+                problem_info = self.problem_info, test_size = 0.1, n_splits = self.max_split_times)
             if len(self.train_dataset2) < 1:
                 self._logger.error("Some error happend with train_dataset1 split: The length of splitted dataset is less than 1")
             if len(self.test_dataset2) < 1:
@@ -820,7 +856,7 @@ class Controller:
             lastmodified = files[-1]
             fitted_pipeline_id = lastmodified.split('/')[-1].split('.')[0]
 
-        pipeline_load, run = FittedPipeline.load(folder_loc=self.output_directory,
+        pipeline_load, run_test = FittedPipeline.load(folder_loc=self.output_directory,
                                                  pipeline_id=fitted_pipeline_id,
                                                  log_dir=self.output_logs_dir)
 
@@ -831,15 +867,19 @@ class Controller:
 
         # pipeline_load.runtime.produce(inputs=[self.test_dataset])
         self.all_dataset = auto_regress_convert(self.all_dataset, self.problem_doc_metadata)
-        run.produce(inputs=[self.all_dataset])
+        runtime.add_target_columns_metadata(self.all_dataset, self.problem_doc_metadata)
+        run_test.produce(inputs=[self.all_dataset])
+
         try:
             step_number_output = int(pipeline_load.pipeline.outputs[0]['data'].split('.')[1])
         except:
-            print("Warning: searching the output step number failed! Will use the last step's output of the pipeline.")
+            self._logger.error("Warning: searching the output step number failed! "
+                               "Will use the last step's output of the pipeline.")
             # step_number_output = len(pipeline_load.runtime.produce_outputs) - 1
-            step_number_output = len(run.produce_outputs) - 1
+            step_number_output = len(run_test.produce_outputs) - 1
 
         # get the target column name
+        prediction_class_name = []
         try:
             with open(self.dataset_schema_file, 'r') as dataset_description_file:
                 dataset_description = json.load(dataset_description_file)
@@ -847,28 +887,31 @@ class Controller:
                     if "columns" in each_resource:
                         for each_column in each_resource["columns"]:
                             if "suggestedTarget" in each_column["role"] or "target" in each_column["role"]:
-                                prediction_class_name = each_column["colName"]
+                                prediction_class_name.append(each_column["colName"])
         except:
-            print("[Warning] Can't find the prediction class name, will use default name.")
-            prediction_class_name = "prediction"
+            self._logger.error("[Warning] Can't find the prediction class name, will use default name 'prediction'.")
+            prediction_class_name.append("prediction")
 
-        prediction = run.produce_outputs[step_number_output]
-
+        prediction = run_test.produce_outputs[step_number_output]
         # if the prediction results do not have d3m_index column
         if 'd3mIndex' not in prediction.columns:
             d3m_index = get_target_columns(self.all_dataset, self.problem_doc_metadata)["d3mIndex"]
             d3m_index = d3m_index.reset_index().drop(columns=['index'])
-            prediction_col_name = prediction.columns[0]
+            prediction_col_name = ['d3mIndex']
+            for each in prediction.columns:
+                prediction_col_name.append(each)
             prediction['d3mIndex'] = d3m_index
-            prediction = prediction[['d3mIndex', prediction_col_name]]
-            prediction = prediction.rename(columns={prediction_col_name: prediction_class_name})
-        prediction_folder_loc = self.output_directory + "/predictions/" + fitted_pipeline_id
+            prediction = prediction[prediction_col_name]
+            prediction_col_name.remove('d3mIndex')
+            for i in range(len(prediction_class_name)):
+                prediction = prediction.rename(columns={prediction_col_name[i]: prediction_class_name[i]})
+        prediction_folder_loc = outputs_loc + "/predictions/" + read_pipeline_id
         folder = os.path.exists(prediction_folder_loc)
         if not folder:
             os.makedirs(prediction_folder_loc)
         prediction.to_csv(prediction_folder_loc + "/predictions.csv", index=False)
-        print("[INFO] Finished: prediction results saving finished")
-        print("[INFO] The prediction results is stored at: ", prediction_folder_loc)
+        self._logger.info("[INFO] Finished: prediction results saving finished")
+        self._logger.info("[INFO] The prediction results is stored at: {}".format(prediction_folder_loc))
         return Status.OK
 
     def test(self) -> Status:
@@ -876,23 +919,27 @@ class Controller:
         First read the fitted pipeline and then run trained pipeline on test data.
         """
         self._logger.info("[INFO] Start test function")
-        outputs_loc, pipeline_load, read_pipeline_id, run = \
+        outputs_loc, pipeline_load, read_pipeline_id, run_test = \
             self.load_pipe_runtime()
 
         self._logger.info("[INFO] Pipeline load finished")
 
         self._logger.info("[INFO] testing data")
+
         self.all_dataset = auto_regress_convert(self.all_dataset, self.problem_doc_metadata)
-        run.produce(inputs=[self.all_dataset])
+        runtime.add_target_columns_metadata(self.all_dataset, self.problem_doc_metadata)
+        run_test.produce(inputs=[self.all_dataset])
+
         try:
             step_number_output = int(pipeline_load.pipeline.outputs[0]['data'].split('.')[1])
         except:
             self._logger.error("Warning: searching the output step number failed! "
                                "Will use the last step's output of the pipeline.")
             # step_number_output = len(pipeline_load.runtime.produce_outputs) - 1
-            step_number_output = len(run.produce_outputs) - 1
+            step_number_output = len(run_test.produce_outputs) - 1
 
         # get the target column name
+        prediction_class_name = []
         try:
             with open(self.dataset_schema_file, 'r') as dataset_description_file:
                 dataset_description = json.load(dataset_description_file)
@@ -900,21 +947,24 @@ class Controller:
                     if "columns" in each_resource:
                         for each_column in each_resource["columns"]:
                             if "suggestedTarget" in each_column["role"] or "target" in each_column["role"]:
-                                prediction_class_name = each_column["colName"]
+                                prediction_class_name.append(each_column["colName"])
         except:
             self._logger.error("[Warning] Can't find the prediction class name, will use default name 'prediction'.")
-            prediction_class_name = "prediction"
+            prediction_class_name.append("prediction")
 
-        prediction = run.produce_outputs[step_number_output]
-
+        prediction = run_test.produce_outputs[step_number_output]
         # if the prediction results do not have d3m_index column
         if 'd3mIndex' not in prediction.columns:
             d3m_index = get_target_columns(self.all_dataset, self.problem_doc_metadata)["d3mIndex"]
             d3m_index = d3m_index.reset_index().drop(columns=['index'])
-            prediction_col_name = prediction.columns[0]
+            prediction_col_name = ['d3mIndex']
+            for each in prediction.columns:
+                prediction_col_name.append(each)
             prediction['d3mIndex'] = d3m_index
-            prediction = prediction[['d3mIndex', prediction_col_name]]
-            prediction = prediction.rename(columns={prediction_col_name: prediction_class_name})
+            prediction = prediction[prediction_col_name]
+            prediction_col_name.remove('d3mIndex')
+            for i in range(len(prediction_class_name)):
+                prediction = prediction.rename(columns={prediction_col_name[i]: prediction_class_name[i]})
         prediction_folder_loc = outputs_loc + "/predictions/" + read_pipeline_id
         folder = os.path.exists(prediction_folder_loc)
         if not folder:
