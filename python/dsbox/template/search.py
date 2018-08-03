@@ -511,11 +511,10 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
 
         # print("[INFO] number of workers:", self.num_workers)
 
-        # new searching method: first check whether we will do corss validation or not
-        #!!!!
-        # TODO: add some function to determine whether to go quick mode or not
+        # new searching method: first check whether we should train a second time with dataset_train1
+        self.quick_mode = self._use_quick_mode_or_not()
 
-        self.quick_mode = False
+        # new searching method: first check whether we will do corss validation or not
         self.testing_mode = 0  # set default to not use cross validation mode
         # testing_mode = 0: normal testing mode with test only 1 time
         # testing_mode = 1: cross validation mode
@@ -532,6 +531,13 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
         # if not set(self.template.template_nodes.keys()) <= set(configuration_space.get_dimensions()):
         #     raise exceptions.InvalidArgumentValueError(
         #         "Not all template steps are in configuration space: {}".format(self.template.template_nodes.keys()))
+
+    def _use_quick_mode_or_not(self) -> bool:
+        '''
+            The function to determine whether to use quick mode or now
+            Now it is hard coded
+        '''
+        return False
 
     def evaluate_pipeline(self, args) -> typing.Dict:
         """
