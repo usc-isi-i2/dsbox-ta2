@@ -494,7 +494,7 @@ class Controller:
                             each['metric'],
                             each['value']))
             if candidate.data['cross_validation_metrics']:
-                if tpye(candidate.data['cross_validation_metrics'][0]) is dict:
+                if type(candidate.data['cross_validation_metrics'][0]) is dict:
                     self._logger.info('CV {} = {}'.format(
                         candidate.data['cross_validation_metrics'][0]['metric'],
                         candidate.data['cross_validation_metrics'][0]['value']))
