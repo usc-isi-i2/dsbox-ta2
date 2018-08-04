@@ -60,7 +60,7 @@ def get_target_columns(dataset: 'Dataset', problem_doc_metadata: 'Metadata'):
         print("[ERROR] Multiple targets in different dataset???")
 
     datalength = datameta.query((resID_list[0], ALL_ELEMENTS,))["dimension"]['length']
-    
+
     for v in range(datalength):
         types = datameta.query((resID_list[0], ALL_ELEMENTS, v))["semantic_types"]
         for t in types:
@@ -586,7 +586,7 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
                 for each in test_metrics:
                     each["value"] = 0
             else:
-                for each in test_metrics:   
+                for each in test_metrics:
                     each["value"] = sys.float_info.max
             print("[INFO] Testing finish.!!!")
 
@@ -629,7 +629,7 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
                         for each in test_metrics_each:
                             each["value"] = 0
                     else:
-                        for each in test_metrics_each:   
+                        for each in test_metrics_each:
                             each["value"] = sys.float_info.max
 
                 training_metrics.append(training_metrics_each)
@@ -660,7 +660,7 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
 
                 training_metrics_new = training_metrics[0]
                 count = 0
-                for (k,v) in  training_value_dict.items(): 
+                for (k,v) in  training_value_dict.items():
                     training_metrics_new[count]['value'] = sum(v) / len(v)
                     training_metrics_new[count]['values'] = v
                     count += 1
@@ -670,8 +670,8 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
                 if type(training_metrics[0]) is list:
                     training_metrics = training_metrics[0]
 
-            if len(test_metrics) > 1:      
-                test_value_dict = {}    
+            if len(test_metrics) > 1:
+                test_value_dict = {}
                 # convert for test matrics
                 for each in test_metrics:
                     # for condition only one exist?
@@ -692,7 +692,7 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
                 # test_metrics part
                 test_metrics_new = test_metrics[0]
                 count = 0
-                for (k,v) in  test_value_dict.items(): 
+                for (k,v) in  test_value_dict.items():
                     test_metrics_new[count]['value'] = sum(v) / len(v)
                     test_metrics_new[count]['values'] = v
                     count += 1
@@ -898,7 +898,7 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
         results = fitted_pipeline.produce(inputs=[test_dataset])
 
         pipeline_prediction = fitted_pipeline.get_produce_step_output(self.template.get_output_step_number())
-        pipeline_prediction = self.graph_problem_conversion(prediction)
+        pipeline_prediction = self.graph_problem_conversion(pipeline_prediction)
         test_pipeline_metrics2 = self._calculate_score(None, None, test_ground_truth, pipeline_prediction)
         test_pipeline_metrics = list()
         for metric_description in self.performance_metrics:
