@@ -2,7 +2,7 @@ from math import sqrt, log
 import traceback
 import importlib
 import typing
-from multiprocessing import Pool, current_process, Manager
+from multiprocessing import Pool, current_process, Manager, Lock
 from dsbox.template.configuration_space import ConfigurationPoint
 from d3m.metadata.pipeline import PrimitiveStep
 from d3m.container.dataset import Dataset
@@ -37,6 +37,7 @@ class CacheManager:
 
 
         """
+        print("[INFO] cleanup Cache Manager. candidate_cache:",len(self.candidate_cache.storage))
         for m in self.manager:
             m.shutdown()
 
@@ -52,7 +53,7 @@ class CandidateCache:
 
         key = CandidateCache._get_hash(candidate)
         if key in self.storage:
-            print("[INFO] hit@Candidate: ({},{})".format(key))
+            print("[INFO] hit@Candidate: ({})".format(key))
             return self.storage[key]
         else:
             return (None, None)
@@ -98,8 +99,10 @@ class PrimitivesCache:
     def __init__(self, manager: Manager=None):
         if manager is not None:
             self.storage = manager.dict()
+            self.write_lock = manager.Lock()
         else:
             self.storage = {}
+            self.write_lock = Lock()
 
     def push(self, hash_prefix: int, pipe_step: PrimitiveStep, primitive_arguments: typing.Dict,
              primitives_output: Dataset, model: PrimitiveBase) -> int:
@@ -111,14 +114,17 @@ class PrimitivesCache:
 
     def push_key(self, prim_hash: int, prim_name: int, model: PrimitiveBase,
                  primitives_output: typing.Dict) -> int:
-        if not self.is_hit_key(prim_name=prim_name, prim_hash=prim_hash):
-            self.storage[(prim_name, prim_hash)] = (primitives_output, model)
-            print("[INFO] Push@cache:", (prim_name, prim_hash))
-            return 0
-        else:
-            print("[WARN] Double-push in Primitives Cache")
-            # assert False, "Double-push in Primitives Cache:({},{})".format(prim_hash, prim_name)
-            return 1
+        self.write_lock.acquire(blocking=True)
+        try:
+            if not self.is_hit_key(prim_name=prim_name, prim_hash=prim_hash):
+                self.storage[(prim_name, prim_hash)] = (primitives_output, model)
+                print("[INFO] Push@cache:", (prim_name, prim_hash))
+                return 0
+            else:
+                print("[WARN] Double-push in Primitives Cache")
+                return 1
+        finally:
+            self.write_lock.release()
 
     def lookup(self, hash_prefix: int, pipe_step: PrimitiveStep,
                primitive_arguments: typing.Dict) -> typing.Tuple[Dataset, PrimitiveBase]:

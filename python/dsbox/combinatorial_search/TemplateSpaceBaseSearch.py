@@ -10,31 +10,8 @@ from pprint import pprint
 from d3m.container.dataset import Dataset
 from d3m.metadata.base import Metadata
 from dsbox.combinatorial_search.ConfigurationSpaceBaseSearch import ConfigurationSpaceBaseSearch
-from dsbox.combinatorial_search.cache import CacheManager
+from dsbox.JobManager.cache import CacheManager
 from dsbox.template.template import DSBoxTemplate
-
-# from dsbox.template.pipeline_utilities import pipe2str
-spam_spec = importlib.util.find_spec("colorama")
-STYLE = ""
-ERROR = ""
-WARNING = ""
-if spam_spec is not None:
-    from colorama import Fore, Back, init
-
-    # STYLE = Fore.BLUE + Back.GREEN
-    STYLE = Fore.BLACK + Back.GREEN
-    ERROR = Fore.WHITE + Back.RED
-    WARNING = Fore.BLACK + Back.YELLOW
-
-    if 'PYCHARM_HOSTED' in os.environ:
-        convert = False  # in PyCharm, we should disable convert
-        strip = False
-        print("Hi! You are using PyCharm")
-    else:
-        convert = None
-        strip = None
-
-    init(autoreset=True, convert=convert, strip=strip)
 
 T = typing.TypeVar("T")
 # python path of primitive, i.e. 'd3m.primitives.common_primitives.RandomForestClassifier'
@@ -112,7 +89,7 @@ class TemplateSpaceBaseSearch(typing.Generic[T]):
             print("#"*50)
             search = random.choice(self.confSpaceBaseSearch)
             candidate = search.configuration_space.get_random_assignment()
-            print(STYLE+"[INFO] Selecting Template:", search.template.template['name'])
+            print("[INFO] Selecting Template:", search.template.template['name'])
 
             if self.cacheManager.candidate_cache.is_hit(candidate):
                 report = self.cacheManager.candidate_cache.lookup(candidate)
@@ -126,7 +103,7 @@ class TemplateSpaceBaseSearch(typing.Generic[T]):
                     self.cacheManager.candidate_cache.push(report)
                 except:
                     traceback.print_exc()
-                    print(ERROR + "[INFO] Search Failed on candidate")
+                    print("[INFO] Search Failed on candidate")
                     pprint(candidate)
                     self.cacheManager.candidate_cache.push_None(candidate=candidate)
 

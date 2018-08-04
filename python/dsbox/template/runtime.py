@@ -22,7 +22,7 @@ from d3m.metadata.base import Metadata
 from d3m.metadata.pipeline import Pipeline, PrimitiveStep, Resolver
 from d3m.primitive_interfaces import base
 from multiprocessing import current_process
-from dsbox.combinatorial_search.cache import CandidateCache, PrimitivesCache
+from dsbox.JobManager.cache import CandidateCache, PrimitivesCache
 
 _logger = logging.getLogger(__name__)
 

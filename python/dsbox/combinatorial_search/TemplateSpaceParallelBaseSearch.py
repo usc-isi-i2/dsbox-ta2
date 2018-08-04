@@ -1,10 +1,11 @@
-import importlib
 import logging
 import os
 import random
 import time
 import traceback
 import typing
+from threading import Timer
+
 from pprint import pprint
 
 from d3m.container.dataset import Dataset
@@ -12,31 +13,9 @@ from d3m.metadata.base import Metadata
 from dsbox.JobManager.DistributedJobManager import DistributedJobManager
 from dsbox.combinatorial_search.ConfigurationSpaceBaseSearch import ConfigurationSpaceBaseSearch
 from dsbox.combinatorial_search.TemplateSpaceBaseSearch import TemplateSpaceBaseSearch
-from dsbox.combinatorial_search.cache import PrimitivesCache
+from dsbox.JobManager.cache import PrimitivesCache
 from dsbox.template.configuration_space import ConfigurationPoint
 from dsbox.template.template import DSBoxTemplate
-
-# from dsbox.template.pipeline_utilities import pipe2str
-spam_spec = importlib.util.find_spec("colorama")
-STYLE = ""
-ERROR = ""
-WARNING = ""
-if spam_spec is not None:
-    from colorama import Fore, Back, init
-
-    # STYLE = Fore.BLUE + Back.GREEN
-    STYLE = Fore.BLACK + Back.GREEN
-    ERROR = Fore.WHITE + Back.RED
-    WARNING = Fore.BLACK + Back.YELLOW
-
-    if 'PYCHARM_HOSTED' in os.environ:
-        convert = False  # in PyCharm, we should disable convert
-        strip = False
-    else:
-        convert = None
-        strip = None
-
-    init(autoreset=True, convert=convert, strip=strip)
 
 T = typing.TypeVar("T")
 # python path of primitive, i.e. 'd3m.primitives.common_primitives.RandomForestClassifier'
@@ -63,6 +42,11 @@ class TemplateSpaceParallelBaseSearch(TemplateSpaceBaseSearch[T]):
         the object contains the two distributed cache and their associated methods
     bestResult: typing.Dict
         the dictinary containing the results of the best pipline
+
+
+    TODO:
+        - Add timeout functionality to the search: my first idea is to run the
+        result gathering method "_get_evaluation_results" in a new process with timeout
     """
 
     def __init__(self, template_list: typing.List[DSBoxTemplate],
@@ -72,6 +56,8 @@ class TemplateSpaceParallelBaseSearch(TemplateSpaceBaseSearch[T]):
                  test_dataset2: typing.List[Dataset], all_dataset: Dataset,
                  output_directory: str, log_dir: str, timeout: int=55, num_proc: int=4) -> None:
 
+        self.job_manager = DistributedJobManager(proc_num=num_proc, timeout=timeout)
+
         TemplateSpaceBaseSearch.__init__(self=self,
             template_list=template_list, performance_metrics=performance_metrics,
             problem=problem, train_dataset1=train_dataset1, train_dataset2=train_dataset2,
@@ -79,8 +65,6 @@ class TemplateSpaceParallelBaseSearch(TemplateSpaceBaseSearch[T]):
             output_directory=output_directory, log_dir=log_dir
         )
 
-        # DistributedJobManager.__init__(proc_num=num_proc, timeout=timeout)
-        self.job_manager = DistributedJobManager(proc_num=num_proc, timeout=timeout)
 
     @staticmethod
     def _evaluate_template(confspace_search: ConfigurationSpaceBaseSearch,
@@ -99,6 +83,9 @@ class TemplateSpaceParallelBaseSearch(TemplateSpaceBaseSearch[T]):
         Returns:
 
         """
+        # start seach timeout
+
+
         # start the worker processes
         self.job_manager.start_workers(target=self._evaluate_template)
         time.sleep(0.1)
@@ -119,7 +106,7 @@ class TemplateSpaceParallelBaseSearch(TemplateSpaceBaseSearch[T]):
         return self.bestResult
 
     def _get_evaluation_results(self):
-        print(STYLE + "[INFO] Waiting for the results")
+        print("[INFO] Waiting for the results")
         while not self.job_manager.is_idle():
             (kwargs, report) = self.job_manager.pop_job(block=True)
             candidate = kwargs['candidate']
@@ -130,7 +117,7 @@ class TemplateSpaceParallelBaseSearch(TemplateSpaceBaseSearch[T]):
                 self.cacheManager.candidate_cache.push(report)
             except:
                 traceback.print_exc()
-                print(ERROR + "[INFO] Search Failed on candidate")
+                print("[INFO] Search Failed on candidate")
                 pprint(candidate)
                 self.cacheManager.candidate_cache.push_None(candidate=candidate)
 
@@ -140,25 +127,29 @@ class TemplateSpaceParallelBaseSearch(TemplateSpaceBaseSearch[T]):
             template_index = random.randrange(0, len(self.confSpaceBaseSearch))
             search = self.confSpaceBaseSearch[template_index]
             candidate = search.configuration_space.get_random_assignment()
-            print(STYLE + "[INFO] Selecting Template:", search.template.template['name'])
+            print("[INFO] Selecting Template:", search.template.template['name'])
 
             if self.cacheManager.candidate_cache.is_hit(candidate):
                 report = self.cacheManager.candidate_cache.lookup(candidate)
-                assert report is not None and 'configuration' in report, \
+                assert report is not None and 'candidate' in report, \
                     'invalid candidate_cache line: {}->{}'.format(candidate, report)
-            else:
-                try:
-                    # first we just add the candidate as failure to the candidates cache to
-                    # prevent it from being evaluated again while it is being evaluated
-                    self.cacheManager.candidate_cache.push_None(candidate=candidate)
+                continue
 
-                    # push the candidate to the job manager
-                    self.job_manager.push_job(
-                        {
-                            'confspace_search': search,
-                            'cache': self.cacheManager.primitive_cache,
-                            'candidate': candidate,
-                            'dump2disk': True,
-                        })
-                except:
-                    traceback.print_exc()
+            try:
+                # first we just add the candidate as failure to the candidates cache to
+                # prevent it from being evaluated again while it is being evaluated
+                self.cacheManager.candidate_cache.push_None(candidate=candidate)
+
+                # push the candidate to the job manager
+                self.job_manager.push_job(
+                    {
+                        'confspace_search': search,
+                        'cache': self.cacheManager.primitive_cache,
+                        'candidate': candidate,
+                        'dump2disk': True,
+                    })
+            except:
+                traceback.print_exc()
+
+            time.sleep(0.1)
+

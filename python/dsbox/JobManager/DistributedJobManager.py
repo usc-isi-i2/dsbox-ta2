@@ -1,5 +1,7 @@
 import time
 import typing
+import os
+from threading import Timer
 from math import ceil
 import traceback
 from multiprocessing import Pool, Queue, Manager
@@ -17,6 +19,10 @@ class DistributedJobManager:
 
         # initialize
         self.job_pool: Pool = None
+
+        self._setup_timeout_timer()
+
+        self.timer = None
 
     def start_workers(self, target: typing.Callable):
         self.job_pool = Pool(processes=self.proc_num)
@@ -110,22 +116,25 @@ class DistributedJobManager:
             raise TimeoutError("[INFO] Timeout reached: {}/{}".format(elapsed_min, self.timeout))
 
     def kill_job_mananger(self):
-        self.manager.shutdown()
         self.job_pool.terminate()
+        self.manager.shutdown()
 
+    def _setup_timeout_timer(self):
+        self.timer = Timer(self.timeout*60, self._kill_me)
+        self.timer.start()
+        print("[INFO] timer started: {} min".format(self.timeout))
 
-    # @staticmethod
+    def _kill_me(self):
+        print("[INFO] search TIMEOUT reached! Killing search Process")
+        self.kill_job_mananger()
+        os.kill(os.getpid(), 9)
+
     # def run_with_timeout(group=None, target: typing.Callable = None, name: str = None,
     #                      kwargs: typing.Dict = {},
     #                      timeout: float = None):
     #     m = Manager()
     #
-    #     def wrapperMethod(func, output_cache, kwargs):
-    #         # out_list = kwargs['process_output']
-    #         output_cache.append(func(**kwargs))
     #
-    #     # assert "process_output" not in kwargs, "Argument \'process_output\' is reserved
-    # keyword."
     #     p = Process(group=group,
     #                 target=lambda a: wrapperMethod(target, kwargs),
     #                 name=name,

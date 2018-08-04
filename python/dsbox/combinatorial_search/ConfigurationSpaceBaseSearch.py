@@ -11,7 +11,7 @@ from d3m.container.dataset import Dataset
 from d3m.exceptions import NotSupportedError
 from d3m.metadata.base import Metadata
 from d3m.metadata.problem import PerformanceMetric
-from dsbox.combinatorial_search.cache import PrimitivesCache
+from dsbox.JobManager.cache import PrimitivesCache
 from dsbox.combinatorial_search.search_utils import get_target_columns
 from dsbox.pipeline.fitted_pipeline import FittedPipeline
 from dsbox.pipeline.utils import larger_is_better
@@ -21,7 +21,6 @@ from dsbox.template.configuration_space import ConfigurationPoint
 from dsbox.template.configuration_space import ConfigurationSpace
 from dsbox.template.template import DSBoxTemplate
 
-# from dsbox.template.pipeline_utilities import pipe2str
 
 T = typing.TypeVar("T")
 # python path of primitive, i.e. 'd3m.primitives.common_primitives.RandomForestClassifier'
@@ -146,8 +145,8 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
         # if in cross validation mode
         if self.testing_mode == 1:
             repeat_times = int(self.validation_config['cross_validation'])
-            print("[INFO] Will use cross validation( n =", repeat_times,
-                  ") to choose best primitives.")
+            print("[INFO] Will use cross validation( n =", repeat_times, ") to choose best "
+                                                                         "primitives.")
             # start training and testing
             fitted_pipeline = FittedPipeline(pipeline, self.train_dataset1.metadata.query(())['id'],
                                              log_dir=self.log_dir,

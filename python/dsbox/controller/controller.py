@@ -609,8 +609,12 @@ class Controller:
 
         self.generate_dataset_splits()
 
-        # self._run_SerialBaseSearch()
-        self._run_ParallelBaseSearch()
+        pid: int = os.fork()
+        if pid == 0:  # run the search in the child process
+            # self._run_SerialBaseSearch()
+            self._run_ParallelBaseSearch()
+        else:
+            os.wait()
         # for idx in self.select_next_template(max_iter=5):
         #     template = self.template[idx]
         #     self._logger.info(STYLE+"[INFO] Template {}:{} Selected. UCT:{}".format(idx, template.template['name'], self.uct_score))
@@ -708,9 +712,10 @@ class Controller:
             all_dataset=self.all_dataset,
             output_directory=self.output_directory,
             log_dir=self.output_logs_dir,
-            num_proc=1,
+            num_proc=self.num_cpus,
+            timeout=1,#self.TIMEOUT,
         )
-        report = searchMethod.search(num_iter=10)
+        report = searchMethod.search(num_iter=50)
         candidate = report['configuration']
         value = report['cross_validation_metrics'][0]['value']
         print("-" * 20)
