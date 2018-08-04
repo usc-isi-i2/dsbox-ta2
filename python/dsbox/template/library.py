@@ -410,19 +410,6 @@ def dsbox_generic_steps():
             "inputs": ["scaler_step"]
         },
         {
-            "name": "feature_selector_step",
-            "primitives":[
-                {
-                    "primitive" : "d3m.primitives.sklearn_wrap.SKSelectPercentile", 
-                    "hyperparameters" : {}
-                },
-                "d3m.primitives.dsbox.DoNothing"
-            ],
-            "inputs":["cast_1_step"]
-        },
-
-
-        {
             "name": "extract_target_step",
             "primitives": [{
                 "primitive": "d3m.primitives.data.ExtractColumnsBySemanticTypes",
@@ -2949,7 +2936,7 @@ class DefaultClassificationTemplate(DSBoxTemplate):
                                 }
                         },
                     ],
-                    "inputs": ["feature_selector_step", "extract_target_step"]
+                    "inputs": ["cast_1_step", "extract_target_step"]
                 }
             ]
         }
@@ -2994,7 +2981,7 @@ class RandomForestClassificationTemplate(DSBoxTemplate):
                                 }
                         },
                     ],
-                    "inputs": ["feature_selector_step", "extract_target_step"]
+                    "inputs": ["cast_1_step", "extract_target_step"]
                 }
             ]
         }
