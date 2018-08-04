@@ -10,6 +10,7 @@ from multiprocessing import Manager
 from math import sqrt, log
 import traceback
 import importlib
+import frozendict
 spam_spec = importlib.util.find_spec("colorama")
 STYLE = ""
 ERROR = ""
@@ -97,7 +98,7 @@ class Controller:
         self.taskSourceType: typing.Set[str] = set()  # str from SEMANTIC_TYPES
 
         # Dataset limits
-        self.threshold_column_length = 500
+        self.threshold_column_length = 300
         self.threshold_index_length = 100000
         # hard coded unsplit dataset type
         # TODO: check whether "speech" type should be put into this list or not
@@ -791,29 +792,68 @@ class Controller:
         # if the column length is larger than the threshold, it may failed in the given time, so we need to sample part of the dataset
 
         if main_res_shape[1] > self.threshold_column_length:
-            # two ways to do sampling (random projection or random choice)
-            # but here we can't get the metadata of the dataset, so further choice need to do in search part
-            self._logger.info("The columns number of the input dataset is very large.")
-            attribute_column_length = self.all_dataset.metadata.query((res_id,ALL_ELEMENTS))['dimension']['length'] - 2
+            self._logger.info("The columns number of the input dataset is very large, now sampling part of them.")
+            
+            # first check the target column amount
+            target_column_list = []
+            all_column_length = self.all_dataset.metadata.query((res_id,ALL_ELEMENTS))['dimension']['length']
+            for each_column in range(all_column_length - 1, 0, -1):
+                each_column_meta = self.all_dataset.metadata.query((res_id,ALL_ELEMENTS,each_column))
+                if ('https://metadata.datadrivendiscovery.org/types/SuggestedTarget' or  'https://metadata.datadrivendiscovery.org/types/Target' or  'https://metadata.datadrivendiscovery.org/types/TrueTarget') in each_column_meta['semantic_types']:
+                    target_column_list.append(each_column)
+                # to accelerate the program running, now we assume the target columns are always at the end of the columns
+                else:
+                    break
+            self._logger.info("Totally {} taget found.".format(len(target_column_list)))
+            target_column_length = len(target_column_list)
+            attribute_column_length = all_column_length - target_column_length - 1
             # skip the column 0 which is d3mIndex]
             is_all_categorical = False
-            for each_column in range(1, attribute_column_length + 1):
-                each_metadata = self.all_dataset.metadata.query((res_id,ALL_ELEMENTS,each_column))
-                if ('http://schema.org/Float' or 'http://schema.org/Integer') not in each_metadata['semantic_types']:
-                    is_all_categorical = False
-                    break
+            # The following part of code used to check whether all inputs are categorical or not
+            # Do not delete!!!
+            # for each_column in range(1, attribute_column_length + 1):
+            #     each_metadata = self.all_dataset.metadata.query((res_id,ALL_ELEMENTS,each_column))
+            #     if ('http://schema.org/Float' or 'http://schema.org/Integer') not in each_metadata['semantic_types']:
+            #         is_all_categorical = False
+            #         break
+            # two ways to do sampling (random projection or random choice)
             if is_all_categorical:
-                # import pdb
-                # pdb.set_trace()
-                pass
                 # TODO:
                 # add special template that use random projection directly
+                pass
+
             else:
+                # run sampling method to randomly throw some columns
+                # update problem metadata
+                problem = dict(self.problem_doc_metadata.query(()))
+                #data_meta = dict(problem["inputs"]["data"][0])
+                data_meta = []
+                for each_data in problem["inputs"]["data"]:
+                    # update targets metadata for each target columns
+                    target_meta = []
+                    each_data = dict(each_data)
+                    for each_target in each_data["targets"]:
+                        target_meta_each = dict(each_target)
+                        target_meta_each['colIndex'] = self.threshold_column_length + (all_column_length - target_meta_each['colIndex'])
+                        target_meta.append(frozendict.FrozenOrderedDict(target_meta_each))
+                    # return the updated target_meta
+                    each_data["targets"] = tuple(target_meta)
+                    data_meta.append(each_data)
+                # return the updated data_meta
+                problem["inputs"] = dict(problem["inputs"])
+                problem["inputs"]["data"] = tuple(data_meta)
+
+                problem["inputs"] = frozendict.FrozenOrderedDict(problem["inputs"])
+                problem = frozendict.FrozenOrderedDict(problem)
+                # update problem doc metadata
+                self.problem_doc_metadata = self.problem_doc_metadata.update((),problem)
+                # updating problem_doc_metadata finished
+
                 all_attribute_columns = range(1, attribute_column_length + 1)
                 # remove the old metadata which should not exist now
                 # it should be done first, otherwise the remove operation will failed
                 metadata_old = copy.copy(self.all_dataset.metadata)
-                for each_removed_column in range(self.threshold_column_length + 2, attribute_column_length + 2):
+                for each_removed_column in range(self.threshold_column_length + 1 + target_column_length, attribute_column_length + 1 + target_column_length):
                     self.all_dataset.metadata = self.all_dataset.metadata.remove((res_id,ALL_ELEMENTS, each_removed_column))
                 # remove columns
                 throw_columns = random.sample(all_attribute_columns, attribute_column_length - self.threshold_column_length)
@@ -822,19 +862,22 @@ class Controller:
                 # update metadata on column information
                 new_column_meta = dict(self.all_dataset.metadata.query((res_id,ALL_ELEMENTS)))
                 new_column_meta['dimension'] = dict(new_column_meta['dimension'])
-                new_column_meta['dimension']['length'] = self.threshold_column_length + 2
+                new_column_meta['dimension']['length'] = self.threshold_column_length + 1 + target_column_length
                 self.all_dataset.metadata = self.all_dataset.metadata.update((res_id,ALL_ELEMENTS),new_column_meta)
 
-                # update the metadata on each column
+                # update the metadata on attribute column
                 remained_columns = set(all_attribute_columns) - set(throw_columns)
                 for new_column_count, each_remained_column in enumerate(remained_columns):
                     metadata_old_each = metadata_old.query((res_id,ALL_ELEMENTS, each_remained_column))
                     self.all_dataset.metadata = self.all_dataset.metadata.update((res_id,ALL_ELEMENTS, new_column_count + 1), metadata_old_each)
+
                 # update class column
-                metadata_class = metadata_old.query((res_id,ALL_ELEMENTS, attribute_column_length + 1))
-                self.all_dataset.metadata = self.all_dataset.metadata.update((res_id,ALL_ELEMENTS, self.threshold_column_length + 1), metadata_class)
+                for new_column_count, each_target_column in enumerate(target_column_list):
+                    metadata_class = metadata_old.query((res_id,ALL_ELEMENTS, each_target_column))
+                    self.all_dataset.metadata = self.all_dataset.metadata.update((res_id,ALL_ELEMENTS, self.threshold_column_length + new_column_count + 1), metadata_class)
                 # update traget_index for spliting into train and test dataset
-                self.problem_info["target_index"] = self.threshold_column_length + 1
+                self.problem_info["target_index"] = self.threshold_column_length + target_column_length
+
                 self._logger.info("Random sampling on columns Finished.")
 
         if main_res_shape[0] > self.threshold_index_length:
