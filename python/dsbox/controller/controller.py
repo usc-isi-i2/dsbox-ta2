@@ -45,6 +45,7 @@ from dsbox.template.search import SimpleConfigurationSpace
 from dsbox.template.search import TemplateDimensionalSearch
 from dsbox.template.search import get_target_columns, random_choices_without_replacement
 from dsbox.template.template import DSBoxTemplate
+from common_primitives import utils as common_primitives_utils
 
 __all__ = ['Status', 'Controller']
 
@@ -784,14 +785,58 @@ class Controller:
         self.all_dataset = self.remove_empty_targets(self.all_dataset)
         self.all_dataset = self.auto_regress_convert(self.all_dataset)
         runtime.add_target_columns_metadata(self.all_dataset, self.problem_doc_metadata)
-
+        res_id = self.problem_info['res_id']
         # check the shape of the dataset
-        main_res_shape = self.all_dataset[self.problem_info['res_id']].shape
+        main_res_shape = self.all_dataset[res_id].shape
         # if the column length is larger than the threshold, it may failed in the given time, so we need to sample part of the dataset
+
         if main_res_shape[1] > self.threshold_column_length:
             # two ways to do sampling (random projection or random choice)
             # but here we can't get the metadata of the dataset, so further choice need to do in search part
             self._logger.info("The columns number of the input dataset is very large.")
+            attribute_column_length = self.all_dataset.metadata.query((res_id,ALL_ELEMENTS))['dimension']['length'] - 2
+            # skip the column 0 which is d3mIndex]
+            is_all_categorical = False
+            for each_column in range(1, attribute_column_length + 1):
+                each_metadata = self.all_dataset.metadata.query((res_id,ALL_ELEMENTS,each_column))
+                if ('http://schema.org/Float' or 'http://schema.org/Integer') not in each_metadata['semantic_types']:
+                    is_all_categorical = False
+                    break
+            if is_all_categorical:
+                # import pdb
+                # pdb.set_trace()
+                pass
+                # TODO:
+                # add special template that use random projection directly
+            else:
+                all_attribute_columns = range(1, attribute_column_length + 1)
+                # remove the old metadata which should not exist now
+                # it should be done first, otherwise the remove operation will failed
+                metadata_old = copy.copy(self.all_dataset.metadata)
+                for each_removed_column in range(self.threshold_column_length + 2, attribute_column_length + 2):
+                    self.all_dataset.metadata = self.all_dataset.metadata.remove((res_id,ALL_ELEMENTS, each_removed_column))
+                # remove columns
+                throw_columns = random.sample(all_attribute_columns, attribute_column_length - self.threshold_column_length)
+                self.all_dataset[res_id] = common_primitives_utils.remove_columns(self.all_dataset[res_id], throw_columns, source='ISI DSBox')
+
+                # update metadata on column information
+                new_column_meta = dict(self.all_dataset.metadata.query((res_id,ALL_ELEMENTS)))
+                new_column_meta['dimension'] = dict(new_column_meta['dimension'])
+                new_column_meta['dimension']['length'] = self.threshold_column_length + 2
+                self.all_dataset.metadata = self.all_dataset.metadata.update((res_id,ALL_ELEMENTS),new_column_meta)
+
+                # update the metadata on each column
+                remained_columns = set(all_attribute_columns) - set(throw_columns)
+                for new_column_count, each_remained_column in enumerate(remained_columns):
+                    metadata_old_each = metadata_old.query((res_id,ALL_ELEMENTS, each_remained_column))
+                    self.all_dataset.metadata = self.all_dataset.metadata.update((res_id,ALL_ELEMENTS, new_column_count + 1), metadata_old_each)
+                # update class column
+                metadata_class = metadata_old.query((res_id,ALL_ELEMENTS, attribute_column_length + 1))
+                self.all_dataset.metadata = self.all_dataset.metadata.update((res_id,ALL_ELEMENTS, self.threshold_column_length + 1), metadata_class)
+                # update traget_index for spliting into train and test dataset
+                self.problem_info["target_index"] = self.threshold_column_length + 1
+                self._logger.info("Random sampling on columns Finished.")
+
         if main_res_shape[0] > self.threshold_index_length:
             # too many indexs, we can run another split dataset
             self._logger.info("The indexs number of the input dataset is very large, will send only part of them to search.")
