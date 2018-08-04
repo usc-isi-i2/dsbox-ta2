@@ -756,7 +756,7 @@ class Controller:
             prediction_col_name.remove('d3mIndex')
             for i in range(len(prediction_class_name)):
                 prediction = prediction.rename(columns={prediction_col_name[i]: prediction_class_name[i]})
-        prediction_folder_loc = outputs_loc + "/predictions/" + read_pipeline_id
+        prediction_folder_loc = self.output_directory + "/predictions/" + fitted_pipeline_id
         folder = os.path.exists(prediction_folder_loc)
         if not folder:
             os.makedirs(prediction_folder_loc)
