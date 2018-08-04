@@ -1,44 +1,27 @@
-import os
-import random
-import traceback
-import typing
-import logging
-import time
 import copy
+import logging
 import sys
-
+import time
+import typing
+from multiprocessing import current_process
+from pprint import pprint
 from warnings import warn
 
-from multiprocessing import Pool, current_process, Manager
-from pprint import pprint
-
+from d3m.container.dataset import Dataset
 from d3m.exceptions import NotSupportedError
-from d3m.container.dataset import Dataset
 from d3m.metadata.base import Metadata
-from d3m.container.dataset import Dataset
-from d3m.metadata.base import Metadata
-from d3m.metadata.base import ALL_ELEMENTS
 from d3m.metadata.problem import PerformanceMetric
-
+from dsbox.combinatorial_search.cache import PrimitivesCache
+from dsbox.combinatorial_search.search_utils import get_target_columns
 from dsbox.pipeline.fitted_pipeline import FittedPipeline
 from dsbox.pipeline.utils import larger_is_better
-from dsbox.schema.problem import optimization_type
 from dsbox.schema.problem import OptimizationType
-
-from dsbox.template.template import DSBoxTemplate
-from dsbox.template.template import HyperparamDirective
-
-from dsbox.template.configuration_space import DimensionName
+from dsbox.schema.problem import optimization_type
 from dsbox.template.configuration_space import ConfigurationPoint
 from dsbox.template.configuration_space import ConfigurationSpace
+from dsbox.template.template import DSBoxTemplate
 
-from dsbox.combinatorial_search.search_utils import random_choices_without_replacement
-from dsbox.combinatorial_search.search_utils import get_target_columns
-
-from dsbox.template.configuration_space import SimpleConfigurationSpace
 # from dsbox.template.pipeline_utilities import pipe2str
-
-from dsbox.combinatorial_search.cache import CandidateCache, PrimitivesCache
 
 T = typing.TypeVar("T")
 # python path of primitive, i.e. 'd3m.primitives.common_primitives.RandomForestClassifier'
@@ -117,35 +100,21 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
                 else:
                     self.testing_mode = 2
 
-    # def random_assignment(self, confSpace :SimpleConfigurationSpace) -> \
-    #         typing.Dict[DimensionName,T]:
-    #     """
-    #     Randomly assigns a value for each dimension
-    #     """
-    #     assignment: typing.Dict[DimensionName, T] = {}
-    #     for dimension in self.dimension_ordering:
-    #         assignment[dimension] = random.choice(
-    #             self.configuration_space.get_values(dimension))
-    #     return assignment
-    #
-    # def first_assignment(self) -> typing.Dict[DimensionName, T]:
-    #     '''
-    #     Assign the first value for each dimension
-    #     '''
-    #     assignment: typing.Dict[DimensionName, T] = {}
-    #     for dimension in self.dimension_ordering:
-    #         assignment[dimension] = self.configuration_space.get_values(dimension)[0]
-    #     return assignment
-    #
-    # def get_dimension_length(self, kw: DimensionName) -> int:
-    #     '''
-    #     Return the length of the list a configuration point
-    #     '''
-    #     return len(self.configuration_space.get_values(kw))
+    def dummy_evaluate(self, ) -> None:
+        """
+        This method is only used to import tensorflow before running the parallel jobs
+        Args:
+            configuration:
 
-    # def generate_pipeline(self, configuration_space: ConfigurationSpace[T],
-    #                       dimension: typing.List[DimensionName]):
-    #     pass
+        Returns:
+
+        """
+        configuration: ConfigurationPoint[PrimitiveDescription] = \
+            self.configuration_space.get_first_assignment()
+
+        pipeline = self.template.to_pipeline(configuration)
+        return pipeline
+
     def evaluate_pipeline(self, args) -> typing.Dict:
         """
         Evaluate at configuration point.
@@ -374,163 +343,6 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
         # still return the original fitted_pipeline with relation to train_dataset1
         return data
 
-    # def _runTrainTestBootstrap(self, configuration: ConfigurationPoint,cache: typing.Dict):
-    #     """
-    #     runs the evaluation of pipeline based on train-test split method (bootstraping). The
-    #     method first uses the _run_fit_pipeline method on the training portion of the datset,
-    #     then it extracts the evaluation metrics from the testing portion of the data. Depending
-    #     on the setup of evaluation the method can repeat this evaluation multiple times to get a
-    #     higher confidence on the results and avoid overfitting.
-    #     Args:
-    #         cache:
-    #             primitives cache to prevent recomputation of primirives
-    #         configuration:
-    #             the pipline that needs to be evaluated with bootstrap method
-    #     Returns:
-    #         fitted_pipeline:
-    #             the final fitted pipeline
-    #         training_metrics:
-    #             the list of training metrics reported as specified in the problem specification
-    #         test_metrics:
-    #             the list of testing metrics reported as specified in the problem specification
-    #
-    #     """
-    #
-    #     pipeline = self.template.to_pipeline(configuration)
-    #
-    #     if self.testing_mode == 2:
-    #         repeat_times = int(self.validation_config['test_validation'])
-    #     else:
-    #         repeat_times = 1
-    #     print("[INFO] Will use normal train-test mode ( n =", repeat_times,
-    #           ") to choose best primitives.")
-    #     training_metrics = []
-    #     test_metrics = []
-    #     for each_repeat in range(repeat_times):
-    #         train_set = self.train_dataset2[each_repeat]
-    #         test_set = self.test_dataset2[each_repeat]
-    #
-    #         # start training the pipeline(fitting) based on the training set
-    #         fitted_pipeline, training_ground_truth, training_prediction = \
-    #             self._run_fit_pipeline(training_set=train_set, cache=cache, pipeline=pipeline)
-    #
-    #         test_ground_truth, test_prediction = \
-    #             self._test_fittedPipeline(fitted_pipeline=fitted_pipeline, test_set=test_set)
-    #
-    #         training_metrics_each, test_metrics_each = self._calculate_score(
-    #             training_ground_truth, training_prediction, test_ground_truth, test_prediction)
-    #
-    #         # if no test_dataset exist, we need to give it a default value
-    #         if len(test_metrics_each) == 0:
-    #             test_metrics_each = copy.deepcopy(training_metrics_each)
-    #             if larger_is_better(training_metrics):
-    #                 test_metrics_each[0]["value"] = 0
-    #             else:
-    #                 test_metrics_each[0]["value"] = sys.float_info.max
-    #
-    #         training_metrics.append(training_metrics_each)
-    #         test_metrics.append(test_metrics_each)
-    #     # sample format of the output
-    #     # [{'metric': 'f1Macro', 'value': 0.48418535913661614, 'values': [0.4841025641025641,
-    #     #  0.4841025641025641, 0.4843509492047203]]
-    #
-    #     print("[INFO] Testing finish.!!!")
-    #     # modify the test_metrics and training_metrics format to fit the requirements
-    #     test_metrics, training_metrics = self._generateMetricsReport(test_metrics, training_metrics)
-    #
-    #     return fitted_pipeline, training_metrics, test_metrics
-    #
-    # def _test_fittedPipeline(self, fitted_pipeline, test_set):
-    #     # only do test if the test_dataset exist
-    #     if test_set is not None:
-    #         results = fitted_pipeline.produce(inputs=[test_set])
-    #         test_ground_truth = get_target_columns(test_set,
-    #                                                self.problem)
-    #         # Note: results == test_prediction
-    #         test_prediction = fitted_pipeline.get_produce_step_output(
-    #             self.template.get_output_step_number())
-    #     else:
-    #         test_ground_truth = None
-    #         test_prediction = None
-    #     return test_ground_truth, test_prediction
-    #
-    # def _generateMetricsReport(self, test_metrics, training_metrics):
-    #     if len(training_metrics) > 1:
-    #         training_value_list = []
-    #         test_value_list = []
-    #         for each in training_metrics:
-    #             training_value_list.append(each['value'])
-    #             test_value_list.append(each['value'])
-    #         # training_metrics part
-    #         training_metrics_new = training_metrics[0]
-    #         training_metrics_new['value'] = sum(training_value_list) / len(training_value_list)
-    #         training_metrics_new['values'] = training_value_list
-    #         training_metrics = [training_metrics_new]
-    #         # test_metrics part
-    #         test_metrics_new = test_metrics[0]
-    #         test_metrics_new['value'] = sum(test_value_list) / len(test_value_list)
-    #         test_metrics_new['values'] = test_value_list
-    #         test_metrics = [test_metrics_new]
-    #     else:
-    #         if type(test_metrics[0]) is list:
-    #             test_metrics = test_metrics[0]
-    #             training_metrics = training_metrics[0]
-    #     return test_metrics, training_metrics
-    #
-    # def _runCrossValidation(self, configuration: ConfigurationPoint, cache: typing.Dict):
-    #     """
-    #     runs the evaluation of pipeline based on cross validation method. The
-    #     method iteratively first uses the _run_fit_pipeline method on the training portion of the
-    #     datset, then it extracts the evaluation metrics from the testing portion of the data.
-    #     Depending on the setup of evaluation the method can repeat this evaluation multiple times
-    #     to get a higher confidence on the results and avoid overfitting.
-    #     Args:
-    #         cache:
-    #             primitives cache to prevent recomputation of primirives
-    #         configuration:
-    #             the configuration that needs to be evaluated with CV method
-    #     Returns:
-    #         fitted_pipeline:
-    #             the final fitted pipeline
-    #         training_metrics:
-    #             the list of training metrics reported as specified in the problem specification
-    #         test_metrics:
-    #             the list of testing metrics reported as specified in the problem specification
-    #     """
-    #     pipeline = self.template.to_pipeline(configuration)
-    #     repeat_times = int(self.validation_config['cross_validation'])
-    #     print("[INFO] Will use cross validation( n =", repeat_times,
-    #           ") to choose best primitives.")
-    #     # start training and testing
-    #     fitted_pipeline, training_ground_truth, training_prediction = \
-    #         self._run_fit_pipeline(training_set=self.train_dataset1,
-    #                                cache=cache, pipeline=pipeline)
-    #     training_metrics, test_metrics = self._calculate_score(
-    #         training_ground_truth, training_prediction, None, None)
-    #     # copy the cross validation score here to test_metrics for return
-    #     test_metrics = copy.deepcopy(
-    #         training_metrics)  # fitted_pipeline.get_cross_validation_metrics()
-    #     # generate a test matrics results with score = worst value
-    #     if larger_is_better(training_metrics):
-    #         test_metrics[0]["value"] = 0
-    #     else:
-    #         test_metrics[0]["value"] = sys.float_info.max
-    #     print("[INFO] CV finish.!!!")
-    #     return fitted_pipeline, training_metrics, test_metrics
-    #
-    # def _run_fit_pipeline(self, cache, training_set, pipeline):
-    #     dataset_id = training_set.metadata.query(())['id']
-    #     fitted_pipeline = FittedPipeline(pipeline=pipeline, dataset_id=dataset_id,
-    #                                      log_dir=self.log_dir,
-    #                                      metric_descriptions=self.performance_metrics)
-    #     fitted_pipeline.fit(cache=cache, inputs=[training_set])
-    #     # fitted_pipeline.fit(inputs=[self.train_dataset2[each_repeat]])
-    #     training_ground_truth = get_target_columns(training_set,
-    #                                                self.problem)
-    #     training_prediction = fitted_pipeline.get_fit_step_output(
-    #         self.template.get_output_step_number())
-    #     return fitted_pipeline, training_ground_truth, training_prediction
-
     def _calculate_score(self, training_ground_truth, training_prediction, test_ground_truth,
                          test_prediction):
         '''
@@ -691,13 +503,4 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
             print("Pickling succeeded")
             print("\n" * 5)
 
-    # def search(self, candidate: ConfigurationPoint[T] = None, candidate_value: float = None,
-    # num_iter=3, max_per_dimension=50):
-    #     for i in range(num_iter):
-    #         candidate, candidate_value = self.search_one_iter(candidate, candidate_value,
-    # max_per_dimension=max_per_dimension)
-    #         if candidate is None:
-    #             return (None, None)
-    #
-    #     return (candidate, candidate_value)
 

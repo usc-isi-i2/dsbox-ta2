@@ -25,11 +25,11 @@ class CacheManager:
         Args:
 
         """
-        self.manager = Manager()
+        self.manager = [Manager()]*2
 
-        self.candidate_cache = CandidateCache(self.manager)
+        self.candidate_cache = CandidateCache(self.manager[0])
 
-        self.primitive_cache = PrimitivesCache(self.manager)
+        self.primitive_cache = PrimitivesCache(self.manager[1])
 
     def cleanup(self):
         """
@@ -37,7 +37,8 @@ class CacheManager:
 
 
         """
-        self.manager.shutdown()
+        for m in self.manager:
+            m.shutdown()
 
 
 class CandidateCache:
@@ -74,7 +75,7 @@ class CandidateCache:
 
         # check the candidate in cache. If duplicate is found the metric values must match
         if self.is_hit(candidate):
-            assert value == self.storage[key]['value'], \
+            assert value == self.storage[key]['value'] or self.storage[key]['value'] is None, \
                 "New value for candidate:" + str(candidate)
             return
 
@@ -102,8 +103,9 @@ class PrimitivesCache:
 
     def push(self, hash_prefix: int, pipe_step: PrimitiveStep, primitive_arguments: typing.Dict,
              primitives_output: Dataset, model: PrimitiveBase) -> int:
-        prim_name, prim_hash = self._get_hash(hash_prefix=hash_prefix, pipe_step=pipe_step,
-                                              primitive_arguments=primitive_arguments)
+        prim_name, prim_hash = PrimitivesCache._get_hash(
+            hash_prefix=hash_prefix, pipe_step=pipe_step, primitive_arguments=primitive_arguments)
+
         return self.push_key(prim_hash=prim_hash, prim_name=prim_name,
                              model=model, primitives_output=primitives_output)
 
@@ -115,7 +117,7 @@ class PrimitivesCache:
             return 0
         else:
             print("[WARN] Double-push in Primitives Cache")
-            assert False, "Double-push in Primitives Cache:({},{})".format(prim_hash, prim_name)
+            # assert False, "Double-push in Primitives Cache:({},{})".format(prim_hash, prim_name)
             return 1
 
     def lookup(self, hash_prefix: int, pipe_step: PrimitiveStep,
@@ -135,13 +137,17 @@ class PrimitivesCache:
 
     def is_hit(self, hash_prefix: int, pipe_step: PrimitiveStep,
                primitive_arguments: typing.Dict) -> bool:
-        return ((self._get_hash(hash_prefix=hash_prefix, pipe_step=pipe_step,
-                              primitive_arguments=primitive_arguments)) in self.storage)
+        return (
+                (PrimitivesCache._get_hash(
+                    hash_prefix=hash_prefix, pipe_step=pipe_step,
+                    primitive_arguments=primitive_arguments)
+                ) in self.storage)
 
     def is_hit_key(self, prim_hash: int, prim_name: int) -> bool:
         return (prim_name, prim_hash) in self.storage
 
-    def _get_hash(self, hash_prefix: int, pipe_step: PrimitiveStep,
+    @staticmethod
+    def _get_hash(hash_prefix: int, pipe_step: PrimitiveStep,
                   primitive_arguments: typing.Dict) -> typing.Tuple[int,int]:
         hyperparam_hash = hash(str(pipe_step.hyperparams.items()))
         dataset_id = ""

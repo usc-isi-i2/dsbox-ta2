@@ -49,6 +49,8 @@ from dsbox.template.configuration_space import ConfigurationSpace
 from dsbox.template.configuration_space import SimpleConfigurationSpace
 from dsbox.combinatorial_search.dimensional_search import TemplateDimensionalSearch
 from dsbox.combinatorial_search.TemplateSpaceBaseSearch import TemplateSpaceBaseSearch
+from dsbox.combinatorial_search.TemplateSpaceParallelBaseSearch import \
+    TemplateSpaceParallelBaseSearch
 from dsbox.combinatorial_search.search_utils import get_target_columns
 from dsbox.combinatorial_search.search_utils import random_choices_without_replacement
 from dsbox.template.template import DSBoxTemplate
@@ -432,8 +434,6 @@ class Controller:
         #         pprint.pformat(best_report['candidate'])))
         return None
 
-
-
     def search_template(self, template: DSBoxTemplate, candidate: typing.Dict=None,
                         cache_bundle: typing.Tuple[typing.Dict, typing.Dict]=(None, None)) \
             -> typing.Dict:
@@ -607,32 +607,10 @@ class Controller:
 
         # self._check_and_set_dataset_metadata()
 
-        # self.initialize_uct()
-
         self.generate_dataset_splits()
 
-        searchMethod = TemplateSpaceBaseSearch(
-            template_list=self.template,
-            performance_metrics=self.problem['problem']['performance_metrics'],
-            problem=self.problem_doc_metadata,
-            test_dataset1=self.test_dataset1,
-            train_dataset1=self.train_dataset1,
-            test_dataset2=self.test_dataset2,
-            train_dataset2=self.train_dataset2,
-            all_dataset=self.all_dataset,
-            output_directory=self.output_directory,
-            log_dir=self.output_logs_dir,
-        )
-
-        report = searchMethod.search(num_iter=10)
-
-        candidate = report['configuration']
-        value = report['cross_validation_metrics'][0]['value']
-
-        print("-"*20)
-        print("[INFO] Final Search Results:")
-        pprint.pprint(candidate)
-        print("[INFO] cross_validation_metrics:",value)
+        # self._run_SerialBaseSearch()
+        self._run_ParallelBaseSearch()
         # for idx in self.select_next_template(max_iter=5):
         #     template = self.template[idx]
         #     self._logger.info(STYLE+"[INFO] Template {}:{} Selected. UCT:{}".format(idx, template.template['name'], self.uct_score))
@@ -696,6 +674,49 @@ class Controller:
         #             self._logger.exception('[ERROR] Save training results Failed!')
         #             raise NotSupportedError(
         #                 '[ERROR] Save training results Failed!')
+
+    def _run_SerialBaseSearch(self):
+        searchMethod = TemplateSpaceBaseSearch(
+            template_list=self.template,
+            performance_metrics=self.problem['problem']['performance_metrics'],
+            problem=self.problem_doc_metadata,
+            test_dataset1=self.test_dataset1,
+            train_dataset1=self.train_dataset1,
+            test_dataset2=self.test_dataset2,
+            train_dataset2=self.train_dataset2,
+            all_dataset=self.all_dataset,
+            output_directory=self.output_directory,
+            log_dir=self.output_logs_dir,
+        )
+        report = searchMethod.search(num_iter=10)
+        candidate = report['configuration']
+        value = report['cross_validation_metrics'][0]['value']
+        print("-" * 20)
+        print("[INFO] Final Search Results:")
+        pprint.pprint(candidate)
+        print("[INFO] cross_validation_metrics:", value)
+
+    def _run_ParallelBaseSearch(self):
+        searchMethod = TemplateSpaceParallelBaseSearch(
+            template_list=self.template,
+            performance_metrics=self.problem['problem']['performance_metrics'],
+            problem=self.problem_doc_metadata,
+            test_dataset1=self.test_dataset1,
+            train_dataset1=self.train_dataset1,
+            test_dataset2=self.test_dataset2,
+            train_dataset2=self.train_dataset2,
+            all_dataset=self.all_dataset,
+            output_directory=self.output_directory,
+            log_dir=self.output_logs_dir,
+            num_proc=1,
+        )
+        report = searchMethod.search(num_iter=10)
+        candidate = report['configuration']
+        value = report['cross_validation_metrics'][0]['value']
+        print("-" * 20)
+        print("[INFO] Final Search Results:")
+        pprint.pprint(candidate)
+        print("[INFO] cross_validation_metrics:", value)
 
     def generate_dataset_splits(self):
         # For now just use the first template

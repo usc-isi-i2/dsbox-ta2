@@ -21,14 +21,14 @@ class DistributedJobManager:
     def start_workers(self, target: typing.Callable):
         self.job_pool = Pool(processes=self.proc_num)
         self.job_pool.map_async(
-            func=DistributedJobManager.worker_process,
+            func=DistributedJobManager._worker_process,
             iterable=
-            [(target, self.arguments_queue, self.result_queue,) for a in range(self.proc_num)]
+            [(self.arguments_queue, self.result_queue, target,) for a in range(self.proc_num)]
         )
         self.job_pool.close()  # prevents any additional worker to be added to the pool
 
     @staticmethod
-    def worker_process(args: typing.Tuple[typing.Callable, Queue, Queue]) -> None:
+    def _worker_process(args: typing.Tuple[Queue, Queue, typing.Callable]) -> None:
         """
         The worker process iteratively checks the arguments_queue. It runs the target method with
         the arguments from top of arguments_queue. The worker finally pushes the results to the
@@ -37,9 +37,9 @@ class DistributedJobManager:
             args: typing.Tuple[typing.Callable, Queue, Queue]
 
         """
-        target: typing.Callable = args[0]
-        arguments_queue: Queue = args[1]
-        result_queue: Queue = args[2]
+        arguments_queue: Queue = args[0]
+        result_queue: Queue = args[1]
+        target: typing.Callable = args[2]
 
         print("[INFO] worker process started")
         counter: int = 0
@@ -60,8 +60,7 @@ class DistributedJobManager:
             # print("[INFO] Job {} done.".format(job_id))
             counter += 1
 
-    def push_job(self, target: typing.Callable = None, name: str = None,
-                 kwargs: typing.Dict = {}) -> int:
+    def push_job(self, kwargs: typing.Dict = {}) -> int:
         """
         The method creates a new process for the given job and returns the pid of the job
         Args:

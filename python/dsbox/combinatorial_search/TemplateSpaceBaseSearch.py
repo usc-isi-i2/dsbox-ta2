@@ -1,48 +1,19 @@
+import importlib
+import logging
+import operator
 import os
 import random
 import traceback
 import typing
-import logging
-import time
-import copy
-import sys
-import operator
-from functools import reduce
-
-from warnings import warn
-
-from multiprocessing import Pool, current_process, Manager, Process
 from pprint import pprint
 
-from d3m.exceptions import NotSupportedError
 from d3m.container.dataset import Dataset
 from d3m.metadata.base import Metadata
-from d3m.container.dataset import Dataset
-from d3m.metadata.base import Metadata
-from d3m.metadata.base import ALL_ELEMENTS
-from d3m.metadata.problem import PerformanceMetric
-
-from dsbox.pipeline.fitted_pipeline import FittedPipeline
-from dsbox.pipeline.utils import larger_is_better
-from dsbox.schema.problem import optimization_type
-from dsbox.schema.problem import OptimizationType
-
-from dsbox.template.template import DSBoxTemplate
-from dsbox.template.template import HyperparamDirective
-
-from dsbox.template.configuration_space import DimensionName
-from dsbox.template.configuration_space import ConfigurationPoint
-from dsbox.template.configuration_space import ConfigurationSpace
-
-from dsbox.combinatorial_search.search_utils import random_choices_without_replacement
-from dsbox.combinatorial_search.search_utils import get_target_columns
 from dsbox.combinatorial_search.ConfigurationSpaceBaseSearch import ConfigurationSpaceBaseSearch
-
-from dsbox.template.configuration_space import SimpleConfigurationSpace
-# from dsbox.template.pipeline_utilities import pipe2str
-
 from dsbox.combinatorial_search.cache import CacheManager
-import importlib
+from dsbox.template.template import DSBoxTemplate
+
+# from dsbox.template.pipeline_utilities import pipe2str
 spam_spec = importlib.util.find_spec("colorama")
 STYLE = ""
 ERROR = ""
@@ -97,7 +68,7 @@ class TemplateSpaceBaseSearch(typing.Generic[T]):
                  problem: Metadata, train_dataset1: Dataset,
                  train_dataset2: typing.List[Dataset], test_dataset1: Dataset,
                  test_dataset2: typing.List[Dataset], all_dataset: Dataset,
-                 output_directory: str, log_dir: str, ) -> None:
+                 output_directory: str, log_dir: str,) -> None:
 
         self.template_list = template_list
 
@@ -121,6 +92,9 @@ class TemplateSpaceBaseSearch(typing.Generic[T]):
         self.bestResult = None
         self.best_20_results: typing.List = []
         self.cacheManager = CacheManager()
+
+        # load libraries with a dummy evaluation
+        self.confSpaceBaseSearch[0].dummy_evaluate()
 
 
     def search(self, num_iter=1):
@@ -192,7 +166,7 @@ class TemplateSpaceBaseSearch(typing.Generic[T]):
         assert base['test_metrics'][0]["metric"] == \
                check['test_metrics'][0]["metric"], "test_metrics not equal"
 
-        opr = lambda a,b: False
+        opr = lambda a, b: False
         if check['cross_validation_metrics'][0]["metric"] in larger_is_better:
             opr = operator.gt
         elif check['cross_validation_metrics'][0]["metric"] in smaller_is_better:
@@ -204,9 +178,11 @@ class TemplateSpaceBaseSearch(typing.Generic[T]):
                                  metric_list))
         if operator.xor(comparison_results[0],comparison_results[1]):
             _logger.warning("[WARN] cross_validation_metrics and test_metrics are not compatible")
-            print("[WARN] cross_validation_metrics:{}, test_metrics:{}".format(*comparison_results))
+            print("[WARN] cross_validation_metrics:{} and test_metrics:{} are not "
+                  "compatible".format(*comparison_results))
 
-        return operator.and_(comparison_results[0], comparison_results[1])
+        # return operator.and_(comparison_results[0], comparison_results[1])
+        return comparison_results[0]
 
     def _get_best_candidates(self, num: int = 20) -> typing.List[typing.Dict]:
         pass
