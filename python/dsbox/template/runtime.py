@@ -139,6 +139,8 @@ class Runtime:
 
         primitives_outputs: typing.List[typing.Optional[base.CallResult]] = [None] * len(self.execution_order)
 
+        hash_prefix = ""
+
         for i in range(0, len(self.execution_order)):
             primitive_arguments: typing.Dict[str, typing.Any] = {}
             n_step = self.execution_order[i]
@@ -149,16 +151,23 @@ class Runtime:
                     primitive_arguments[argument] = arguments[argument][value['source']]
 
             if isinstance(self.pipeline_description.steps[n_step], PrimitiveStep):
-                # first we need to compute the key to query in cache. For the
-                #  key we use a hashed combination of the primitive name,
+                # first we need to compute the key to query in cache. For the key we use a hashed combination of the primitive name,
                 # its hyperparameters and its input dataset hash.
-                prim_name = str(self.pipeline_description
-                                .steps[n_step].primitive)
-                hyperparam_hash = hash(str(self.pipeline_description.steps[
-                    n_step].hyperparams.items()))
-                dataset_hash = hash(str(primitive_arguments))
+                hyperparam_hash = hash(str(self.pipeline_description.steps[n_step].hyperparams.items()))
 
-                prim_hash = hash(str([hyperparam_hash, dataset_hash]))
+                dataset_id = ""
+                dataset_digest = ""
+                try:
+                    dataset_id = str(primitive_arguments['inputs'].metadata.query(())['id'])
+                    dataset_digest = str(primitive_arguments['inputs'].metadata.query(())['digest'])
+                except:
+                    pass
+                dataset_hash = hash(str(primitive_arguments) + dataset_id + dataset_digest)
+
+                prim_name = str(self.pipeline_description.steps[n_step].primitive)
+                prim_hash = hash(str([hyperparam_hash, dataset_hash, hash_prefix]))
+
+                hash_prefix = prim_hash
 
                 _logger.info(
                     "Primitive Fit. 'id': '%(primitive_id)s', '(name, hash)': ('%(name)s', '%(hash)s'), 'worker_id': '%(worker_id)s'.",
@@ -200,6 +209,11 @@ class Runtime:
                     cache[(prim_name, prim_hash)] = (
                         primitives_outputs[n_step].copy(), model)
                     if _logger.getEffectiveLevel() <= 10:
+
+                        _logger.debug('cache keys')
+                        for key in sorted(cache.keys()):
+                            _logger.debug('   {}'.format(key))
+
                         debug_file = os.path.join(
                             self.log_dir, 'dfs',
                             'fit_{}_{}_{:02}_{}'.format(self.pipeline_description.id, self.fitted_pipeline_id, n_step, primitive_step.primitive))

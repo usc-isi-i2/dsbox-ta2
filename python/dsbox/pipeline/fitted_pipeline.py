@@ -121,7 +121,8 @@ class FittedPipeline:
 
         # store fitted_pipeline id
         structure = self.pipeline.to_json_structure()
-        structure['fitted_pipeline_id'] = self.id
+        structure["parent_id"] = self.pipeline.id
+        structure['id'] = self.id
         structure['dataset_id'] = self.dataset_id
 
         # Save pipeline rank
@@ -192,6 +193,7 @@ class FittedPipeline:
         with open(pipeline_definition_loc, 'r') as f:
             structure = json.load(f)
 
+        structure["id"] = structure["parent_id"]
         dataset_id = structure.get('dataset_id')
 
         pipeline_to_load = Pipeline.from_json_structure(structure)
