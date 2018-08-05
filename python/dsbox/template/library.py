@@ -215,6 +215,7 @@ class TemplateLibrary:
         # dsbox all in one templates
         self.templates.append(ClassificationWithSelection)
         self.templates.append(RegressionWithSelection)
+
         self.templates.append(dsboxClassificationTemplate)
         self.templates.append(dsboxRegressionTemplate)
 
@@ -381,6 +382,11 @@ def dsbox_generic_steps():
             "inputs": ["encoder_step"]
         },
         {
+            "name": "scaler_step",
+            "primitives": ["d3m.primitives.dsbox.IQRScaler"],
+            "inputs": ["impute_step"]
+        },
+        {
             "name": "dim_red_step",
             "primitives": [
                 {
@@ -391,12 +397,7 @@ def dsbox_generic_steps():
                 },
                 "d3m.primitives.dsbox.DoNothing",
             ],
-            "inputs": ["impute_step"]
-        },
-        {
-            "name": "scaler_step",
-            "primitives": ["d3m.primitives.dsbox.IQRScaler"],
-            "inputs": ["dim_red_step"]
+            "inputs": ["scaler_step"]
         },
         {
             "name": "cast_1_step",
@@ -407,7 +408,7 @@ def dsbox_generic_steps():
                 },
                 "d3m.primitives.dsbox.DoNothing",
             ],
-            "inputs": ["scaler_step"]
+            "inputs": ["dim_red_step"]
         },
         {
             "name": "extract_target_step",
