@@ -383,18 +383,19 @@ def dsbox_generic_steps():
         },
         {
             "name": "scaler_step",
-            "primitives": ["d3m.primitives.dsbox.IQRScaler"],
+            "primitives": ["d3m.primitives.sklearn_wrap.SKMaxAbsScaler"],
             "inputs": ["impute_step"]
         },
         {
             "name": "dim_red_step",
             "primitives": [
-                {
-                    "primitive": "d3m.primitives.sklearn_wrap.SKPCA",
-                    "hyperparameters": 
-                    {
-                    }
-                },
+                # {
+                #     "primitive": "d3m.primitives.sklearn_wrap.SKPCA",
+                #     "hyperparameters": 
+                #     {
+                #         'n_components': [5, 10]
+                #     }
+                # },
                 "d3m.primitives.dsbox.DoNothing",
             ],
             "inputs": ["scaler_step"]
