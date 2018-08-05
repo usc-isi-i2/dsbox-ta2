@@ -4,7 +4,6 @@ import random
 import time
 import traceback
 import typing
-from threading import Timer
 
 from pprint import pprint
 
@@ -28,7 +27,7 @@ _logger = logging.getLogger(__name__)
 
 class TemplateSpaceParallelBaseSearch(TemplateSpaceBaseSearch[T]):
     """
-    Search the template space through the individual configuration spaces.
+    Search the template space through random configuration spaces in parallel.
 
     Attributes
     ----------
@@ -43,10 +42,6 @@ class TemplateSpaceParallelBaseSearch(TemplateSpaceBaseSearch[T]):
     bestResult: typing.Dict
         the dictinary containing the results of the best pipline
 
-
-    TODO:
-        - Add timeout functionality to the search: my first idea is to run the
-        result gathering method "_get_evaluation_results" in a new process with timeout
     """
 
     def __init__(self, template_list: typing.List[DSBoxTemplate],
@@ -72,7 +67,7 @@ class TemplateSpaceParallelBaseSearch(TemplateSpaceBaseSearch[T]):
                            dump2disk: bool = True):
         return confspace_search.evaluate_pipeline(args=(candidate, cache, dump2disk))
 
-    def search(self, num_iter=1):
+    def search(self, num_iter=1) -> typing.Dict:
         """
         This method implements the random search method with support of multiple templates using
         the parallel job manager. The method incorporates the primitives cache to store the

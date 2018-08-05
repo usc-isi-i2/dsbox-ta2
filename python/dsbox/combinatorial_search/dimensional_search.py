@@ -1,55 +1,22 @@
-import os
-import random
 import traceback
-import typing
 import logging
 import time
-import copy
-import sys
-
-from warnings import warn
-
-from multiprocessing import Pool, current_process, Manager
+import traceback
+import typing
+from multiprocessing import Pool
 from pprint import pprint
 
-from d3m.exceptions import NotSupportedError
+import pandas as pd
 from d3m.container.dataset import Dataset
 from d3m.metadata.base import Metadata
-from d3m.metadata.base import ALL_ELEMENTS
-from d3m.metadata.problem import PerformanceMetric
-
-from dsbox.pipeline.fitted_pipeline import FittedPipeline
-from dsbox.pipeline.utils import larger_is_better
-from dsbox.schema.problem import optimization_type
-from dsbox.schema.problem import OptimizationType
-
+from dsbox.combinatorial_search.ConfigurationSpaceBaseSearch import ConfigurationSpaceBaseSearch
+from dsbox.combinatorial_search.TemplateSpaceParallelBaseSearch import \
+    TemplateSpaceParallelBaseSearch
+from dsbox.combinatorial_search.search_utils import random_choices_without_replacement
+from dsbox.combinatorial_search.search_utils import ExecutionHistory
+from dsbox.template.configuration_space import ConfigurationPoint
 from dsbox.template.template import DSBoxTemplate
 from dsbox.template.template import HyperparamDirective
-
-from dsbox.template.configuration_space import DimensionName
-from dsbox.template.configuration_space import ConfigurationPoint
-from dsbox.template.configuration_space import ConfigurationSpace
-
-from dsbox.combinatorial_search.search_utils import random_choices_without_replacement
-from dsbox.combinatorial_search.search_utils import get_target_columns
-from dsbox.combinatorial_search.search_utils import Status
-from dsbox.combinatorial_search.ConfigurationSpaceBaseSearch import ConfigurationSpaceBaseSearch
-from dsbox.template.pipeline_utilities import pipe2str
-
-import importlib
-colorama_spec = importlib.util.find_spec("colorama")
-STYLE = ""
-ERROR = ""
-WARNING = ""
-if colorama_spec is not None:
-    from colorama import Fore, Back, init
-
-    # STYLE = Fore.BLUE + Back.GREEN
-    STYLE = Fore.BLACK + Back.GREEN
-    ERROR = Fore.WHITE + Back.RED
-    WARNING = Fore.BLACK + Back.YELLOW
-    init(autoreset=True)
-
 
 T = typing.TypeVar("T")
 # python path of primitive, i.e. 'd3m.primitives.common_primitives.RandomForestClassifier'
@@ -60,121 +27,61 @@ PrimitiveDescription = typing.NewType('PrimitiveDescription', dict)
 _logger = logging.getLogger(__name__)
 
 
-class TemplateDimensionalSearch(ConfigurationSpaceBaseSearch[PrimitiveDescription]):
+class TemplateRandomDimensionalSearch(TemplateSpaceParallelBaseSearch[T]):
     """
     Use dimensional search to find best pipeline.
 
-    Attributes
-    ----------
-    template : DSBoxTemplate
-        The template pipeline to be fill in
-    configuration_space : ConfigurationSpace[PrimitiveDescription]
-        Configuration space where values are primitive python paths
-    primitive_index : typing.List[str]
-        List of primitive python paths from d3m.index.search()
-    train_dataset : Dataset
-        The dataset to train pipeline
-    test_dataset : Dataset
-        The dataset to evaluate pipeline
-    performance_metrics : typing.List[typing.Dict]
-        Performance metrics from parse_problem_description()['problem']['performance_metrics']
+    Attributes:
+        template:
+        configuration_space:
+        problem:
+        train_dataset1:
+        train_dataset2:
+        test_dataset1:
+        test_dataset2:
+        all_dataset:
+        performance_metrics:
+        output_directory:
+        log_dir:
+        num_workers:
     """
 
-    def __init__(self,
-                 template: typing.List[DSBoxTemplate],
-                 configuration_space: ConfigurationSpace[PrimitiveDescription],
-                 problem: Metadata,
-                 train_dataset1: Dataset,
-                 train_dataset2: typing.List[Dataset],
-                 test_dataset1: Dataset,
-                 test_dataset2: typing.List[Dataset],
-                 all_dataset: Dataset,
+    def __init__(self, template_list: typing.List[DSBoxTemplate],
                  performance_metrics: typing.List[typing.Dict],
-                 output_directory: str,
-                 log_dir: str,
-                 num_workers: int = 0) -> None:
+                 problem: Metadata, train_dataset1: Dataset,
+                 train_dataset2: typing.List[Dataset], test_dataset1: Dataset,
+                 test_dataset2: typing.List[Dataset], all_dataset: Dataset,
+                 output_directory: str, log_dir: str, timeout: int = 55, num_proc: int = 4) -> None:
 
         # Use first metric from test
-        super().__init__(template_list=template, configuration_space=configuration_space,
-                         train_dataset1=train_dataset1, train_dataset2=train_dataset2,
-                         test_dataset1=test_dataset1, test_dataset2=test_dataset2,
-                         all_dataset=all_dataset, problem=problem,
-                         performance_metrics=performance_metrics, log_dir=log_dir,
-                         output_directory=output_directory)
+        TemplateSpaceParallelBaseSearch.__init__(
+            self=self,
+            template_list=template_list,
+            performance_metrics=performance_metrics,
+            problem=problem, train_dataset1=train_dataset1,
+            train_dataset2=train_dataset2, test_dataset1=test_dataset1,
+            test_dataset2=test_dataset2, all_dataset=all_dataset,
+            log_dir=log_dir, output_directory=output_directory, timeout=timeout, num_proc=num_proc)
 
-        self.num_workers = os.cpu_count() if num_workers == 0 else num_workers
+        self.exec_history: ExecutionHistory = ExecutionHistory(
+            template_list=template_list, is_better=TemplateRandomDimensionalSearch._is_better)
 
-        # if not set(self.template.template_nodes.keys()) <= set(configuration_space.get_dimensions()):
-        #     raise exceptions.InvalidArgumentValueError(
-        #         "Not all template steps are in configuration space: {}".format(self.template.template_nodes.keys()))
 
-    def _lookup_candidate(self, candidate: ConfigurationPoint[T], cand_cache: typing.Dict) -> \
-            typing.Tuple[ConfigurationPoint[T], float]:
-
-        key = hash(str(candidate))
-        if key in cand_cache:
-            line = cand_cache[key]
-            print("[INFO] hit@Candidate: ({},{})".format(key, line["id"]))
-            # print("[INFO] candidate cache Hit@{}:{}".format(key, line['candidate']))
-            return line['candidate'], line['value']
-        else:
-            return (None, None)
-
-    def _push_candidate(self, result: typing.Dict, candidate: ConfigurationPoint[T],
-                        cand_cache: typing.Dict) -> None:
-        key = hash(str(candidate))
-        cand_id = result['fitted_pipeline'].id if result else None
-        value = result['test_metrics'][0]['value'] if result else None
-        # add value to candidate cache
-
-        if self._is_candidate_hit(candidate, cand_cache):
-            assert value == cand_cache[key]['value'], \
-                "New value for candidate:" + str(candidate)
-            return
-
-        print("[INFO] push@Candidate: ({},{})".format(key, cand_id))
-        cand_cache[key] = {
-            "candidate": candidate,
-            "id": cand_id,
-            "value": value,
-        }
-
-    def _is_candidate_hit(self, candidate: ConfigurationPoint[T], cand_cache: typing.Dict) -> bool:
-        return hash(str(candidate)) in cand_cache
-
-    def search_one_iter(self, candidate_in: ConfigurationPoint[T] = None,
-                        max_per_dimension: int = 50,
-                        cache_bundle: typing.Tuple[typing.Dict, typing.Dict] = (None, None)) -> \
-            typing.Dict:
+    def search_one_iter(self, candidate_in: ConfigurationPoint[T],
+                        confspace_search: ConfigurationSpaceBaseSearch,
+                        max_per_dim: int = 50,) -> typing.Dict:
         """
-        Performs one iteration of dimensional search. During dimesional
-        search our algorithm iterates through all 8 steps of pipeline as
-        indicated in our configuration space and greedily optimizes the
-        pipeline one step at a time.
+        Performs one iteration of dimensional search. During dimesional search our algorithm
+        iterates through all steps of pipeline as indicated in our configuration space and
+        greedily optimizes the pipeline one step at a time.
 
         Parameters
         ----------
         candidate_in: ConfigurationPoint[T]
             Current best candidate
-        max_per_dimension: int
+        max_per_dim: int
             Maximum number of values to search per dimension
-        cache_bundle: tuple[Dict,Dict]
-            the global cache object and candidate cache object for storing and reusing computation
-            on intermediate results. if the cache is None, a local cache will be used in the
-            dimensional search
         """
-
-        # setup the output cache
-        local_cache = False
-        if cache_bundle[0] is None or cache_bundle[1] is None:
-            print("[INFO] Using Local Cache")
-            local_cache = True
-            manager = Manager()
-            cache = manager.dict()
-            candidate_cache = manager.dict()
-        else:
-            print("[INFO] Using Global Cache")
-            cache, candidate_cache = cache_bundle
 
         # initialize the simulation counter
         sim_counter = 0
@@ -187,7 +94,7 @@ class TemplateDimensionalSearch(ConfigurationSpaceBaseSearch[PrimitiveDescriptio
 
         try:
             candidate, candidate_value = \
-                self._setup_initial_candidate(candidate_in, cache, candidate_cache)
+                self._setup_initial_candidate(candidate_in)
         except:
             report_failed = {
                 'reward': None,
@@ -219,7 +126,7 @@ class TemplateDimensionalSearch(ConfigurationSpaceBaseSearch[PrimitiveDescriptio
             weights = [self.configuration_space.get_weight(dimension, x) for x in choices]
 
             # generate the candidates choices list
-            selected = random_choices_without_replacement(choices, weights, max_per_dimension)
+            selected = random_choices_without_replacement(choices, weights, max_per_dim)
 
             score_values = []
             sucessful_candidates = []
@@ -390,97 +297,24 @@ class TemplateDimensionalSearch(ConfigurationSpaceBaseSearch[PrimitiveDescriptio
                 #ConfigurationPoint(self.configuration_space, self.random_assignment())
         raise ValueError("Invalid initial candidate")
 
-    def search_template(self, template: DSBoxTemplate, candidate: typing.Dict = None,
-                        cache_bundle: typing.Tuple[typing.Dict, typing.Dict] = (None, None)) \
-            -> typing.Dict:
-
-        self._logger.info('Searching template %s', template.template['name'])
-
-        space = template.generate_configuration_space()
-
-        metrics = self.problem['problem']['performance_metrics']
-
-        # # setup the dimensional search configs
-        # search = TemplateDimensionalSearch(
-        #     template=template, configuration_space=space, problem=self.problem_doc_metadata,
-        #     test_dataset1=self.test_dataset1, train_dataset1=self.train_dataset1,
-        #     test_dataset2=self.test_dataset2, train_dataset2=self.train_dataset2,
-        #     all_dataset=self.all_dataset, performance_metrics=metrics,
-        #     output_directory=self.output_directory, log_dir=self.output_logs_dir,
-        #     num_workers=self.num_cpus
-        # )
-
-        self.minimize = search.minimize
-        # candidate, value = search.search_one_iter()
-        self._logger.info('cache size = {}'.format(len(cache_bundle[0])))
-        report = search.search_one_iter(candidate_in=candidate, cache_bundle=cache_bundle)
-        candidate = report['candidate']
-        value = report['best_val']
-        # assert "fitted_pipe" in candidate, "argument error!"
-        if candidate is None:
-            self._logger.error("[ERROR] not candidate!")
-            return report  # return Status.PROBLEM_NOT_IMPLEMENT
-        else:
-            self._logger.info("******************\n[INFO] Writing results")
-            pprint.pprint(candidate.data)
-            self._logger.info(str(candidate.data) + " " + str(value))
-            if candidate.data['training_metrics']:
-                self._logger.info('Training {} = {}'.format(
-                    candidate.data['training_metrics'][0]['metric'],
-                    candidate.data['training_metrics'][0]['value']))
-            if candidate.data['cross_validation_metrics']:
-                self._logger.info('CV {} = {}'.format(
-                    candidate.data['cross_validation_metrics'][0]['metric'],
-                    candidate.data['cross_validation_metrics'][0]['value']))
-            if candidate.data['test_metrics']:
-                self._logger.info('Validation {} = {}'.format(
-                    candidate.data['test_metrics'][0]['metric'],
-                    candidate.data['test_metrics'][0]['value']))
-
-            # FIXME: code used for doing experiments, want to make optionals
-            # pipeline = FittedPipeline.create(configuration=candidate,
-            #                             dataset=self.dataset)
-
-            # dataset_name = self.output_executables_dir.rsplit("/", 2)[1]
-            # # save_location = os.path.join(self.output_logs_dir, dataset_name + ".txt")
-            # save_location = self.output_directory + ".txt"
-
-            # self._logger.info("******************\n[INFO] Saving training results in %s",
-            # save_location)
-            # try:
-            #     f = open(save_location, "w+")
-            #     f.write(str(metrics) + "\n")
-
-            #     for m in ["training_metrics", "cross_validation_metrics", "test_metrics"]:
-            #         if m in candidate.data and candidate.data[m]:
-            #             f.write(m + ' ' +  str(candidate.data[m][0]['value']) + "\n")
-            #     # f.write(str(candidate.data['training_metrics'][0]['value']) + "\n")
-            #     # f.write(str(candidate.data['cross_validation_metrics'][0]['value']) + "\n")
-            #     # f.write(str(candidate.data['test_metrics'][0]['value']) + "\n")
-            #     f.close()
-            # except:
-            #     self._logger.exception('[ERROR] Save training results Failed!')
-            #     raise NotSupportedError(
-            #         '[ERROR] Save training results Failed!')
-
-            return report
-
-    def run(self):
-        """
-        runs the dim search for each compatible template and returns the best trained pipeline
-        for the problem.
-        Returns:
-            fittedPipeline: the best fittedpipeline
-        """
-        if not self.template:
-            return Status.PROBLEM_NOT_IMPLEMENT
-
-        # setup the output cache
-        manager = Manager()
-        cache = manager.dict()
-        candidate_cache = manager.dict()
-        for i in range(10):
-            pass
+    def search(self, num_iter: int=2):
+        pass
+    # def search(self):
+    #     """
+    #     runs the dim search for each compatible template and returns the best trained pipeline
+    #     for the problem.
+    #     Returns:
+    #         fittedPipeline: the best fittedpipeline
+    #     """
+    #     if not self.template:
+    #         return Status.PROBLEM_NOT_IMPLEMENT
+    #
+    #     # setup the output cache
+    #     manager = Manager()
+    #     cache = manager.dict()
+    #     candidate_cache = manager.dict()
+    #     for i in range(10):
+    #         pass
 
 
 

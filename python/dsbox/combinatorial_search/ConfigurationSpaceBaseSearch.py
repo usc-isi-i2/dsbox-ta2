@@ -43,6 +43,11 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
         Definition of the configuration space
     minimize: bool
         If True, minimize the value returned by `evaluate` function
+
+    TODO:
+        1. break the evaluation method into multiple train-test method calls.
+        2. Make the evaluation parametrized on the sort of evaluation mode
+           ( ('partial', 'whole'), ('bootstrap', 'cross-validation'))
     """
 
     def __init__(self, template: DSBoxTemplate,
@@ -253,6 +258,13 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
             # set the metric for calculating the rank
             fitted_pipeline2.set_metric(training_metrics[0])
 
+            print("!!!! No test_dataset1")
+            pprint(data)
+            print("!!!!")
+
+            if self.output_directory is not None and dump2disk:
+                fitted_pipeline2.save(self.output_directory)
+
             data = {
                 'fitted_pipeline': fitted_pipeline2,
                 'training_metrics': training_metrics,
@@ -263,12 +275,6 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
             }
             fitted_pipeline.auxiliary = dict(data)
 
-            print("!!!! No test_dataset1")
-            pprint(data)
-            print("!!!!")
-
-            if self.output_directory is not None and dump2disk:
-                fitted_pipeline2.save(self.output_directory)
 
             #     _logger.info("Test pickled pipeline. id: {}".format(fitted_pipeline2.id))
             #     self.test_pickled_pipeline(folder_loc=self.output_directory,
@@ -311,6 +317,9 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
             fitted_pipeline2.fit(cache=cache, inputs=[self.all_dataset])
             # fitted_pipeline2.fit(inputs = [self.all_dataset])
 
+            if self.output_directory is not None and dump2disk:
+                fitted_pipeline2.save(self.output_directory)
+
             data = {
                 'fitted_pipeline': fitted_pipeline2,
                 'training_metrics': training_metrics,
@@ -325,8 +334,6 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
             pprint(data)
             print("!!!!")
 
-            if self.output_directory is not None and dump2disk:
-                fitted_pipeline2.save(self.output_directory)
 
                 # _ = fitted_pipeline2.produce(inputs=[self.test_dataset1])
                 # test_prediction3 = fitted_pipeline2.get_produce_step_output(self.template.get_output_step_number())
