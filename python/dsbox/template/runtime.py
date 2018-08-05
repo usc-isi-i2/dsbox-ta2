@@ -22,6 +22,7 @@ from d3m.metadata.base import Metadata
 from d3m.metadata.pipeline import Pipeline, PrimitiveStep, Resolver
 from d3m.primitive_interfaces import base
 from multiprocessing import current_process
+import common_primitives.utils as utils
 
 _logger = logging.getLogger(__name__)
 
@@ -445,7 +446,8 @@ class Runtime:
                         continue
             if isinstance(self.pipeline_description.steps[n_step], PrimitiveStep):
                 if n_step in self.produce_order:
-                    steps_outputs[n_step] = self.pipeline[n_step].produce(**produce_arguments).value
+                    this_step_result = self.pipeline[n_step].produce(**produce_arguments).value
+                    steps_outputs[n_step] = self._work_around_for_profiler(this_step_result)
                 else:
                     steps_outputs[n_step] = None
 
@@ -483,6 +485,18 @@ class Runtime:
             else:
                 pipeline_output.append(arguments[output[0][output[1]]])
         return pipeline_output
+    
+    @staticmethod
+    def _work_around_for_profiler(df):
+        float_cols = utils.list_columns_with_semantic_types(df.metadata, ['http://schema.org/Float'])
+        
+        for col in float_cols:
+            old_metadata = dict(df.metadata.query((mbase.ALL_ELEMENTS, col)))
+            if 'https://metadata.datadrivendiscovery.org/types/Attribute' not in old_metadata['semantic_types']:
+                old_metadata['semantic_types'] += ('https://metadata.datadrivendiscovery.org/types/Attribute',)
+                df.metadata = df.metadata.update((mbase.ALL_ELEMENTS, col), old_metadata)
+        
+        return df
 
 
 def load_problem_doc(problem_doc_path: str) -> Metadata:
