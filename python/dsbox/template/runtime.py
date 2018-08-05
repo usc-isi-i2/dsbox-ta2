@@ -446,7 +446,7 @@ class Runtime:
                         continue
             if isinstance(self.pipeline_description.steps[n_step], PrimitiveStep):
                 if n_step in self.produce_order:
-                    if primitive_step.primitive == 'd3m.primitives.dsbox.Profiler':
+                    if str(primitive_step.primitive) == 'd3m.primitives.dsbox.Profiler':
                         this_step_result = self.pipeline[n_step].produce(**produce_arguments).value
                         steps_outputs[n_step] = self._work_around_for_profiler(this_step_result)
                     else:
