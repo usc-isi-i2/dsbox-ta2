@@ -259,7 +259,7 @@ class SemanticTypeDict(object):
 
 
 # Returns a fast template
-def dsbox_fast_steps():
+def dsbox_fast_steps(data : str = "data", target : str = "target"):
     return [
         {
             "name": "denormalize_step",
@@ -291,7 +291,7 @@ def dsbox_fast_steps():
             "inputs": ["extract_attribute_step"]
         },
         {
-            "name": "cast_1_step",
+            "name": data,
             "primitives": [
                 {
                     "primitive": "d3m.primitives.data.CastToType",
@@ -302,7 +302,7 @@ def dsbox_fast_steps():
             "inputs": ["impute_step"]
         },
         {
-            "name": "extract_target_step",
+            "name": target,
             "primitives": [{
                 "primitive": "d3m.primitives.data.ExtractColumnsBySemanticTypes",
                 "hyperparameters":
@@ -320,7 +320,7 @@ def dsbox_fast_steps():
 
 
 # Returns a list of dicts with the most common steps
-def dsbox_generic_steps():
+def dsbox_generic_steps(data : str = "data", target : str = "target"):
     return [
         {
             "name": "denormalize_step",
@@ -387,21 +387,7 @@ def dsbox_generic_steps():
             "inputs": ["impute_step"]
         },
         {
-            "name": "dim_red_step",
-            "primitives": [
-                # {
-                #     "primitive": "d3m.primitives.sklearn_wrap.SKPCA",
-                #     "hyperparameters": 
-                #     {
-                #         'n_components': [5, 10]
-                #     }
-                # },
-                "d3m.primitives.dsbox.DoNothing",
-            ],
-            "inputs": ["scaler_step"]
-        },
-        {
-            "name": "cast_1_step",
+            "name": "cast_1_step", # turn columns to float
             "primitives": [
                 {
                     "primitive": "d3m.primitives.data.CastToType",
@@ -409,10 +395,24 @@ def dsbox_generic_steps():
                 },
                 "d3m.primitives.dsbox.DoNothing",
             ],
-            "inputs": ["dim_red_step"]
+            "inputs": ["scaler_step"]
         },
         {
-            "name": "extract_target_step",
+            "name": data,
+            "primitives": [
+                {
+                    "primitive": "d3m.primitives.sklearn_wrap.SKPCA",
+                    "hyperparameters": 
+                    {
+                        'n_components': [10, 15]
+                    }
+                },
+                "d3m.primitives.dsbox.DoNothing",
+            ],
+            "inputs": ["cast_1_step"]
+        },
+        {
+            "name": target,
             "primitives": [{
                 "primitive": "d3m.primitives.data.ExtractColumnsBySemanticTypes",
                 "hyperparameters":
@@ -430,7 +430,7 @@ def dsbox_generic_steps():
 
 
 # Returns a list of dicts with the most common steps
-def dsbox_generic_text_steps():
+def dsbox_generic_text_steps(data : str = "data", target : str = "target"):
     return [
         {
             "name": "denormalize_step",
@@ -486,7 +486,10 @@ def dsbox_generic_text_steps():
         },
         {
             "name": "encoder_step",
-            "primitives": ["d3m.primitives.dsbox.Encoder"],
+            "primitives": [
+                "d3m.primitives.data.UnseenLabelEncoder",
+                "d3m.primitives.dsbox.Encoder"
+            ],
             "inputs": ["corex_step"]
         },
         {
@@ -500,7 +503,7 @@ def dsbox_generic_text_steps():
             "inputs": ["impute_step"]
         },
         {
-            "name": "cast_1_step",
+            "name": data,
             "primitives": [
                 {
                     "primitive": "d3m.primitives.data.CastToType",
@@ -511,7 +514,7 @@ def dsbox_generic_text_steps():
             "inputs": ["scaler_step"]
         },
         {
-            "name": "extract_target_step",
+            "name": target,
             "primitives": [{
                 "primitive": "d3m.primitives.data.ExtractColumnsBySemanticTypes",
                 "hyperparameters":
@@ -1484,7 +1487,7 @@ class DefaultTextClassificationTemplate(DSBoxTemplate):
                                 }
                         },
                     ],
-                    "inputs": ["cast_1_step", "extract_target_step"]
+                    "inputs": ["data", "target"]
                 }
             ]
         }
@@ -1534,7 +1537,7 @@ class DefaultTextRegressionTemplate(DSBoxTemplate):
                                 }
                         },
                     ],
-                    "inputs": ["cast_1_step", "extract_target_step"]
+                    "inputs": ["data", "target"]
                 }
             ]
         }
@@ -2938,7 +2941,7 @@ class DefaultClassificationTemplate(DSBoxTemplate):
                                 }
                         },
                     ],
-                    "inputs": ["cast_1_step", "extract_target_step"]
+                    "inputs": ["data", "target"]
                 }
             ]
         }
@@ -2983,7 +2986,7 @@ class RandomForestClassificationTemplate(DSBoxTemplate):
                                 }
                         },
                     ],
-                    "inputs": ["cast_1_step", "extract_target_step"]
+                    "inputs": ["data", "target"]
                 }
             ]
         }
@@ -3028,7 +3031,7 @@ class ExtraTreesClassificationTemplate(DSBoxTemplate):
                                 }
                         },
                     ],
-                    "inputs": ["cast_1_step", "extract_target_step"]
+                    "inputs": ["data", "target"]
                 }
             ]
         }
@@ -3072,7 +3075,7 @@ class GradientBoostingClassificationTemplate(DSBoxTemplate):
                                 }
                         },
                     ],
-                    "inputs": ["cast_1_step", "extract_target_step"]
+                    "inputs": ["data", "target"]
                 }
             ]
         }
@@ -3114,7 +3117,7 @@ class SVCClassificationTemplate(DSBoxTemplate):
                                 }
                         },
                     ],
-                    "inputs": ["cast_1_step", "extract_target_step"]
+                    "inputs": ["data", "target"]
                 }
             ]
         }
@@ -3187,7 +3190,7 @@ class DefaultRegressionTemplate(DSBoxTemplate):
                                 }
                         },
                     ],
-                    "inputs": ["cast_1_step", "extract_target_step"]
+                    "inputs": ["data", "target"]
                 }
             ]
         }
@@ -3229,7 +3232,7 @@ class SVRRegressionTemplate(DSBoxTemplate):
                                 }
                         },
                     ],
-                    "inputs": ["cast_1_step", "extract_target_step"]
+                    "inputs": ["data", "target"]
                 }
             ]
         }
@@ -3272,7 +3275,7 @@ class GradientBoostingRegressionTemplate(DSBoxTemplate):
                                 }
                         },
                     ],
-                    "inputs": ["cast_1_step", "extract_target_step"]
+                    "inputs": ["data", "target"]
                 }
             ]
         }
@@ -3316,7 +3319,7 @@ class ExtraTreesRegressionTemplate(DSBoxTemplate):
                                 }
                         },
                     ],
-                    "inputs": ["cast_1_step", "extract_target_step"]
+                    "inputs": ["data", "target"]
                 }
             ]
         }
@@ -3360,7 +3363,7 @@ class RandomForestRegressionTemplate(DSBoxTemplate):
                                 }
                         },
                     ],
-                    "inputs": ["cast_1_step", "extract_target_step"]
+                    "inputs": ["data", "target"]
                 }
             ]
         }
@@ -3416,7 +3419,7 @@ class NaiveBayesClassificationTemplate(DSBoxTemplate):
                                 }
                         },
                     ],
-                    "inputs": ["cast_1_step", "extract_target_step"]
+                    "inputs": ["data", "target"]
                 }
             ]
         }
@@ -3470,7 +3473,7 @@ class FastClassificationTemplate(DSBoxTemplate):
                                 }
                         },
                     ],
-                    "inputs": ["cast_1_step", "extract_target_step"]
+                    "inputs": ["data", "target"]
                 }
             ]
         }
