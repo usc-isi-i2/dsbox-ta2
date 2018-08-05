@@ -587,8 +587,7 @@ def human_steps():
                 "hyperparameters":
                     {
                         'semantic_types': (
-                            'https://metadata.datadrivendiscovery.org/types/Target',
-                            'https://metadata.datadrivendiscovery.org/types/SuggestedTarget',),
+                            'https://metadata.datadrivendiscovery.org/types/TrueTarget',),
                         'use_columns': (),
                         'exclude_columns': ()
                     }
@@ -605,16 +604,16 @@ def dsbox_feature_selector_cls():
                 {
                     "name": "feature_selector_step",
                     "primitives":[
-                        {
-                            "primitive" : "d3m.primitives.sklearn_wrap.SKLinearSVC", 
-                            "hyperparameters" : {
-                                "C":[float(x) for x in np.logspace(-4,1,10)]
-                            }
-                        },
+                        # {
+                        #     "primitive" : "d3m.primitives.sklearn_wrap.SKLinearSVC", 
+                        #     "hyperparameters" : {
+                        #         "C":[float(x) for x in np.logspace(-4,1,10)]
+                        #     }
+                        # },
                         {
                             "primitive" : "d3m.primitives.sklearn_wrap.SKSelectPercentile",
                             "hyperparameters":{
-                                "percentile":[int(x) for x in np.linspace(10, 100, 10)]
+                                "percentile":[int(x) for x in np.linspace(100, 10, 10)]
                             }
                         },
                         "d3m.primitives.dsbox.DoNothing"
@@ -630,19 +629,19 @@ def dsbox_feature_selector_reg():
                 {
                     "name": "feature_selector_step",
                     "primitives":[
-                        {
-                            "primitive" : "d3m.primitives.sklearn_wrap.SKLasso", 
-                            "hyperparameters" : {
-                                "alpha":[float(x) for x in np.linspace(0,1, 10)], 
-                                "max_iter":[(100)]
+                        # {
+                        #     "primitive" : "d3m.primitives.sklearn_wrap.SKLasso", 
+                        #     "hyperparameters" : {
+                        #         "alpha":[float(x) for x in np.linspace(0,1, 10)], 
+                        #         "max_iter":[(100)]
 
-                            }
-                        },
+                        #     }
+                        # },
                         {
                             "primitive" : "d3m.primitives.sklearn_wrap.SKSelectPercentile",
                             "hyperparameters":{
                                 "score_func": [("f_regression")],
-                                "percentile":[int(x) for x in np.linspace(10, 100, 10)]
+                                "percentile":[int(x) for x in np.linspace(100, 10, 10)]
                             }
                         },
                         "d3m.primitives.dsbox.DoNothing"
@@ -3502,8 +3501,8 @@ class ClassificationWithSelection(DSBoxTemplate):
                                 "primitive":"d3m.primitives.sklearn_wrap.SKSGDClassifier", 
                                 "hyperparameters":{
                                     "loss":[('hinge'), ('log'), ('squared_hinge'), ('perceptron')], 
-                                    "alpha":[float(x) for x in np.logspace(-6, -1, 5)],
-                                    "l1_ratio":[float(x) for x in np.logspace(-9, 0, 5)]
+                                    "alpha":[float(x) for x in np.logspace(-6, -1.004, 5)],
+                                    "l1_ratio":[float(x) for x in np.logspace(-9, -0.004, 5)]
 
                                 }
                             }
@@ -3538,8 +3537,8 @@ class RegressionWithSelection(DSBoxTemplate):
                                 "primitive":"d3m.primitives.sklearn_wrap.SKSGDRegressor", 
                                 "hyperparameters":{
                                     "loss":[('squared_loss'), ('huber')], 
-                                    "alpha":[float(x) for x in np.logspace(-7, -1, 5)],
-                                    "l1_ratio":[float(x) for x in np.logspace(-9, 0, 5)],
+                                    "alpha":[float(x) for x in np.logspace(-7, -1.004, 5)],#cannot reach 0.1
+                                    "l1_ratio":[float(x) for x in np.logspace(-9, -0.004, 5)],#cannot reach 1
                                     "learning_rate": [('optimal'), ('invscaling')]
                                 }
                             }

@@ -88,8 +88,6 @@ def run_pipeline_and_predict(pipeline, train_data, test_data, problem, outdir, d
     prediction["d3mIndex"] = d3m_index
     prediction = prediction[["d3mIndex", prediction_col_name]]
     prediction = prediction.rename(columns={prediction_col_name: target_col_name})
-    import pdb
-    pdb.set_trace()
     if outdir == -1:
         outdir = "./results/" + dataset_path.split("/")[-2] + "/"
         if not os.path.exists(outdir):
