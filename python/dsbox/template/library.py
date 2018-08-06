@@ -2007,7 +2007,7 @@ class UU3TestTemplate(DSBoxTemplate):
                                 'exclude_columns': ()
                             }
                         }],
-                    "inputs": ["to_dataframe_step"]
+                    "inputs": ["multi_table_processing_step"]
                 },
                 {
                     "name": "encode1_step",
@@ -2500,7 +2500,7 @@ class BBNAudioClassificationTemplate(DSBoxTemplate):
                     "inputs": ["denormalize_step"]
                 },
                 {
-                    "name": "extract_target_step",
+                    "name": "readtarget_step",
                     "primitives": [{
                         "primitive": "d3m.primitives.data.ExtractColumnsBySemanticTypes",
                         "hyperparameters":
