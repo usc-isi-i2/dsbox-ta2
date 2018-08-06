@@ -60,7 +60,7 @@ def get_target_columns(dataset: 'Dataset', problem_doc_metadata: 'Metadata'):
         print("[ERROR] Multiple targets in different dataset???")
 
     datalength = datameta.query((resID_list[0], ALL_ELEMENTS,))["dimension"]['length']
-    
+
     for v in range(datalength):
         types = datameta.query((resID_list[0], ALL_ELEMENTS, v))["semantic_types"]
         for t in types:
@@ -511,11 +511,10 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
 
         # print("[INFO] number of workers:", self.num_workers)
 
-        # new searching method: first check whether we will do corss validation or not
-        #!!!!
-        # TODO: add some function to determine whether to go quick mode or not
+        # new searching method: first check whether we should train a second time with dataset_train1
+        self.quick_mode = self._use_quick_mode_or_not()
 
-        self.quick_mode = False
+        # new searching method: first check whether we will do corss validation or not
         self.testing_mode = 0  # set default to not use cross validation mode
         # testing_mode = 0: normal testing mode with test only 1 time
         # testing_mode = 1: cross validation mode
@@ -532,6 +531,13 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
         # if not set(self.template.template_nodes.keys()) <= set(configuration_space.get_dimensions()):
         #     raise exceptions.InvalidArgumentValueError(
         #         "Not all template steps are in configuration space: {}".format(self.template.template_nodes.keys()))
+
+    def _use_quick_mode_or_not(self) -> bool:
+        '''
+            The function to determine whether to use quick mode or now
+            Now it is hard coded
+        '''
+        return False
 
     def evaluate_pipeline(self, args) -> typing.Dict:
         """
@@ -580,7 +586,7 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
                 for each in test_metrics:
                     each["value"] = 0
             else:
-                for each in test_metrics:   
+                for each in test_metrics:
                     each["value"] = sys.float_info.max
             print("[INFO] Testing finish.!!!")
 
@@ -623,7 +629,7 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
                         for each in test_metrics_each:
                             each["value"] = 0
                     else:
-                        for each in test_metrics_each:   
+                        for each in test_metrics_each:
                             each["value"] = sys.float_info.max
 
                 training_metrics.append(training_metrics_each)
@@ -654,7 +660,7 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
 
                 training_metrics_new = training_metrics[0]
                 count = 0
-                for (k,v) in  training_value_dict.items(): 
+                for (k,v) in  training_value_dict.items():
                     training_metrics_new[count]['value'] = sum(v) / len(v)
                     training_metrics_new[count]['values'] = v
                     count += 1
@@ -664,8 +670,8 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
                 if type(training_metrics[0]) is list:
                     training_metrics = training_metrics[0]
 
-            if len(test_metrics) > 1:      
-                test_value_dict = {}    
+            if len(test_metrics) > 1:
+                test_value_dict = {}
                 # convert for test matrics
                 for each in test_metrics:
                     # for condition only one exist?
@@ -686,7 +692,7 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
                 # test_metrics part
                 test_metrics_new = test_metrics[0]
                 count = 0
-                for (k,v) in  test_value_dict.items(): 
+                for (k,v) in  test_value_dict.items():
                     test_metrics_new[count]['value'] = sum(v) / len(v)
                     test_metrics_new[count]['values'] = v
                     count += 1
@@ -892,7 +898,7 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
         results = fitted_pipeline.produce(inputs=[test_dataset])
 
         pipeline_prediction = fitted_pipeline.get_produce_step_output(self.template.get_output_step_number())
-        pipeline_prediction = self.graph_problem_conversion(prediction)
+        pipeline_prediction = self.graph_problem_conversion(pipeline_prediction)
         test_pipeline_metrics2 = self._calculate_score(None, None, test_ground_truth, pipeline_prediction)
         test_pipeline_metrics = list()
         for metric_description in self.performance_metrics:
