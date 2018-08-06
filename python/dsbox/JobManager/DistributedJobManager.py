@@ -4,7 +4,7 @@ import os
 from threading import Timer
 from math import ceil
 import traceback
-from multiprocessing import Pool, Queue, Manager
+from multiprocessing import Pool, Queue, Manager, Semaphore
 
 class DistributedJobManager:
     def __init__(self, proc_num: int=4, timeout: int=55):
@@ -14,38 +14,42 @@ class DistributedJobManager:
         self.timeout = timeout
 
         self.manager = Manager()
-        self.arguments_queue = self.manager.Queue()
-        self.result_queue = self.manager.Queue()
+        self.arguments_queue: Queue = self.manager.Queue()
+        self.result_queue: Queue = self.manager.Queue()
+
+        self.worker_sema: Semaphore = self.manager.Semaphore(value=proc_num)
 
         # initialize
         self.job_pool: Pool = None
 
         self._setup_timeout_timer()
 
-        self.timer = None
+        self.timer: Timer = None
 
     def start_workers(self, target: typing.Callable):
         self.job_pool = Pool(processes=self.proc_num)
         self.job_pool.map_async(
             func=DistributedJobManager._worker_process,
             iterable=
-            [(self.arguments_queue, self.result_queue, target,) for a in range(self.proc_num)]
+            [(self.arguments_queue, self.result_queue, target, self.worker_sema,)
+             for a in range(self.proc_num)]
         )
         self.job_pool.close()  # prevents any additional worker to be added to the pool
 
     @staticmethod
-    def _worker_process(args: typing.Tuple[Queue, Queue, typing.Callable]) -> None:
+    def _worker_process(args: typing.Tuple[Queue, Queue, typing.Callable, Semaphore]) -> None:
         """
         The worker process iteratively checks the arguments_queue. It runs the target method with
         the arguments from top of arguments_queue. The worker finally pushes the results to the
         results queue for main process to read from it.
         Args:
-            args: typing.Tuple[typing.Callable, Queue, Queue]
+            args: typing.Tuple[Queue, Queue, typing.Callable, Semaphore]
 
         """
         arguments_queue: Queue = args[0]
         result_queue: Queue = args[1]
         target: typing.Callable = args[2]
+        worker_sema: Semaphore = args[3]
 
         print("[INFO] worker process started")
         counter: int = 0
@@ -53,6 +57,7 @@ class DistributedJobManager:
             # wait until a new job is available
             kwargs = arguments_queue.get(block=True)
             # print("[INFO] Job {} got.".format(job_id))
+            worker_sema.acquire(blocking=True)
             # execute the job
             try:
                 # TODO add timelimit to single work in the worker
@@ -62,7 +67,9 @@ class DistributedJobManager:
                 result = None
 
             # push the results
+            print("[INFO] Pushing Results")
             result_queue.put((kwargs, result))
+            worker_sema.release()
             # print("[INFO] Job {} done.".format(job_id))
             counter += 1
 
@@ -101,6 +108,19 @@ class DistributedJobManager:
         return not self.arguments_queue.empty()
 
     def is_idle(self):
+        return self.are_queues_empty() and self.are_workers_idle()
+
+    def are_workers_idle(self):
+        acquire_out = [self.worker_sema.acquire(blocking=False) for _ in range(self.proc_num)]
+        are_workers_idle = True
+        for b in acquire_out:
+            if b:
+                self.worker_sema.release()
+            else:
+                are_workers_idle = False
+        return are_workers_idle
+
+    def are_queues_empty(self) -> bool:
         return self.arguments_queue.empty() and self.result_queue.empty()
 
     def check_timeout(self):
@@ -127,7 +147,8 @@ class DistributedJobManager:
     def _kill_me(self):
         print("[INFO] search TIMEOUT reached! Killing search Process")
         self.kill_job_mananger()
-        os.kill(os.getpid(), 9)
+        os._exit(0)
+        # os.kill(os.getpid(), 9)
 
     # def run_with_timeout(group=None, target: typing.Callable = None, name: str = None,
     #                      kwargs: typing.Dict = {},

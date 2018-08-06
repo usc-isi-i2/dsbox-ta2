@@ -436,15 +436,18 @@ class Controller:
 
     def _log_search_results(self, report: typing.Dict[str, typing.Any]):
         candidate = report['configuration']
-        value = report['cross_validation_metrics'][0]['value']
+
         print("-" * 20)
         print("[INFO] Final Search Results:")
         pprint.pprint(candidate)
-        print("[INFO] cross_validation_metrics:", value)
 
         if candidate is None:
             self._logger.error("[ERROR] No candidate found during search!")
+            print("[INFO] cross_validation_metrics:", None)
         else:
+            value = report['cross_validation_metrics'][0]['value']
+            print("[INFO] cross_validation_metrics:", value)
+
             self._logger.info("******************\n[INFO] Writing results")
             self._logger.info(str(report) + " " + str(value))
             if report['training_metrics']:
@@ -475,13 +478,17 @@ class Controller:
         # FIXME) to catch the errors of the child process
         pid: int = os.fork()
         if pid == 0:  # run the search in the child process
-            self._run_SerialBaseSearch()
-            exit(0)
-            # self._run_ParallelBaseSearch()
+            # self._run_SerialBaseSearch()
+            self._run_ParallelBaseSearch()
+
+            print("[INFO] End of Search")
+            # os.kill(os.getpid(), 0)
+            os._exit(0)
         else:
             status = os.wait()
             print("[INFO] Search Status:")
             pprint.pprint(status)
+        print("END OF FORK")
         # for idx in self.select_next_template(max_iter=5):
         #     template = self.template[idx]
         #     self._logger.info(STYLE+"[INFO] Template {}:{} Selected. UCT:{}".format(idx, template.template['name'], self.uct_score))
@@ -576,17 +583,11 @@ class Controller:
             output_directory=self.output_directory,
             log_dir=self.output_logs_dir,
             num_proc=self.num_cpus,
-            timeout=1,#self.TIMEOUT,
+            timeout=self.TIMEOUT,
         )
-        report = searchMethod.search(num_iter=50)
-        candidate = report['configuration']
-        value = report['cross_validation_metrics'][0]['value']
-        print("-" * 20)
-        print("[INFO] Final Search Results:")
-        pprint.pprint(candidate)
-        print("[INFO] cross_validation_metrics:", value)
+        report = searchMethod.search(num_iter=10)
 
-        self._log_search_results(candidate, value)
+        self._log_search_results(report=report)
 
     def generate_dataset_splits(self):
         # For now just use the first template
@@ -628,90 +629,6 @@ class Controller:
         else:
             self.train_dataset2 = None
             self.test_dataset2 = None
-
-    # def train(self) -> Status:
-    #     """
-    #     Generate and train pipelines.
-    #     """
-    #     if not self.template:
-    #         return Status.PROBLEM_NOT_IMPLEMENT
-    #
-    #     #self._check_and_set_dataset_metadata()
-    #
-    #     # For now just use the first template
-    #     # TODO: sample based on DSBoxTemplate.importance()
-    #     template = self.template[0]
-    #
-    #     space = template.generate_configuration_space()
-    #
-    #     metrics = self.problem['problem']['performance_metrics']
-    #
-    #     # search = TemplateDimensionalSearch(template, space, d3m.index.search(), self.dataset, self.dataset, metrics)
-    #     if self.test_dataset is None:
-    #         search = TemplateDimensionalSearch(
-    #             template, space, d3m.index.search(), self.problem_doc_metadata, self.dataset,
-    #             self.dataset, metrics, output_directory=self.output_directory, log_dir=self.output_logs_dir, num_workers=self.num_cpus)
-    #     else:
-    #         search = TemplateDimensionalSearch(
-    #             template, space, d3m.index.search(), self.problem_doc_metadata, self.dataset,
-    #             self.test_dataset, metrics, output_directory=self.output_directory, log_dir=self.output_logs_dir, num_workers=self.num_cpus)
-    #
-    #     candidate, value = search.search_one_iter()
-    #
-    #     # assert "fitted_pipe" in candidate, "argument error!"
-    #
-    #     if candidate is None:
-    #         print("[ERROR] not candidate!")
-    #         return Status.PROBLEM_NOT_IMPLEMENT
-    #     else:
-    #         print("******************\n[INFO] Writing results")
-    #         print(candidate.data)
-    #         print(candidate, value)
-    #         if candidate.data['training_metrics']:
-    #             print('Training {} = {}'.format(
-    #                 candidate.data['training_metrics'][0]['metric'],
-    #                 candidate.data['training_metrics'][0]['value']))
-    #         if candidate.data['cross_validation_metrics']:
-    #             print('Training {} = {}'.format(
-    #                 candidate.data['cross_validation_metrics'][0]['metric'],
-    #                 candidate.data['cross_validation_metrics'][0]['value']))
-    #         if candidate.data['test_metrics']:
-    #             print('Test {} = {}'.format(
-    #                 candidate.data['test_metrics'][0]['metric'],
-    #                 candidate.data['test_metrics'][0]['value']))
-    #
-    #         # FIXME: code used for doing experiments, want to make optionals
-    #         # pipeline = FittedPipeline.create(configuration=candidate,
-    #         #                             dataset=self.dataset)
-    #
-    #         dataset_name = self.output_executables_dir.rsplit("/", 2)[1]
-    #         # save_location = os.path.join(self.output_logs_dir, dataset_name + ".txt")
-    #         save_location = self.output_directory + ".txt"
-    #
-    #         print("******************\n[INFO] Saving training results in", save_location)
-    #         try:
-    #             f = open(save_location, "w+")
-    #             f.write(str(metrics) + "\n")
-    #             f.write(str(candidate.data['training_metrics'][0]['value']) + "\n")
-    #             f.write(str(candidate.data['test_metrics'][0]['value']) + "\n")
-    #             f.close()
-    #         except:
-    #             raise NotSupportedError(
-    #                 '[ERROR] Save training results Failed!')
-    #
-    #         print("******************\n[INFO] Saving Best Pipeline")
-    #         # save the pipeline
-    #
-    #         try:
-    #             # pipeline = FittedPipeline.create(configuration=candidate,
-    #             #                                  dataset=self.dataset)
-    #             fitted_pipeline = candidate.data['fitted_pipeline']
-    #             fitted_pipeline.save(self.output_directory)
-    #         except:
-    #             raise NotSupportedError(
-    #                 '[ERROR] Save Failed!')
-    #         ####################
-    #         return Status.OK
 
     def test_fitted_pipeline(self, fitted_pipeline_id):
         print("[INFO] Start test function")

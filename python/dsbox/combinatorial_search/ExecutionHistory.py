@@ -24,8 +24,9 @@ class ExecutionHistory:
                 'sim_count': int ????
             }
     """
+
     def __init__(self, template_list: typing.List = None,
-                 key_attribute: str='cross_validation_metrics'):
+                 key_attribute: str = 'cross_validation_metrics'):
 
         self.total_run = 0
         self.total_time = 0
@@ -46,19 +47,7 @@ class ExecutionHistory:
 
         self.key_attribute = key_attribute
 
-    def update_none(self, fail_report: typing.Dict, template_name: str = 'generic') -> None:
-
-        if fail_report is None:
-            fail_report = {}
-        if 'sim_count' not in fail_report:
-            fail_report['sim_count'] = 1
-        if 'total_runtime' not in fail_report:
-            fail_report['total_runtime'] = 0
-
-        self.update(report=fail_report, template_name=template_name)
-        return
-
-    def update(self, report: typing.Dict, template_name: str='generic') -> None:
+    def update(self, report: typing.Dict, template_name: str = 'generic') -> None:
         """
         updates the execution history based on the report input. The report dict should be of the
         format as indicated below.
@@ -137,6 +126,19 @@ class ExecutionHistory:
 
         return normalize
 
+    def update_none(self, fail_report: typing.Dict, template_name: str = 'generic') -> None:
+
+        if fail_report is None:
+            fail_report = {}
+        if 'sim_count' not in fail_report:
+            fail_report['sim_count'] = 1
+        if 'total_runtime' not in fail_report:
+            fail_report['total_runtime'] = 0
+
+        fail_report['Error'] = 1
+        self.update(report=fail_report, template_name=template_name)
+        return
+
     @staticmethod
     def _is_better(base: typing.Dict, check: typing.Dict, key_attribute: str) -> bool:
         if 'Error' in check:
@@ -191,8 +193,9 @@ class ExecutionHistory:
 
         if len(set(comparison_results.values())) != 1:
             _logger.warning("[WARN] cross_validation_metrics and test_metrics are not compatible")
-            print(("[WARN]" + "{}:{}"*len(comparison_results) + "are not compatible").format(
-                *[item for tup in zip(base_comparison_metrics, comparison_results) for item in tup]))
+            print(("[WARN]" + "{}:{}" * len(comparison_results) + "are not compatible").format(
+                *[item for tup in zip(base_comparison_metrics, comparison_results) for item in
+                  tup]))
 
         # return operator.and_(comparison_results[0], comparison_results[1])
         return comparison_results[key_attribute]

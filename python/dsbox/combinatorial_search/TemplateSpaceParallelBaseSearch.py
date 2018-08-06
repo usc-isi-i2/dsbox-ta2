@@ -53,7 +53,8 @@ class TemplateSpaceParallelBaseSearch(TemplateSpaceBaseSearch[T]):
 
         self.job_manager = DistributedJobManager(proc_num=num_proc, timeout=timeout)
 
-        TemplateSpaceBaseSearch.__init__(self=self,
+        TemplateSpaceBaseSearch.__init__(
+            self=self,
             template_list=template_list, performance_metrics=performance_metrics,
             problem=problem, train_dataset1=train_dataset1, train_dataset2=train_dataset2,
             test_dataset1=test_dataset1, test_dataset2=test_dataset2, all_dataset=all_dataset,
@@ -78,9 +79,7 @@ class TemplateSpaceParallelBaseSearch(TemplateSpaceBaseSearch[T]):
         Returns:
 
         """
-        # start seach timeout
-
-
+        self.setup_exec_history()
         # start the worker processes
         self.job_manager.start_workers(target=self._evaluate_template)
         time.sleep(0.1)
@@ -88,7 +87,7 @@ class TemplateSpaceParallelBaseSearch(TemplateSpaceBaseSearch[T]):
         # randomly send the candidates to job manager for evaluation
         self._push_random_candidates(num_iter)
 
-        time.sleep(0.1)
+        time.sleep(1)
 
         # iteratively wait until a result is available and process the result untill there is no
         # other pending job in the job manager
@@ -97,24 +96,32 @@ class TemplateSpaceParallelBaseSearch(TemplateSpaceBaseSearch[T]):
         # cleanup the caches and cache manager
         self.cacheManager.cleanup()
 
+        # cleanup job manager
         self.job_manager.kill_job_mananger()
-        return self.bestResult
+
+        return self.history.get_best_history()
 
     def _get_evaluation_results(self):
         print("[INFO] Waiting for the results")
+        counter = 0
+        # FIXME this is_idle method is not working properly
         while not self.job_manager.is_idle():
+            print("[INFO] Sleeping,", counter)
             (kwargs, report) = self.job_manager.pop_job(block=True)
             candidate = kwargs['candidate']
             try:
                 if report is None:
                     raise ValueError("Search Failed on candidate")
-                self._update_best_result(report)
+                self.history.update(report)
                 self.cacheManager.candidate_cache.push(report)
             except:
                 traceback.print_exc()
                 print("[INFO] Search Failed on candidate")
                 pprint(candidate)
+                self.history.update_none(fail_report=None)
                 self.cacheManager.candidate_cache.push_None(candidate=candidate)
+            counter += 1
+        print("[INFO] No more pending job")
 
     def _push_random_candidates(self, num_iter):
         for i in range(num_iter):
