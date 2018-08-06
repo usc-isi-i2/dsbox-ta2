@@ -13,7 +13,7 @@ from dsbox.combinatorial_search.ConfigurationSpaceBaseSearch import Configuratio
 from dsbox.combinatorial_search.TemplateSpaceParallelBaseSearch import \
     TemplateSpaceParallelBaseSearch
 from dsbox.combinatorial_search.search_utils import random_choices_without_replacement
-from dsbox.combinatorial_search.search_utils import ExecutionHistory
+from dsbox.combinatorial_search.ExecutionHistory import ExecutionHistory
 from dsbox.template.configuration_space import ConfigurationPoint
 from dsbox.template.template import DSBoxTemplate
 from dsbox.template.template import HyperparamDirective

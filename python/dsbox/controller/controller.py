@@ -47,7 +47,7 @@ from dsbox.template.library import TemplateLibrary
 from dsbox.template.library import SemanticTypeDict
 from dsbox.template.configuration_space import ConfigurationSpace
 from dsbox.template.configuration_space import SimpleConfigurationSpace
-from dsbox.combinatorial_search.dimensional_search import TemplateDimensionalSearch
+from dsbox.combinatorial_search.dimensional_search import TemplateRandomDimensionalSearch
 from dsbox.combinatorial_search.TemplateSpaceBaseSearch import TemplateSpaceBaseSearch
 from dsbox.combinatorial_search.TemplateSpaceParallelBaseSearch import \
     TemplateSpaceParallelBaseSearch
@@ -434,169 +434,31 @@ class Controller:
         #         pprint.pformat(best_report['candidate'])))
         return None
 
-    def search_template(self, template: DSBoxTemplate, candidate: typing.Dict=None,
-                        cache_bundle: typing.Tuple[typing.Dict, typing.Dict]=(None, None)) \
-            -> typing.Dict:
+    def _log_search_results(self, report: typing.Dict[str, typing.Any]):
+        candidate = report['configuration']
+        value = report['cross_validation_metrics'][0]['value']
+        print("-" * 20)
+        print("[INFO] Final Search Results:")
+        pprint.pprint(candidate)
+        print("[INFO] cross_validation_metrics:", value)
 
-        self._logger.info('Searching template %s', template.template['name'])
-
-        space = template.generate_configuration_space()
-
-        metrics = self.problem['problem']['performance_metrics']
-
-        # setup the dimensional search configs
-        search = TemplateDimensionalSearch(
-            template = template, configuration_space = space, problem = self.problem_doc_metadata,
-            test_dataset1 = self.test_dataset1, train_dataset1 = self.train_dataset1,
-            test_dataset2 = self.test_dataset2, train_dataset2 = self.train_dataset2,
-            all_dataset = self.all_dataset, performance_metrics = metrics,
-            output_directory=self.output_directory, log_dir=self.output_logs_dir,
-            num_workers=self.num_cpus
-            )
-
-        self.minimize = search.minimize
-        # candidate, value = search.search_one_iter()
-        self._logger.info('cache size = {}'.format(len(cache_bundle[0])))
-        report = search.search_one_iter(candidate_in=candidate, cache_bundle=cache_bundle)
-        candidate = report['candidate']
-        value = report['best_val']
-        # assert "fitted_pipe" in candidate, "argument error!"
         if candidate is None:
-            self._logger.error("[ERROR] not candidate!")
-            return report  # return Status.PROBLEM_NOT_IMPLEMENT
+            self._logger.error("[ERROR] No candidate found during search!")
         else:
             self._logger.info("******************\n[INFO] Writing results")
-            pprint.pprint(candidate.data)
-            self._logger.info(str(candidate.data)+ " "+ str(value))
-            if candidate.data['training_metrics']:
+            self._logger.info(str(report) + " " + str(value))
+            if report['training_metrics']:
                 self._logger.info('Training {} = {}'.format(
-                    candidate.data['training_metrics'][0]['metric'],
-                    candidate.data['training_metrics'][0]['value']))
-            if candidate.data['cross_validation_metrics']:
+                    report['training_metrics'][0]['metric'],
+                    report['training_metrics'][0]['value']))
+            if report['cross_validation_metrics']:
                 self._logger.info('CV {} = {}'.format(
-                    candidate.data['cross_validation_metrics'][0]['metric'],
-                    candidate.data['cross_validation_metrics'][0]['value']))
-            if candidate.data['test_metrics']:
+                    report['cross_validation_metrics'][0]['metric'],
+                    report['cross_validation_metrics'][0]['value']))
+            if report['test_metrics']:
                 self._logger.info('Validation {} = {}'.format(
-                    candidate.data['test_metrics'][0]['metric'],
-                    candidate.data['test_metrics'][0]['value']))
-
-            # FIXME: code used for doing experiments, want to make optionals
-            # pipeline = FittedPipeline.create(configuration=candidate,
-            #                             dataset=self.dataset)
-
-            # dataset_name = self.output_executables_dir.rsplit("/", 2)[1]
-            # # save_location = os.path.join(self.output_logs_dir, dataset_name + ".txt")
-            # save_location = self.output_directory + ".txt"
-
-            # self._logger.info("******************\n[INFO] Saving training results in %s", save_location)
-            # try:
-            #     f = open(save_location, "w+")
-            #     f.write(str(metrics) + "\n")
-
-            #     for m in ["training_metrics", "cross_validation_metrics", "test_metrics"]:
-            #         if m in candidate.data and candidate.data[m]:
-            #             f.write(m + ' ' +  str(candidate.data[m][0]['value']) + "\n")
-            #     # f.write(str(candidate.data['training_metrics'][0]['value']) + "\n")
-            #     # f.write(str(candidate.data['cross_validation_metrics'][0]['value']) + "\n")
-            #     # f.write(str(candidate.data['test_metrics'][0]['value']) + "\n")
-            #     f.close()
-            # except:
-            #     self._logger.exception('[ERROR] Save training results Failed!')
-            #     raise NotSupportedError(
-            #         '[ERROR] Save training results Failed!')
-
-            return report
-
-    def select_next_template(self, max_iter: int = 2):
-        # while True:
-        choices = list(range(len(self.template)))
-
-        # initial evaluation
-        for i in choices:
-            yield i
-
-        # print("[INFO] Choices:", choices)
-        # UCT based evaluation
-        for i in range(max_iter):
-        # while True:
-            valids = list(filter(lambda t: t[1] is not None,
-                                 zip(choices, self.uct_score)))
-            _choices = list(map(lambda t: t[0], valids))
-            _weights = list(map(lambda t: t[1], valids))
-            selected = random_choices_without_replacement(_choices, _weights, 1)
-            yield selected[0]
-
-    def update_UCT_score(self, index: int, report: typing.Dict):
-        self.update_history(index, report)
-
-        alpha = 0.01
-        self.normalize = self.exec_history[['reward', 'exe_time', 'trial']]
-        scale = (self.normalize.max() - self.normalize.min())
-        scale.replace(to_replace=0, value=1, inplace=True)
-        self.normalize = (self.normalize - self.normalize.min()) / scale
-        self.normalize.clip(lower=0.01, upper=1, inplace=True)
-
-        for i in range(len(self.uct_score)):
-            self.uct_score[i] = self.compute_UCT(i)
-
-        self._logger.info(STYLE+"[INFO] UCT updated: %s", self.uct_score)
-
-    def update_history(self, index, report):
-        self.total_run += report['sim_count']
-        self.total_time += report['time']
-        row = self.exec_history.iloc[index]
-        update = {
-            'trial': row['trial'] + report['sim_count'],
-            'exe_time': row['exe_time'] + report['time'],
-            'candidate': report['candidate'],
-        }
-        if report['reward'] is not None:
-            update['reward'] = (
-                    (row['reward'] * row['trial'] + report['reward'] * report['sim_count']) /
-                    (row['trial'] + report['sim_count'])
-            )
-            update['best_value'] = max(report['reward'], row['best_value'])
-
-        for k in update:
-            self.exec_history.iloc[index][k] = update[k]
-
-    def compute_UCT(self, index=0):
-        beta = 10
-        gamma = 1
-        delta = 4
-        history = self.normalize.iloc[index]
-        try:
-
-            reward = history['reward']
-            # / history['trial']
-
-            return (beta * (reward) * max(log(10*history['trial']), 1) +
-                gamma * sqrt(2 * log(self.total_run) / history['trial']) +
-                delta * sqrt(2 * log(self.total_time) / history['exe_time']))
-        except:
-            self._logger.error('Failed to compute UCT. Defaulting to None')
-            # print(STYLE+"[WARN] compute UCT failed:", history.tolist())
-            return None
-
-    def initialize_uct(self):
-        self.total_run = 0
-        self.total_time = 0
-        # self.exec_history = \
-        #     [{"exe_time": 1, "reward": 1, "trial": 1, "candidate": None, "best_value": 0}] * \
-        #     len(self.template)
-
-        self.exec_history = pd.DataFrame(None,
-                                         index=map(lambda s: s.template["name"], self.template),
-                                         columns=['reward', 'exe_time', 'trial', 'candidate', 'best_value'])
-        self.exec_history[['reward', 'exe_time', 'trial']] = 0
-        self.exec_history[['best_value']] = float('-inf')
-
-        self.exec_history['candidate'] = self.exec_history['candidate'].astype(object)
-        self.exec_history['candidate'] = None
-
-        # print(self.exec_history.to_string())
-        self.uct_score = [None] * len(self.template)
+                    report['test_metrics'][0]['metric'],
+                    report['test_metrics'][0]['value']))
 
     def train(self) -> Status:
         """
@@ -609,12 +471,17 @@ class Controller:
 
         self.generate_dataset_splits()
 
+        # FIXME) come up with a better way to implement this part. The fork does not provide a way
+        # FIXME) to catch the errors of the child process
         pid: int = os.fork()
         if pid == 0:  # run the search in the child process
-            # self._run_SerialBaseSearch()
-            self._run_ParallelBaseSearch()
+            self._run_SerialBaseSearch()
+            exit(0)
+            # self._run_ParallelBaseSearch()
         else:
-            os.wait()
+            status = os.wait()
+            print("[INFO] Search Status:")
+            pprint.pprint(status)
         # for idx in self.select_next_template(max_iter=5):
         #     template = self.template[idx]
         #     self._logger.info(STYLE+"[INFO] Template {}:{} Selected. UCT:{}".format(idx, template.template['name'], self.uct_score))
@@ -693,12 +560,8 @@ class Controller:
             log_dir=self.output_logs_dir,
         )
         report = searchMethod.search(num_iter=10)
-        candidate = report['configuration']
-        value = report['cross_validation_metrics'][0]['value']
-        print("-" * 20)
-        print("[INFO] Final Search Results:")
-        pprint.pprint(candidate)
-        print("[INFO] cross_validation_metrics:", value)
+
+        self._log_search_results(report=report)
 
     def _run_ParallelBaseSearch(self):
         searchMethod = TemplateSpaceParallelBaseSearch(
@@ -722,6 +585,8 @@ class Controller:
         print("[INFO] Final Search Results:")
         pprint.pprint(candidate)
         print("[INFO] cross_validation_metrics:", value)
+
+        self._log_search_results(candidate, value)
 
     def generate_dataset_splits(self):
         # For now just use the first template

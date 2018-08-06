@@ -2,6 +2,8 @@ import pandas as pd
 import typing
 import operator
 import logging
+import copy
+import math
 from pprint import pprint
 from functools import reduce
 
@@ -22,15 +24,18 @@ class ExecutionHistory:
                 'sim_count': int ????
             }
     """
-    def __init__(self, template_list: typing.List = [{'name': 'generic'}],
+    def __init__(self, template_list: typing.List = None,
                  key_attribute: str='cross_validation_metrics'):
 
         self.total_run = 0
         self.total_time = 0
 
+        template_names = map(lambda s: s.template["name"], template_list) if template_list else \
+            ['generic']
+
         self.storage = pd.DataFrame(
             None,
-            index=map(lambda s: s.template["name"], template_list),
+            index=template_names,
             columns=['training_metrics', 'cross_validation_metrics', 'test_metrics',
                      'sim_count', 'total_runtime', 'configuration'])
         self.storage[['total_runtime', 'sim_count']] = 0
@@ -40,6 +45,18 @@ class ExecutionHistory:
         self.storage['configuration'] = None
 
         self.key_attribute = key_attribute
+
+    def update_none(self, fail_report: typing.Dict, template_name: str = 'generic') -> None:
+
+        if fail_report is None:
+            fail_report = {}
+        if 'sim_count' not in fail_report:
+            fail_report['sim_count'] = 1
+        if 'total_runtime' not in fail_report:
+            fail_report['total_runtime'] = 0
+
+        self.update(report=fail_report, template_name=template_name)
+        return
 
     def update(self, report: typing.Dict, template_name: str='generic') -> None:
         """
@@ -66,12 +83,13 @@ class ExecutionHistory:
         Returns:
             None
         """
-
+        if 'sim_count' not in report:
+            report['sim_count'] = 1
         # update the global statistics
-        self.total_run += report['sim_count'] if 'sim_count' in report else 1
+        self.total_run += report['sim_count']
         self.total_time += report['total_runtime']
 
-        row = self.exec_history.loc[template_name]
+        row = self.storage.loc[template_name]
 
         # these fields will be updated no matter what is the result
         update = {
@@ -129,12 +147,12 @@ class ExecutionHistory:
         # check if the base contains all the metrics. If they are not valid it is either due to
         # uninitialized base (first update) or it is due to incomplete evaluation in previous
         # runs. The code will favor the most complete one between check and base.
-        check_comparison_metrics = ExecutionHistory.comparison_metrics
-        base_comparison_metrics = ExecutionHistory.comparison_metrics
+        check_comparison_metrics = copy.deepcopy(ExecutionHistory.comparison_metrics)
+        base_comparison_metrics = copy.deepcopy(ExecutionHistory.comparison_metrics)
         for s in ExecutionHistory.comparison_metrics:
-            if base[s] is None:
+            if base[s] is None or (isinstance(base[s], float) and math.isnan(base[s])):
                 base_comparison_metrics.remove(s)
-            if check[s] is None:
+            if s not in check or check[s] is None:
                 check_comparison_metrics.remove(s)
 
         # check if base is uninitialized
@@ -179,9 +197,9 @@ class ExecutionHistory:
         # return operator.and_(comparison_results[0], comparison_results[1])
         return comparison_results[key_attribute]
 
-    def _get_best_history(self) -> typing.List[typing.Dict]:
+    def get_best_history(self) -> typing.List[typing.Dict]:
         best = None
         for t_name, row in self.storage.iterrows():
-            if self._is_better(base=best, check=row, key_attribute=self.key_attribute):
+            if ExecutionHistory._is_better(base=best, check=row, key_attribute=self.key_attribute):
                 best = row
         return best.to_dict()

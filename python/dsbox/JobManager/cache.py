@@ -37,7 +37,7 @@ class CacheManager:
 
 
         """
-        print("[INFO] cleanup Cache Manager. candidate_cache:",len(self.candidate_cache.storage))
+        print("[INFO] cleanup Cache Manager. candidate_cache:", len(self.candidate_cache.storage))
         for m in self.manager:
             m.shutdown()
 
@@ -57,7 +57,6 @@ class CandidateCache:
             return self.storage[key]
         else:
             return (None, None)
-
 
     def push_None(self, candidate: ConfigurationPoint[T]) -> None:
         result = {
