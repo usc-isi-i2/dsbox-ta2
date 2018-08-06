@@ -9,6 +9,8 @@ import contextlib
 import logging
 import sys
 import tempfile
+import multiprocessing.managers
+
 from pandas import DataFrame
 from collections import defaultdict
 from sklearn.model_selection import KFold, StratifiedKFold  # type: ignore
@@ -181,6 +183,7 @@ class Runtime:
                         'worker_id': current_process()
                     },
                 )
+                _logger.debug('name: %s hyperparams: %s', prim_name, str(self.pipeline_description.steps[n_step].hyperparams))
 
                 if (prim_name, prim_hash) in cache:
                     # primitives_outputs[n_step],model =
@@ -191,11 +194,11 @@ class Runtime:
                         (prim_name, prim_hash)]
                     self.pipeline[n_step] = model
                     print("[INFO] Hit@cache:", (prim_name, prim_hash))
+                    _logger.debug("Hit@cache: (%s, %s)", prim_name, prim_hash)
 
                     # assert type()
 
                 else:
-                    print("[INFO] Push@cache:", (prim_name, prim_hash))
                     primitive_step: PrimitiveStep = \
                         typing.cast(PrimitiveStep,
                                     self.pipeline_description.steps[n_step]
@@ -208,14 +211,19 @@ class Runtime:
                                                  )
 
                     # add the entry to cache:
-                    # print("[INFO] Updating cache!")
-                    cache[(prim_name, prim_hash)] = (
-                        primitives_outputs[n_step].copy(), model)
+                    try:
+                        # copying back sklearn_wrap.SKGenericUnivariateSelect fails
+                        cache[(prim_name, prim_hash)] = (primitives_outputs[n_step].copy(), model)
+                        print("[INFO] Push@cache:", (prim_name, prim_hash))
+                        _logger.debug("Push@cache: (%s, %s)", prim_name, prim_hash)
+                    except multiprocessing.managers.RemoteError:
+                        _logger.info('Push Cache failed: (%s, %s)', prim_name, prim_hash)
+
                     if _logger.getEffectiveLevel() <= 10:
 
-                        _logger.debug('cache keys')
-                        for key in sorted(cache.keys()):
-                            _logger.debug('   {}'.format(key))
+                        # _logger.debug('cache keys')
+                        # for key in sorted(cache.keys()):
+                        #     _logger.debug('   {}'.format(key))
 
                         debug_file = os.path.join(
                             self.log_dir, 'dfs',
@@ -293,6 +301,7 @@ class Runtime:
             self.cross_validation_result = self._cross_validation(
                 primitive, training_arguments, produce_params, primitive_hyperparams, custom_hyperparams,
                 step.primitive_description['runtime'])
+
         model.set_training_data(**training_arguments)
         model.fit()
         self.pipeline[n_step] = model
@@ -462,7 +471,7 @@ class Runtime:
 
             if _logger.getEffectiveLevel() <= 10:
                 debug_file = os.path.join(self.log_dir, 'dfs',
-                                          'produce_{}_{}_{:02}_{}'.format(self.pipeline_description.id, self.fitted_pipeline_id, n_step, primitive_step.primitive))
+                                          'pro_{}_{}_{:02}_{}'.format(self.pipeline_description.id, self.fitted_pipeline_id, n_step, primitive_step.primitive))
                 _logger.debug(
                     "'id': '%(pipeline_id)s', 'fitted': '%(fitted_pipeline_id)s', 'name': '%(name)s', 'worker_id': '%(worker_id)s'. Output is written to: '%(path)s'.",
                     {
@@ -494,17 +503,17 @@ class Runtime:
             else:
                 pipeline_output.append(arguments[output[0][output[1]]])
         return pipeline_output
-    
+
     @staticmethod
     def _work_around_for_profiler(df):
         float_cols = utils.list_columns_with_semantic_types(df.metadata, ['http://schema.org/Float'])
-        
+
         for col in float_cols:
             old_metadata = dict(df.metadata.query((mbase.ALL_ELEMENTS, col)))
             if 'https://metadata.datadrivendiscovery.org/types/Attribute' not in old_metadata['semantic_types']:
                 old_metadata['semantic_types'] += ('https://metadata.datadrivendiscovery.org/types/Attribute',)
                 df.metadata = df.metadata.update((mbase.ALL_ELEMENTS, col), old_metadata)
-        
+
         return df
 
 
