@@ -244,7 +244,9 @@ class DimensionalSearch(typing.Generic[T]):
             sucessful_candidates = []
 
             # No need to evaluate if value is already known
+            reuse_candidate_value = False
             if candidate_value is not None and candidate[dimension] in selected:
+                reuse_candidate_value = True
                 selected.remove(candidate[dimension])
                 # also add this candidate to the succesfully_candidates to make comparisons easier
                 sucessful_candidates.append(candidate)
@@ -266,6 +268,7 @@ class DimensionalSearch(typing.Generic[T]):
             best_index = -1
             print('*' * 100)
             print("[INFO] Running Pool for step", dimension, ", fork_num:", len(new_candidates))
+            _logger.info("Running Pool for step {} fork_num: {}".format(dimension,  len(new_candidates)))
             sim_counter += len(new_candidates)
             # run all candidate pipelines in multi-processing mode
             try:
@@ -302,16 +305,15 @@ class DimensionalSearch(typing.Generic[T]):
                     x.data.update(res)
                     sucessful_candidates.append(x)
             except:
+                _logger.exception('Search dimension {}'.format(dimension))
                 traceback.print_exc()
 
-            # If all candidates failed, only the initial one in the score_values
-            if len(score_values) == 1:
-                print("[INFO] No new Candidate worked in this step!")
-                if not candidate:
-                    print("[ERROR] The template did not return any valid pipelines!")
-                    return (None, None)
-                else:
-                    continue
+            # If all candidates failed
+            if len(score_values) == 0 or (reuse_candidate_value and len(score_values) == 1):
+                print("[INFO] No candidates worked in this step!!")
+                _logger.info("No candidates worked in this step!")
+                continue
+
             # Find best candidate
             if self.minimize:
                 best_index = score_values.index(min(score_values))
@@ -321,10 +323,15 @@ class DimensionalSearch(typing.Generic[T]):
             # # for conditions that no test dataset given or in the new training mode
             # if sum(test_values) == 0 and cross_validation_values:
             #     best_index = best_cv_index
+
+            if _logger.getEffectiveLevel() <= 10:
+                _logger.debug('All score from step {}:{}'.format(dimension, ['{:0.4f}'.format(x) for x in score_values]))
             if cross_validation_mode:
-                print("[INFO] Best index:", best_index, " --> CV matrix score:", score_values[best_index])
+                print("[INFO] Best index:", best_index, " --> CV matric score:", score_values[best_index])
+                _logger.info("Best index: {} --> CV matric score: {}".format(best_index, score_values[best_index]))
             else:
-                print("[INFO] Best index:", best_index, " --> Test matrix score:", score_values[best_index])
+                print("[INFO] Best index:", best_index, " --> Test matric score:", score_values[best_index])
+                _logger.info("Best index: {} --> Test matric score: {}".format(best_index, score_values[best_index]))
 
             # put the best candidate pipeline and results to candidate
             candidate = sucessful_candidates[best_index]
@@ -405,8 +412,9 @@ class DimensionalSearch(typing.Generic[T]):
                 else:
                     return (candidate, result['test_metrics'][0]['value'])
             except:
+                _logger.warning('Initial Pipeline failed, Trying a random pipeline ...')
                 traceback.print_exc()
-                print("[ERROR] Initial Pipeline failed, Trying a random pipeline ...")
+                print("[WARN] Initial Pipeline failed, Trying a random pipeline ...")
                 pprint(candidate)
                 print("-" * 20)
                 candidate = ConfigurationPoint(self.configuration_space,
@@ -551,6 +559,7 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
         try:
             evaluation_result = self._evaluate(configuration, cache, dump2disk)
         except:
+            _logger.exception('Evaulate pipeline failed')
             traceback.print_exc()
             return None
         # configuration.data.update(new_data)
@@ -723,15 +732,26 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
             pprint(data)
             print("!!!!")
 
+            if _logger.getEffectiveLevel() <= 10:
+                _logger.info('fitted id: %(fitted_pipeline_id)s, metric: %(metric)s, value: %(value)0.2f',
+                             {
+                                 'fitted_pipeline_id' : fitted_pipeline2.id,
+                                 'metric' : data['test_metrics']['metric'],
+                                 'value' : data['test_metrics']['value']
+                             })
+
+            # Save fitted pipeline
             if self.output_directory is not None and dump2disk:
                 fitted_pipeline2.save(self.output_directory)
 
-            #     _logger.info("Test pickled pipeline. id: {}".format(fitted_pipeline2.id))
-            #     self.test_pickled_pipeline(folder_loc=self.output_directory,
-            #                                pipeline_id=fitted_pipeline2.id,
-            #                                test_dataset=self.train_dataset2[0],
-            #                                test_metrics=training_metrics,
-            #                                test_ground_truth=get_target_columns(self.train_dataset2[each_repeat], self.problem))
+            # Pickle test
+            if self.output_directory is not None and dump2disk:
+                _logger.info("Test pickled pipeline. id: {}".format(fitted_pipeline2.id))
+                self.test_pickled_pipeline(folder_loc=self.output_directory,
+                                           pipeline_id=fitted_pipeline2.id,
+                                           test_dataset=self.train_dataset2[0],
+                                           test_metrics=training_metrics,
+                                           test_ground_truth=get_target_columns(self.train_dataset2[each_repeat], self.problem))
         else:
             if self.quick_mode:
                 print("[INFO] Now in quick mode, will skip training with train_dataset1")
@@ -775,19 +795,22 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
             pprint(data)
             print("!!!!")
 
+            # Save fiteed pipeline
             if self.output_directory is not None and dump2disk:
                 fitted_pipeline2.save(self.output_directory)
 
-                # _ = fitted_pipeline2.produce(inputs=[self.test_dataset1])
-                # test_prediction3 = fitted_pipeline2.get_produce_step_output(self.template.get_output_step_number())
-                # _, test_metrics3 = self._calculate_score(None, None, test_ground_truth, test_prediction3)
+            # Pickle test
+            if self.output_directory is not None and dump2disk:
+                _ = fitted_pipeline2.produce(inputs=[self.test_dataset1])
+                test_prediction3 = fitted_pipeline2.get_produce_step_output(self.template.get_output_step_number())
+                _, test_metrics3 = self._calculate_score(None, None, test_ground_truth, test_prediction3)
 
-            #     _logger.info("Test pickled pipeline. id: {}".format(fitted_pipeline2.id))
-            #     self.test_pickled_pipeline(folder_loc=self.output_directory,
-            #                                pipeline_id=fitted_pipeline2.id,
-            #                                test_dataset=self.test_dataset1,
-            #                                test_metrics=test_metrics3,
-            #                                test_ground_truth=test_ground_truth)
+                _logger.info("Test pickled pipeline. id: {}".format(fitted_pipeline2.id))
+                self.test_pickled_pipeline(folder_loc=self.output_directory,
+                                           pipeline_id=fitted_pipeline2.id,
+                                           test_dataset=self.test_dataset1,
+                                           test_metrics=test_metrics3,
+                                           test_ground_truth=test_ground_truth)
 
         # still return the original fitted_pipeline with relation to train_dataset1
         return data
@@ -899,7 +922,7 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
 
         pipeline_prediction = fitted_pipeline.get_produce_step_output(self.template.get_output_step_number())
         pipeline_prediction = self.graph_problem_conversion(pipeline_prediction)
-        test_pipeline_metrics2 = self._calculate_score(None, None, test_ground_truth, pipeline_prediction)
+        _, test_pipeline_metrics2 = self._calculate_score(None, None, test_ground_truth, pipeline_prediction)
         test_pipeline_metrics = list()
         for metric_description in self.performance_metrics:
             metricDesc = PerformanceMetric.parse(metric_description['metric'])
@@ -939,7 +962,7 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
         print('=== test2')
         print(test_pipeline_metrics2)
 
-        pairs = zip(test_metrics, test_pipeline_metrics)
+        pairs = zip(test_metrics, test_pipeline_metrics2)
         if any(x != y for x, y in pairs):
             warn("[WARN] Test pickled pipeline mismatch. id: {}".format(fitted_pipeline.id))
             print(
@@ -957,6 +980,14 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
                     'test__metric': test_metrics,
                     'pickled_pipeline__metric': test_pipeline_metrics
                 },
+            )
+            print(
+                "Test pickled pipeline mismatch. 'id': '%(id)s', 'test__metric': '%(test__metric)s', 'pickled_pipeline__metric': '%(pickled_pipeline__metric)s'.".format(
+                    {
+                    'id': fitted_pipeline.id,
+                        'test__metric': test_metrics,
+                        'pickled_pipeline__metric': test_pipeline_metrics
+                    })
             )
             print("\n" * 5)
         else:
