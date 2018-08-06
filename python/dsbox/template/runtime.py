@@ -9,6 +9,8 @@ import contextlib
 import logging
 import sys
 import tempfile
+import multiprocessing.managers
+
 from pandas import DataFrame
 from collections import defaultdict
 from sklearn.model_selection import KFold, StratifiedKFold  # type: ignore
@@ -22,6 +24,9 @@ from d3m.metadata.base import Metadata
 from d3m.metadata.pipeline import Pipeline, PrimitiveStep, Resolver
 from d3m.primitive_interfaces import base
 from multiprocessing import current_process
+import common_primitives.utils as utils
+import d3m.metadata.base as mbase
+
 
 _logger = logging.getLogger(__name__)
 
@@ -178,6 +183,7 @@ class Runtime:
                         'worker_id': current_process()
                     },
                 )
+                _logger.debug('name: %s hyperparams: %s', prim_name, str(self.pipeline_description.steps[n_step].hyperparams))
 
                 if (prim_name, prim_hash) in cache:
                     # primitives_outputs[n_step],model =
@@ -188,11 +194,11 @@ class Runtime:
                         (prim_name, prim_hash)]
                     self.pipeline[n_step] = model
                     print("[INFO] Hit@cache:", (prim_name, prim_hash))
+                    _logger.debug("Hit@cache: (%s, %s)", prim_name, prim_hash)
 
                     # assert type()
 
                 else:
-                    print("[INFO] Push@cache:", (prim_name, prim_hash))
                     primitive_step: PrimitiveStep = \
                         typing.cast(PrimitiveStep,
                                     self.pipeline_description.steps[n_step]
@@ -205,14 +211,19 @@ class Runtime:
                                                  )
 
                     # add the entry to cache:
-                    # print("[INFO] Updating cache!")
-                    cache[(prim_name, prim_hash)] = (
-                        primitives_outputs[n_step].copy(), model)
+                    try:
+                        # copying back sklearn_wrap.SKGenericUnivariateSelect fails
+                        cache[(prim_name, prim_hash)] = (primitives_outputs[n_step].copy(), model)
+                        print("[INFO] Push@cache:", (prim_name, prim_hash))
+                        _logger.debug("Push@cache: (%s, %s)", prim_name, prim_hash)
+                    except multiprocessing.managers.RemoteError:
+                        _logger.info('Push Cache failed: (%s, %s)', prim_name, prim_hash)
+
                     if _logger.getEffectiveLevel() <= 10:
 
-                        _logger.debug('cache keys')
-                        for key in sorted(cache.keys()):
-                            _logger.debug('   {}'.format(key))
+                        # _logger.debug('cache keys')
+                        # for key in sorted(cache.keys()):
+                        #     _logger.debug('   {}'.format(key))
 
                         debug_file = os.path.join(
                             self.log_dir, 'dfs',
@@ -295,8 +306,13 @@ class Runtime:
         model.fit()
         self.pipeline[n_step] = model
 
-        produce_result = model.produce(**produce_params)
-        return produce_result.value, model
+        if str(primitive) == 'd3m.primitives.dsbox.Profiler':
+            this_step_result = model.produce(**produce_params).value
+            produce_result = self._work_around_for_profiler(this_step_result)
+        else:
+            produce_result = model.produce(**produce_params).value
+
+        return produce_result, model
 
     def _cross_validation(self, primitive: typing.Type[base.PrimitiveBase],
                           training_arguments: typing.Dict,
@@ -445,13 +461,17 @@ class Runtime:
                         continue
             if isinstance(self.pipeline_description.steps[n_step], PrimitiveStep):
                 if n_step in self.produce_order:
-                    steps_outputs[n_step] = self.pipeline[n_step].produce(**produce_arguments).value
+                    if str(primitive_step.primitive) == 'd3m.primitives.dsbox.Profiler':
+                        this_step_result = self.pipeline[n_step].produce(**produce_arguments).value
+                        steps_outputs[n_step] = self._work_around_for_profiler(this_step_result)
+                    else:
+                        steps_outputs[n_step] = self.pipeline[n_step].produce(**produce_arguments).value
                 else:
                     steps_outputs[n_step] = None
 
             if _logger.getEffectiveLevel() <= 10:
                 debug_file = os.path.join(self.log_dir, 'dfs',
-                                          'produce_{}_{}_{:02}_{}'.format(self.pipeline_description.id, self.fitted_pipeline_id, n_step, primitive_step.primitive))
+                                          'pro_{}_{}_{:02}_{}'.format(self.pipeline_description.id, self.fitted_pipeline_id, n_step, primitive_step.primitive))
                 _logger.debug(
                     "'id': '%(pipeline_id)s', 'fitted': '%(fitted_pipeline_id)s', 'name': '%(name)s', 'worker_id': '%(worker_id)s'. Output is written to: '%(path)s'.",
                     {
@@ -483,6 +503,18 @@ class Runtime:
             else:
                 pipeline_output.append(arguments[output[0][output[1]]])
         return pipeline_output
+
+    @staticmethod
+    def _work_around_for_profiler(df):
+        float_cols = utils.list_columns_with_semantic_types(df.metadata, ['http://schema.org/Float'])
+
+        for col in float_cols:
+            old_metadata = dict(df.metadata.query((mbase.ALL_ELEMENTS, col)))
+            if 'https://metadata.datadrivendiscovery.org/types/Attribute' not in old_metadata['semantic_types']:
+                old_metadata['semantic_types'] += ('https://metadata.datadrivendiscovery.org/types/Attribute',)
+                df.metadata = df.metadata.update((mbase.ALL_ELEMENTS, col), old_metadata)
+
+        return df
 
 
 def load_problem_doc(problem_doc_path: str) -> Metadata:

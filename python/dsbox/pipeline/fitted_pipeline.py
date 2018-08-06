@@ -1,5 +1,6 @@
 import os
 import json
+import logging
 import pickle
 import pprint
 import sys
@@ -16,6 +17,7 @@ from .utils import larger_is_better
 
 TP = typing.TypeVar('TP', bound='FittedPipeline')
 
+_logger = logging.getLogger(__name__)
 
 class FittedPipeline:
     """
@@ -59,6 +61,8 @@ class FittedPipeline:
 
         self.auxiliary: typing.Dict = {}
 
+        _logger.debug('Creating fitted pipeline %s', self.id)
+
     def _set_fitted(self, fitted_pipe: typing.List[StepBase]) -> None:
         self.runtime.pipeline = fitted_pipe
 
@@ -91,9 +95,11 @@ class FittedPipeline:
         self.metric = metric
 
     def fit(self, **arguments):
+        _logger.debug('Fitting fitted pipeline %s', self.id)
         self.runtime.fit(**arguments)
 
     def produce(self, **arguments):
+        _logger.debug('Producing fitted pipeline %s', self.id)
         self.runtime.produce(**arguments)
 
     def get_cross_validation_metrics(self) -> typing.List:
@@ -109,6 +115,7 @@ class FittedPipeline:
         '''
         Save the given fitted pipeline from TemplateDimensionalSearch
         '''
+        _logger.debug('Saving fitted pipeline %s', self.id)
         pipeline_dir = os.path.join(folder_loc, 'pipelines')
         executable_dir = os.path.join(folder_loc, 'executables')
         supporting_files_dir = os.path.join(folder_loc, 'supporting_files',
