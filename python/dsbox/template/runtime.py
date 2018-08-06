@@ -23,6 +23,8 @@ from d3m.metadata.pipeline import Pipeline, PrimitiveStep, Resolver
 from d3m.primitive_interfaces import base
 from multiprocessing import current_process
 import common_primitives.utils as utils
+import d3m.metadata.base as mbase
+
 
 _logger = logging.getLogger(__name__)
 
@@ -291,13 +293,17 @@ class Runtime:
             self.cross_validation_result = self._cross_validation(
                 primitive, training_arguments, produce_params, primitive_hyperparams, custom_hyperparams,
                 step.primitive_description['runtime'])
-
         model.set_training_data(**training_arguments)
         model.fit()
         self.pipeline[n_step] = model
 
-        produce_result = model.produce(**produce_params)
-        return produce_result.value, model
+        if str(primitive) == 'd3m.primitives.dsbox.Profiler':
+            this_step_result = model.produce(**produce_params).value
+            produce_result = self._work_around_for_profiler(this_step_result)
+        else:
+            produce_result = model.produce(**produce_params).value
+
+        return produce_result, model
 
     def _cross_validation(self, primitive: typing.Type[base.PrimitiveBase],
                           training_arguments: typing.Dict,
