@@ -482,7 +482,6 @@ class Controller:
             self._run_ParallelBaseSearch()
 
             print("[INFO] End of Search")
-            # os.kill(os.getpid(), 0)
             os._exit(0)
         else:
             status = os.wait()
