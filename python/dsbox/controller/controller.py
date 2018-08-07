@@ -28,6 +28,7 @@ import d3m
 import dsbox.template.runtime as runtime
 
 from d3m.metadata.problem import TaskType
+from d3m.container.pandas import DataFrame as d3m_DataFrame
 from d3m.container.dataset import Dataset
 from d3m.container.dataset import D3MDatasetLoader
 from d3m.exceptions import NotSupportedError
@@ -58,7 +59,7 @@ from sklearn.model_selection import StratifiedShuffleSplit, ShuffleSplit
 import pandas as pd
 
 FILE_FORMATTER = "[%(levelname)s] - %(asctime)s - %(name)s - %(message)s"
-FILE_LOGGING_LEVEL = logging.DEBUG
+FILE_LOGGING_LEVEL = logging.WARNING
 LOG_FILENAME = 'dsbox.log'
 CONSOLE_LOGGING_LEVEL = logging.INFO
 # CONSOLE_LOGGING_LEVEL = logging.DEBUG
@@ -238,7 +239,9 @@ class Controller:
 
         self.problem_info["task_type"] = self.problem['problem']['task_type'].name  # 'classification' 'regression'
         self.problem_info["res_id"] = self.problem['inputs'][i]['targets'][0]['resource_id']
-        self.problem_info["target_index"] = self.problem['inputs'][i]['targets'][0]['column_index']
+        self.problem_info["target_index"] = []
+        for each in self.problem['inputs'][i]['targets']:
+            self.problem_info["target_index"].append(each["column_index"]) 
 
     def _log_init(self) -> None:
         logging.basicConfig(
@@ -592,7 +595,7 @@ class Controller:
                 train_return.append(dataset)
                 test_return.append(None)
 
-        # if the dataset type can be split
+
         else:
             if task_type == 'CLASSIFICATION':
                 try:
@@ -615,9 +618,53 @@ class Controller:
                         train_return.append(dataset)
                         test_return.append(None)
 
+
+                        
+        # if the dataset type can be split
+        # else:
+        #     if task_type == 'CLASSIFICATION':
+        #         try:
+        #             # Use stratified sample to split the dataset
+        #             sss = StratifiedShuffleSplit(n_splits=n_splits, test_size=test_size, random_state=random_state)
+        #             sss.get_n_splits(dataset[res_id], dataset[res_id].iloc[:, target_index])
+                    
+
+        #             for train_index, test_index in sss.split(dataset[res_id], dataset[res_id].iloc[:, target_index]):
+
+        #                 indf = dataset[res_id]
+        #                 outdf_train = pd.DataFrame(columns = dataset[res_id].columns)
+        #                 outdf_test = pd.DataFrame(columns = dataset[res_id].columns)
+        #                 for each_index in train_index:
+        #                     outdf_train = outdf_train.append(indf.loc[each_index],ignore_index = True)
+        #                 for each_index in test_index:
+        #                     outdf_test = outdf_test.append(indf.loc[each_index],ignore_index = True)
+        #                 import pdb
+        #                 pdb.set_trace()
+        #                 outdf_train = d3m_DataFrame(outdf_train, generate_metadata = False)
+        #                 outdf_test = d3m_DataFrame(outdf_test, generate_metadata = False)
+        #                 outdf_train = outdf_train.set_index("d3mIndex", drop = False)
+        #                 outdf_test = outdf_test.set_index("d3mIndex", drop = False)
+        #                 train = _add_meta_data(dataset = dataset, res_id = res_id, input_part = outdf_train)
+        #                 #train = _add_meta_data(dataset = dataset, res_id = res_id, input_part = dataset[res_id].iloc[train_index, :])
+        #                 train_return.append(train)
+        #                 # for special condition that only need get part of the dataset
+        #                 if need_test_dataset:
+        #                     test = _add_meta_data(dataset = dataset, res_id = res_id, input_part = outdf_test)
+        #                     #test = _add_meta_data(dataset = dataset, res_id = res_id, input_part = dataset[res_id].iloc[test_index, :])
+        #                     test_return.append(test)
+        #                 else:
+        #                     test_return.append(None)
+        #         except:
+        #             # Do not split stratified shuffle fails
+        #             print('[Info] Not splitting dataset. Stratified shuffle failed')
+        #             for i in range(n_splits):
+        #                 train_return.append(dataset)
+        #                 test_return.append(None)
+
             else:
                 # Use random split
                 if not task_type == "REGRESSION":
+
                     print('USING Random Split to split task type: {}'.format(task_type))
                 ss = ShuffleSplit(n_splits=n_splits, test_size=test_size, random_state=random_state)
                 ss.get_n_splits(dataset[res_id])
@@ -808,21 +855,36 @@ class Controller:
             target_column_length = len(target_column_list)
             attribute_column_length = all_column_length - target_column_length - 1
             # skip the column 0 which is d3mIndex]
-            is_all_categorical = False
-            # The following part of code used to check whether all inputs are categorical or not
-            # Do not delete!!!
+            is_all_numerical = True
+            # check whether all inputs are categorical or not
             # for each_column in range(1, attribute_column_length + 1):
             #     each_metadata = self.all_dataset.metadata.query((res_id,ALL_ELEMENTS,each_column))
-            #     if ('http://schema.org/Float' or 'http://schema.org/Integer') not in each_metadata['semantic_types']:
-            #         is_all_categorical = False
+            #     if 'http://schema.org/Float' not in each_metadata['semantic_types'] or 'http://schema.org/Integer' not in each_metadata['semantic_types']:
+            #         is_all_numerical = False
             #         break
             # two ways to do sampling (random projection or random choice)
-            if is_all_categorical:
+            if is_all_numerical:
                 # TODO:
                 # add special template that use random projection directly
-                pass
+                # add one special source type for the template special process such kind of dataset
+                self._logger.info("Special type of dataset: large column number with all categorical columns.")
+                self._logger.info("Will reload the template with new task source type.")
+                self.taskSourceType.add("large_column_number")
+                # import pdb
+                # pdb.set_trace()
+                # # reload the template
+                # new_template = self.template_library.get_templates(self.task_type, self.task_subtype, self.taskSourceType)
+                # # find the maximum dataset split requirements
+                # for each_template in new_template:
+                #     for each_step in each_template.template['steps']:
+                #         if "runtime" in each_step and "test_validation" in each_step["runtime"]:
+                #             split_times = int(each_step["runtime"]["test_validation"])
+                #             if split_times > self.max_split_times:
+                #                 self.max_split_times = split_times
+                # new_template = new_template.extend(self.template)
+                self.load_templates()
 
-            else:
+            # else:
                 # run sampling method to randomly throw some columns
                 # update problem metadata
                 problem = dict(self.problem_doc_metadata.query(()))
@@ -876,7 +938,12 @@ class Controller:
                     metadata_class = metadata_old.query((res_id,ALL_ELEMENTS, each_target_column))
                     self.all_dataset.metadata = self.all_dataset.metadata.update((res_id,ALL_ELEMENTS, self.threshold_column_length + new_column_count + 1), metadata_class)
                 # update traget_index for spliting into train and test dataset
-                self.problem_info["target_index"] = self.threshold_column_length + target_column_length
+               
+                if type(self.problem_info["target_index"]) is list:
+                    for i in range(len(self.problem_info["target_index"])): 
+                        self.problem_info["target_index"][i] = self.threshold_column_length + i + 1
+                else:
+                    self.problem_info["target_index"] = self.threshold_column_length + target_column_length
 
                 self._logger.info("Random sampling on columns Finished.")
 
@@ -920,6 +987,7 @@ class Controller:
 
         best_metric_value = None
         best_report = None
+        self._logger.info("Preparing finished, now go to template search process.")
 
         for idx in self.select_next_template(max_iter=5):
             template = self.template[idx]
