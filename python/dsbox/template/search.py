@@ -751,7 +751,7 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
                                            pipeline_id=fitted_pipeline2.id,
                                            test_dataset=self.train_dataset2[0],
                                            test_metrics=training_metrics,
-                                           test_ground_truth=get_target_columns(self.train_dataset2[each_repeat], self.problem))
+                                           test_ground_truth=get_target_columns(self.train_dataset2[0], self.problem))
         else:
             if self.quick_mode:
                 print("[INFO] Now in quick mode, will skip training with train_dataset1")

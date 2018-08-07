@@ -59,7 +59,7 @@ from sklearn.model_selection import StratifiedShuffleSplit, ShuffleSplit
 import pandas as pd
 
 FILE_FORMATTER = "[%(levelname)s] - %(asctime)s - %(name)s - %(message)s"
-FILE_LOGGING_LEVEL = logging.WARNING
+FILE_LOGGING_LEVEL = logging.DEBUG
 LOG_FILENAME = 'dsbox.log'
 CONSOLE_LOGGING_LEVEL = logging.INFO
 # CONSOLE_LOGGING_LEVEL = logging.DEBUG
@@ -595,19 +595,34 @@ class Controller:
                 train_return.append(dataset)
                 test_return.append(None)
 
-
+        # if the dataset type can be split
         else:
             if task_type == 'CLASSIFICATION':
                 try:
                     # Use stratified sample to split the dataset
                     sss = StratifiedShuffleSplit(n_splits=n_splits, test_size=test_size, random_state=random_state)
                     sss.get_n_splits(dataset[res_id], dataset[res_id].iloc[:, target_index])
+
                     for train_index, test_index in sss.split(dataset[res_id], dataset[res_id].iloc[:, target_index]):
-                        train = _add_meta_data(dataset = dataset, res_id = res_id, input_part = dataset[res_id].iloc[train_index, :])
+                        indf = dataset[res_id]
+                        outdf_train = pd.DataFrame(columns = dataset[res_id].columns)
+                        for each_index in train_index:
+                            outdf_train = outdf_train.append(indf.loc[each_index],ignore_index = True)
+                        outdf_train = d3m_DataFrame(outdf_train, generate_metadata = False)
+                        outdf_train = outdf_train.set_index("d3mIndex", drop = False)
+                        train = _add_meta_data(dataset = dataset, res_id = res_id, input_part = outdf_train)
+                        #train = _add_meta_data(dataset = dataset, res_id = res_id, input_part = dataset[res_id].iloc[train_index, :])
                         train_return.append(train)
+
                         # for special condition that only need get part of the dataset
                         if need_test_dataset:
-                            test = _add_meta_data(dataset = dataset, res_id = res_id, input_part = dataset[res_id].iloc[test_index, :])
+                            outdf_test = pd.DataFrame(columns = dataset[res_id].columns)
+                            for each_index in test_index:
+                                outdf_test = outdf_test.append(indf.loc[each_index],ignore_index = True)
+                            outdf_test = d3m_DataFrame(outdf_test, generate_metadata = False)
+                            outdf_test = outdf_test.set_index("d3mIndex", drop = False)
+                            test = _add_meta_data(dataset = dataset, res_id = res_id, input_part = outdf_test)
+                            #test = _add_meta_data(dataset = dataset, res_id = res_id, input_part = dataset[res_id].iloc[test_index, :])
                             test_return.append(test)
                         else:
                             test_return.append(None)
@@ -617,49 +632,6 @@ class Controller:
                     for i in range(n_splits):
                         train_return.append(dataset)
                         test_return.append(None)
-
-
-                        
-        # if the dataset type can be split
-        # else:
-        #     if task_type == 'CLASSIFICATION':
-        #         try:
-        #             # Use stratified sample to split the dataset
-        #             sss = StratifiedShuffleSplit(n_splits=n_splits, test_size=test_size, random_state=random_state)
-        #             sss.get_n_splits(dataset[res_id], dataset[res_id].iloc[:, target_index])
-                    
-
-        #             for train_index, test_index in sss.split(dataset[res_id], dataset[res_id].iloc[:, target_index]):
-
-        #                 indf = dataset[res_id]
-        #                 outdf_train = pd.DataFrame(columns = dataset[res_id].columns)
-        #                 outdf_test = pd.DataFrame(columns = dataset[res_id].columns)
-        #                 for each_index in train_index:
-        #                     outdf_train = outdf_train.append(indf.loc[each_index],ignore_index = True)
-        #                 for each_index in test_index:
-        #                     outdf_test = outdf_test.append(indf.loc[each_index],ignore_index = True)
-        #                 import pdb
-        #                 pdb.set_trace()
-        #                 outdf_train = d3m_DataFrame(outdf_train, generate_metadata = False)
-        #                 outdf_test = d3m_DataFrame(outdf_test, generate_metadata = False)
-        #                 outdf_train = outdf_train.set_index("d3mIndex", drop = False)
-        #                 outdf_test = outdf_test.set_index("d3mIndex", drop = False)
-        #                 train = _add_meta_data(dataset = dataset, res_id = res_id, input_part = outdf_train)
-        #                 #train = _add_meta_data(dataset = dataset, res_id = res_id, input_part = dataset[res_id].iloc[train_index, :])
-        #                 train_return.append(train)
-        #                 # for special condition that only need get part of the dataset
-        #                 if need_test_dataset:
-        #                     test = _add_meta_data(dataset = dataset, res_id = res_id, input_part = outdf_test)
-        #                     #test = _add_meta_data(dataset = dataset, res_id = res_id, input_part = dataset[res_id].iloc[test_index, :])
-        #                     test_return.append(test)
-        #                 else:
-        #                     test_return.append(None)
-        #         except:
-        #             # Do not split stratified shuffle fails
-        #             print('[Info] Not splitting dataset. Stratified shuffle failed')
-        #             for i in range(n_splits):
-        #                 train_return.append(dataset)
-        #                 test_return.append(None)
 
             else:
                 # Use random split
@@ -686,8 +658,7 @@ class Controller:
             First read the fitted pipeline and then run trained pipeline on test data.
         """
         self._logger.info("[INFO] Start test function")
-        outputs_loc, pipeline_load, read_pipeline_id, run_test = \
-            self.load_pipe_runtime()
+        outputs_loc, pipeline_load, read_pipeline_id, run_test = self.load_pipe_runtime()
 
         self._logger.info("[INFO] Pipeline load finished")
 
@@ -870,19 +841,16 @@ class Controller:
                 self._logger.info("Special type of dataset: large column number with all categorical columns.")
                 self._logger.info("Will reload the template with new task source type.")
                 self.taskSourceType.add("large_column_number")
-                # import pdb
-                # pdb.set_trace()
-                # # reload the template
-                # new_template = self.template_library.get_templates(self.task_type, self.task_subtype, self.taskSourceType)
-                # # find the maximum dataset split requirements
-                # for each_template in new_template:
-                #     for each_step in each_template.template['steps']:
-                #         if "runtime" in each_step and "test_validation" in each_step["runtime"]:
-                #             split_times = int(each_step["runtime"]["test_validation"])
-                #             if split_times > self.max_split_times:
-                #                 self.max_split_times = split_times
-                # new_template = new_template.extend(self.template)
-                self.load_templates()
+                # aadd new template specially for large column numbers at the first priority
+                new_template = self.template_library.get_templates(self.task_type, self.task_subtype, self.taskSourceType)
+                # find the maximum dataset split requirements
+                for each_template in new_template:
+                    self.template.insert(0,each_template)
+                    for each_step in each_template.template['steps']:
+                        if "runtime" in each_step and "test_validation" in each_step["runtime"]:
+                            split_times = int(each_step["runtime"]["test_validation"])
+                            if split_times > self.max_split_times:
+                                self.max_split_times = split_times
 
             # else:
                 # run sampling method to randomly throw some columns
