@@ -59,7 +59,6 @@ class TemplateLibrary:
             "classification_with_feature_selection":ClassificationWithSelection,
             "regression_with_feature_selection":RegressionWithSelection,
 
-            "fast_classification_template": FastClassificationTemplate,
             "Large_column_number_with_numerical_only_claasification":Large_column_number_with_numerical_only_claasification,
             "Large_column_number_with_numerical_only_regression":Large_column_number_with_numerical_only_regression,
             # new classification
@@ -165,7 +164,6 @@ class TemplateLibrary:
         # template that gives us the mean baseline as a result
         self.templates.append(SRIMeanBaselineTemplate)
         # a classification template that skips a couple of steps but shouldn't do so well
-        # self.templates.append(FastClassificationTemplate)
 
         # default tabular templates, encompassing many of the templates below
         self.templates.append(DefaultClassificationTemplate)
@@ -260,65 +258,6 @@ class SemanticTypeDict(object):
 
         # return SimpleConfigurationSpace(definition)
         return definition
-
-
-# Returns a fast template
-def dsbox_fast_steps(data : str = "data", target : str = "target"):
-    return [
-        {
-            "name": "denormalize_step",
-            "primitives": ["d3m.primitives.dsbox.Denormalize"],
-            "inputs": ["template_input"]
-        },
-        {
-            "name": "to_dataframe_step",
-            "primitives": ["d3m.primitives.datasets.DatasetToDataFrame"],
-            "inputs": ["denormalize_step"]
-        },
-        {
-            "name": "extract_attribute_step",
-            "primitives": [{
-                "primitive": "d3m.primitives.data.ExtractColumnsBySemanticTypes",
-                "hyperparameters":
-                    {
-                        'semantic_types': (
-                            'https://metadata.datadrivendiscovery.org/types/Attribute',),
-                        'use_columns': (),
-                        'exclude_columns': ()
-                    }
-            }],
-            "inputs": ["to_dataframe_step"]
-        },
-        {
-            "name": "impute_step",
-            "primitives": ["d3m.primitives.dsbox.MeanImputation"],
-            "inputs": ["extract_attribute_step"]
-        },
-        {
-            "name": data,
-            "primitives": [
-                {
-                    "primitive": "d3m.primitives.data.CastToType",
-                    "hyperparameters": {"type_to_cast": ["float"]}
-                },
-                "d3m.primitives.dsbox.DoNothing",
-            ],
-            "inputs": ["impute_step"]
-        },
-        {
-            "name": target,
-            "primitives": [{
-                "primitive": "d3m.primitives.data.ExtractColumnsBySemanticTypes",
-                "hyperparameters":
-                    {
-                        'semantic_types': ('https://metadata.datadrivendiscovery.org/types/TrueTarget',),
-                        'use_columns': (),
-                        'exclude_columns': ()
-                    }
-            }],
-            "inputs": ["to_dataframe_step"]
-        },
-    ]
 
 
 # Returns a list of dicts with the most common steps
@@ -3493,60 +3432,6 @@ class NaiveBayesClassificationTemplate(DSBoxTemplate):
                             "hyperparameters":
                                 {
                                     'alpha': [0, .5, 1]
-                                }
-                        },
-                    ],
-                    "inputs": ["data", "target"]
-                }
-            ]
-        }
-
-    # @override
-    def importance(datset, problem_description):
-        return 7
-
-
-# a template that skips some steps but should be faster
-class FastClassificationTemplate(DSBoxTemplate):
-    def __init__(self):
-        DSBoxTemplate.__init__(self)
-        self.template = {
-            "name": "fast_classification_template",
-            "taskSubtype": {TaskSubtype.BINARY.name, TaskSubtype.MULTICLASS.name},
-            "taskType": TaskType.CLASSIFICATION.name,
-            # See TaskType, range include 'CLASSIFICATION', 'CLUSTERING', 'COLLABORATIVE_FILTERING',
-            # 'COMMUNITY_DETECTION', 'GRAPH_CLUSTERING', 'GRAPH_MATCHING', 'LINK_PREDICTION',
-            # 'REGRESSION', 'TIME_SERIES_FORECASTING', 'VERTEX_NOMINATION'
-            "inputType": "table",  # See SEMANTIC_TYPES.keys() for range of values
-            "output": "model_step",  # Name of the final step generating the prediction
-            "target": "extract_target_step",  # Name of the step generating the ground truth
-            "steps": dsbox_fast_steps() + [
-                {
-                    "name": "model_step",
-                    "runtime": {
-                        "cross_validation": 10,
-                        "stratified": True
-                    },
-                    "primitives": [
-                        {
-                            "primitive":
-                                "d3m.primitives.sklearn_wrap.SKBernoulliNB",
-                            "hyperparameters":
-                                {
-                                }
-                        },
-                        {
-                            "primitive":
-                                "d3m.primitives.sklearn_wrap.SKGaussianNB",
-                            "hyperparameters":
-                                {
-                                }
-                        },
-                        {
-                            "primitive":
-                                "d3m.primitives.sklearn_wrap.SKMultinomialNB",
-                            "hyperparameters":
-                                {
                                 }
                         },
                     ],
