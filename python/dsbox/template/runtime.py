@@ -199,6 +199,8 @@ class Runtime:
                     # assert type()
 
                 else:
+                    print("[INFO] Push@cache:", (prim_name, prim_hash))
+                    _logger.debug("Push@cache: (%s, %s)", prim_name, prim_hash)
                     primitive_step: PrimitiveStep = \
                         typing.cast(PrimitiveStep,
                                     self.pipeline_description.steps[n_step]
@@ -214,8 +216,6 @@ class Runtime:
                     try:
                         # copying back sklearn_wrap.SKGenericUnivariateSelect fails
                         cache[(prim_name, prim_hash)] = (primitives_outputs[n_step].copy(), model)
-                        print("[INFO] Push@cache:", (prim_name, prim_hash))
-                        _logger.debug("Push@cache: (%s, %s)", prim_name, prim_hash)
                     except:
                         _logger.info('Push Cache failed: (%s, %s)', prim_name, prim_hash)
 
@@ -305,6 +305,11 @@ class Runtime:
         model.set_training_data(**training_arguments)
         model.fit()
         self.pipeline[n_step] = model
+
+        if str(primitive) == 'd3m.primitives.dsbox.Encoder':
+            total_columns =  self._total_encoder_columns(model, produce_params['inputs'])
+            if total_columns > 500:
+                raise Exception('Total column limit exceeded after encoding: {}'.format(total_columns))
 
         if str(primitive) == 'd3m.primitives.dsbox.Profiler':
             this_step_result = model.produce(**produce_params).value
@@ -503,6 +508,14 @@ class Runtime:
             else:
                 pipeline_output.append(arguments[output[0][output[1]]])
         return pipeline_output
+
+    @staticmethod
+    def _total_encoder_columns(encoder_primitive, df):
+        count = df.shape[1] - len(encoder_primitive._empty_columns) - len(encoder_primitive._cat_columns)
+        for values in encoder_primitive._mapping.values():
+            count += len(values) + 1
+        _logger.info('Encoder: column count before={} after={}'.format(df.shape[1], count))
+        return count
 
     @staticmethod
     def _work_around_for_profiler(df):
