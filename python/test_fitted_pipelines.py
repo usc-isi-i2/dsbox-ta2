@@ -32,7 +32,7 @@ def load_one_pipeline(path) -> tuple:
 
     with open(path, "r") as f:
         pipeline = json.load(f)
-        return (pipeline["fitted_pipeline_id"], pipeline["pipeline_rank"])
+        return (pipeline["id"], pipeline["pipeline_rank"])
 
 
 def load_for_dataset(path, res) -> list:
@@ -154,6 +154,7 @@ def score_prediction(prediction_file, ground_truth_dir) -> dict:
     using NIST to score the result and return a dict that contain informations
     '''
     res = {}
+    return res
 
 
 def main(args):
@@ -166,19 +167,22 @@ def main(args):
         dataset, problem = load_test_dataset_for_pipeline(os.path.join(args.configs, dataset_pipeline))
         print("Using dataset", dataset, "and problem description", problem)
         fitted_pipelines = create_fitted_pipelines_for_dataset(folder_path, run_pipelines[dataset_pipeline], os.path.join(folder_path, "logs"))
-        import pdb
-        pdb.set_trace()
-        for fitted_pipeline, run, pid in fitted_pipelines:
-
+        for fitted_pipeline, run in fitted_pipelines:
             '''
             sequence associate with rank
             '''
-
             # print(fitted_pipelines)
-            fname = pid + ".csv"
-            saving_path = os.path.join(folder_path, "results", fname)
+            fname = fitted_pipeline.id + ".csv"
+            dir_path = os.path.join(folder_path, "results")
+            # if not os.path.exists(dir_path):
+            #     try:
+            #         os.makedirs(os.path.dirname(dir_path))
+            #     except:
+            #         print("path not created.")
+            os.makedirs(dir_path, exist_ok=True)
+            saving_path = os.path.join(dir_path, fname)
             prediction_file = predict_and_write(fitted_pipeline, dataset, problem, saving_path)
-            score_prediction(prediction_file)
+            # score_prediction(prediction_file)
             # fitted_pipeline.produce(inputs =[dataset])
             # prediction = fitted_pipeline.produce_outputs[-1]
     # print(run_pipelines)
