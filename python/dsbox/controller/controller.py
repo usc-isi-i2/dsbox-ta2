@@ -206,6 +206,8 @@ class Controller:
 
         self._log_init()
         self._logger.info('Top level output directory: %s' % self.output_directory)
+        considered_root = os.path.join(os.path.dirname(self.output_pipelines_dir), 'pipelines_considered')
+        self._logger.info('Considered output directory: %s' % considered_root)
 
     def _load_schema(self, config):
         # Do not use
@@ -243,7 +245,7 @@ class Controller:
         self.problem_info["res_id"] = self.problem['inputs'][i]['targets'][0]['resource_id']
         self.problem_info["target_index"] = []
         for each in self.problem['inputs'][i]['targets']:
-            self.problem_info["target_index"].append(each["column_index"]) 
+            self.problem_info["target_index"].append(each["column_index"])
 
     def _log_init(self) -> None:
         logging.basicConfig(
@@ -263,7 +265,7 @@ class Controller:
         console.setFormatter(logging.Formatter(CONSOLE_FORMATTER))
         console.setLevel(CONSOLE_LOGGING_LEVEL)
         self._logger.addHandler(console)
-    
+
     def _process_pipeline_submission(self) -> None:
         pipelines_root: str = self.output_pipelines_dir
         # os.path.join(os.path.dirname(executables_root), 'pipelines')
@@ -298,13 +300,15 @@ class Controller:
         for name in pipelines_df.index[20:]:
             pipeName = name.split('.')[0]
             try:
-                os.remove(os.path.join(executables_root, pipeName))
+                os.remove(os.path.join(executables_root, pipeName + '.json'))
             except FileNotFoundError:
+                traceback.print_exc()
                 pass
 
             try:
                 shutil.rmtree(os.path.join(supporting_root, pipeName))
             except FileNotFoundError:
+                traceback.print_exc()
                 pass
 
     '''
@@ -856,7 +860,7 @@ class Controller:
 
         if main_res_shape[1] > self.threshold_column_length:
             self._logger.info("The columns number of the input dataset is very large, now sampling part of them.")
-            
+
             # first check the target column amount
             target_column_list = []
             all_column_length = self.all_dataset.metadata.query((res_id,ALL_ELEMENTS))['dimension']['length']
@@ -964,7 +968,7 @@ class Controller:
                 self.all_dataset.metadata = metadata_new
                 # update traget_index for spliting into train and test dataset
                 if type(self.problem_info["target_index"]) is list:
-                    for i in range(len(self.problem_info["target_index"])): 
+                    for i in range(len(self.problem_info["target_index"])):
                         self.problem_info["target_index"][i] = self.threshold_column_length + i + 1
                 else:
                     self.problem_info["target_index"] = self.threshold_column_length + target_column_length
@@ -1120,7 +1124,7 @@ class Controller:
         # load trained pipelines
         self._logger.info("[WARN] write_training_results")
         self._process_pipeline_submission()
-        
+
         if len(self.exec_history) == 0:
             return None
 

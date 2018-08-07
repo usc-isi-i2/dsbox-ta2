@@ -2,6 +2,7 @@ import time
 import json
 import os
 import signal
+import subprocess
 import traceback
 from pprint import pprint
 
@@ -9,6 +10,19 @@ from dsbox.controller.controller import Controller
 from dsbox.controller.controller import Status
 
 start_time = time.time()
+
+def kill_child_processes(parent_pid, sig=signal.SIGTERM):
+    ps_command = subprocess.Popen("ps -o pid --ppid %d --noheaders" % parent_pid, shell=True, stdout=subprocess.PIPE)
+    ps_output = ps_command.stdout.read()
+    retcode = ps_command.wait()
+    assert retcode == 0, "ps command returned %d" % retcode
+    print('parent id={}'.format(parent_pid), flush=True)
+    for pid_str in ps_output.decode('utf-8').split("\n")[:-1]:
+        try:
+            print('chdild id={}'.format(pid_str), flush=True)
+            os.kill(int(pid_str), sig)
+        except:
+            pass
 
 def main():
     timeout = 0
@@ -36,10 +50,16 @@ def main():
             # Reset to handlers to default as not to output multiple times
             signal.signal(signal.SIGALRM, signal.SIG_DFL)
 
+            print('[INFO] Killing child processes', flush=True)
+            process_id = os.getpid()
+            kill_child_processes(process_id)
+
+            print('[INFO] writing results', flush=True)
             controller.write_training_results()
-            print('==== Done cleaning up ====')
+
+            print('==== Done cleaning up ====', flush=True)
             time_used = (time.time() - start_time) / 60.0
-            print("[INFO] The time used so far is {:0.2f} minutes.".format(time_used))
+            print("[INFO] The time used so far is {:0.2f} minutes.".format(time_used), flush=True)
         except Exception as e:
             print(e)
             traceback.print_exc()

@@ -4,12 +4,12 @@
 Command Line Interface for running the DSBox TA2 Search
 """
 import time
-start_time = time.time()
 from dsbox_dev_setup import path_setup
 import argparse
 import json
 import os
 import signal
+import subprocess
 import sys
 import traceback
 from pprint import pprint
@@ -24,6 +24,20 @@ import os
 
 import getpass
 
+start_time = time.time()
+
+def kill_child_processes(parent_pid, sig=signal.SIGTERM):
+    ps_command = subprocess.Popen("ps -o pid --ppid %d --noheaders" % parent_pid, shell=True, stdout=subprocess.PIPE)
+    ps_output = ps_command.stdout.read()
+    retcode = ps_command.wait()
+    assert retcode == 0, "ps command returned %d" % retcode
+    print('parent id={}'.format(parent_pid), flush=True)
+    for pid_str in ps_output.decode('utf-8').split("\n")[:-1]:
+        try:
+            print('chdild id={}'.format(pid_str), flush=True)
+            os.kill(int(pid_str), sig)
+        except:
+            pass
 
 def main(args):
 
@@ -35,30 +49,6 @@ def main(args):
 
     with open(configuration_file) as data:
         config = json.load(data)
-
-    # Define signal handler to exit gracefully
-    def write_results_and_exit(a_signal, frame):
-        print('==== Times up ====')
-        time_used = (time.time() - start_time) / 60.0
-        print("[INFO] The time used so far is {:0.2f} minutes.".format(time_used))
-        try:
-            # Reset to handlers to default as not to output multiple times
-            signal.signal(signal.SIGALRM, signal.SIG_DFL)
-
-            controller.write_training_results()
-            print('==== Done cleaning up ====')
-            time_used = (time.time() - start_time) / 60.0
-            print("[INFO] The time used so far is {:0.2f} minutes.".format(time_used))
-        except Exception as e:
-            print(e)
-            traceback.print_exc()
-        finally:
-            # sys.exit(0) generates SystemExit exception, which may
-            # be caught and ignored.
-
-            # This os._exit() cannot be caught.
-            # print('SIGNAL exiting {}'.format(configuration_file), flush=True)
-            os._exit(0)
 
     # Time to write results (in minutes)
     write_results_time = 3
@@ -73,6 +63,36 @@ def main(args):
             config['timeout'] = timeout
 
     print('[INFO] Time out is ', timeout)
+
+    # Define signal handler to exit gracefully
+    def write_results_and_exit(a_signal, frame):
+        print('==== Times up ====')
+        time_used = (time.time() - start_time) / 60.0
+        print("[INFO] The time used so far is {:0.2f} minutes.".format(time_used))
+        try:
+            # Reset to handlers to default as not to output multiple times
+            signal.signal(signal.SIGALRM, signal.SIG_DFL)
+
+            print('[INFO] Killing child processes', flush=True)
+            process_id = os.getpid()
+            kill_child_processes(process_id)
+
+            print('[INFO] writing results', flush=True)
+            controller.write_training_results()
+
+            print('==== Done cleaning up ====', flush=True)
+            time_used = (time.time() - start_time) / 60.0
+            print("[INFO] The time used so far is {:0.2f} minutes.".format(time_used), flush=True)
+        except Exception as e:
+            print(e)
+            traceback.print_exc()
+        finally:
+            # sys.exit(0) generates SystemExit exception, which may
+            # be caught and ignored.
+
+            # This os._exit() cannot be caught.
+            # print('SIGNAL exiting {}'.format(configuration_file), flush=True)
+            os._exit(0)
 
     if timeout > 0:
         signal.signal(signal.SIGALRM, write_results_and_exit)
