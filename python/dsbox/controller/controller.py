@@ -34,7 +34,7 @@ from d3m.container.dataset import D3MDatasetLoader
 from d3m.exceptions import NotSupportedError
 from d3m.exceptions import InvalidArgumentValueError
 from d3m.metadata.base import ALL_ELEMENTS
-from d3m.metadata.base import Metadata
+from d3m.metadata.base import Metadata, DataMetadata
 from d3m.metadata.problem import TaskSubtype
 from d3m.metadata.problem import parse_problem_description
 
@@ -880,33 +880,44 @@ class Controller:
                 # updating problem_doc_metadata finished
 
                 all_attribute_columns = range(1, attribute_column_length + 1)
-                # remove the old metadata which should not exist now
-                # it should be done first, otherwise the remove operation will failed
+
+                # generate new metadata
+                metadata_new = DataMetadata()
+                # update whole source description
+                metadata_new = metadata_new.update((), self.all_dataset.metadata.query(()))
+                metadata_new = metadata_new.update((res_id,), self.all_dataset.metadata.query((res_id,)))
+                # update column 0 (d3mIndex) metadata
+                metadata_new = metadata_new.update((res_id,ALL_ELEMENTS,0), self.all_dataset.metadata.query((res_id,ALL_ELEMENTS,0)))
                 metadata_old = copy.copy(self.all_dataset.metadata)
-                for each_removed_column in range(self.threshold_column_length + 1 + target_column_length, attribute_column_length + 1 + target_column_length):
-                    self.all_dataset.metadata = self.all_dataset.metadata.remove((res_id,ALL_ELEMENTS, each_removed_column))
-                # remove columns
-                throw_columns = random.sample(all_attribute_columns, attribute_column_length - self.threshold_column_length)
-                self.all_dataset[res_id] = common_primitives_utils.remove_columns(self.all_dataset[res_id], throw_columns, source='ISI DSBox')
+                # generate the remained column index randomly and sort it
+                remained_columns = random.sample(all_attribute_columns, self.threshold_column_length)
+                remained_columns.sort()
+                remained_columns.insert(0,0)
+                remained_columns.extend(target_column_list)
+                # sample the dataset
+                self.all_dataset[res_id] = self.all_dataset[res_id].iloc[:,remained_columns]
 
                 # update metadata on column information
                 new_column_meta = dict(self.all_dataset.metadata.query((res_id,ALL_ELEMENTS)))
                 new_column_meta['dimension'] = dict(new_column_meta['dimension'])
                 new_column_meta['dimension']['length'] = self.threshold_column_length + 1 + target_column_length
-                self.all_dataset.metadata = self.all_dataset.metadata.update((res_id,ALL_ELEMENTS),new_column_meta)
+                metadata_new = metadata_new.update((res_id,ALL_ELEMENTS), new_column_meta)
 
                 # update the metadata on attribute column
-                remained_columns = set(all_attribute_columns) - set(throw_columns)
                 for new_column_count, each_remained_column in enumerate(remained_columns):
-                    metadata_old_each = metadata_old.query((res_id,ALL_ELEMENTS, each_remained_column))
-                    self.all_dataset.metadata = self.all_dataset.metadata.update((res_id,ALL_ELEMENTS, new_column_count + 1), metadata_old_each)
+                    old_selector = (res_id, ALL_ELEMENTS, each_remained_column)
+                    new_selector = (res_id, ALL_ELEMENTS, new_column_count + 1)
+                    metadata_new = metadata_new.update(new_selector, metadata_old.query(old_selector))
 
                 # update class column
                 for new_column_count, each_target_column in enumerate(target_column_list):
-                    metadata_class = metadata_old.query((res_id,ALL_ELEMENTS, each_target_column))
-                    self.all_dataset.metadata = self.all_dataset.metadata.update((res_id,ALL_ELEMENTS, self.threshold_column_length + new_column_count + 1), metadata_class)
+                    old_selector = (res_id,ALL_ELEMENTS, each_target_column)
+                    new_selector = (res_id,ALL_ELEMENTS, self.threshold_column_length + new_column_count + 1)
+                    metadata_new = metadata_new.update(new_selector, metadata_old.query(old_selector))
+
+                # update the new metadata to replace the old one
+                self.all_dataset.metadata = metadata_new
                 # update traget_index for spliting into train and test dataset
-               
                 if type(self.problem_info["target_index"]) is list:
                     for i in range(len(self.problem_info["target_index"])): 
                         self.problem_info["target_index"][i] = self.threshold_column_length + i + 1
