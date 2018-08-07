@@ -47,10 +47,11 @@ from dsbox.template.library import TemplateLibrary
 from dsbox.template.library import SemanticTypeDict
 from dsbox.template.configuration_space import ConfigurationSpace
 from dsbox.template.configuration_space import SimpleConfigurationSpace
-from dsbox.combinatorial_search.dimensional_search import TemplateRandomDimensionalSearch
 from dsbox.combinatorial_search.TemplateSpaceBaseSearch import TemplateSpaceBaseSearch
 from dsbox.combinatorial_search.TemplateSpaceParallelBaseSearch import \
     TemplateSpaceParallelBaseSearch
+from dsbox.combinatorial_search.RandomDimensionalSearch import RandomDimensionalSearch
+
 from dsbox.combinatorial_search.search_utils import get_target_columns
 from dsbox.combinatorial_search.search_utils import random_choices_without_replacement
 from dsbox.template.template import DSBoxTemplate
@@ -420,6 +421,8 @@ class Controller:
         # load trained pipelines
         self._logger.info("[WARN] write_training_results")
 
+        # FIXME) This method does not serve any purpose at the moment. Maybe it needs to be
+        # FIXME) removed totally
         # if len(self.exec_history) == 0:
         #     return None
         #
@@ -479,7 +482,8 @@ class Controller:
         pid: int = os.fork()
         if pid == 0:  # run the search in the child process
             # self._run_SerialBaseSearch()
-            self._run_ParallelBaseSearch()
+            # self._run_ParallelBaseSearch()
+            self._run_RandomDimSearch()
 
             print("[INFO] End of Search")
             os._exit(0)
@@ -571,6 +575,25 @@ class Controller:
 
     def _run_ParallelBaseSearch(self):
         searchMethod = TemplateSpaceParallelBaseSearch(
+            template_list=self.template,
+            performance_metrics=self.problem['problem']['performance_metrics'],
+            problem=self.problem_doc_metadata,
+            test_dataset1=self.test_dataset1,
+            train_dataset1=self.train_dataset1,
+            test_dataset2=self.test_dataset2,
+            train_dataset2=self.train_dataset2,
+            all_dataset=self.all_dataset,
+            output_directory=self.output_directory,
+            log_dir=self.output_logs_dir,
+            num_proc=self.num_cpus,
+            timeout=self.TIMEOUT,
+        )
+        report = searchMethod.search(num_iter=10)
+
+        self._log_search_results(report=report)
+
+    def _run_RandomDimSearch(self):
+        searchMethod = RandomDimensionalSearch(
             template_list=self.template,
             performance_metrics=self.problem['problem']['performance_metrics'],
             problem=self.problem_doc_metadata,

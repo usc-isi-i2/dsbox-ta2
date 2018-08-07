@@ -76,7 +76,7 @@ class TemplateSpaceBaseSearch(typing.Generic[T]):
         # load libraries with a dummy evaluation
         self.confSpaceBaseSearch[0].dummy_evaluate()
 
-    def setup_exec_history(self, template_list: typing.List = None):
+    def setup_exec_history(self, template_list: typing.List[DSBoxTemplate] = None):
         self.history = ExecutionHistory(template_list=template_list)
 
     def search(self, num_iter=1) -> typing.Dict[str, typing.Any]:

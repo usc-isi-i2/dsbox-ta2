@@ -69,6 +69,7 @@ class DistributedJobManager:
             # push the results
             print("[INFO] Pushing Results")
             result_queue.put((kwargs, result))
+            print("[INFO] Job Done")
             worker_sema.release()
             # print("[INFO] Job {} done.".format(job_id))
             counter += 1

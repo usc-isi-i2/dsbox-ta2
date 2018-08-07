@@ -101,24 +101,24 @@ class TemplateSpaceParallelBaseSearch(TemplateSpaceBaseSearch[T]):
 
         return self.history.get_best_history()
 
-    def _get_evaluation_results(self):
+    def _get_evaluation_results(self, template_name: str = 'generic'):
         print("[INFO] Waiting for the results")
         counter = 0
         # FIXME this is_idle method is not working properly
         while not self.job_manager.is_idle():
-            print("[INFO] Sleeping,", counter)
+            # print("[INFO] Sleeping,", counter)
             (kwargs, report) = self.job_manager.pop_job(block=True)
             candidate = kwargs['candidate']
             try:
                 if report is None:
                     raise ValueError("Search Failed on candidate")
-                self.history.update(report)
+                self.history.update(report, template_name=template_name)
                 self.cacheManager.candidate_cache.push(report)
             except:
                 traceback.print_exc()
                 print("[INFO] Search Failed on candidate")
                 pprint(candidate)
-                self.history.update_none(fail_report=None)
+                self.history.update_none(fail_report=None, template_name=template_name)
                 self.cacheManager.candidate_cache.push_None(candidate=candidate)
             counter += 1
         print("[INFO] No more pending job")
@@ -155,3 +155,61 @@ class TemplateSpaceParallelBaseSearch(TemplateSpaceBaseSearch[T]):
 
             time.sleep(0.1)
 
+    def evaluate_blocking(self, base_search: ConfigurationSpaceBaseSearch,
+                          candidate: ConfigurationPoint[PrimitiveDescription]) -> typing.Dict:
+        """
+        submits the candidate to the execution engine and blocks execution until the evaluation
+        is done.
+        Args:
+            base_search: ConfigurationSpaceBaseSearch
+                the confSpaceBaseSearch that the candidate is from
+            candidate: ConfigurationPoint[PrimitiveDescription]
+                the candidate to be evaluated
+
+        Returns:
+            report: typing.Dict
+                the evaluation result in the same format that evaluate will produce
+        Warnings:
+            the code assumes that no other process is reading results from the executionManger's
+            output queue. If the poped job is not the same that was submitted the method will
+            raise exception.
+
+        """
+        # check the cache for evaluation. If the candidate has been evaluated before and
+        # its metric value was None (meaning it was not compatible with dataset),
+        # then reevaluating the candidate is redundant
+        if self.cacheManager.candidate_cache.is_hit(candidate):
+            report = self.cacheManager.candidate_cache.lookup(candidate)
+            assert report is not None and 'configuration' in report, \
+                'invalid candidate_cache line: {}->{}'.format(candidate, report)
+
+            # if cand_tmp is not None a compatible with dataset), then reevaluating the
+            # candidate is redundant
+            if report['value'] is None:
+                raise ValueError("Initial candidate is not compatible with the dataset")
+
+            return report
+
+        # first we just add the candidate as failure to the candidates cache to
+        # prevent it from being evaluated again while it is being evaluated
+        self.cacheManager.candidate_cache.push_None(candidate=candidate)
+
+        # push the candidate to the job manager
+        self.job_manager.push_job(
+            {
+                'confspace_search': base_search,
+                'cache': self.cacheManager.primitive_cache,
+                'candidate': candidate,
+                'dump2disk': True,
+            })
+
+        # wait for the results
+        (kwargs, report) = self.job_manager.pop_job(block=True)
+        check_candidate = kwargs['candidate']
+        self.cacheManager.candidate_cache.push(report)
+        if check_candidate != candidate:
+            raise ValueError('Different candidate result was popped. The evaluate_blocking '
+                             'assumes that it is the only process pushing jobs to jobManager')
+        self.history.update(report=report, template_name=base_search.template.template['name'])
+
+        return report

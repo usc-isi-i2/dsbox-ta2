@@ -2,11 +2,14 @@ from math import sqrt, log
 import traceback
 import importlib
 import typing
+import copy
 from multiprocessing import Pool, current_process, Manager, Lock
 from dsbox.template.configuration_space import ConfigurationPoint
 from d3m.metadata.pipeline import PrimitiveStep
 from d3m.container.dataset import Dataset
 from d3m.primitive_interfaces.base import PrimitiveBase
+from dsbox.combinatorial_search.search_utils import comparison_metrics
+
 T = typing.TypeVar("T")
 
 
@@ -43,6 +46,8 @@ class CacheManager:
 
 
 class CandidateCache:
+    comparison_metrics = ['cross_validation_metrics', 'test_metrics', 'training_metrics']
+
     def __init__(self, manager: Manager=None):
         if manager is not None:
             self.storage = manager.dict()
@@ -56,7 +61,7 @@ class CandidateCache:
             print("[INFO] hit@Candidate: ({})".format(key))
             return self.storage[key]
         else:
-            return (None, None)
+            return None
 
     def push_None(self, candidate: ConfigurationPoint[T]) -> None:
         result = {
@@ -70,22 +75,23 @@ class CandidateCache:
 
         candidate = result['configuration']
         key = CandidateCache._get_hash(candidate)
-        cand_id = result['fitted_pipeline'].id if 'fitted_pipeline' in result else None
-        value = result['test_metrics'][0]['value'] if 'test_metrics' in result else None
+
+        update = {}
+        for k in comparison_metrics + ['configuration']:
+            update[k] = copy.deepcopy(result[k]) if k in result else None
+        update['id'] = result['fitted_pipeline'].id if 'fitted_pipeline' in result else None
 
         # check the candidate in cache. If duplicate is found the metric values must match
         if self.is_hit(candidate):
-            assert value == self.storage[key]['value'] or self.storage[key]['value'] is None, \
-                "New value for candidate:" + str(candidate)
-            return
+            match = self.storage[key]
+            for k in comparison_metrics:
+                assert match[k] is None or match[k]['value'] is None or\
+                       update[k]['value'] == match[k]['value'], \
+                       "New value for candidate:" + str(candidate)
 
         # push the candidate and its value into the cache
-        print("[INFO] push@Candidate: ({},{})".format(key, cand_id))
-        self.storage[key] = {
-            "candidate": candidate,
-            "id": cand_id,
-            "value": value,
-        }
+        print("[INFO] push@Candidate: ({},{})".format(key, update))
+        self.storage[key] = update
 
     def is_hit(self, candidate: ConfigurationPoint[T]) -> bool:
         return CandidateCache._get_hash(candidate) in self.storage
@@ -93,6 +99,7 @@ class CandidateCache:
     @staticmethod
     def _get_hash(candidate: ConfigurationPoint[T]) -> int:
         return hash(str(candidate))
+
 
 class PrimitivesCache:
     def __init__(self, manager: Manager=None):

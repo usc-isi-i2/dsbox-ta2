@@ -4,6 +4,8 @@ import operator
 import random
 from d3m.metadata.base import ALL_ELEMENTS
 
+comparison_metrics = ['training_metrics', 'cross_validation_metrics', 'test_metrics']
+
 def random_choices_without_replacement(population, weights, k=1):
     """
     Randomly sample multiple element based on weights witout replacement.
