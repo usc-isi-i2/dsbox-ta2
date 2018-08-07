@@ -216,7 +216,7 @@ class Runtime:
                         cache[(prim_name, prim_hash)] = (primitives_outputs[n_step].copy(), model)
                         print("[INFO] Push@cache:", (prim_name, prim_hash))
                         _logger.debug("Push@cache: (%s, %s)", prim_name, prim_hash)
-                    except multiprocessing.managers.RemoteError:
+                    except:
                         _logger.info('Push Cache failed: (%s, %s)', prim_name, prim_hash)
 
                     if _logger.getEffectiveLevel() <= 10:
