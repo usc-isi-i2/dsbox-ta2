@@ -3698,11 +3698,12 @@ class Large_column_number_with_numerical_only_claasification(DSBoxTemplate):
                 {
                     "name": "cast_1_step",
                     "primitives": [
+                        "d3m.primitives.dsbox.DoNothing",
                         {
                             "primitive": "d3m.primitives.data.CastToType",
                             "hyperparameters": {"type_to_cast": ["float"]}
                         },
-                        "d3m.primitives.dsbox.DoNothing",
+                        
                     ],
                     "inputs": ["encode2_step"]
                 },
@@ -3784,11 +3785,12 @@ class Large_column_number_with_numerical_only_regression(DSBoxTemplate):
                 {
                     "name": "cast_1_step",
                     "primitives": [
+                        "d3m.primitives.dsbox.DoNothing",
                         {
                             "primitive": "d3m.primitives.data.CastToType",
                             "hyperparameters": {"type_to_cast": ["float"]}
                         },
-                        "d3m.primitives.dsbox.DoNothing",
+                        
                     ],
                     "inputs": ["encode2_step"]
                 },
