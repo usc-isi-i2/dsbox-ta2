@@ -24,6 +24,7 @@ from dsbox.pipeline.fitted_pipeline import FittedPipeline
 from dsbox.template.runtime import Runtime, add_target_columns_metadata
 from dsbox.template.search import get_target_columns
 
+TOP_NUM = 20
 
 def load_one_pipeline(path) -> tuple:
     '''
@@ -75,7 +76,7 @@ def load_all_fitted_pipeline(pipeline_path) -> dict:
     return pip_mapper
 
 
-def top_10_selection(mapper) -> dict:
+def top_selection(mapper) -> dict:
     '''
     select top 10 pipelines from the dict of pipelines and also remove pipelines that are empty
     '''
@@ -83,8 +84,8 @@ def top_10_selection(mapper) -> dict:
     for key in mapper.keys():
         if len(mapper[key]) == 0:
             rmlist.append(key)
-        if len(mapper[key]) >= 10:
-            mapper[key] = mapper[key][0:10]
+        if len(mapper[key]) >= TOP_NUM:
+            mapper[key] = mapper[key][0:TOP_NUM]
     if rmlist:
         for r in rmlist:
             del mapper[r]
@@ -160,7 +161,7 @@ def score_prediction(prediction_file, ground_truth_dir) -> dict:
 def main(args):
     # print(args.path, args.filename)
     all_pipelines = load_all_fitted_pipeline(args.path)
-    run_pipelines = top_10_selection(all_pipelines)
+    run_pipelines = top_selection(all_pipelines)
     for dataset_pipeline in run_pipelines.keys():
         print("Start testing", dataset_pipeline)
         folder_path = os.path.join(args.path, dataset_pipeline)
