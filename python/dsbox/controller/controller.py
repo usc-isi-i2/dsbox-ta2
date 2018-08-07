@@ -261,6 +261,49 @@ class Controller:
         console.setFormatter(logging.Formatter(CONSOLE_FORMATTER))
         console.setLevel(CONSOLE_LOGGING_LEVEL)
         self._logger.addHandler(console)
+    
+    def _process_pipeline_submission(self) -> None:
+        pipelines_root: str = self.output_pipelines_dir
+        # os.path.join(os.path.dirname(executables_root), 'pipelines')
+
+        # Read all the json files in the pipelines
+        piplines_name_list = os.listdir(pipelines_root)
+        pipelines_df = pd.DataFrame(0.0, index=piplines_name_list, columns=["rank"])
+        for name in piplines_name_list:
+            with open(os.path.join(pipelines_root, name)) as f:
+                rank = json.load(f)['pipeline_rank']
+            pipelines_df.at[name, 'rank'] = rank
+
+        # sort them based on their rank field
+        pipelines_df.sort_values(by='rank', ascending=False, inplace=True)
+
+        # make sure that "pipeline_considered" directory exists
+        considered_root = os.path.join(os.path.dirname(pipelines_root), 'pipelines_considered')
+        try:
+            os.mkdir(considered_root)
+        except FileExistsError:
+            pass
+
+        # pick the top 20 and move the rest to "pipeline_considered" directory
+        for name in pipelines_df.index[20:]:
+            os.rename(src=os.path.join(pipelines_root, name),
+                      dst=os.path.join(considered_root, name))
+
+        # delete the exec and supporting files related the moved pipelines
+        executables_root: str = self.output_executables_dir
+        supporting_root: str = self.output_supporting_files_dir
+        # os.path.join(os.path.dirname(executables_root), 'supporting_files')
+        for name in pipelines_df.index[20:]:
+            pipeName = name.split('.')[0]
+            try:
+                os.remove(os.path.join(executables_root, pipeName))
+            except FileNotFoundError:
+                pass
+
+            try:
+                shutil.rmtree(os.path.join(supporting_root, pipeName))
+            except FileNotFoundError:
+                pass
 
     '''
         **********************************************************************
@@ -1074,7 +1117,8 @@ class Controller:
     def write_training_results(self):
         # load trained pipelines
         self._logger.info("[WARN] write_training_results")
-
+        self._process_pipeline_submission()
+        
         if len(self.exec_history) == 0:
             return None
 
