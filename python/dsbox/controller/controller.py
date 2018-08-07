@@ -59,9 +59,9 @@ from sklearn.model_selection import StratifiedShuffleSplit, ShuffleSplit
 import pandas as pd
 
 FILE_FORMATTER = "[%(levelname)s] - %(asctime)s - %(name)s - %(message)s"
-FILE_LOGGING_LEVEL = logging.WARNING
+FILE_LOGGING_LEVEL = logging.DEBUG
 LOG_FILENAME = 'dsbox.log'
-CONSOLE_LOGGING_LEVEL = logging.INFO
+CONSOLE_LOGGING_LEVEL = logging.DEBUG
 # CONSOLE_LOGGING_LEVEL = logging.DEBUG
 CONSOLE_FORMATTER = "[%(levelname)s] - %(name)s - %(message)s"
 
@@ -720,10 +720,12 @@ class Controller:
             prediction_class_name.append("prediction")
 
         prediction = run_test.produce_outputs[step_number_output]
+
         # if the prediction results do not have d3m_index column
         if 'd3mIndex' not in prediction.columns:
             d3m_index = get_target_columns(self.all_dataset, self.problem_doc_metadata)["d3mIndex"]
             d3m_index = d3m_index.reset_index().drop(columns=['index'])
+            # prediction.drop("confidence", axis=1, inplace=True, errors = "ignore")#some prediction has "confidence"
             prediction_col_name = ['d3mIndex']
             for each in prediction.columns:
                 prediction_col_name.append(each)
@@ -796,6 +798,7 @@ class Controller:
         if 'd3mIndex' not in prediction.columns:
             d3m_index = get_target_columns(self.all_dataset, self.problem_doc_metadata)["d3mIndex"]
             d3m_index = d3m_index.reset_index().drop(columns=['index'])
+            # prediction.drop("confidence", axis=1, inplace=True, errors = "ignore")#some prediction has "confidence"
             prediction_col_name = ['d3mIndex']
             for each in prediction.columns:
                 prediction_col_name.append(each)

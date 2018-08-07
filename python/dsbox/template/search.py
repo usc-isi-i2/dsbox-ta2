@@ -268,7 +268,7 @@ class DimensionalSearch(typing.Generic[T]):
             best_index = -1
             print('*' * 100)
             print("[INFO] Running Pool for step", dimension, ", fork_num:", len(new_candidates))
-            _logger.info("Running Pool for step {} fork_num: {}".format(dimension,  len(new_candidates)))
+            _logger.info("Running Pool for step {} fork_num: {}".format(dimension, len(new_candidates)))
             sim_counter += len(new_candidates)
             # run all candidate pipelines in multi-processing mode
             try:
@@ -285,7 +285,7 @@ class DimensionalSearch(typing.Generic[T]):
                         print("-" * 10)
                         continue
 
-                    ## Always use 'test_metrics' since it is generated using test_dataset1
+                    # Always use 'test_metrics' since it is generated using test_dataset1
                     if len(res['cross_validation_metrics']) > 0:
                         cross_validation_mode = True
                     #     score_values.append(res['cross_validation_metrics'][0]['value'])
@@ -649,7 +649,7 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
             print("[INFO] Testing finish.!!!")
             if len(training_metrics) > 1:
                 training_value_dict = {}
-                 # convert for training matrics
+                # convert for training matrics
                 for each in training_metrics:
                     # for condition only one exist?
                     if type(each) is dict:
@@ -669,7 +669,7 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
 
                 training_metrics_new = training_metrics[0]
                 count = 0
-                for (k,v) in  training_value_dict.items():
+                for (k, v) in training_value_dict.items():
                     training_metrics_new[count]['value'] = sum(v) / len(v)
                     training_metrics_new[count]['values'] = v
                     count += 1
@@ -701,7 +701,7 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
                 # test_metrics part
                 test_metrics_new = test_metrics[0]
                 count = 0
-                for (k,v) in  test_value_dict.items():
+                for (k, v) in test_value_dict.items():
                     test_metrics_new[count]['value'] = sum(v) / len(v)
                     test_metrics_new[count]['values'] = v
                     count += 1
@@ -735,9 +735,9 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
             if _logger.getEffectiveLevel() <= 10:
                 _logger.info('fitted id: %(fitted_pipeline_id)s, metric: %(metric)s, value: %(value)0.2f',
                              {
-                                 'fitted_pipeline_id' : fitted_pipeline2.id,
-                                 'metric' : data['test_metrics']['metric'],
-                                 'value' : data['test_metrics']['value']
+                                 'fitted_pipeline_id': fitted_pipeline2.id,
+                                 'metric': data['test_metrics'][0]['metric'],
+                                 'value': data['test_metrics'][0]['value']
                              })
 
             # Save fitted pipeline
@@ -841,7 +841,7 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
                     else:
                         target_amount_train = len(training_prediction.columns) - 1
                     if regression_mode:
-                        for each_column in range( - target_amount_train, 0, 1):
+                        for each_column in range(- target_amount_train, 0, 1):
                             training_metrics.append({
                                 'column_name': training_ground_truth.columns[each_column],
                                 'metric': metric_description['metric'],
@@ -853,7 +853,7 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
                             })
                     else:
                         if training_ground_truth is not None and training_prediction is not None:  # if training data exist
-                            for each_column in range( - target_amount_train, 0, 1):
+                            for each_column in range(- target_amount_train, 0, 1):
                                 training_metrics.append({
                                     'column_name': training_ground_truth.columns[each_column],
                                     'metric': metric_description['metric'],
@@ -872,7 +872,7 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
                         target_amount_test = len(test_prediction.columns) - 1
                     # if the test_ground_truth do not have results
                     if regression_mode:
-                        for each_column in range( - target_amount_test, 0, 1):
+                        for each_column in range(- target_amount_test, 0, 1):
                             if test_ground_truth.iloc[0, -1] == '':
                                 test_ground_truth.iloc[:, -1] = 0
                             test_metrics.append({
@@ -886,7 +886,7 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
                             })
 
                     else:
-                        for each_column in range( - target_amount_test, 0, 1):
+                        for each_column in range(- target_amount_test, 0, 1):
                             test_metrics.append({
                                 'column_name': test_ground_truth.columns[each_column],
                                 'metric': metric_description['metric'],
@@ -984,7 +984,7 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
             print(
                 "Test pickled pipeline mismatch. 'id': '%(id)s', 'test__metric': '%(test__metric)s', 'pickled_pipeline__metric': '%(pickled_pipeline__metric)s'.".format(
                     {
-                    'id': fitted_pipeline.id,
+                        'id': fitted_pipeline.id,
                         'test__metric': test_metrics,
                         'pickled_pipeline__metric': test_pipeline_metrics
                     })
