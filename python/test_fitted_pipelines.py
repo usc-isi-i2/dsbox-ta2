@@ -75,7 +75,7 @@ def load_all_fitted_pipeline(pipeline_path) -> dict:
     return pip_mapper
 
 
-def top_10_selection(mapper) -> dict:
+def top_selection(mapper) -> dict:
     '''
     select top 10 pipelines from the dict of pipelines and also remove pipelines that are empty
     '''
@@ -83,8 +83,8 @@ def top_10_selection(mapper) -> dict:
     for key in mapper.keys():
         if len(mapper[key]) == 0:
             rmlist.append(key)
-        if len(mapper[key]) >= 10:
-            mapper[key] = mapper[key][0:10]
+        if len(mapper[key]) >= TOP_NUM:
+            mapper[key] = mapper[key][0:TOP_NUM]
     if rmlist:
         for r in rmlist:
             del mapper[r]
@@ -160,7 +160,10 @@ def score_prediction(prediction_file, ground_truth_dir) -> dict:
 def main(args):
     # print(args.path, args.filename)
     all_pipelines = load_all_fitted_pipeline(args.path)
-    run_pipelines = top_10_selection(all_pipelines)
+    run_pipelines = top_selection(all_pipelines)
+    TOP_NUM = args.top_n
+    global TOP_NUM
+
     for dataset_pipeline in run_pipelines.keys():
         print("Start testing", dataset_pipeline)
         folder_path = os.path.join(args.path, dataset_pipeline)
@@ -193,5 +196,6 @@ if __name__ == "__main__":
     parser.add_argument("--path", help="Where the pipelines stored, example: /nfs1/dsbox-repo/muxin/ta2-outputs/seed", default="/nfs1/dsbox-repo/muxin/ta2-outputs/seed")
     parser.add_argument("--configs", help="Where the configuration files stored, example: /nfs1/dsbox-repo/muxin/all_confs/seed", default="/nfs1/dsbox-repo/muxin/all_confs/seed")
     parser.add_argument("--filename", help="Name of the output csv", default=-1)
+    parser.add_argument("--top_n", help="top n pipelines for testing", default=20)
     args = parser.parse_args()
     main(args)

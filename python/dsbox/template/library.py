@@ -107,7 +107,8 @@ class TemplateLibrary:
             "JHU_Vertex_Nomination_Template": JHUVertexNominationTemplate,
             "Default_Time_Series_Forcasting_Template": DefaultTimeSeriesForcastingTemplate,
             "Michigan_Video_Classification_Template": MichiganVideoClassificationTemplate,
-            "DefaultTimeseriesRegressionTemplate": DefaultTimeseriesRegressionTemplate
+            "DefaultTimeseriesRegressionTemplate": DefaultTimeseriesRegressionTemplate,
+            "TimeSeriesForcastingTestingTemplate": TimeSeriesForcastingTestingTemplate
         }
 
         if run_single_template:
@@ -200,7 +201,8 @@ class TemplateLibrary:
         # Others
         self.templates.append(DefaultTimeseriesCollectionTemplate)
         self.templates.append(DefaultTimeseriesRegressionTemplate)
-
+        self.templates.append(TimeSeriesForcastingTestingTemplate)
+        
         self.templates.append(SRICommunityDetectionTemplate)
         self.templates.append(SRIGraphMatchingTemplate)
         self.templates.append(SRIVertexNominationTemplate)
@@ -3638,7 +3640,7 @@ class Large_column_number_with_numerical_only_claasification(DSBoxTemplate):
             # See TaskType, range include 'CLASSIFICATION', 'CLUSTERING', 'COLLABORATIVE_FILTERING',
             # 'COMMUNITY_DETECTION', 'GRAPH_CLUSTERING', 'GRAPH_MATCHING', 'LINK_PREDICTION',
             # 'REGRESSION', 'TIME_SERIES_FORECASTING', 'VERTEX_NOMINATION'
-            "taskSubtype": TaskSubtype.MULTICLASS.name,
+            "taskSubtype": {TaskSubtype.MULTICLASS.name, TaskSubtype.BINARY.name},
             "inputType": {"table","large_column_number"},  # See SEMANTIC_TYPES.keys() for range of values
             "output": "model_step",  # Name of the final step generating the prediction
             "target": "extract_target_step",  # Name of the step generating the ground truth
@@ -3698,11 +3700,12 @@ class Large_column_number_with_numerical_only_claasification(DSBoxTemplate):
                 {
                     "name": "cast_1_step",
                     "primitives": [
+                        "d3m.primitives.dsbox.DoNothing",
                         {
                             "primitive": "d3m.primitives.data.CastToType",
                             "hyperparameters": {"type_to_cast": ["float"]}
                         },
-                        "d3m.primitives.dsbox.DoNothing",
+                        
                     ],
                     "inputs": ["encode2_step"]
                 },
@@ -3784,11 +3787,12 @@ class Large_column_number_with_numerical_only_regression(DSBoxTemplate):
                 {
                     "name": "cast_1_step",
                     "primitives": [
+                        "d3m.primitives.dsbox.DoNothing",
                         {
                             "primitive": "d3m.primitives.data.CastToType",
                             "hyperparameters": {"type_to_cast": ["float"]}
                         },
-                        "d3m.primitives.dsbox.DoNothing",
+                        
                     ],
                     "inputs": ["encode2_step"]
                 },
@@ -3796,6 +3800,86 @@ class Large_column_number_with_numerical_only_regression(DSBoxTemplate):
                     "name": "model_step",
                     "primitives": ["d3m.primitives.sklearn_wrap.SKRandomForestRegressor"],
                     "inputs": ["cast_1_step", "extract_target_step"]
+                },
+            ]
+        }
+
+    # @override
+    def importance(datset, problem_description):
+        return 7
+
+class TimeSeriesForcastingTestingTemplate(DSBoxTemplate):
+    def __init__(self):
+        DSBoxTemplate.__init__(self)
+        self.template = {
+            "name": "TimeSeries_Forcasting_Testing_emplate",
+            "taskType": TaskType.TIME_SERIES_FORECASTING.name,
+            # See TaskType, range include 'CLASSIFICATION', 'CLUSTERING', 'COLLABORATIVE_FILTERING',
+            # 'COMMUNITY_DETECTION', 'GRAPH_CLUSTERING', 'GRAPH_MATCHING', 'LINK_PREDICTION',
+            # 'REGRESSION', 'TIME_SERIES_FORECASTING', 'VERTEX_NOMINATION'
+            "taskSubtype": "NONE",
+            "inputType": {"table", "timeseries"},  # See SEMANTIC_TYPES.keys() for range of values
+            "output": "model_step",  # Name of the final step generating the prediction
+            "target": "extract_target_step",  # Name of the step generating the ground truth
+            "steps": [
+                {
+                    "name": "denormalize_step",
+                    "primitives": ["d3m.primitives.dsbox.Denormalize"],
+                    "inputs": ["template_input"]
+                },
+                {
+                    "name": "to_dataframe_step",
+                    "primitives": ["d3m.primitives.datasets.DatasetToDataFrame"],
+                    "inputs": ["denormalize_step"]
+                },
+                {
+                    "name": "extract_attribute_step",
+                    "primitives": [{
+                        "primitive": "d3m.primitives.data.ExtractColumnsBySemanticTypes",
+                        "hyperparameters":
+                            {
+                                'semantic_types': (
+                                    'https://metadata.datadrivendiscovery.org/types/Attribute',),
+                                'use_columns': (),
+                                'exclude_columns': ()
+                            }
+                    }],
+                    "inputs": ["to_dataframe_step"]
+                },
+                {
+                    "name":"profiler_step",
+                    "primitives": ["d3m.primitives.dsbox.Profiler"],
+                    "inputs": ["extract_attribute_step"]
+                },
+                {
+                    "name":"data_clean_step",
+                    "primitives": ["d3m.primitives.dsbox.CleaningFeaturizer"],
+                    "inputs": ["profiler_step"]
+                },
+                {
+                    "name":"encoder_step",
+                    "primitives": ["d3m.primitives.dsbox.Encoder"],
+                    "inputs": ["data_clean_step"]
+                },
+                # read Y value
+                {
+                    "name": "extract_target_step",
+                    "primitives": [{
+                        "primitive": "d3m.primitives.data.ExtractColumnsBySemanticTypes",
+                        "hyperparameters":
+                            {
+                                'semantic_types': (
+                                    'https://metadata.datadrivendiscovery.org/types/TrueTarget',),
+                                'use_columns': (),
+                                'exclude_columns': ()
+                            }
+                    }],
+                    "inputs": ["to_dataframe_step"]
+                },
+                {
+                    "name": "model_step",
+                    "primitives": ["d3m.primitives.sklearn_wrap.SKExtraTreesRegressor"],
+                    "inputs": ["encoder_step", "extract_target_step"]
                 },
             ]
         }
