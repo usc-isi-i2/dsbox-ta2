@@ -279,7 +279,7 @@ class Controller:
             pipelines_df.at[name, 'rank'] = rank
 
         # sort them based on their rank field
-        pipelines_df.sort_values(by='rank', ascending=False, inplace=True)
+        pipelines_df.sort_values(by='rank', ascending=True, inplace=True)
 
         # make sure that "pipeline_considered" directory exists
         considered_root = os.path.join(os.path.dirname(pipelines_root), 'pipelines_considered')
