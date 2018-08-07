@@ -12,6 +12,7 @@ import tempfile
 import multiprocessing.managers
 
 from pandas import DataFrame
+from numpy import vectorize
 from collections import defaultdict
 from sklearn.model_selection import KFold, StratifiedKFold  # type: ignore
 from d3m.metadata.problem import PerformanceMetric
@@ -307,9 +308,12 @@ class Runtime:
         self.pipeline[n_step] = model
 
         if str(primitive) == 'd3m.primitives.dsbox.Encoder':
-            total_columns =  self._total_encoder_columns(model, produce_params['inputs'])
+            total_columns = self._total_encoder_columns(model, produce_params['inputs'])
             if total_columns > 500:
                 raise Exception('Total column limit exceeded after encoding: {}'.format(total_columns))
+
+        if str(primitive) == 'd3m.primitives.dsbox.CleaningFeaturizer':
+            model = self._work_around_for_cleaning_featurizer(model, training_arguments['inputs'])
 
         if str(primitive) == 'd3m.primitives.dsbox.Profiler':
             this_step_result = model.produce(**produce_params).value
@@ -528,6 +532,38 @@ class Runtime:
                 df.metadata = df.metadata.update((mbase.ALL_ELEMENTS, col), old_metadata)
 
         return df
+
+    @staticmethod
+    def _work_around_for_cleaning_featurizer(model, inputs):
+        vector_cols = list(set(utils.list_columns_with_semantic_types(inputs.metadata, [
+            'https://metadata.datadrivendiscovery.org/types/FloatVector'])).intersection(
+            utils.list_columns_with_semantic_types(inputs.metadata,
+                                                   ["https://metadata.datadrivendiscovery.org/types/Location"])))
+        for col in vector_cols:
+            try:
+                n = 10
+                split_to = sum(inputs.iloc[:n, col].apply(str).apply(vectorize(lambda x: len(x.split(','))))) // n
+            except:
+                split_to = 2
+
+            try:
+                if 'alpha_numeric_columns' not in model._mapping:
+                    model._mapping['alpha_numeric_columns'] = {
+                        "columns_to_perform": [col],
+                        "split_to": [split_to]
+                    }
+                else:
+                    if 'columns_to_perform' in model._mapping['alpha_numeric_columns']:
+                        model._mapping['alpha_numeric_columns']['columns_to_perform'].append(col)
+                        model._mapping['alpha_numeric_columns']['split_to'].append(split_to)
+                    else:
+                        model._mapping['alpha_numeric_columns'] = {
+                            "columns_to_perform": [col],
+                            "split_to": [split_to]
+                        }
+            except:
+                pass
+        return model
 
 
 def load_problem_doc(problem_doc_path: str) -> Metadata:
