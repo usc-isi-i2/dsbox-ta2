@@ -1025,6 +1025,9 @@ class Controller:
 
         for idx in self.select_next_template(max_iter=5):
             template = self.template[idx]
+            print("[INFO] The config of the template is")
+            pprint.pprint(template.template)
+            #template.template
             self._logger.info(STYLE+"[INFO] Template {}:{} Selected. UCT:{}".format(idx, template.template['name'], self.uct_score))
 
             try:
