@@ -497,74 +497,7 @@ def dsbox_generic_text_steps(data : str = "data", target : str = "target"):
     ]
 
 
-def human_steps_cls():
-    return [
-        {
-            "name": "denormalize_step",
-            "primitives": ["d3m.primitives.dsbox.Denormalize"],
-            "inputs": ["template_input"]
-        },
-        {
-            "name": "to_dataframe_step",
-            "primitives": ["d3m.primitives.datasets.DatasetToDataFrame"],
-            "inputs": ["denormalize_step"]
-        },
-        {
-            "name": "extract_attribute_step",
-            "primitives": [{
-                "primitive": "d3m.primitives.data.ExtractColumnsBySemanticTypes",
-                "hyperparameters":
-                    {
-                        'semantic_types': (
-                            'https://metadata.datadrivendiscovery.org/types/Attribute',),
-                        'use_columns': (),
-                        'exclude_columns': ()
-                    }
-            }],
-            "inputs": ["to_dataframe_step"]
-        },
-        {
-            "name": "profiler_step",
-            "primitives": ["d3m.primitives.dsbox.Profiler"],
-            "inputs": ["extract_attribute_step"]
-        },
-        {
-            "name": "clean_step",
-            "primitives": [
-                "d3m.primitives.dsbox.CleaningFeaturizer",
-                "d3m.primitives.dsbox.DoNothing",
-            ],
-            "inputs": ["profiler_step"]
-        },
-        {
-            "name": "encoder_step",
-            "primitives": ["d3m.primitives.dsbox.Labler"],
-            "inputs": ["clean_step"]
-        },
-        {
-            "name": "impute_step",
-            "primitives": ["d3m.primitives.dsbox.MeanImputation"],
-            "inputs": ["encoder_step"]
-        },
-        {
-            "name": "extract_target_step",
-            "primitives": [{
-                "primitive": "d3m.primitives.data.ExtractColumnsBySemanticTypes",
-                "hyperparameters":
-                    {
-                        'semantic_types': (
-                            'https://metadata.datadrivendiscovery.org/types/TrueTarget',),
-                        'use_columns': (),
-                        'exclude_columns': ()
-                    }
-            }],
-            "inputs": ["to_dataframe_step"]
-        },
-    ]
-
-
-
-def human_steps_reg():
+def human_steps():
     return [
         {
             "name": "denormalize_step",
@@ -629,48 +562,7 @@ def human_steps_reg():
         },
     ]
 
-
-
-def dsbox_feature_selector_cls():
-    return [
-                {
-                    "name": "feature_selector_step",
-                    "primitives":[
-                        # {
-                        #     "primitive" : "d3m.primitives.sklearn_wrap.SKLinearSVC",
-                        #     "hyperparameters" : {
-                        #         "C":[float(x) for x in np.logspace(-4,1,10)]
-                        #     }
-                        # },
-                        {
-                            "primitive" : "d3m.primitives.sklearn_wrap.SKSelectFwe",
-                            "hyperparameters":{
-                                "alpha" : [float(x) for x in np.logspace(6, -1, 5)]
-                            }
-                        },
-
-                        {
-                            "primitive" : "d3m.primitives.sklearn_wrap.SKGenericUnivariateSelect",
-                            "hyperparameters":{
-                                "mode" : ["percentile"],
-                                "param" : [int(x) for x in np.linspace(10, 100, 10)]
-                            }
-                        },
-                        # {
-                        #     "primitive" : "d3m.primitives.sklearn_wrap.SKSelectPercentile",
-                        #     "hyperparameters":{
-                        #         "percentile":[int(x) for x in np.linspace(100, 10, 10)]
-                        #     }
-                        # },
-                        "d3m.primitives.dsbox.DoNothing"
-
-                    ],
-                    "inputs":["impute_step", "extract_target_step"]
-                },
-
-        ]
-
-def dsbox_feature_selector_reg():
+def dsbox_feature_selector():
     return [
                 {
                     "name": "feature_selector_step",
@@ -3569,7 +3461,7 @@ class ClassificationWithSelection(DSBoxTemplate):
             "inputType": "table",  # See SEMANTIC_TYPES.keys() for range of values
             "output": "model_step",  # Name of the final step generating the prediction
             "target": "extract_target_step",  # Name of the step generating the ground truth
-            "steps": human_steps_cls()+dsbox_feature_selector_cls()+
+            "steps": human_steps() + dsbox_feature_selector() +
                 [
                     {
                         "name":"model_step",
@@ -3605,7 +3497,7 @@ class RegressionWithSelection(DSBoxTemplate):
             "inputType": "table",  # See SEMANTIC_TYPES.keys() for range of values
             "output": "model_step",  # Name of the final step generating the prediction
             "target": "extract_target_step",  # Name of the step generating the ground truth
-            "steps": human_steps_reg()+dsbox_feature_selector_reg()+
+            "steps": human_steps() + dsbox_feature_selector() +
                 [
                     {
                         "name":"model_step",
