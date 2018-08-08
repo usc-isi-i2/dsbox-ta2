@@ -578,34 +578,60 @@ def human_steps():
         },
     ]
 
-def dsbox_feature_selector():
-    return [
-        {
-            "name": "feature_selector_step",
-            "primitives":[
-                {
-                    "primitive" : "d3m.primitives.sklearn_wrap.SKSelectFwe",
-                    "hyperparameters":{
-                        "alpha" : [float(x) for x in np.logspace(-4, -1, 5)]
-                    }
-                },
+def dsbox_feature_selector(ptype):
+    if ptype =="regression":
 
-                {
-                    "primitive" : "d3m.primitives.sklearn_wrap.SKGenericUnivariateSelect",
-                    "hyperparameters":{
-                        "score_func": ["f_regression"],
-                        "mode" : ["percentile"],
-                        "param" : [int(x) for x in np.linspace(10, 100, 10)]
-                    }
-                },
-                "d3m.primitives.dsbox.DoNothing"
+        return [
+            {
+                "name": "feature_selector_step",
+                "primitives":[
+                    {
+                        "primitive" : "d3m.primitives.sklearn_wrap.SKSelectFwe",
+                        "hyperparameters":{
+                            "alpha" : [float(x) for x in np.logspace(-4, -1, 5)]
+                        }
+                    },
 
-            ],
-            "inputs":["cast_step", "extract_target_step"]
-        },
-        ]
+                    {
+                        "primitive" : "d3m.primitives.sklearn_wrap.SKGenericUnivariateSelect",
+                        "hyperparameters":{
+                            "score_func": ["f_regression"],
+                            "mode" : ["percentile"],
+                            "param" : [int(x) for x in np.linspace(10, 100, 10)]
+                        }
+                    },
+                    "d3m.primitives.dsbox.DoNothing"
 
+                ],
+                "inputs":["cast_step", "extract_target_step"]
+            },
+            ]
+    else:
 
+        return [
+            {
+                "name": "feature_selector_step",
+                "primitives":[
+                    {
+                        "primitive" : "d3m.primitives.sklearn_wrap.SKSelectFwe",
+                        "hyperparameters":{
+                            "alpha" : [float(x) for x in np.logspace(-4, -1, 5)]
+                        }
+                    },
+
+                    {
+                        "primitive" : "d3m.primitives.sklearn_wrap.SKGenericUnivariateSelect",
+                        "hyperparameters":{
+                            "mode" : ["percentile"],
+                            "param" : [int(x) for x in np.linspace(10, 100, 10)]
+                        }
+                    },
+                    "d3m.primitives.dsbox.DoNothing"
+
+                ],
+                "inputs":["cast_step", "extract_target_step"]
+            },
+            ]
 
 def regression_model(feature_name: str = "impute_step",
                      target_name: str = "extract_target_step"):
@@ -3461,7 +3487,7 @@ class ClassificationWithSelection(DSBoxTemplate):
             "inputType": "table",  # See SEMANTIC_TYPES.keys() for range of values
             "output": "model_step",  # Name of the final step generating the prediction
             "target": "extract_target_step",  # Name of the step generating the ground truth
-            "steps": human_steps() + dsbox_feature_selector() +
+            "steps": human_steps() + dsbox_feature_selector("classification") +
                 [
                     {
                         "name":"model_step",
@@ -3509,7 +3535,7 @@ class RegressionWithSelection(DSBoxTemplate):
             "inputType": "table",  # See SEMANTIC_TYPES.keys() for range of values
             "output": "model_step",  # Name of the final step generating the prediction
             "target": "extract_target_step",  # Name of the step generating the ground truth
-            "steps": human_steps() + dsbox_feature_selector() +
+            "steps": human_steps() + dsbox_feature_selector("regression") +
                 [
                     {
                         "name":"model_step",
