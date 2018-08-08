@@ -63,7 +63,7 @@ import pandas as pd
 FILE_FORMATTER = "[%(levelname)s] - %(asctime)s - %(name)s - %(message)s"
 FILE_LOGGING_LEVEL = logging.DEBUG
 LOG_FILENAME = 'dsbox.log'
-CONSOLE_LOGGING_LEVEL = logging.DEBUG
+CONSOLE_LOGGING_LEVEL = logging.INFO
 # CONSOLE_LOGGING_LEVEL = logging.DEBUG
 CONSOLE_FORMATTER = "[%(levelname)s] - %(name)s - %(message)s"
 
@@ -267,7 +267,9 @@ class Controller:
         self._logger.addHandler(console)
 
     def _process_pipeline_submission(self) -> None:
-        pipelines_root: str = self.output_pipelines_dir
+        pipelines_root: str = os.path.join(self.output_directory, 'pipelines')
+        executables_root: str = os.path.join(self.output_directory, 'executables')
+        supporting_root: str = os.path.join(self.output_directory, 'supporting_files')
         # os.path.join(os.path.dirname(executables_root), 'pipelines')
 
         # Read all the json files in the pipelines
@@ -278,7 +280,10 @@ class Controller:
         pipelines_df = pd.DataFrame(0.0, index=piplines_name_list, columns=["rank"])
         for name in piplines_name_list:
             with open(os.path.join(pipelines_root, name)) as f:
-                rank = json.load(f)['pipeline_rank']
+                try:
+                    rank = json.load(f)['pipeline_rank']
+                except json.decoder.JSONDecodeError or KeyError:
+                    rank = 0
             pipelines_df.at[name, 'rank'] = rank
 
         # sort them based on their rank field
@@ -297,9 +302,6 @@ class Controller:
                       dst=os.path.join(considered_root, name))
 
         # delete the exec and supporting files related the moved pipelines
-        executables_root: str = self.output_executables_dir
-        supporting_root: str = self.output_supporting_files_dir
-        # os.path.join(os.path.dirname(executables_root), 'supporting_files')
         for name in pipelines_df.index[20:]:
             pipeName = name.split('.')[0]
             try:
@@ -1025,6 +1027,9 @@ class Controller:
 
         for idx in self.select_next_template(max_iter=5):
             template = self.template[idx]
+            print("[INFO] The config of the template is")
+            pprint.pprint(template.template)
+            #template.template
             self._logger.info(STYLE+"[INFO] Template {}:{} Selected. UCT:{}".format(idx, template.template['name'], self.uct_score))
 
             try:

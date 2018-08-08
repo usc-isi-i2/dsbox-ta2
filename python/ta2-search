@@ -51,7 +51,7 @@ def main(args):
         config = json.load(data)
 
     # Time to write results (in minutes)
-    write_results_time = 3
+    write_results_time = 5
     if args.timeout:
         timeout = args.timeout - write_results_time
     else:
@@ -98,7 +98,8 @@ def main(args):
         signal.signal(signal.SIGALRM, write_results_and_exit)
         signal.alarm(60 * timeout)
     else:
-        raise Exception('Negative timeout {}'.format(timeout))
+        # Do not set alaram
+        pass
 
     if args.cpus > -1:
         config['cpus'] = args.cpus

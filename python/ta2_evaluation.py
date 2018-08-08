@@ -35,7 +35,7 @@ def main():
     config["ram"] = os.environ["D3MRAM"]
 
     # Time to write results (in minutes)
-    write_results_time = 3
+    write_results_time = 5
     timeout = int(os.environ["D3MTIMEOUT"]) - write_results_time
     config["timeout"] = timeout
 
