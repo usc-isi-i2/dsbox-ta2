@@ -509,8 +509,8 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
             lambda d: {'metric': d['metric'].unparse(), 'params': d['params']},
             performance_metrics
         ))
-        self.classification_metric = ('accuracy', 'precision', 'normalizedMutualInformation', 'recall', 'f1', 'f1Micro', 'f1Macro', 'rocAuc', 'rocAucMicro', 'rocAucMacro')
-        self.regression_metric = ('meanSquaredError', 'rootMeanSquaredError', 'rootMeanSquaredErrorAvg', 'meanAbsoluteError', 'rSquared', 'jaccardSimilarityScore', 'precisionAtTopK', 'objectDetectionAP')
+        self.classification_metric = ('accuracy', 'precision', 'normalizedMutualInformation', 'recall', 'f1', 'f1Micro', 'f1Macro', 'rocAuc', 'rocAucMicro', 'rocAucMacro') 
+        self.regression_metric = ('meanSquaredError', 'rootMeanSquaredError', 'rootMeanSquaredErrorAvg', 'meanAbsoluteError', 'rSquared', 'jaccardSimilarityScore', 'precisionAtTopK')
 
         self.output_directory = output_directory
         self.log_dir = log_dir
@@ -621,8 +621,7 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
                 fitted_pipeline.fit(cache=cache, inputs=[self.train_dataset2[each_repeat]])
                 # fitted_pipeline.fit(inputs=[self.train_dataset2[each_repeat]])
                 training_ground_truth = get_target_columns(self.train_dataset2[each_repeat], self.problem)
-                training_prediction = fitted_pipeline.get_fit_step_output(
-                    self.template.get_output_step_number())
+                training_prediction = fitted_pipeline.get_fit_step_output(self.template.get_output_step_number())
                 # only do test if the test_dataset exist
                 if self.test_dataset2[each_repeat] is not None:
                     results = fitted_pipeline.produce(inputs=[self.test_dataset2[each_repeat]])
@@ -840,10 +839,42 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
             test_prediction = self.graph_problem_conversion(test_prediction)
         target_amount_train = 0
         target_amount_test = 0
+
         for metric_description in self.performance_metrics:
             metricDesc = PerformanceMetric.parse(metric_description['metric'])
             metric: typing.Callable = metricDesc.get_function()
             params: typing.Dict = metric_description['params']
+            # special design for objectDetectionAP
+            if metric_description["metric"] == "objectDetectionAP":
+                if training_ground_truth is not None and training_prediction is not None: 
+                    training_image_name_column = training_ground_truth.iloc[:,training_ground_truth.shape[1] - 2]
+                    training_prediction.insert(loc=0, column='image_name', value=training_image_name_column)
+                    training_ground_truth_tosend = training_ground_truth.iloc[:,training_ground_truth.shape[1] - 2 : training_ground_truth.shape[1]]
+                    training_metrics.append({
+                        'column_name': training_ground_truth.columns[-1],
+                        'metric': metric_description['metric'],
+                        'value': metric(
+                            training_ground_truth_tosend.astype(str).values.tolist(),
+                            training_prediction.astype(str).values.tolist(),
+                            **params
+                        )
+                    })
+                if test_ground_truth is not None and test_prediction is not None:
+                    test_image_name_column = test_ground_truth.iloc[:,test_ground_truth.shape[1] - 2]
+                    test_prediction.insert(loc=0, column='image_name', value=test_image_name_column)
+                    test_ground_truth_tosend = test_ground_truth.iloc[:,test_ground_truth.shape[1] - 2 : test_ground_truth.shape[1]]
+                    test_metrics.append({
+                        'column_name': test_ground_truth.columns[-1],
+                        'metric': metric_description['metric'],
+                        'value': metric(
+                            test_ground_truth_tosend.astype(str).values.tolist(),
+                            test_prediction.astype(str).values.tolist(),
+                            **params
+                        )
+                    })
+                return (training_metrics, test_metrics)
+            # END pecial design for objectDetectionAP
+
             regression_mode = metric_description["metric"] in self.regression_metric
             try:
                 # generate the metrics for training results

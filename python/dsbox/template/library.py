@@ -108,7 +108,8 @@ class TemplateLibrary:
             "Default_Time_Series_Forcasting_Template": DefaultTimeSeriesForcastingTemplate,
             "Michigan_Video_Classification_Template": MichiganVideoClassificationTemplate,
             "DefaultTimeseriesRegressionTemplate": DefaultTimeseriesRegressionTemplate,
-            "TimeSeriesForcastingTestingTemplate": TimeSeriesForcastingTestingTemplate
+            "TimeSeriesForcastingTestingTemplate": TimeSeriesForcastingTestingTemplate,
+            "TemporaryObjectDetectionTemplate": TemporaryObjectDetectionTemplate
         }
 
         if run_single_template:
@@ -119,7 +120,7 @@ class TemplateLibrary:
     def get_templates(self, task: TaskType, subtype: TaskSubtype, taskSourceType: SEMANTIC_TYPES) \
             -> typing.List[DSBoxTemplate]:
         results = []
-        results.append(SRIMeanBaselineTemplate())  # put the meanbaseline here so whatever dataset will have a result
+        #results.append(SRIMeanBaselineTemplate())  # put the meanbaseline here so whatever dataset will have a result
         for template_class in self.templates:
             template = template_class()
             # sourceType refer to d3m/container/dataset.py ("SEMANTIC_TYPES" as line 40-70)
@@ -211,6 +212,7 @@ class TemplateLibrary:
         self.templates.append(DefaultTimeSeriesForcastingTemplate)
         self.templates.append(CMUClusteringTemplate)
         self.templates.append(MichiganVideoClassificationTemplate)
+        self.templates.append(TemporaryObjectDetectionTemplate)
         # self.templates.append(JHUVertexNominationTemplate)
         # self.templates.append(JHUGraphMatchingTemplate)
         self.templates.append(Large_column_number_with_numerical_only_claasification)
@@ -3985,6 +3987,89 @@ class TimeSeriesForcastingTestingTemplate2(DSBoxTemplate):
                     "name": "model_step",
                     "primitives": ["d3m.primitives.sklearn_wrap.SKExtraTreesRegressor"],
                     "inputs": ["concat_step", "extract_target_step"]
+                },
+            ]
+        }
+
+    # @override
+    def importance(datset, problem_description):
+        return 7
+
+class TemporaryObjectDetectionTemplate(DSBoxTemplate):
+    def __init__(self):
+        DSBoxTemplate.__init__(self)
+        self.template = {
+            "name": "TemporaryObjectDetectionTemplate",
+            "taskType": TaskType.OBJECT_DETECTION.name,
+            # See TaskType, range include 'CLASSIFICATION', 'CLUSTERING', 'COLLABORATIVE_FILTERING',
+            # 'COMMUNITY_DETECTION', 'GRAPH_CLUSTERING', 'GRAPH_MATCHING', 'LINK_PREDICTION',
+            # 'REGRESSION', 'TIME_SERIES_FORECASTING', 'VERTEX_NOMINATION'
+            "taskSubtype": "NONE",
+            "inputType": {"table", "image"},  # See SEMANTIC_TYPES.keys() for range of values
+            "output": "model_step",  # Name of the final step generating the prediction
+            "target": "extract_target_step",  # Name of the step generating the ground truth
+            "steps": [
+                {
+                    "name": "denormalize_step",
+                    "primitives": ["d3m.primitives.dsbox.Denormalize"],
+                    "inputs": ["template_input"]
+                },
+                {
+                    "name": "to_dataframe_step",
+                    "primitives": ["d3m.primitives.datasets.DatasetToDataFrame"],
+                    "inputs": ["denormalize_step"]
+                },
+                # read X value
+                {
+                    "name": "extract_file_step",
+                    "primitives": [{
+                        "primitive": "d3m.primitives.data.ExtractColumnsBySemanticTypes",
+                        "hyperparameters":
+                            {
+                                'semantic_types': (
+                                    'https://metadata.datadrivendiscovery.org/types/FileName',),
+                                'use_columns': (),
+                                'exclude_columns': ()
+                            }
+                    }],
+                    "inputs": ["to_dataframe_step"]
+                },
+                {
+                    "name": "to_tensor_step",
+                    "primitives": ["d3m.primitives.dsbox.DataFrameToTensor"],
+                    "inputs": ["extract_file_step"]
+                },
+                {
+                    "name": "image_processing_step",
+                    "primitives": ["d3m.primitives.dsbox.ResNet50ImageFeature"],
+                    "inputs": ["to_tensor_step"]
+                },
+                # read Y value
+                {
+                    "name": "extract_target_step",
+                    "primitives": [{
+                        "primitive": "d3m.primitives.data.ExtractColumnsBySemanticTypes",
+                        "hyperparameters":
+                            {
+                                'semantic_types': (
+                                    'https://metadata.datadrivendiscovery.org/types/TrueTarget',),
+                                'use_columns': (),
+                                'exclude_columns': ()
+                            }
+                    }],
+                    "inputs": ["to_dataframe_step"]
+                },
+
+                {
+                    "name":"data_clean_step",
+                    "primitives": ["d3m.primitives.dsbox.CleaningFeaturizer"],
+                    "inputs": ["extract_target_step"]
+                },
+
+                {
+                    "name": "model_step",
+                    "primitives": ["d3m.primitives.sklearn_wrap.SKRandomForestRegressor"],
+                    "inputs": ["image_processing_step", "data_clean_step"]
                 },
             ]
         }
