@@ -272,6 +272,9 @@ class Controller:
 
         # Read all the json files in the pipelines
         piplines_name_list = os.listdir(pipelines_root)
+        if len(piplines_name_list) < 20:
+            return
+        
         pipelines_df = pd.DataFrame(0.0, index=piplines_name_list, columns=["rank"])
         for name in piplines_name_list:
             with open(os.path.join(pipelines_root, name)) as f:
