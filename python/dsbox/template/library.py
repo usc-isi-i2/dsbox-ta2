@@ -1153,7 +1153,7 @@ class DefaultTimeseriesRegressionTemplate(DSBoxTemplate):
     def __init__(self):
         DSBoxTemplate.__init__(self)
         self.template = {
-            "name": "Default_timeseries_regression_template",
+            "name": "DefaultTimeseriesRegressionTemplate",
             "taskSubtype": {TaskSubtype.UNIVARIATE.name, TaskSubtype.MULTIVARIATE.name},
             "taskType": {TaskType.REGRESSION.name},
             "inputType": {"timeseries", "table"},  # See SEMANTIC_TYPES.keys() for range of values
