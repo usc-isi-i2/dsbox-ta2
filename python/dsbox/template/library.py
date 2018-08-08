@@ -578,45 +578,29 @@ def human_steps():
 
 def dsbox_feature_selector():
     return [
+        {
+            "name": "feature_selector_step",
+            "primitives":[
                 {
-                    "name": "feature_selector_step",
-                    "primitives":[
-                        # {
-                        #     "primitive" : "d3m.primitives.sklearn_wrap.SKLasso",
-                        #     "hyperparameters" : {
-                        #         "alpha":[float(x) for x in np.linspace(0,1, 10)],
-                        #         "max_iter":[(100)]
-
-                        #     }
-                        # },
-                        # {
-                        #     "primitive" : "d3m.primitives.sklearn_wrap.SKSelectPercentile",
-                        #     "hyperparameters":{
-                        #         "score_func": [("f_regression")],
-                        #         "percentile":[int(x) for x in np.linspace(100, 10, 10)]
-                        #     }
-                        # },
-                        {
-                            "primitive" : "d3m.primitives.sklearn_wrap.SKSelectFwe",
-                            "hyperparameters":{
-                                "alpha" : [float(x) for x in np.logspace(6, -1, 5)]
-                            }
-                        },
-
-                        {
-                            "primitive" : "d3m.primitives.sklearn_wrap.SKGenericUnivariateSelect",
-                            "hyperparameters":{
-                                "score_func": ["f_regression"],
-                                "mode" : ["percentile"],
-                                "param" : [int(x) for x in np.linspace(10, 100, 10)]
-                            }
-                        },
-                        "d3m.primitives.dsbox.DoNothing"
-
-                    ],
-                    "inputs":["cast_step", "extract_target_step"]
+                    "primitive" : "d3m.primitives.sklearn_wrap.SKSelectFwe",
+                    "hyperparameters":{
+                        "alpha" : [float(x) for x in np.logspace(-6, -1, 5)]
+                    }
                 },
 
+                {
+                    "primitive" : "d3m.primitives.sklearn_wrap.SKGenericUnivariateSelect",
+                    "hyperparameters":{
+                        "score_func": ["f_regression"],
+                        "mode" : ["percentile"],
+                        "param" : [int(x) for x in np.linspace(10, 100, 10)]
+                    }
+                },
+                "d3m.primitives.dsbox.DoNothing"
+
+            ],
+            "inputs":["cast_step", "extract_target_step"]
+        },
         ]
 
 
@@ -3519,10 +3503,10 @@ class RegressionWithSelection(DSBoxTemplate):
                             {
                                 "primitive":"d3m.primitives.sklearn_wrap.SKSGDRegressor",
                                 "hyperparameters":{
-                                    "loss":[('squared_loss'), ('huber')],
-                                    "alpha":[float(x) for x in np.logspace(-7, -1.004, 5)],#cannot reach 0.1
-                                    "l1_ratio":[float(x) for x in np.logspace(-9, -0.004, 5)],#cannot reach 1
-                                    "learning_rate": [('optimal'), ('invscaling')]
+                                    "loss":['squared_loss', 'huber'],
+                                    "alpha":[float(x) for x in np.logspace(-5, -1.004, 5)],#cannot reach 0.1
+                                    "l1_ratio":[0.15, 0.3, 0.5, 0.6, 0.7], #cannot reach 1
+                                    "learning_rate": ['optimal', 'invscaling']
                                 }
                             }
                         ],
