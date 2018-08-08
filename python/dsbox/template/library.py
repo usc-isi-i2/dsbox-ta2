@@ -316,7 +316,10 @@ def dsbox_generic_steps(data : str = "data", target : str = "target"):
         },
         {
             "name": "encoder_step",
-            "primitives": ["d3m.primitives.dsbox.Encoder"],
+            "primitives": [
+                "d3m.primitives.dsbox.Encoder",
+                "d3m.primitives.dsbox.DoNothing"
+                ],
             "inputs": ["corex_step"]
         },
         {
@@ -438,9 +441,9 @@ def dsbox_generic_text_steps(data : str = "data", target : str = "target"):
         {
             "name": "encoder_step",
             "primitives": [
-                # "d3m.primitives.data.UnseenLabelEncoder",
-                "d3m.primitives.dsbox.Encoder"
-            ],
+                "d3m.primitives.dsbox.Encoder",
+                "d3m.primitives.dsbox.DoNothing"
+                ],
             "inputs": ["corex_step"]
         },
         {
