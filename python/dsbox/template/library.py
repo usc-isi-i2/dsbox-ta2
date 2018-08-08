@@ -328,11 +328,11 @@ def dsbox_generic_steps(data : str = "data", target : str = "target"):
             "name": "scaler_step",
             "primitives": [
                 {
-                    "primitive" : "d3m.primitives.dsbox.IQRScaler",
+                    "primitive" : "d3m.primitives.sklearn_wrap.SKMaxAbsScaler",
                     "hyperparameters" : {}
                 },
                 {
-                    "primitive" : "d3m.primitives.sklearn_wrap.SKMaxAbsScaler",
+                    "primitive" : "d3m.primitives.dsbox.IQRScaler",
                     "hyperparameters" : {}
                 },
                 "d3m.primitives.dsbox.DoNothing",
@@ -452,11 +452,11 @@ def dsbox_generic_text_steps(data : str = "data", target : str = "target"):
             "name": "scaler_step",
             "primitives": [
                 {
-                    "primitive" : "d3m.primitives.dsbox.IQRScaler",
+                    "primitive" : "d3m.primitives.sklearn_wrap.SKMaxAbsScaler",
                     "hyperparameters" : {}
                 },
                 {
-                    "primitive" : "d3m.primitives.sklearn_wrap.SKMaxAbsScaler",
+                    "primitive" : "d3m.primitives.dsbox.IQRScaler",
                     "hyperparameters" : {}
                 },
                 "d3m.primitives.dsbox.DoNothing",
