@@ -63,7 +63,7 @@ import pandas as pd
 FILE_FORMATTER = "[%(levelname)s] - %(asctime)s - %(name)s - %(message)s"
 FILE_LOGGING_LEVEL = logging.DEBUG
 LOG_FILENAME = 'dsbox.log'
-CONSOLE_LOGGING_LEVEL = logging.INFO
+CONSOLE_LOGGING_LEVEL = logging.DEBUG
 # CONSOLE_LOGGING_LEVEL = logging.DEBUG
 CONSOLE_FORMATTER = "[%(levelname)s] - %(name)s - %(message)s"
 
@@ -267,9 +267,11 @@ class Controller:
         self._logger.addHandler(console)
 
     def _process_pipeline_submission(self) -> None:
-        pipelines_root: str = os.path.join(self.output_directory, 'pipelines')
-        executables_root: str = os.path.join(self.output_directory, 'executables')
-        supporting_root: str = os.path.join(self.output_directory, 'supporting_files')
+        output_dir = os.path.dirname(self.output_pipelines_dir)
+        print("[PROSKA]:",output_dir)
+        pipelines_root: str = os.path.join(output_dir, 'pipelines')
+        executables_root: str = os.path.join(output_dir, 'executables')
+        supporting_root: str = os.path.join(output_dir, 'supporting_files')
         # os.path.join(os.path.dirname(executables_root), 'pipelines')
 
         # Read all the json files in the pipelines
@@ -282,7 +284,7 @@ class Controller:
             with open(os.path.join(pipelines_root, name)) as f:
                 try:
                     rank = json.load(f)['pipeline_rank']
-                except json.decoder.JSONDecodeError or KeyError:
+                except (json.decoder.JSONDecodeError, KeyError) as e:
                     rank = 0
             pipelines_df.at[name, 'rank'] = rank
 
@@ -653,6 +655,7 @@ class Controller:
         else:
             if task_type == 'CLASSIFICATION':
                 try:
+
                     # Use stratified sample to split the dataset
                     sss = StratifiedShuffleSplit(n_splits=n_splits, test_size=test_size, random_state=random_state)
                     sss.get_n_splits(dataset[res_id], dataset[res_id].iloc[:, target_index])
@@ -660,8 +663,10 @@ class Controller:
                     for train_index, test_index in sss.split(dataset[res_id], dataset[res_id].iloc[:, target_index]):
                         indf = dataset[res_id]
                         outdf_train = pd.DataFrame(columns = dataset[res_id].columns)
+
                         for each_index in train_index:
                             outdf_train = outdf_train.append(indf.loc[each_index],ignore_index = True)
+
                         outdf_train = d3m_DataFrame(outdf_train, generate_metadata = False)
                         outdf_train = outdf_train.set_index("d3mIndex", drop = False)
                         train = _add_meta_data(dataset = dataset, res_id = res_id, input_part = outdf_train)
@@ -846,6 +851,8 @@ class Controller:
         """
             Generate and train pipelines.
         """
+        #self._process_pipeline_submission()
+        #exit(0)
         if not self.template:
             return Status.PROBLEM_NOT_IMPLEMENT
 
@@ -881,115 +888,123 @@ class Controller:
                     break
             self._logger.info("Totally {} taget found.".format(len(target_column_list)))
             target_column_length = len(target_column_list)
-            attribute_column_length = all_column_length - target_column_length - 1
-            # skip the column 0 which is d3mIndex]
-            is_all_numerical = True
-            # check whether all inputs are categorical or not
-            # for each_column in range(1, attribute_column_length + 1):
-            #     each_metadata = self.all_dataset.metadata.query((res_id,ALL_ELEMENTS,each_column))
-            #     if 'http://schema.org/Float' not in each_metadata['semantic_types'] or 'http://schema.org/Integer' not in each_metadata['semantic_types']:
-            #         is_all_numerical = False
-            #         break
-            # two ways to do sampling (random projection or random choice)
-            if is_all_numerical:
-                # TODO:
-                # add special template that use random projection directly
-                # add one special source type for the template special process such kind of dataset
-                self._logger.info("Special type of dataset: large column number with all categorical columns.")
-                self._logger.info("Will reload the template with new task source type.")
-                self.taskSourceType.add("large_column_number")
-                # aadd new template specially for large column numbers at the first priority
-                new_template = self.template_library.get_templates(self.task_type, self.task_subtype, self.taskSourceType)
-                # find the maximum dataset split requirements
-                for each_template in new_template:
-                    self.template.insert(0,each_template)
-                    for each_step in each_template.template['steps']:
-                        if "runtime" in each_step and "test_validation" in each_step["runtime"]:
-                            split_times = int(each_step["runtime"]["test_validation"])
-                            if split_times > self.max_split_times:
-                                self.max_split_times = split_times
+            # check again on the length of the column to ensure
+            if (main_res_shape[1] - target_column_length - 1) <= self.threshold_column_length:
+                pass
+            else:
+                attribute_column_length = all_column_length - target_column_length - 1
+                # skip the column 0 which is d3mIndex]
+                is_all_numerical = True
+                # check whether all inputs are categorical or not
+                # for each_column in range(1, attribute_column_length + 1):
+                #     each_metadata = self.all_dataset.metadata.query((res_id,ALL_ELEMENTS,each_column))
+                #     if 'http://schema.org/Float' not in each_metadata['semantic_types'] or 'http://schema.org/Integer' not in each_metadata['semantic_types']:
+                #         is_all_numerical = False
+                #         break
+                # two ways to do sampling (random projection or random choice)
+                if is_all_numerical:
+                    # TODO:
+                    # add special template that use random projection directly
+                    # add one special source type for the template special process such kind of dataset
+                    self._logger.info("Special type of dataset: large column number with all categorical columns.")
+                    self._logger.info("Will reload the template with new task source type.")
+                    self.taskSourceType.add("large_column_number")
+                    # aadd new template specially for large column numbers at the first priority
+                    new_template = self.template_library.get_templates(self.task_type, self.task_subtype, self.taskSourceType)
+                    # find the maximum dataset split requirements
+                    for each_template in new_template:
+                        self.template.insert(0,each_template)
+                        for each_step in each_template.template['steps']:
+                            if "runtime" in each_step and "test_validation" in each_step["runtime"]:
+                                split_times = int(each_step["runtime"]["test_validation"])
+                                if split_times > self.max_split_times:
+                                    self.max_split_times = split_times
 
-            # else:
-                # run sampling method to randomly throw some columns
-                # update problem metadata
-                problem = dict(self.problem_doc_metadata.query(()))
-                #data_meta = dict(problem["inputs"]["data"][0])
-                data_meta = []
-                for each_data in problem["inputs"]["data"]:
-                    # update targets metadata for each target columns
-                    target_meta = []
-                    each_data = dict(each_data)
-                    for each_target in each_data["targets"]:
-                        target_meta_each = dict(each_target)
-                        target_meta_each['colIndex'] = self.threshold_column_length + (all_column_length - target_meta_each['colIndex'])
-                        target_meta.append(frozendict.FrozenOrderedDict(target_meta_each))
-                    # return the updated target_meta
-                    each_data["targets"] = tuple(target_meta)
-                    data_meta.append(each_data)
-                # return the updated data_meta
-                problem["inputs"] = dict(problem["inputs"])
-                problem["inputs"]["data"] = tuple(data_meta)
+                # else:
+                    # run sampling method to randomly throw some columns
+                    # update problem metadata
+                    problem = dict(self.problem_doc_metadata.query(()))
+                    #data_meta = dict(problem["inputs"]["data"][0])
+                    data_meta = []
+                    for each_data in problem["inputs"]["data"]:
+                        # update targets metadata for each target columns
+                        target_meta = []
+                        each_data = dict(each_data)
+                        for each_target in each_data["targets"]:
+                            target_meta_each = dict(each_target)
+                            target_meta_each['colIndex'] = self.threshold_column_length + (all_column_length - target_meta_each['colIndex'])
+                            target_meta.append(frozendict.FrozenOrderedDict(target_meta_each))
+                        # return the updated target_meta
+                        each_data["targets"] = tuple(target_meta)
+                        data_meta.append(each_data)
+                    # return the updated data_meta
+                    problem["inputs"] = dict(problem["inputs"])
+                    problem["inputs"]["data"] = tuple(data_meta)
 
-                problem["inputs"] = frozendict.FrozenOrderedDict(problem["inputs"])
-                problem = frozendict.FrozenOrderedDict(problem)
-                # update problem doc metadata
-                self.problem_doc_metadata = self.problem_doc_metadata.update((),problem)
-                # updating problem_doc_metadata finished
+                    problem["inputs"] = frozendict.FrozenOrderedDict(problem["inputs"])
+                    problem = frozendict.FrozenOrderedDict(problem)
+                    # update problem doc metadata
+                    self.problem_doc_metadata = self.problem_doc_metadata.update((),problem)
+                    # updating problem_doc_metadata finished
 
-                all_attribute_columns = range(1, attribute_column_length + 1)
+                    all_attribute_columns = range(1, attribute_column_length + 1)
 
-                # generate new metadata
-                metadata_new = DataMetadata()
-                # update whole source description
-                metadata_new = metadata_new.update((), self.all_dataset.metadata.query(()))
-                metadata_new = metadata_new.update((res_id,), self.all_dataset.metadata.query((res_id,)))
-                # update column 0 (d3mIndex) metadata
-                metadata_new = metadata_new.update((res_id,ALL_ELEMENTS,0), self.all_dataset.metadata.query((res_id,ALL_ELEMENTS,0)))
-                metadata_old = copy.copy(self.all_dataset.metadata)
-                # generate the remained column index randomly and sort it
-                remained_columns = random.sample(all_attribute_columns, self.threshold_column_length)
-                remained_columns.sort()
-                remained_columns.insert(0,0)
-                remained_columns.extend(target_column_list)
-                # sample the dataset
-                self.all_dataset[res_id] = self.all_dataset[res_id].iloc[:,remained_columns]
+                    # generate new metadata
+                    metadata_new = DataMetadata()
+                    # update whole source description
+                    metadata_new = metadata_new.update((), self.all_dataset.metadata.query(()))
+                    metadata_new = metadata_new.update((res_id,), self.all_dataset.metadata.query((res_id,)))
+                    # update column 0 (d3mIndex) metadata
+                    metadata_new = metadata_new.update((res_id,ALL_ELEMENTS,0), self.all_dataset.metadata.query((res_id,ALL_ELEMENTS,0)))
+                    metadata_old = copy.copy(self.all_dataset.metadata)
+                    # generate the remained column index randomly and sort it
+                    remained_columns = random.sample(all_attribute_columns, self.threshold_column_length)
+                    remained_columns.sort()
+                    remained_columns.insert(0,0)
+                    remained_columns.extend(target_column_list)
+                    # sample the dataset
+                    self.all_dataset[res_id] = self.all_dataset[res_id].iloc[:,remained_columns]
 
-                # update metadata on column information
-                new_column_meta = dict(self.all_dataset.metadata.query((res_id,ALL_ELEMENTS)))
-                new_column_meta['dimension'] = dict(new_column_meta['dimension'])
-                new_column_meta['dimension']['length'] = self.threshold_column_length + 1 + target_column_length
-                metadata_new = metadata_new.update((res_id,ALL_ELEMENTS), new_column_meta)
+                    # update metadata on column information
+                    new_column_meta = dict(self.all_dataset.metadata.query((res_id,ALL_ELEMENTS)))
+                    new_column_meta['dimension'] = dict(new_column_meta['dimension'])
+                    new_column_meta['dimension']['length'] = self.threshold_column_length + 1 + target_column_length
+                    metadata_new = metadata_new.update((res_id,ALL_ELEMENTS), new_column_meta)
 
-                # update the metadata on attribute column
-                for new_column_count, each_remained_column in enumerate(remained_columns):
-                    old_selector = (res_id, ALL_ELEMENTS, each_remained_column)
-                    new_selector = (res_id, ALL_ELEMENTS, new_column_count + 1)
-                    metadata_new = metadata_new.update(new_selector, metadata_old.query(old_selector))
+                    # update the metadata on attribute column
+                    for new_column_count, each_remained_column in enumerate(remained_columns):
+                        old_selector = (res_id, ALL_ELEMENTS, each_remained_column)
+                        new_selector = (res_id, ALL_ELEMENTS, new_column_count + 1)
+                        metadata_new = metadata_new.update(new_selector, metadata_old.query(old_selector))
 
-                # update class column
-                for new_column_count, each_target_column in enumerate(target_column_list):
-                    old_selector = (res_id,ALL_ELEMENTS, each_target_column)
-                    new_selector = (res_id,ALL_ELEMENTS, self.threshold_column_length + new_column_count + 1)
-                    metadata_new = metadata_new.update(new_selector, metadata_old.query(old_selector))
+                    # update class column
+                    for new_column_count, each_target_column in enumerate(target_column_list):
+                        old_selector = (res_id,ALL_ELEMENTS, each_target_column)
+                        new_selector = (res_id,ALL_ELEMENTS, self.threshold_column_length + new_column_count + 1)
+                        metadata_new = metadata_new.update(new_selector, metadata_old.query(old_selector))
 
-                # update the new metadata to replace the old one
-                self.all_dataset.metadata = metadata_new
-                # update traget_index for spliting into train and test dataset
-                if type(self.problem_info["target_index"]) is list:
-                    for i in range(len(self.problem_info["target_index"])):
-                        self.problem_info["target_index"][i] = self.threshold_column_length + i + 1
-                else:
-                    self.problem_info["target_index"] = self.threshold_column_length + target_column_length
+                    # update the new metadata to replace the old one
+                    self.all_dataset.metadata = metadata_new
+                    # update traget_index for spliting into train and test dataset
+                    if type(self.problem_info["target_index"]) is list:
+                        for i in range(len(self.problem_info["target_index"])):
+                            self.problem_info["target_index"][i] = self.threshold_column_length + i + 1
+                    else:
+                        self.problem_info["target_index"] = self.threshold_column_length + target_column_length
 
-                self._logger.info("Random sampling on columns Finished.")
+                    self._logger.info("Random sampling on columns Finished.")
 
         if main_res_shape[0] > self.threshold_index_length:
+            self._logger.info("The row number of the input dataset is very large, will send only part of them to search.")
+            if main_res_shape[1] > 20:
+                self.threshold_index_length = int(self.threshold_index_length * 0.3)
+                self._logger.info("The column number is also very large, will reduce the sampling amount on row number.")
             # too many indexs, we can run another split dataset
-            self._logger.info("The indexs number of the input dataset is very large, will send only part of them to search.")
             index_removed_percent = 1 - float(self.threshold_index_length) / float(main_res_shape[0])
             # ignore the test part
             self.all_dataset, _ = self.split_dataset(dataset = self.all_dataset, test_size = index_removed_percent, need_test_dataset = False)
             self.all_dataset = self.all_dataset[0]
+            self._logger.info("Random sampling on rows Finished.")
 
         # split the dataset first time
         self.train_dataset1, self.test_dataset1 = self.split_dataset(dataset = self.all_dataset)
