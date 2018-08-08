@@ -202,7 +202,7 @@ class TemplateLibrary:
         self.templates.append(DefaultTimeseriesCollectionTemplate)
         self.templates.append(DefaultTimeseriesRegressionTemplate)
         self.templates.append(TimeSeriesForcastingTestingTemplate)
-        
+
         self.templates.append(SRICommunityDetectionTemplate)
         self.templates.append(SRIGraphMatchingTemplate)
         self.templates.append(SRIVertexNominationTemplate)
@@ -3841,10 +3841,35 @@ class TimeSeriesForcastingTestingTemplate(DSBoxTemplate):
                                 'semantic_types': (
                                     'https://metadata.datadrivendiscovery.org/types/Attribute',),
                                 'use_columns': (),
+                                'exclude_columns': (3,)
+                            }
+                    }],
+                    "inputs": ["to_dataframe_step"]
+                },
+                {
+                    "name": "extract_time_series_file_step",
+                    "primitives": [{
+                        "primitive": "d3m.primitives.data.ExtractColumnsBySemanticTypes",
+                        "hyperparameters":
+                            {
+                                'semantic_types': (
+                                    'https://metadata.datadrivendiscovery.org/types/FileName',),
+                                'use_columns': (),
                                 'exclude_columns': ()
                             }
                     }],
                     "inputs": ["to_dataframe_step"]
+                },
+                {
+                    "name": "timeseries_to_list_step",
+                    "primitives": ["d3m.primitives.dsbox.TimeseriesToList"],
+                    "inputs": ["extract_time_series_file_step"]
+                },
+
+                {
+                    "name": "random_projection_step",
+                    "primitives": ["d3m.primitives.dsbox.RandomProjectionTimeSeriesFeaturization"],
+                    "inputs": ["timeseries_to_list_step"]
                 },
                 {
                     "name":"profiler_step",
@@ -3860,6 +3885,11 @@ class TimeSeriesForcastingTestingTemplate(DSBoxTemplate):
                     "name":"encoder_step",
                     "primitives": ["d3m.primitives.dsbox.Encoder"],
                     "inputs": ["data_clean_step"]
+                },
+                {
+                    "name":"concat_step",
+                    "primitives":["d3m.primitives.data.HorizontalConcatPrimitive"],
+                    "inputs":["encoder_step","random_projection_step"]
                 },
                 # read Y value
                 {
@@ -3879,7 +3909,7 @@ class TimeSeriesForcastingTestingTemplate(DSBoxTemplate):
                 {
                     "name": "model_step",
                     "primitives": ["d3m.primitives.sklearn_wrap.SKExtraTreesRegressor"],
-                    "inputs": ["encoder_step", "extract_target_step"]
+                    "inputs": ["concat_step", "extract_target_step"]
                 },
             ]
         }

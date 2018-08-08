@@ -738,11 +738,11 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
 
             if _logger.getEffectiveLevel() <= 10:
                 data_to_logger_info = []
-                if data['test_metrics']['metric']:
+                if 'metric' in data['test_metrics']:
                     data_to_logger_info.append(data['test_metrics']['metric'])
                 else:
                     data_to_logger_info.append("No test metrics metric found")
-                if data['test_metrics']['value']:
+                if 'value' in data['test_metrics']:
                     data_to_logger_info.append(data['test_metrics']['value'])
                 else:
                     data_to_logger_info.append("No test metrics value found")
