@@ -2333,7 +2333,7 @@ class SRILinkPredictionTemplate(DSBoxTemplate):
             "taskType": {TaskType.LINK_PREDICTION.name,TaskType.GRAPH_MATCHING.name},
             "taskSubtype": "NONE",
             "inputType": "graph",
-            "output": "to_dataframe_step",
+            "output": "model_step",
             "steps": [
                 {
                     "name": "denormalize_step",
