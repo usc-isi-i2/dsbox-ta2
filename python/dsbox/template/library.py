@@ -584,7 +584,7 @@ def dsbox_feature_selector():
                 {
                     "primitive" : "d3m.primitives.sklearn_wrap.SKSelectFwe",
                     "hyperparameters":{
-                        "alpha" : [float(x) for x in np.logspace(-6, -1, 5)]
+                        "alpha" : [float(x) for x in np.logspace(-4, -1, 5)]
                     }
                 },
 
@@ -3472,7 +3472,19 @@ class ClassificationWithSelection(DSBoxTemplate):
                                     "l1_ratio": [float(x) for x in np.logspace(-9, -0.004, 5)],
                                     "penalty": ['elasticnet', 'l2']
                                 }
-                            }
+                            },
+                            {
+                                "primitive":
+                                    "d3m.primitives.sklearn_wrap.SKGradientBoostingClassifier",
+                                "hyperparameters":
+                                    {
+                                        'max_depth': [2, 5],
+                                        'n_estimators': [50, 100],
+                                        'learning_rate': [0.1, 0.3],
+                                        'min_samples_split': [2, 3],
+                                        'min_samples_leaf': [1, 2],
+                                    }
+                            },
                         ],
                         "inputs":["feature_selector_step","extract_target_step"]
                     }
@@ -3508,7 +3520,19 @@ class RegressionWithSelection(DSBoxTemplate):
                                     "l1_ratio":[0.15, 0.3, 0.5, 0.6, 0.7], #cannot reach 1
                                     "learning_rate": ['optimal', 'invscaling']
                                 }
-                            }
+                            },
+                            {
+                                "primitive":
+                                    "d3m.primitives.sklearn_wrap.SKGradientBoostingRegressor",
+                                "hyperparameters":
+                                    {
+                                        'max_depth': [2, 3, 5],
+                                        'n_estimators': [100, 150, 200],
+                                        'learning_rate': [0.1, 0.3, 0.5],
+                                        'min_samples_split': [2, 3],
+                                        'min_samples_leaf': [1, 2],
+                                    }
+                            },
                         ],
                         "inputs":["feature_selector_step","extract_target_step"]
                     }
