@@ -538,13 +538,27 @@ def human_steps():
         },
         {
             "name": "encoder_step",
-            "primitives": ["d3m.primitives.dsbox.Encoder"],
+            "primitives": [
+                "d3m.primitives.dsbox.Encoder",
+                "d3m.primitives.dsbox.Labler"
+            ],
             "inputs": ["clean_step"]
         },
         {
             "name": "impute_step",
             "primitives": ["d3m.primitives.dsbox.MeanImputation"],
             "inputs": ["encoder_step"]
+        },
+        {
+            "name": "cast_step", # turn columns to float
+            "primitives": [
+                {
+                    "primitive": "d3m.primitives.data.CastToType",
+                    "hyperparameters": {"type_to_cast": ["float"]}
+                },
+                "d3m.primitives.dsbox.DoNothing",
+            ],
+            "inputs": ["impute_step"]
         },
         {
             "name": "extract_target_step",
@@ -600,7 +614,7 @@ def dsbox_feature_selector():
                         "d3m.primitives.dsbox.DoNothing"
 
                     ],
-                    "inputs":["impute_step", "extract_target_step"]
+                    "inputs":["cast_step", "extract_target_step"]
                 },
 
         ]
@@ -3469,10 +3483,10 @@ class ClassificationWithSelection(DSBoxTemplate):
                             {
                                 "primitive":"d3m.primitives.sklearn_wrap.SKSGDClassifier",
                                 "hyperparameters":{
-                                    "loss":[('hinge'), ('log'), ('squared_hinge'), ('perceptron')],
-                                    "alpha":[0.0001]+[float(x) for x in np.logspace(-6, -1.004, 5)],
-                                    "l1_ratio":[0.15]+[float(x) for x in np.logspace(-9, -0.004, 5)]
-
+                                    "loss": ['log', 'hinge', 'squared_hinge', 'perceptron'],
+                                    "alpha": [float(x) for x in np.logspace(-6, -1.004, 5)],
+                                    "l1_ratio": [float(x) for x in np.logspace(-9, -0.004, 5)],
+                                    "penalty": ['elasticnet', 'l2']
                                 }
                             }
                         ],
