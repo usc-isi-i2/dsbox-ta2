@@ -4,6 +4,7 @@ import os
 import signal
 import subprocess
 import traceback
+import sys
 from pprint import pprint
 
 from dsbox.controller.controller import Controller
@@ -24,6 +25,32 @@ def kill_child_processes(parent_pid, sig=signal.SIGTERM):
         except:
             pass
 
+class StdoutLogger(object):
+    def __init__(self, f):
+        self.terminal = sys.stdout
+        self.log = f
+
+    def write(self, message):
+        self.terminal.write(message)
+        self.log.write(message)
+
+    def flush(self):
+        self.log.flush()
+
+
+class StderrLogger(object):
+    def __init__(self, f):
+        self.err = sys.stderr
+        self.log = f
+
+    def write(self, message):
+        self.err.write(message)
+        self.log.write(message)
+
+    def flush(self):
+        self.log.flush()
+
+
 def main():
     timeout = 0
     if os.environ["D3MRUN"] == "search":
@@ -35,7 +62,7 @@ def main():
     config["ram"] = os.environ["D3MRAM"]
 
     # Time to write results (in minutes)
-    write_results_time = 5
+    write_results_time = 2
     timeout = int(os.environ["D3MTIMEOUT"]) - write_results_time
     config["timeout"] = timeout
 
@@ -106,5 +133,29 @@ def main():
 
 if __name__ == "__main__":
 
+    if os.environ["D3MRUN"] == "search":
+        config = json.load(open(os.path.join(os.environ["D3MINPUTDIR"], "search_config.json"), 'r'))
+    else:
+        config = json.load(open(os.path.join(os.environ["D3MINPUTDIR"], "test_config.json"), 'r'))
+
+    if 'logs_root' in config:
+        std_dir = os.path.abspath(config['logs_root'])
+    else:
+        std_dir = os.path.join(config['temp_storage_root'], 'logs')
+
+    os.makedirs(std_dir, exist_ok=True)
+
+    orig_stdout = sys.stdout
+    orig_stderr = sys.stderr
+    f = open(os.path.join(std_dir, 'out.txt'), 'w')
+
+    sys.stdout = StdoutLogger(f)
+    sys.stderr = StderrLogger(f)
+
+    sys.stdout = orig_stdout
+    sys.stderr = orig_stderr
+
+    f.close()
+    
     result = main()
     os._exit(result)

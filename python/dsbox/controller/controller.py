@@ -267,9 +267,11 @@ class Controller:
         self._logger.addHandler(console)
 
     def _process_pipeline_submission(self) -> None:
-        pipelines_root: str = os.path.join(self.output_directory, 'pipelines')
-        executables_root: str = os.path.join(self.output_directory, 'executables')
-        supporting_root: str = os.path.join(self.output_directory, 'supporting_files')
+        output_dir = os.path.dirname(self.output_pipelines_dir)
+        print("[PROSKA]:",output_dir)
+        pipelines_root: str = os.path.join(output_dir, 'pipelines')
+        executables_root: str = os.path.join(output_dir, 'executables')
+        supporting_root: str = os.path.join(output_dir, 'supporting_files')
         # os.path.join(os.path.dirname(executables_root), 'pipelines')
 
         # Read all the json files in the pipelines
@@ -849,6 +851,8 @@ class Controller:
         """
             Generate and train pipelines.
         """
+        #self._process_pipeline_submission()
+        #exit(0)
         if not self.template:
             return Status.PROBLEM_NOT_IMPLEMENT
 
