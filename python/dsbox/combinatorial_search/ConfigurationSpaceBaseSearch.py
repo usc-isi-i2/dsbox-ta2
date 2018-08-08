@@ -127,9 +127,14 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
         configuration: ConfigurationPoint[PrimitiveDescription] = dict(args[0])
         cache: PrimitivesCache = args[1]
         dump2disk = args[2] if len(args) == 3 else True
-        print("[INFO] Worker started, id:", current_process(), ",", dump2disk)
 
+        print("[INFO] START Evaluation of {} in {}".format(hash(str(configuration)),
+                                                           current_process()))
         evaluation_result = self._evaluate(configuration, cache, dump2disk)
+
+        print("[INFO] END Evaluation of {} in {}".format(hash(str(configuration)),
+                                                         current_process()))
+
         # try:
         #     evaluation_result = self._evaluate(configuration, cache, dump2disk)
         # except:
@@ -150,8 +155,8 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
         # if in cross validation mode
         if self.testing_mode == 1:
             repeat_times = int(self.validation_config['cross_validation'])
-            print("[INFO] Will use cross validation( n =", repeat_times, ") to choose best "
-                                                                         "primitives.")
+            # print("[INFO] Will use cross validation( n =", repeat_times, ") to choose best "
+            #                                                              "primitives.")
             # start training and testing
             fitted_pipeline = FittedPipeline(pipeline, self.train_dataset1.metadata.query(())['id'],
                                              log_dir=self.log_dir,
@@ -173,7 +178,7 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
                 test_metrics[0]["value"] = 0
             else:
                 test_metrics[0]["value"] = sys.float_info.max
-            print("[INFO] Testing finish.!!!")
+            # print("[INFO] Testing finish.!!!")
 
         # if in normal testing mode(including default testing mode with train/test one time each)
         else:
@@ -181,8 +186,8 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
                 repeat_times = int(self.validation_config['test_validation'])
             else:
                 repeat_times = 1
-            print("[INFO] Will use normal train-test mode ( n =", repeat_times,
-                  ") to choose best primitives.")
+            # print("[INFO] Will use normal train-test mode ( n =", repeat_times,
+            #       ") to choose best primitives.")
             training_metrics = []
             test_metrics = []
 
@@ -228,7 +233,7 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
             # [{'metric': 'f1Macro', 'value': 0.48418535913661614, 'values': [0.4841025641025641,
             #  0.4841025641025641, 0.4843509492047203]]
             # modify the test_metrics and training_metrics format to fit the requirements
-            print("[INFO] Testing finish.!!!")
+            # print("[INFO] Testing finish.!!!")
             if len(training_metrics) > 1:
                 training_value_list = []
                 test_value_list = []
@@ -253,14 +258,14 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
 
         # Save results
         if self.test_dataset1 is None:
-            print("The dataset no need to split of split failed, will not train again.")
+            # print("The dataset no need to split of split failed, will not train again.")
             fitted_pipeline2 = fitted_pipeline
             # set the metric for calculating the rank
             fitted_pipeline2.set_metric(training_metrics[0])
 
-            print("!!!! No test_dataset1")
-            pprint(data)
-            print("!!!!")
+            # print("!!!! No test_dataset1")
+            # pprint(data)
+            # print("!!!!")
 
             if self.output_directory is not None and dump2disk:
                 fitted_pipeline2.save(self.output_directory)
@@ -274,22 +279,14 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
                 'configuration': configuration,
             }
             fitted_pipeline.auxiliary = dict(data)
-
-
-            #     _logger.info("Test pickled pipeline. id: {}".format(fitted_pipeline2.id))
-            #     self.test_pickled_pipeline(folder_loc=self.output_directory,
-            #                                pipeline_id=fitted_pipeline2.id,
-            #                                test_dataset=self.train_dataset2[0],
-            #                                test_metrics=training_metrics,
-            #                                test_ground_truth=get_target_columns(self.train_dataset2[each_repeat], self.problem))
         else:
             if self.quick_mode or self.train_dataset1 is None:
-                print("[INFO] Now in quick mode, will skip training with train_dataset1")
+                # print("[INFO] Now in quick mode, will skip training with train_dataset1")
                 # if in quick mode, we did not fit the model with dataset_train1 again
                 # just generate the predictions on dataset_test1 directly and get the rank
                 fitted_pipeline2 = fitted_pipeline
             else:
-                print("[INFO] Now in normal mode, will add extra train with train_dataset1")
+                # print("[INFO] Now in normal mode, will add extra train with train_dataset1")
                 # pipeline = self.template.to_pipeline(configuration)
                 # otherwise train again with dataset_train1 and get the rank
                 fitted_pipeline2 = FittedPipeline(pipeline,
@@ -313,7 +310,7 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
             fitted_pipeline2.set_metric(test_metrics2[0])
 
             # finally, fit the model with all data and save it
-            print("[INFO] Now are training the pipeline with all dataset and saving the pipeline.")
+            # print("[INFO] Now are training the pipeline with all dataset and saving the pipeline.")
             fitted_pipeline2.fit(cache=cache, inputs=[self.all_dataset])
             # fitted_pipeline2.fit(inputs = [self.all_dataset])
 
@@ -329,22 +326,6 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
                 'configuration': configuration,
             }
             fitted_pipeline.auxiliary = dict(data)
-
-            print("!!!!!! TEST_DATASET1")
-            pprint(data)
-            print("!!!!")
-
-
-                # _ = fitted_pipeline2.produce(inputs=[self.test_dataset1])
-                # test_prediction3 = fitted_pipeline2.get_produce_step_output(self.template.get_output_step_number())
-                # _, test_metrics3 = self._calculate_score(None, None, test_ground_truth, test_prediction3)
-
-            #     _logger.info("Test pickled pipeline. id: {}".format(fitted_pipeline2.id))
-            #     self.test_pickled_pipeline(folder_loc=self.output_directory,
-            #                                pipeline_id=fitted_pipeline2.id,
-            #                                test_dataset=self.test_dataset1,
-            #                                test_metrics=test_metrics3,
-            #                                test_ground_truth=test_ground_truth)
 
         # still return the original fitted_pipeline with relation to train_dataset1
         return data

@@ -6,6 +6,8 @@ import random
 import sys
 import typing
 import uuid
+import json
+import shutil
 
 from multiprocessing import Pool, current_process, Manager
 from math import sqrt, log
@@ -280,6 +282,8 @@ class Controller:
 
         self._logger = None
 
+        self._did_we_post_process: bool = False
+
     def initialize_from_config_for_evaluation(self, config: typing.Dict) -> None:
         '''
             This function for running ta2_evaluation
@@ -417,24 +421,62 @@ class Controller:
                     if split_times > self.max_split_times:
                         self.max_split_times = split_times
 
+    def _process_pipeline_submission(self) -> None:
+        pipelines_root: str = os.path.join(self.output_directory, 'pipelines')
+        executables_root: str = os.path.join(self.output_directory, 'executables')
+        supporting_root: str = os.path.join(self.output_directory, 'supporting_files')
+
+        # Read all the json files in the pipelines
+        piplines_name_list = os.listdir(pipelines_root)
+        if len(piplines_name_list) < 20:
+            return
+
+        pipelines_df = pd.DataFrame(0.0, index=piplines_name_list, columns=["rank"])
+        for name in piplines_name_list:
+            with open(os.path.join(pipelines_root, name)) as f:
+                try:
+                    rank = json.load(f)['pipeline_rank']
+                except json.decoder.JSONDecodeError or KeyError:
+                    rank = 0
+            pipelines_df.at[name, 'rank'] = rank
+
+        # sort them based on their rank field
+        pipelines_df.sort_values(by='rank', ascending=True, inplace=True)
+
+        # make sure that "pipeline_considered" directory exists
+        considered_root = os.path.join(os.path.dirname(pipelines_root), 'pipelines_considered')
+        try:
+            os.mkdir(considered_root)
+        except FileExistsError:
+            pass
+
+        # pick the top 20 and move the rest to "pipeline_considered" directory
+        for name in pipelines_df.index[20:]:
+            os.rename(src=os.path.join(pipelines_root, name),
+                      dst=os.path.join(considered_root, name))
+
+        # delete the exec and supporting files related the moved pipelines
+        for name in pipelines_df.index[20:]:
+            pipeName = name.split('.')[0]
+            try:
+                os.remove(os.path.join(executables_root, pipeName + '.json'))
+            except FileNotFoundError:
+                traceback.print_exc()
+                pass
+
+            try:
+                shutil.rmtree(os.path.join(supporting_root, pipeName))
+            except FileNotFoundError:
+                traceback.print_exc()
+                pass
+
     def write_training_results(self):
         # load trained pipelines
-        self._logger.info("[WARN] write_training_results")
+        if not self._did_we_post_process:
+            self._logger.warning("write_training_results")
+            self._did_we_post_process = True
+            self._process_pipeline_submission()
 
-        # FIXME) This method does not serve any purpose at the moment. Maybe it needs to be
-        # FIXME) removed totally
-        # if len(self.exec_history) == 0:
-        #     return None
-        #
-        # # if best_info and best_info['best_val']:
-        # best_template, best_report = max(self.exec_history.iterrows(),
-        #                                  key=lambda r: r[1]['best_value'])
-        #
-        # if best_template:
-        #     self._logger.info("[INFO] Best template name:{}".format(best_template))
-        #     self._logger.info("[INFO] Best value:{}".format(best_report['best_value']))
-        #     self._logger.info("[INFO] Best Candidate:{}".format(
-        #         pprint.pformat(best_report['candidate'])))
         return None
 
     def _log_search_results(self, report: typing.Dict[str, typing.Any]):
@@ -482,8 +524,8 @@ class Controller:
         pid: int = os.fork()
         if pid == 0:  # run the search in the child process
             # self._run_SerialBaseSearch()
-            # self._run_ParallelBaseSearch()
-            self._run_RandomDimSearch()
+            self._run_ParallelBaseSearch()
+            # self._run_RandomDimSearch()
 
             print("[INFO] End of Search")
             os._exit(0)
@@ -492,69 +534,6 @@ class Controller:
             print("[INFO] Search Status:")
             pprint.pprint(status)
         print("END OF FORK")
-        # for idx in self.select_next_template(max_iter=5):
-        #     template = self.template[idx]
-        #     self._logger.info(STYLE+"[INFO] Template {}:{} Selected. UCT:{}".format(idx, template.template['name'], self.uct_score))
-        #
-        #     try:
-        #         report = self.search_template(
-        #             template, candidate=self.exec_history.iloc[idx]['candidate'],
-        #             cache_bundle=(cache, candidate_cache),
-        #             )
-        #
-        #     except:
-        #         self._logger.exception("search_template failed on {} with UCT: {}".format(
-        #             template.template['name'], self.uct_score))
-        #         traceback.print_exc()
-        #         # report = {
-        #         #
-        #         # }
-        #         continue
-        #     self._logger.info(STYLE + "[INFO] report: " + str(report['best_val']))
-        #     self.update_UCT_score(index=idx, report=report)
-        #     self._logger.info(STYLE+"[INFO] cache size: " + str(len(cache))+
-        #           ", candidates: " + str(len(candidate_cache)))
-        #
-        #     new_best = False
-        #     if best_report is None:
-        #         best_report = report
-        #         best_metric_value = best_report['best_val']
-        #         new_best = True
-        #     else:
-        #         if self.minimize and report['best_val'] < best_metric_value:
-        #             best_report = report
-        #             best_metric_value = report['best_val']
-        #             new_best = True
-        #         if not self.minimize and report['best_val'] > best_metric_value:
-        #             best_report = report
-        #             best_metric_value = report['best_val']
-        #             new_best = True
-        #
-        #     if new_best and best_report['candidate'] is not None:
-        #         self._logger.info('[INFO] New Best Value: ' + str(report['best_val']))
-        #
-        #         dataset_name = self.output_executables_dir.rsplit("/", 2)[1]
-        #         # save_location = os.path.join(self.output_logs_dir, dataset_name + ".txt")
-        #         save_location = self.output_directory + ".txt"
-        #
-        #         self._logger.info("******************\n[INFO] Saving training results in %s", save_location)
-        #         metrics = self.problem['problem']['performance_metrics']
-        #         candidate = best_report['candidate']
-        #         try:
-        #             f = open(save_location, "w+")
-        #             f.write(str(metrics) + "\n")
-        #
-        #             for m in ["training_metrics", "cross_validation_metrics", "test_metrics"]:
-        #                 if m in candidate.data and candidate.data[m]:
-        #                     f.write(m + ' ' +  str(candidate.data[m][0]['value']) + "\n")
-        #             # f.write(str(candidate.data['training_metrics'][0]['value']) + "\n")
-        #             # f.write(str(candidate.data['cross_validation_metrics'][0]['value']) + "\n")
-        #             # f.write(str(candidate.data['test_metrics'][0]['value']) + "\n")
-        #             f.close()
-        #         except:
-        #             self._logger.exception('[ERROR] Save training results Failed!')
-        #             raise NotSupportedError(
-        #                 '[ERROR] Save training results Failed!')
 
     def _run_SerialBaseSearch(self):
         searchMethod = TemplateSpaceBaseSearch(
@@ -588,7 +567,7 @@ class Controller:
             num_proc=self.num_cpus,
             timeout=self.TIMEOUT,
         )
-        report = searchMethod.search(num_iter=10)
+        report = searchMethod.search(num_iter=40)
 
         self._log_search_results(report=report)
 

@@ -100,7 +100,9 @@ def main(args):
         controller.initialize_from_config_train_test(config)
 
     status = controller.train()
-    print("*+" * 10)
+    print("*+" * 20)
+    controller.write_training_results()
+    print("*+" * 20)
     status = controller.test()
     print("[INFO] Testing Done")
     time_used = time.clock() - start_time

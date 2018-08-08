@@ -124,10 +124,10 @@ class PrimitivesCache:
         try:
             if not self.is_hit_key(prim_name=prim_name, prim_hash=prim_hash):
                 self.storage[(prim_name, prim_hash)] = (primitives_output, model)
-                print("[INFO] Push@cache:", (prim_name, prim_hash))
+                # print("[INFO] Push@cache:", (prim_name, prim_hash))
                 return 0
             else:
-                print("[WARN] Double-push in Primitives Cache")
+                # print("[WARN] Double-push in Primitives Cache")
                 return 1
         finally:
             self.write_lock.release()
@@ -142,7 +142,7 @@ class PrimitivesCache:
 
     def lookup_key(self, prim_hash: int, prim_name: int) -> typing.Tuple[Dataset, PrimitiveBase]:
         if self.is_hit_key(prim_name=prim_name, prim_hash=prim_hash):
-            print("[INFO] Hit@cache:", (prim_name, prim_hash))
+            # print("[INFO] Hit@cache:", (prim_name, prim_hash))
             return self.storage[(prim_name, prim_hash)]
         else:
             return (None, None)

@@ -107,6 +107,7 @@ class TemplateSpaceParallelBaseSearch(TemplateSpaceBaseSearch[T]):
         # FIXME this is_idle method is not working properly
         while not self.job_manager.is_idle():
             # print("[INFO] Sleeping,", counter)
+            print("[INFO] Main Process Sleeping:", counter)
             (kwargs, report) = self.job_manager.pop_job(block=True)
             candidate = kwargs['candidate']
             try:
@@ -116,24 +117,23 @@ class TemplateSpaceParallelBaseSearch(TemplateSpaceBaseSearch[T]):
                 self.cacheManager.candidate_cache.push(report)
             except:
                 traceback.print_exc()
-                print("[INFO] Search Failed on candidate")
-                pprint(candidate)
+                print("[INFO] Search Failed on candidate ", hash(str(candidate)))
                 self.history.update_none(fail_report=None, template_name=template_name)
                 self.cacheManager.candidate_cache.push_None(candidate=candidate)
             counter += 1
         print("[INFO] No more pending job")
 
     def _push_random_candidates(self, num_iter):
+        print("#" * 50)
         for i in range(num_iter):
-            print("#" * 50)
             template_index = random.randrange(0, len(self.confSpaceBaseSearch))
             search = self.confSpaceBaseSearch[template_index]
             candidate = search.configuration_space.get_random_assignment()
-            print("[INFO] Selecting Template:", search.template.template['name'])
-
+            # print("[INFO] Selecting Template:", search.template.template['name'])
+            print("[INFO] Selecting ", hash(str(candidate)))
             if self.cacheManager.candidate_cache.is_hit(candidate):
                 report = self.cacheManager.candidate_cache.lookup(candidate)
-                assert report is not None and 'candidate' in report, \
+                assert report is not None and 'configuration' in report, \
                     'invalid candidate_cache line: {}->{}'.format(candidate, report)
                 continue
 
@@ -154,6 +154,7 @@ class TemplateSpaceParallelBaseSearch(TemplateSpaceBaseSearch[T]):
                 traceback.print_exc()
 
             time.sleep(0.1)
+        print("#" * 50)
 
     def evaluate_blocking(self, base_search: ConfigurationSpaceBaseSearch,
                           candidate: ConfigurationPoint[PrimitiveDescription]) -> typing.Dict:
