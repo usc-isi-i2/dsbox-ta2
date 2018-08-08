@@ -5,6 +5,8 @@ import os
 import random
 import typing
 import uuid
+import json
+import shutil
 
 from multiprocessing import Manager
 from math import sqrt, log
@@ -61,7 +63,7 @@ import pandas as pd
 FILE_FORMATTER = "[%(levelname)s] - %(asctime)s - %(name)s - %(message)s"
 FILE_LOGGING_LEVEL = logging.DEBUG
 LOG_FILENAME = 'dsbox.log'
-CONSOLE_LOGGING_LEVEL = logging.INFO
+CONSOLE_LOGGING_LEVEL = logging.DEBUG
 # CONSOLE_LOGGING_LEVEL = logging.DEBUG
 CONSOLE_FORMATTER = "[%(levelname)s] - %(name)s - %(message)s"
 
@@ -204,6 +206,8 @@ class Controller:
 
         self._log_init()
         self._logger.info('Top level output directory: %s' % self.output_directory)
+        considered_root = os.path.join(os.path.dirname(self.output_pipelines_dir), 'pipelines_considered')
+        self._logger.info('Considered output directory: %s' % considered_root)
 
     def _load_schema(self, config):
         # Do not use
@@ -241,7 +245,7 @@ class Controller:
         self.problem_info["res_id"] = self.problem['inputs'][i]['targets'][0]['resource_id']
         self.problem_info["target_index"] = []
         for each in self.problem['inputs'][i]['targets']:
-            self.problem_info["target_index"].append(each["column_index"]) 
+            self.problem_info["target_index"].append(each["column_index"])
 
     def _log_init(self) -> None:
         logging.basicConfig(
@@ -261,6 +265,54 @@ class Controller:
         console.setFormatter(logging.Formatter(CONSOLE_FORMATTER))
         console.setLevel(CONSOLE_LOGGING_LEVEL)
         self._logger.addHandler(console)
+
+    def _process_pipeline_submission(self) -> None:
+        pipelines_root: str = self.output_pipelines_dir
+        # os.path.join(os.path.dirname(executables_root), 'pipelines')
+
+        # Read all the json files in the pipelines
+        piplines_name_list = os.listdir(pipelines_root)
+        if len(piplines_name_list) < 20:
+            return
+        
+        pipelines_df = pd.DataFrame(0.0, index=piplines_name_list, columns=["rank"])
+        for name in piplines_name_list:
+            with open(os.path.join(pipelines_root, name)) as f:
+                rank = json.load(f)['pipeline_rank']
+            pipelines_df.at[name, 'rank'] = rank
+
+        # sort them based on their rank field
+        pipelines_df.sort_values(by='rank', ascending=True, inplace=True)
+
+        # make sure that "pipeline_considered" directory exists
+        considered_root = os.path.join(os.path.dirname(pipelines_root), 'pipelines_considered')
+        try:
+            os.mkdir(considered_root)
+        except FileExistsError:
+            pass
+
+        # pick the top 20 and move the rest to "pipeline_considered" directory
+        for name in pipelines_df.index[20:]:
+            os.rename(src=os.path.join(pipelines_root, name),
+                      dst=os.path.join(considered_root, name))
+
+        # delete the exec and supporting files related the moved pipelines
+        executables_root: str = self.output_executables_dir
+        supporting_root: str = self.output_supporting_files_dir
+        # os.path.join(os.path.dirname(executables_root), 'supporting_files')
+        for name in pipelines_df.index[20:]:
+            pipeName = name.split('.')[0]
+            try:
+                os.remove(os.path.join(executables_root, pipeName + '.json'))
+            except FileNotFoundError:
+                traceback.print_exc()
+                pass
+
+            try:
+                shutil.rmtree(os.path.join(supporting_root, pipeName))
+            except FileNotFoundError:
+                traceback.print_exc()
+                pass
 
     '''
         **********************************************************************
@@ -691,10 +743,12 @@ class Controller:
             prediction_class_name.append("prediction")
 
         prediction = run_test.produce_outputs[step_number_output]
+
         # if the prediction results do not have d3m_index column
         if 'd3mIndex' not in prediction.columns:
             d3m_index = get_target_columns(self.all_dataset, self.problem_doc_metadata)["d3mIndex"]
             d3m_index = d3m_index.reset_index().drop(columns=['index'])
+            # prediction.drop("confidence", axis=1, inplace=True, errors = "ignore")#some prediction has "confidence"
             prediction_col_name = ['d3mIndex']
             for each in prediction.columns:
                 prediction_col_name.append(each)
@@ -767,6 +821,7 @@ class Controller:
         if 'd3mIndex' not in prediction.columns:
             d3m_index = get_target_columns(self.all_dataset, self.problem_doc_metadata)["d3mIndex"]
             d3m_index = d3m_index.reset_index().drop(columns=['index'])
+            # prediction.drop("confidence", axis=1, inplace=True, errors = "ignore")#some prediction has "confidence"
             prediction_col_name = ['d3mIndex']
             for each in prediction.columns:
                 prediction_col_name.append(each)
@@ -811,7 +866,7 @@ class Controller:
 
         if main_res_shape[1] > self.threshold_column_length:
             self._logger.info("The columns number of the input dataset is very large, now sampling part of them.")
-            
+
             # first check the target column amount
             target_column_list = []
             all_column_length = self.all_dataset.metadata.query((res_id,ALL_ELEMENTS))['dimension']['length']
@@ -919,7 +974,7 @@ class Controller:
                 self.all_dataset.metadata = metadata_new
                 # update traget_index for spliting into train and test dataset
                 if type(self.problem_info["target_index"]) is list:
-                    for i in range(len(self.problem_info["target_index"])): 
+                    for i in range(len(self.problem_info["target_index"])):
                         self.problem_info["target_index"][i] = self.threshold_column_length + i + 1
                 else:
                     self.problem_info["target_index"] = self.threshold_column_length + target_column_length
@@ -1077,6 +1132,7 @@ class Controller:
     def write_training_results(self):
         # load trained pipelines
         self._logger.info("[WARN] write_training_results")
+        self._process_pipeline_submission()
 
         if len(self.exec_history) == 0:
             return None

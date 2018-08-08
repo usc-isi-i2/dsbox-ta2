@@ -24,7 +24,6 @@ from dsbox.pipeline.fitted_pipeline import FittedPipeline
 from dsbox.template.runtime import Runtime, add_target_columns_metadata
 from dsbox.template.search import get_target_columns
 
-TOP_NUM = 20
 
 def load_one_pipeline(path) -> tuple:
     '''
@@ -162,6 +161,9 @@ def main(args):
     # print(args.path, args.filename)
     all_pipelines = load_all_fitted_pipeline(args.path)
     run_pipelines = top_selection(all_pipelines)
+    TOP_NUM = args.top_n
+    global TOP_NUM
+
     for dataset_pipeline in run_pipelines.keys():
         print("Start testing", dataset_pipeline)
         folder_path = os.path.join(args.path, dataset_pipeline)
@@ -194,5 +196,6 @@ if __name__ == "__main__":
     parser.add_argument("--path", help="Where the pipelines stored, example: /nfs1/dsbox-repo/muxin/ta2-outputs/seed", default="/nfs1/dsbox-repo/muxin/ta2-outputs/seed")
     parser.add_argument("--configs", help="Where the configuration files stored, example: /nfs1/dsbox-repo/muxin/all_confs/seed", default="/nfs1/dsbox-repo/muxin/all_confs/seed")
     parser.add_argument("--filename", help="Name of the output csv", default=-1)
+    parser.add_argument("--top_n", help="top n pipelines for testing", default=20)
     args = parser.parse_args()
     main(args)
