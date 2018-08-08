@@ -165,7 +165,7 @@ class TemplateLibrary:
         # template that gives us the mean baseline as a result
         self.templates.append(SRIMeanBaselineTemplate)
         # a classification template that skips a couple of steps but shouldn't do so well
-
+        self.templates.append(DefaultTimeseriesRegressionTemplate)
         # default tabular templates, encompassing many of the templates below
         self.templates.append(DefaultClassificationTemplate)
         self.templates.append(NaiveBayesClassificationTemplate)
@@ -199,7 +199,7 @@ class TemplateLibrary:
 
         # Others
         self.templates.append(DefaultTimeseriesCollectionTemplate)
-        self.templates.append(DefaultTimeseriesRegressionTemplate)
+
         self.templates.append(TimeSeriesForcastingTestingTemplate)
         
         self.templates.append(SRICommunityDetectionTemplate)
