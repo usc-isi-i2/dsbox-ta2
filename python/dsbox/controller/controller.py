@@ -5,6 +5,8 @@ import os
 import random
 import typing
 import uuid
+import json
+import shutil
 
 from multiprocessing import Manager
 from math import sqrt, log
@@ -34,7 +36,7 @@ from d3m.container.dataset import D3MDatasetLoader
 from d3m.exceptions import NotSupportedError
 from d3m.exceptions import InvalidArgumentValueError
 from d3m.metadata.base import ALL_ELEMENTS
-from d3m.metadata.base import Metadata
+from d3m.metadata.base import Metadata, DataMetadata
 from d3m.metadata.problem import TaskSubtype
 from d3m.metadata.problem import parse_problem_description
 
@@ -104,7 +106,7 @@ class Controller:
         # hard coded unsplit dataset type
         # TODO: check whether "speech" type should be put into this list or not
         self.data_type_cannot_split = ["graph","edgeList", "audio"]
-        self.task_type_can_split = ["CLASSIFICATION","REGRESSION"]
+        self.task_type_can_split = ["CLASSIFICATION","REGRESSION","TIME_SERIES_FORECASTING"]
 
         # Resource limits
         self.num_cpus: int = 0
@@ -204,6 +206,8 @@ class Controller:
 
         self._log_init()
         self._logger.info('Top level output directory: %s' % self.output_directory)
+        considered_root = os.path.join(os.path.dirname(self.output_pipelines_dir), 'pipelines_considered')
+        self._logger.info('Considered output directory: %s' % considered_root)
 
     def _load_schema(self, config):
         # Do not use
@@ -241,7 +245,7 @@ class Controller:
         self.problem_info["res_id"] = self.problem['inputs'][i]['targets'][0]['resource_id']
         self.problem_info["target_index"] = []
         for each in self.problem['inputs'][i]['targets']:
-            self.problem_info["target_index"].append(each["column_index"]) 
+            self.problem_info["target_index"].append(each["column_index"])
 
     def _log_init(self) -> None:
         logging.basicConfig(
@@ -261,6 +265,51 @@ class Controller:
         console.setFormatter(logging.Formatter(CONSOLE_FORMATTER))
         console.setLevel(CONSOLE_LOGGING_LEVEL)
         self._logger.addHandler(console)
+
+    def _process_pipeline_submission(self) -> None:
+        pipelines_root: str = self.output_pipelines_dir
+        # os.path.join(os.path.dirname(executables_root), 'pipelines')
+
+        # Read all the json files in the pipelines
+        piplines_name_list = os.listdir(pipelines_root)
+        pipelines_df = pd.DataFrame(0.0, index=piplines_name_list, columns=["rank"])
+        for name in piplines_name_list:
+            with open(os.path.join(pipelines_root, name)) as f:
+                rank = json.load(f)['pipeline_rank']
+            pipelines_df.at[name, 'rank'] = rank
+
+        # sort them based on their rank field
+        pipelines_df.sort_values(by='rank', ascending=True, inplace=True)
+
+        # make sure that "pipeline_considered" directory exists
+        considered_root = os.path.join(os.path.dirname(pipelines_root), 'pipelines_considered')
+        try:
+            os.mkdir(considered_root)
+        except FileExistsError:
+            pass
+
+        # pick the top 20 and move the rest to "pipeline_considered" directory
+        for name in pipelines_df.index[20:]:
+            os.rename(src=os.path.join(pipelines_root, name),
+                      dst=os.path.join(considered_root, name))
+
+        # delete the exec and supporting files related the moved pipelines
+        executables_root: str = self.output_executables_dir
+        supporting_root: str = self.output_supporting_files_dir
+        # os.path.join(os.path.dirname(executables_root), 'supporting_files')
+        for name in pipelines_df.index[20:]:
+            pipeName = name.split('.')[0]
+            try:
+                os.remove(os.path.join(executables_root, pipeName + '.json'))
+            except FileNotFoundError:
+                traceback.print_exc()
+                pass
+
+            try:
+                shutil.rmtree(os.path.join(supporting_root, pipeName))
+            except FileNotFoundError:
+                traceback.print_exc()
+                pass
 
     '''
         **********************************************************************
@@ -595,19 +644,34 @@ class Controller:
                 train_return.append(dataset)
                 test_return.append(None)
 
-
+        # if the dataset type can be split
         else:
             if task_type == 'CLASSIFICATION':
                 try:
                     # Use stratified sample to split the dataset
                     sss = StratifiedShuffleSplit(n_splits=n_splits, test_size=test_size, random_state=random_state)
                     sss.get_n_splits(dataset[res_id], dataset[res_id].iloc[:, target_index])
+
                     for train_index, test_index in sss.split(dataset[res_id], dataset[res_id].iloc[:, target_index]):
-                        train = _add_meta_data(dataset = dataset, res_id = res_id, input_part = dataset[res_id].iloc[train_index, :])
+                        indf = dataset[res_id]
+                        outdf_train = pd.DataFrame(columns = dataset[res_id].columns)
+                        for each_index in train_index:
+                            outdf_train = outdf_train.append(indf.loc[each_index],ignore_index = True)
+                        outdf_train = d3m_DataFrame(outdf_train, generate_metadata = False)
+                        outdf_train = outdf_train.set_index("d3mIndex", drop = False)
+                        train = _add_meta_data(dataset = dataset, res_id = res_id, input_part = outdf_train)
+                        #train = _add_meta_data(dataset = dataset, res_id = res_id, input_part = dataset[res_id].iloc[train_index, :])
                         train_return.append(train)
+
                         # for special condition that only need get part of the dataset
                         if need_test_dataset:
-                            test = _add_meta_data(dataset = dataset, res_id = res_id, input_part = dataset[res_id].iloc[test_index, :])
+                            outdf_test = pd.DataFrame(columns = dataset[res_id].columns)
+                            for each_index in test_index:
+                                outdf_test = outdf_test.append(indf.loc[each_index],ignore_index = True)
+                            outdf_test = d3m_DataFrame(outdf_test, generate_metadata = False)
+                            outdf_test = outdf_test.set_index("d3mIndex", drop = False)
+                            test = _add_meta_data(dataset = dataset, res_id = res_id, input_part = outdf_test)
+                            #test = _add_meta_data(dataset = dataset, res_id = res_id, input_part = dataset[res_id].iloc[test_index, :])
                             test_return.append(test)
                         else:
                             test_return.append(None)
@@ -617,49 +681,6 @@ class Controller:
                     for i in range(n_splits):
                         train_return.append(dataset)
                         test_return.append(None)
-
-
-                        
-        # if the dataset type can be split
-        # else:
-        #     if task_type == 'CLASSIFICATION':
-        #         try:
-        #             # Use stratified sample to split the dataset
-        #             sss = StratifiedShuffleSplit(n_splits=n_splits, test_size=test_size, random_state=random_state)
-        #             sss.get_n_splits(dataset[res_id], dataset[res_id].iloc[:, target_index])
-                    
-
-        #             for train_index, test_index in sss.split(dataset[res_id], dataset[res_id].iloc[:, target_index]):
-
-        #                 indf = dataset[res_id]
-        #                 outdf_train = pd.DataFrame(columns = dataset[res_id].columns)
-        #                 outdf_test = pd.DataFrame(columns = dataset[res_id].columns)
-        #                 for each_index in train_index:
-        #                     outdf_train = outdf_train.append(indf.loc[each_index],ignore_index = True)
-        #                 for each_index in test_index:
-        #                     outdf_test = outdf_test.append(indf.loc[each_index],ignore_index = True)
-        #                 import pdb
-        #                 pdb.set_trace()
-        #                 outdf_train = d3m_DataFrame(outdf_train, generate_metadata = False)
-        #                 outdf_test = d3m_DataFrame(outdf_test, generate_metadata = False)
-        #                 outdf_train = outdf_train.set_index("d3mIndex", drop = False)
-        #                 outdf_test = outdf_test.set_index("d3mIndex", drop = False)
-        #                 train = _add_meta_data(dataset = dataset, res_id = res_id, input_part = outdf_train)
-        #                 #train = _add_meta_data(dataset = dataset, res_id = res_id, input_part = dataset[res_id].iloc[train_index, :])
-        #                 train_return.append(train)
-        #                 # for special condition that only need get part of the dataset
-        #                 if need_test_dataset:
-        #                     test = _add_meta_data(dataset = dataset, res_id = res_id, input_part = outdf_test)
-        #                     #test = _add_meta_data(dataset = dataset, res_id = res_id, input_part = dataset[res_id].iloc[test_index, :])
-        #                     test_return.append(test)
-        #                 else:
-        #                     test_return.append(None)
-        #         except:
-        #             # Do not split stratified shuffle fails
-        #             print('[Info] Not splitting dataset. Stratified shuffle failed')
-        #             for i in range(n_splits):
-        #                 train_return.append(dataset)
-        #                 test_return.append(None)
 
             else:
                 # Use random split
@@ -686,8 +707,7 @@ class Controller:
             First read the fitted pipeline and then run trained pipeline on test data.
         """
         self._logger.info("[INFO] Start test function")
-        outputs_loc, pipeline_load, read_pipeline_id, run_test = \
-            self.load_pipe_runtime()
+        outputs_loc, pipeline_load, read_pipeline_id, run_test = self.load_pipe_runtime()
 
         self._logger.info("[INFO] Pipeline load finished")
 
@@ -843,7 +863,7 @@ class Controller:
 
         if main_res_shape[1] > self.threshold_column_length:
             self._logger.info("The columns number of the input dataset is very large, now sampling part of them.")
-            
+
             # first check the target column amount
             target_column_list = []
             all_column_length = self.all_dataset.metadata.query((res_id,ALL_ELEMENTS))['dimension']['length']
@@ -873,19 +893,16 @@ class Controller:
                 self._logger.info("Special type of dataset: large column number with all categorical columns.")
                 self._logger.info("Will reload the template with new task source type.")
                 self.taskSourceType.add("large_column_number")
-                # import pdb
-                # pdb.set_trace()
-                # # reload the template
-                # new_template = self.template_library.get_templates(self.task_type, self.task_subtype, self.taskSourceType)
-                # # find the maximum dataset split requirements
-                # for each_template in new_template:
-                #     for each_step in each_template.template['steps']:
-                #         if "runtime" in each_step and "test_validation" in each_step["runtime"]:
-                #             split_times = int(each_step["runtime"]["test_validation"])
-                #             if split_times > self.max_split_times:
-                #                 self.max_split_times = split_times
-                # new_template = new_template.extend(self.template)
-                self.load_templates()
+                # aadd new template specially for large column numbers at the first priority
+                new_template = self.template_library.get_templates(self.task_type, self.task_subtype, self.taskSourceType)
+                # find the maximum dataset split requirements
+                for each_template in new_template:
+                    self.template.insert(0,each_template)
+                    for each_step in each_template.template['steps']:
+                        if "runtime" in each_step and "test_validation" in each_step["runtime"]:
+                            split_times = int(each_step["runtime"]["test_validation"])
+                            if split_times > self.max_split_times:
+                                self.max_split_times = split_times
 
             # else:
                 # run sampling method to randomly throw some columns
@@ -915,35 +932,46 @@ class Controller:
                 # updating problem_doc_metadata finished
 
                 all_attribute_columns = range(1, attribute_column_length + 1)
-                # remove the old metadata which should not exist now
-                # it should be done first, otherwise the remove operation will failed
+
+                # generate new metadata
+                metadata_new = DataMetadata()
+                # update whole source description
+                metadata_new = metadata_new.update((), self.all_dataset.metadata.query(()))
+                metadata_new = metadata_new.update((res_id,), self.all_dataset.metadata.query((res_id,)))
+                # update column 0 (d3mIndex) metadata
+                metadata_new = metadata_new.update((res_id,ALL_ELEMENTS,0), self.all_dataset.metadata.query((res_id,ALL_ELEMENTS,0)))
                 metadata_old = copy.copy(self.all_dataset.metadata)
-                for each_removed_column in range(self.threshold_column_length + 1 + target_column_length, attribute_column_length + 1 + target_column_length):
-                    self.all_dataset.metadata = self.all_dataset.metadata.remove((res_id,ALL_ELEMENTS, each_removed_column))
-                # remove columns
-                throw_columns = random.sample(all_attribute_columns, attribute_column_length - self.threshold_column_length)
-                self.all_dataset[res_id] = common_primitives_utils.remove_columns(self.all_dataset[res_id], throw_columns, source='ISI DSBox')
+                # generate the remained column index randomly and sort it
+                remained_columns = random.sample(all_attribute_columns, self.threshold_column_length)
+                remained_columns.sort()
+                remained_columns.insert(0,0)
+                remained_columns.extend(target_column_list)
+                # sample the dataset
+                self.all_dataset[res_id] = self.all_dataset[res_id].iloc[:,remained_columns]
 
                 # update metadata on column information
                 new_column_meta = dict(self.all_dataset.metadata.query((res_id,ALL_ELEMENTS)))
                 new_column_meta['dimension'] = dict(new_column_meta['dimension'])
                 new_column_meta['dimension']['length'] = self.threshold_column_length + 1 + target_column_length
-                self.all_dataset.metadata = self.all_dataset.metadata.update((res_id,ALL_ELEMENTS),new_column_meta)
+                metadata_new = metadata_new.update((res_id,ALL_ELEMENTS), new_column_meta)
 
                 # update the metadata on attribute column
-                remained_columns = set(all_attribute_columns) - set(throw_columns)
                 for new_column_count, each_remained_column in enumerate(remained_columns):
-                    metadata_old_each = metadata_old.query((res_id,ALL_ELEMENTS, each_remained_column))
-                    self.all_dataset.metadata = self.all_dataset.metadata.update((res_id,ALL_ELEMENTS, new_column_count + 1), metadata_old_each)
+                    old_selector = (res_id, ALL_ELEMENTS, each_remained_column)
+                    new_selector = (res_id, ALL_ELEMENTS, new_column_count + 1)
+                    metadata_new = metadata_new.update(new_selector, metadata_old.query(old_selector))
 
                 # update class column
                 for new_column_count, each_target_column in enumerate(target_column_list):
-                    metadata_class = metadata_old.query((res_id,ALL_ELEMENTS, each_target_column))
-                    self.all_dataset.metadata = self.all_dataset.metadata.update((res_id,ALL_ELEMENTS, self.threshold_column_length + new_column_count + 1), metadata_class)
+                    old_selector = (res_id,ALL_ELEMENTS, each_target_column)
+                    new_selector = (res_id,ALL_ELEMENTS, self.threshold_column_length + new_column_count + 1)
+                    metadata_new = metadata_new.update(new_selector, metadata_old.query(old_selector))
+
+                # update the new metadata to replace the old one
+                self.all_dataset.metadata = metadata_new
                 # update traget_index for spliting into train and test dataset
-               
                 if type(self.problem_info["target_index"]) is list:
-                    for i in range(len(self.problem_info["target_index"])): 
+                    for i in range(len(self.problem_info["target_index"])):
                         self.problem_info["target_index"][i] = self.threshold_column_length + i + 1
                 else:
                     self.problem_info["target_index"] = self.threshold_column_length + target_column_length
@@ -1098,6 +1126,7 @@ class Controller:
     def write_training_results(self):
         # load trained pipelines
         self._logger.info("[WARN] write_training_results")
+        self._process_pipeline_submission()
 
         if len(self.exec_history) == 0:
             return None

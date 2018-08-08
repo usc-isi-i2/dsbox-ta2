@@ -520,6 +520,7 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
         # print("[INFO] number of workers:", self.num_workers)
 
         # new searching method: first check whether we should train a second time with dataset_train1
+        self.go_quick_inputType = ["image","audio","video"]
         self.quick_mode = self._use_quick_mode_or_not()
 
         # new searching method: first check whether we will do corss validation or not
@@ -545,6 +546,9 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
             The function to determine whether to use quick mode or now
             Now it is hard coded
         '''
+        for each_type in self.template.template['inputType']:
+            if each_type in self.go_quick_inputType:
+                return True
         return False
 
     def evaluate_pipeline(self, args) -> typing.Dict:
@@ -751,7 +755,7 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
                                            pipeline_id=fitted_pipeline2.id,
                                            test_dataset=self.train_dataset2[0],
                                            test_metrics=training_metrics,
-                                           test_ground_truth=get_target_columns(self.train_dataset2[each_repeat], self.problem))
+                                           test_ground_truth=get_target_columns(self.train_dataset2[0], self.problem))
         else:
             if self.quick_mode:
                 print("[INFO] Now in quick mode, will skip training with train_dataset1")
