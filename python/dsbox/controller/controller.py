@@ -280,7 +280,10 @@ class Controller:
         pipelines_df = pd.DataFrame(0.0, index=piplines_name_list, columns=["rank"])
         for name in piplines_name_list:
             with open(os.path.join(pipelines_root, name)) as f:
-                rank = json.load(f)['pipeline_rank']
+                try:
+                    rank = json.load(f)['pipeline_rank']
+                except (json.decoder.JSONDecodeError, KeyError) as e:
+                    rank = 0
             pipelines_df.at[name, 'rank'] = rank
 
         # sort them based on their rank field
