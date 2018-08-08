@@ -473,10 +473,6 @@ class Runtime:
                     if str(primitive_step.primitive) == 'd3m.primitives.dsbox.Profiler':
                         this_step_result = self.pipeline[n_step].produce(**produce_arguments).value
                         steps_outputs[n_step] = self._work_around_for_profiler(this_step_result)
-                    
-                    elif str(primitive_step.primitive) == 'd3m.primitives.dsbox.TimeseriesToList':
-                        this_step_result = self.pipeline[n_step].produce(**produce_arguments).value
-                        steps_outputs[n_step] = self._work_around_for_timeseries(this_step_result)
 
                     else:
                         steps_outputs[n_step] = self.pipeline[n_step].produce(**produce_arguments).value
@@ -525,15 +521,6 @@ class Runtime:
             count += len(values) + 1
         _logger.info('Encoder: column count before={} after={}'.format(df.shape[1], count))
         return count
-
-    @staticmethod
-    def _work_around_for_timeseries(df):
-        # drop the object columns
-        for i in range(len(df[1])):
-            for each_column in df[1][i].columns:
-                if str(df[1][i][each_column].dtypes) == "object":
-                    df[1][i] = df[1][i].drop(columns = [each_column])
-        return df
 
     @staticmethod
     def _work_around_for_profiler(df):
