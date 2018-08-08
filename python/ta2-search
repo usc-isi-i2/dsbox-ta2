@@ -98,7 +98,8 @@ def main(args):
         signal.signal(signal.SIGALRM, write_results_and_exit)
         signal.alarm(60 * timeout)
     else:
-        raise Exception('Negative timeout {}'.format(timeout))
+        # Do not set alaram
+        pass
 
     if args.cpus > -1:
         config['cpus'] = args.cpus
