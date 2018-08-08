@@ -70,9 +70,9 @@ class DistributedJobManager:
                 result = None
 
             # push the results
-            _logger.debug("Pushing Results {}".format(current_process()))
+            print("Pushing Results {}".format(current_process()))
             result_queue.put((kwargs, result))
-            _logger.debug("Worker is Idle {}".format(current_process()))
+            print("Worker is Idle {}".format(current_process()))
 
             counter += 1
 
@@ -115,7 +115,7 @@ class DistributedJobManager:
         return self.are_queues_empty() and self.are_workers_idle()
 
     def are_workers_idle(self):
-        _logger.debug("ongoing Jobs:", self.ongoing_jobs)
+        print("ongoing Jobs:", self.ongoing_jobs)
         return self.ongoing_jobs == 0
 
     def are_queues_empty(self) -> bool:
@@ -140,7 +140,7 @@ class DistributedJobManager:
     def _setup_timeout_timer(self):
         self.timer = Timer(self.timeout*60, self._kill_me)
         self.timer.start()
-        _logger.warning("timer started: {} min".format(self.timeout))
+        print("timer started: {} min".format(self.timeout))
 
     def _kill_me(self):
         _logger.warning("search TIMEOUT reached! Killing search Process")
