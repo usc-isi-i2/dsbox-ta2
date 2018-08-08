@@ -527,16 +527,16 @@ class Runtime:
         float_cols = utils.list_columns_with_semantic_types(df.metadata, ['http://schema.org/Float'])
 
         # !!! Do not delete these codes, those code is used to keep the fileName column
-        filename_cols = list(set(utils.list_columns_with_semantic_types(df.metadata, [
-            'https://metadata.datadrivendiscovery.org/types/Time'])).intersection(
-            utils.list_columns_with_semantic_types(df.metadata,
-                                                   ["https://metadata.datadrivendiscovery.org/types/FileName"])))
+        # filename_cols = list(set(utils.list_columns_with_semantic_types(df.metadata, [
+        #     'https://metadata.datadrivendiscovery.org/types/Time'])).intersection(
+        #     utils.list_columns_with_semantic_types(df.metadata,
+        #                                            ["https://metadata.datadrivendiscovery.org/types/FileName"])))
 
-        for col in filename_cols:
-            old_metadata = dict(df.metadata.query((mbase.ALL_ELEMENTS, col)))
-            old_metadata['semantic_types'] = tuple(x for x in old_metadata['semantic_types'] if
-                                                   x != 'https://metadata.datadrivendiscovery.org/types/Time')
-            df.metadata = df.metadata.update((mbase.ALL_ELEMENTS, col), old_metadata)
+        # for col in filename_cols:
+        #     old_metadata = dict(df.metadata.query((mbase.ALL_ELEMENTS, col)))
+        #     old_metadata['semantic_types'] = tuple(x for x in old_metadata['semantic_types'] if
+        #                                            x != 'https://metadata.datadrivendiscovery.org/types/Time')
+        #     df.metadata = df.metadata.update((mbase.ALL_ELEMENTS, col), old_metadata)
         for col in float_cols:
             old_metadata = dict(df.metadata.query((mbase.ALL_ELEMENTS, col)))
             if 'https://metadata.datadrivendiscovery.org/types/Attribute' not in old_metadata['semantic_types']:
