@@ -282,7 +282,7 @@ class Controller:
             with open(os.path.join(pipelines_root, name)) as f:
                 try:
                     rank = json.load(f)['pipeline_rank']
-                except json.decoder.JSONDecodeError or KeyError:
+                except (json.decoder.JSONDecodeError, KeyError) as e:
                     rank = 0
             pipelines_df.at[name, 'rank'] = rank
 
