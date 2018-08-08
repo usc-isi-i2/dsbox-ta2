@@ -66,6 +66,7 @@ class DistributedJobManager:
                 # TODO add timelimit to single work in the worker
                 result = target(**kwargs)
             except:
+                _logger.exception('Evaulate pipeline failed')
                 traceback.print_exc()
                 result = None
 

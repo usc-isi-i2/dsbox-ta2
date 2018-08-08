@@ -113,6 +113,8 @@ class TemplateSpaceParallelBaseSearch(TemplateSpaceBaseSearch[T]):
             try:
                 if report is None:
                     raise ValueError("Search Failed on candidate")
+
+                _logger.info("new report: {}".format(report))
                 self.history.update(report, template_name=template_name)
                 self.cacheManager.candidate_cache.push(report)
             except:
@@ -129,7 +131,6 @@ class TemplateSpaceParallelBaseSearch(TemplateSpaceBaseSearch[T]):
             template_index = random.randrange(0, len(self.confSpaceBaseSearch))
             search = self.confSpaceBaseSearch[template_index]
             candidate = search.configuration_space.get_random_assignment()
-            # print("[INFO] Selecting Template:", search.template.template['name'])
             print("[INFO] Selecting ", hash(str(candidate)))
             if self.cacheManager.candidate_cache.is_hit(candidate):
                 report = self.cacheManager.candidate_cache.lookup(candidate)

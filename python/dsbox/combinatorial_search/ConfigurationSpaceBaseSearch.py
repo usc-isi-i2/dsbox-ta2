@@ -104,6 +104,23 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
                 else:
                     self.testing_mode = 2
 
+        # new searching method: first check whether we should train a second time with
+        # dataset_train1
+        self.go_quick_inputType = ["image", "audio", "video"]
+        self.quick_mode = self._use_quick_mode_or_not()
+
+    def _use_quick_mode_or_not(self) -> bool:
+        """
+        The function to determine whether to use quick mode or now
+            Now it is hard coded
+        Returns:
+            use_quick mode?
+        """
+        for each_type in self.template.template['inputType']:
+            if each_type in self.go_quick_inputType:
+                return True
+        return False
+
     def dummy_evaluate(self, ) -> None:
         """
         This method is only used to import tensorflow before running the parallel jobs
@@ -155,8 +172,8 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
         # if in cross validation mode
         if self.testing_mode == 1:
             repeat_times = int(self.validation_config['cross_validation'])
-            # print("[INFO] Will use cross validation( n =", repeat_times, ") to choose best "
-            #                                                              "primitives.")
+            # print("[INFO] Will use cross validation( n =", repeat_times,
+            #       ") to choose best primitives.")
             # start training and testing
             fitted_pipeline = FittedPipeline(pipeline, self.train_dataset1.metadata.query(())['id'],
                                              log_dir=self.log_dir,
@@ -166,18 +183,18 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
             training_ground_truth = get_target_columns(self.train_dataset1, self.problem)
             training_prediction = fitted_pipeline.get_fit_step_output(
                 self.template.get_output_step_number())
-
             training_metrics, test_metrics = self._calculate_score(
                 training_ground_truth, training_prediction, None, None)
 
             # copy the cross validation score here to test_metrics for return
             test_metrics = copy.deepcopy(
                 training_metrics)  # fitted_pipeline.get_cross_validation_metrics()
-            # generate a test matrics results with score = worst value
             if larger_is_better(training_metrics):
-                test_metrics[0]["value"] = 0
+                for each in test_metrics:
+                    each["value"] = 0
             else:
-                test_metrics[0]["value"] = sys.float_info.max
+                for each in test_metrics:
+                    each["value"] = sys.float_info.max
             # print("[INFO] Testing finish.!!!")
 
         # if in normal testing mode(including default testing mode with train/test one time each)
@@ -222,10 +239,12 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
                 # if no test_dataset exist, we need to give it with a default value
                 if len(test_metrics_each) == 0:
                     test_metrics_each = copy.deepcopy(training_metrics_each)
-                    if larger_is_better(training_metrics):
-                        test_metrics_each[0]["value"] = 0
+                    if larger_is_better(training_metrics_each):
+                        for each in test_metrics_each:
+                            each["value"] = 0
                     else:
-                        test_metrics_each[0]["value"] = sys.float_info.max
+                        for each in test_metrics_each:
+                            each["value"] = sys.float_info.max
 
                 training_metrics.append(training_metrics_each)
                 test_metrics.append(test_metrics_each)
@@ -235,25 +254,71 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
             # modify the test_metrics and training_metrics format to fit the requirements
             # print("[INFO] Testing finish.!!!")
             if len(training_metrics) > 1:
-                training_value_list = []
-                test_value_list = []
+                training_value_dict = {}
+                # convert for training matrics
                 for each in training_metrics:
-                    training_value_list.append(each['value'])
-                    test_value_list.append(each['value'])
+                    # for condition only one exist?
+                    if type(each) is dict:
+                        if each['column_name'] in training_value_dict:
+                            # if this key exist, we append it
+                            training_value_dict[each['column_name']].append(each['value'])
+                        else:
+                            # otherwise create a new key-value pair
+                            training_value_dict[each['column_name']] = [each['value']]
+                    else:
+                        for each_target in each:
+                            if each_target['column_name'] in training_value_dict:
+                                training_value_dict[each_target['column_name']].append(
+                                    each_target['value'])
+                            else:
+                                training_value_dict[each_target['column_name']] = [
+                                    each_target['value']]
                 # training_metrics part
+
                 training_metrics_new = training_metrics[0]
-                training_metrics_new['value'] = sum(training_value_list) / len(training_value_list)
-                training_metrics_new['values'] = training_value_list
+                count = 0
+                for (k, v) in training_value_dict.items():
+                    training_metrics_new[count]['value'] = sum(v) / len(v)
+                    training_metrics_new[count]['values'] = v
+                    count += 1
                 training_metrics = [training_metrics_new]
+
+            else:
+                if type(training_metrics[0]) is list:
+                    training_metrics = training_metrics[0]
+
+            if len(test_metrics) > 1:
+                test_value_dict = {}
+                # convert for test matrics
+                for each in test_metrics:
+                    # for condition only one exist?
+                    if type(each) is dict:
+                        if each['column_name'] in test_value_dict:
+                            # if this key exist, we append it
+                            test_value_dict[each['column_name']].append(each['value'])
+                        else:
+                            # otherwise create a new key-value pair
+                            test_value_dict[each['column_name']] = [each['value']]
+                    else:
+                        for each_target in each:
+                            if each_target['column_name'] in test_value_dict:
+                                test_value_dict[each_target['column_name']].append(
+                                    each_target['value'])
+                            else:
+                                test_value_dict[each_target['column_name']] = [each_target['value']]
+
                 # test_metrics part
                 test_metrics_new = test_metrics[0]
-                test_metrics_new['value'] = sum(test_value_list) / len(test_value_list)
-                test_metrics_new['values'] = test_value_list
+                count = 0
+                for (k, v) in test_value_dict.items():
+                    test_metrics_new[count]['value'] = sum(v) / len(v)
+                    test_metrics_new[count]['values'] = v
+                    count += 1
                 test_metrics = [test_metrics_new]
+
             else:
                 if type(test_metrics[0]) is list:
                     test_metrics = test_metrics[0]
-                    training_metrics = training_metrics[0]
         # END evaluation part
 
         # Save results
@@ -262,13 +327,6 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
             fitted_pipeline2 = fitted_pipeline
             # set the metric for calculating the rank
             fitted_pipeline2.set_metric(training_metrics[0])
-
-            # print("!!!! No test_dataset1")
-            # pprint(data)
-            # print("!!!!")
-
-            if self.output_directory is not None and dump2disk:
-                fitted_pipeline2.save(self.output_directory)
 
             data = {
                 'fitted_pipeline': fitted_pipeline2,
@@ -279,15 +337,50 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
                 'configuration': configuration,
             }
             fitted_pipeline.auxiliary = dict(data)
+
+            # print("!!!! No test_dataset1")
+            # pprint(data)
+            # print("!!!!")
+
+            if _logger.getEffectiveLevel() <= 10:
+                data_to_logger_info = []
+                if 'metric' in data['test_metrics']:
+                    data_to_logger_info.append(data['test_metrics']['metric'])
+                else:
+                    data_to_logger_info.append("No test metrics metric found")
+                if 'value' in data['test_metrics']:
+                    data_to_logger_info.append(data['test_metrics']['value'])
+                else:
+                    data_to_logger_info.append("No test metrics value found")
+                _logger.info(
+                    'fitted id: %(fitted_pipeline_id)s, metric: %(metric)s, value: %(value)0.2f',
+                    {
+                        'fitted_pipeline_id': fitted_pipeline2.id,
+                        'metric': data_to_logger_info[0],
+                        'value': data_to_logger_info[1]
+                    })
+
+            # Save fitted pipeline
+            if self.output_directory is not None and dump2disk:
+                fitted_pipeline2.save(self.output_directory)
+
+            # Pickle test
+            if self.output_directory is not None and dump2disk:
+                _logger.info("Test pickled pipeline. id: {}".format(fitted_pipeline2.id))
+                self.test_pickled_pipeline(folder_loc=self.output_directory,
+                                           pipeline_id=fitted_pipeline2.id,
+                                           test_dataset=self.train_dataset2[0],
+                                           test_metrics=training_metrics,
+                                           test_ground_truth=get_target_columns(
+                                               self.train_dataset2[0], self.problem))
         else:
-            if self.quick_mode or self.train_dataset1 is None:
-                # print("[INFO] Now in quick mode, will skip training with train_dataset1")
+            if self.quick_mode:
+                _logger.info("[INFO] Now in quick mode, will skip training with train_dataset1")
                 # if in quick mode, we did not fit the model with dataset_train1 again
                 # just generate the predictions on dataset_test1 directly and get the rank
                 fitted_pipeline2 = fitted_pipeline
             else:
-                # print("[INFO] Now in normal mode, will add extra train with train_dataset1")
-                # pipeline = self.template.to_pipeline(configuration)
+                _logger.info("[INFO] Now in normal mode, will add extra train with train_dataset1")
                 # otherwise train again with dataset_train1 and get the rank
                 fitted_pipeline2 = FittedPipeline(pipeline,
                                                   self.train_dataset1.metadata.query(())['id'],
@@ -302,7 +395,6 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
             # Note: results == test_prediction
             test_prediction = fitted_pipeline2.get_produce_step_output(
                 self.template.get_output_step_number())
-
             training_metrics2, test_metrics2 = self._calculate_score(
                 None, None, test_ground_truth, test_prediction)
 
@@ -310,12 +402,9 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
             fitted_pipeline2.set_metric(test_metrics2[0])
 
             # finally, fit the model with all data and save it
-            # print("[INFO] Now are training the pipeline with all dataset and saving the pipeline.")
+            _logger.info("[INFO] Now are training the pipeline with all dataset and saving the pipeline.")
             fitted_pipeline2.fit(cache=cache, inputs=[self.all_dataset])
             # fitted_pipeline2.fit(inputs = [self.all_dataset])
-
-            if self.output_directory is not None and dump2disk:
-                fitted_pipeline2.save(self.output_directory)
 
             data = {
                 'fitted_pipeline': fitted_pipeline2,
@@ -326,6 +415,25 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
                 'configuration': configuration,
             }
             fitted_pipeline.auxiliary = dict(data)
+
+            # Save fiteed pipeline
+            if self.output_directory is not None and dump2disk:
+                fitted_pipeline2.save(self.output_directory)
+
+            # Pickle test
+            if self.output_directory is not None and dump2disk:
+                _ = fitted_pipeline2.produce(inputs=[self.test_dataset1])
+                test_prediction3 = fitted_pipeline2.get_produce_step_output(
+                    self.template.get_output_step_number())
+                _, test_metrics3 = self._calculate_score(None, None, test_ground_truth,
+                                                         test_prediction3)
+
+                _logger.info("Test pickled pipeline. id: {}".format(fitted_pipeline2.id))
+                self.test_pickled_pipeline(folder_loc=self.output_directory,
+                                           pipeline_id=fitted_pipeline2.id,
+                                           test_dataset=self.test_dataset1,
+                                           test_metrics=test_metrics3,
+                                           test_ground_truth=test_ground_truth)
 
         # still return the original fitted_pipeline with relation to train_dataset1
         return data
@@ -338,6 +446,12 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
         '''
         training_metrics = []
         test_metrics = []
+        if training_prediction is not None:
+            training_prediction = self.graph_problem_conversion(training_prediction)
+        if test_prediction is not None:
+            test_prediction = self.graph_problem_conversion(test_prediction)
+        target_amount_train = 0
+        target_amount_test = 0
         for metric_description in self.performance_metrics:
             metricDesc = PerformanceMetric.parse(metric_description['metric'])
             metric: typing.Callable = metricDesc.get_function()
@@ -347,84 +461,98 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
                 # generate the metrics for training results
                 if training_ground_truth is not None and training_prediction is not None:  # if
                     # training data exist
-                    if regression_mode:
-                        training_metrics.append({
-                            'metric': metric_description['metric'],
-                            'value': metric(
-                                training_ground_truth.iloc[:, -1].astype(float),
-                                training_prediction.iloc[:, -1].astype(float),
-                                **params
-                            )
-                        })
+                    if "d3mIndex" not in training_prediction.columns:
+                        # for the condition that training_ground_truth have index but
+                        # training_prediction don't have
+                        target_amount_train = len(training_prediction.columns)
                     else:
-                        if training_ground_truth is not None and training_prediction is not None:
-                            # if training data exist
+                        target_amount_train = len(training_prediction.columns) - 1
+                    if regression_mode:
+                        for each_column in range(- target_amount_train, 0, 1):
                             training_metrics.append({
+                                'column_name': training_ground_truth.columns[each_column],
                                 'metric': metric_description['metric'],
                                 'value': metric(
-                                    training_ground_truth.iloc[:, -1].astype(str),
-                                    training_prediction.iloc[:, -1].astype(str),
+                                    training_ground_truth.iloc[:, each_column].astype(float),
+                                    training_prediction.iloc[:, each_column].astype(float),
                                     **params
                                 )
                             })
+                    else:
+                        if training_ground_truth is not None and training_prediction is not None:
+                            # if training data exist
+                            for each_column in range(- target_amount_train, 0, 1):
+                                training_metrics.append({
+                                    'column_name': training_ground_truth.columns[each_column],
+                                    'metric': metric_description['metric'],
+                                    'value': metric(
+                                        training_ground_truth.iloc[:, each_column].astype(str),
+                                        training_prediction.iloc[:, each_column].astype(str),
+                                        **params
+                                    )
+                                })
                 # generate the metrics for testing results
                 if test_ground_truth is not None and test_prediction is not None:  # if testing
                     # data exist
+                    if "d3mIndex" not in test_prediction.columns:
+                        # for the condition that training_ground_truth have index but
+                        # training_prediction don't have
+                        target_amount_test = len(test_prediction.columns)
+                    else:
+                        target_amount_test = len(test_prediction.columns) - 1
                     # if the test_ground_truth do not have results
                     if regression_mode:
-                        if test_ground_truth.iloc[0, -1] == '':
-                            test_ground_truth.iloc[:, -1] = 0
-                        test_metrics.append({
-                            'metric': metric_description['metric'],
-                            'value': metric(
-                                test_ground_truth.iloc[:, -1].astype(float),
-                                test_prediction.iloc[:, -1].astype(float),
-                                **params
-                            )
-                        })
+                        for each_column in range(- target_amount_test, 0, 1):
+                            if test_ground_truth.iloc[0, -1] == '':
+                                test_ground_truth.iloc[:, -1] = 0
+                            test_metrics.append({
+                                'column_name': test_ground_truth.columns[each_column],
+                                'metric': metric_description['metric'],
+                                'value': metric(
+                                    test_ground_truth.iloc[:, -1].astype(float),
+                                    test_prediction.iloc[:, -1].astype(float),
+                                    **params
+                                )
+                            })
 
                     else:
-                        test_metrics.append({
-                            'metric': metric_description['metric'],
-                            'value': metric(
-                                test_ground_truth.iloc[:, -1].astype(str),
-                                test_prediction.iloc[:, -1].astype(str),
-                                **params
-                            )
-                        })
+                        for each_column in range(- target_amount_test, 0, 1):
+                            test_metrics.append({
+                                'column_name': test_ground_truth.columns[each_column],
+                                'metric': metric_description['metric'],
+                                'value': metric(
+                                    test_ground_truth.iloc[:, -1].astype(str),
+                                    test_prediction.iloc[:, -1].astype(str),
+                                    **params
+                                )
+                            })
             except:
                 raise NotSupportedError('[ERROR] metric calculation failed')
         # END for loop
 
-        # if len(training_metrics) == 1:
-        #     training_metrics = training_metrics[0]
-        # el
-        if len(training_metrics) > 1:
-            print("[WARN] More than one training metrics found in one evaluation.")
+        if len(training_metrics) > target_amount_train:
+            print("[WARN] Training metrics's amount is larger than target amount.")
         # if len(test_metrics) == 1:
         #     test_metrics = test_metrics[0]
         # el
-        if len(test_metrics) > 1:
-            print("[WARN] More than one test metrics found in one evaluation.")
+        if len(test_metrics) > target_amount_test:
+            print("[WARN] Test metrics's amount is larger than target amount.")
 
         # return the training and test metrics
         return (training_metrics, test_metrics)
 
-    def test_pickled_pipeline(self,
-                              folder_loc: str,
-                              pipeline_id: str,
-                              test_dataset: Dataset,
-                              test_metrics: typing.List,
-                              test_ground_truth) -> None:
+    def test_pickled_pipeline(self, folder_loc: str, pipeline_id: str, test_dataset: Dataset,
+                              test_metrics: typing.List, test_ground_truth) -> None:
+
         fitted_pipeline, run = FittedPipeline.load(folder_loc=folder_loc, pipeline_id=pipeline_id,
                                                    log_dir=self.log_dir)
         results = fitted_pipeline.produce(inputs=[test_dataset])
 
         pipeline_prediction = fitted_pipeline.get_produce_step_output(
             self.template.get_output_step_number())
-
-        test_pipeline_metrics2 = self._calculate_score(None, None, test_ground_truth,
-                                                       pipeline_prediction)
+        pipeline_prediction = self.graph_problem_conversion(pipeline_prediction)
+        _, test_pipeline_metrics2 = self._calculate_score(None, None, test_ground_truth,
+                                                          pipeline_prediction)
         test_pipeline_metrics = list()
         for metric_description in self.performance_metrics:
             metricDesc = PerformanceMetric.parse(metric_description['metric'])
@@ -464,7 +592,7 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
         print('=== test2')
         print(test_pipeline_metrics2)
 
-        pairs = zip(test_metrics, test_pipeline_metrics)
+        pairs = zip(test_metrics, test_pipeline_metrics2)
         if any(x != y for x, y in pairs):
             warn("[WARN] Test pickled pipeline mismatch. id: {}".format(fitted_pipeline.id))
             print(
@@ -484,10 +612,30 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
                     'pickled_pipeline__metric': test_pipeline_metrics
                 },
             )
+            print(
+                "Test pickled pipeline mismatch. 'id': '%(id)s', 'test__metric': '%("
+                "test__metric)s', 'pickled_pipeline__metric': '%("
+                "pickled_pipeline__metric)s'.".format(
+                    {
+                        'id': fitted_pipeline.id,
+                        'test__metric': test_metrics,
+                        'pickled_pipeline__metric': test_pipeline_metrics
+                    })
+            )
             print("\n" * 5)
         else:
             print("\n" * 5)
             print("Pickling succeeded")
             print("\n" * 5)
 
-
+    def graph_problem_conversion(self, prediction):
+        tasktype = self.template.template["taskType"]
+        if isinstance(tasktype, set):
+            for t in tasktype:
+                if t == "GRAPH_MATCHING" or t == "VERTEX_NOMINATION" or t == "LINK_PREDICTION":
+                    prediction.iloc[:, -1] = prediction.iloc[:, -1].astype(int)
+        else:
+            if tasktype == "GRAPH_MATCHING" or tasktype == "VERTEX_NOMINATION" or tasktype == \
+                    "LINK_PREDICTION":
+                prediction.iloc[:, -1] = prediction.iloc[:, -1].astype(int)
+        return prediction

@@ -31,24 +31,10 @@ _logger = logging.getLogger(__name__)
 class RandomDimensionalSearch(TemplateSpaceParallelBaseSearch[T]):
     max_init_trials: int = 3
     """
-    Use dimensional search to find best pipeline.
-
-    Attributes:
-        template:
-        configuration_space:
-        problem:
-        train_dataset1:
-        train_dataset2:
-        test_dataset1:
-        test_dataset2:
-        all_dataset:
-        performance_metrics:
-        output_directory:
-        log_dir:
-        num_workers:
+    Use dimensional search across randomly chosen templates to find best pipeline.
     """
     # FIXME At this point, after each candidate evaluation we update the history which may result
-    #  in descrepancy in the dim search mechanism (the problematic scenario I am thinking about
+    #  in discrepancy in the dim search mechanism (the problematic scenario I am thinking about
     # is when we have a super slow evaluation that will be finished in the middle of dim search
     # on other steps of the pipeline)
 
@@ -106,6 +92,8 @@ class RandomDimensionalSearch(TemplateSpaceParallelBaseSearch[T]):
             if len(new_candidates) <= 1:
                 continue
             print("[INFO] Running Pool for step", dimension, ", fork_num:", len(new_candidates))
+            _logger.info(
+                "Running Pool for step {} fork_num: {}".format(dimension, len(new_candidates)))
             print("-"*50)
             # send all the candidates to the execution Engine
             for conf in new_candidates:
@@ -220,7 +208,8 @@ class RandomDimensionalSearch(TemplateSpaceParallelBaseSearch[T]):
                 return report
             except:
                 traceback.print_exc()
-                print("[ERROR] Initial Pipeline failed, Trying a random pipeline ...")
+                _logger.warning('Initial Pipeline failed, Trying a random pipeline ...')
+                print("[WARN] Initial Pipeline failed, Trying a random pipeline ...")
                 pprint(candidate)
                 print("-" * 20)
                 candidate = base_search.configuration_space.get_random_assignment()

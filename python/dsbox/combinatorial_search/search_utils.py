@@ -40,20 +40,32 @@ def accumulate(iterable, func=operator.add):
 
 
 def get_target_columns(dataset: 'Dataset', problem_doc_metadata: 'Metadata'):
+    targetcol = None
     problem = problem_doc_metadata.query(())["inputs"]["data"]
     datameta = dataset.metadata
     target = problem[0]["targets"]
-    resID = target[0]["resID"]
-    colIndex = target[0]["colIndex"]
-    datalength = datameta.query((resID, ALL_ELEMENTS,))["dimension"]['length']
+    resID_list = []
+    colIndex_list = []
     targetlist = []
+    # sometimes we will have multiple targets, so we need to add a for loop here
+    for i in range(len(target)):
+        resID_list.append(target[i]["resID"])
+        colIndex_list.append(target[i]["colIndex"])
+    if len(set(resID_list)) > 1:
+        print("[ERROR] Multiple targets in different dataset???")
+
+    datalength = datameta.query((resID_list[0], ALL_ELEMENTS,))["dimension"]['length']
+
     for v in range(datalength):
-        types = datameta.query((resID, ALL_ELEMENTS, v))["semantic_types"]
+        types = datameta.query((resID_list[0], ALL_ELEMENTS, v))["semantic_types"]
         for t in types:
             if t == 'https://metadata.datadrivendiscovery.org/types/PrimaryKey':
                 targetlist.append(v)
-    targetlist.append(colIndex)
-    targetcol = dataset[resID].iloc[:, targetlist]
+    for each in targetlist:
+        colIndex_list.append(each)
+    colIndex_list.sort()
+
+    targetcol = dataset[resID_list[0]].iloc[:, colIndex_list]
     return targetcol
 
 
