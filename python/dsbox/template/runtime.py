@@ -473,10 +473,6 @@ class Runtime:
                     if str(primitive_step.primitive) == 'd3m.primitives.dsbox.Profiler':
                         this_step_result = self.pipeline[n_step].produce(**produce_arguments).value
                         steps_outputs[n_step] = self._work_around_for_profiler(this_step_result)
-                    
-                    elif str(primitive_step.primitive) == 'd3m.primitives.dsbox.TimeseriesToList':
-                        this_step_result = self.pipeline[n_step].produce(**produce_arguments).value
-                        steps_outputs[n_step] = self._work_around_for_timeseries(this_step_result)
 
                     else:
                         steps_outputs[n_step] = self.pipeline[n_step].produce(**produce_arguments).value
@@ -527,29 +523,20 @@ class Runtime:
         return count
 
     @staticmethod
-    def _work_around_for_timeseries(df):
-        # drop the object columns
-        for i in range(len(df[1])):
-            for each_column in df[1][i].columns:
-                if str(df[1][i][each_column].dtypes) == "object":
-                    df[1][i] = df[1][i].drop(columns = [each_column])
-        return df
-
-    @staticmethod
     def _work_around_for_profiler(df):
         float_cols = utils.list_columns_with_semantic_types(df.metadata, ['http://schema.org/Float'])
 
         # !!! Do not delete these codes, those code is used to keep the fileName column
-        filename_cols = list(set(utils.list_columns_with_semantic_types(df.metadata, [
-            'https://metadata.datadrivendiscovery.org/types/Time'])).intersection(
-            utils.list_columns_with_semantic_types(df.metadata,
-                                                   ["https://metadata.datadrivendiscovery.org/types/FileName"])))
+        # filename_cols = list(set(utils.list_columns_with_semantic_types(df.metadata, [
+        #     'https://metadata.datadrivendiscovery.org/types/Time'])).intersection(
+        #     utils.list_columns_with_semantic_types(df.metadata,
+        #                                            ["https://metadata.datadrivendiscovery.org/types/FileName"])))
 
-        for col in filename_cols:
-            old_metadata = dict(df.metadata.query((mbase.ALL_ELEMENTS, col)))
-            old_metadata['semantic_types'] = tuple(x for x in old_metadata['semantic_types'] if
-                                                   x != 'https://metadata.datadrivendiscovery.org/types/Time')
-            df.metadata = df.metadata.update((mbase.ALL_ELEMENTS, col), old_metadata)
+        # for col in filename_cols:
+        #     old_metadata = dict(df.metadata.query((mbase.ALL_ELEMENTS, col)))
+        #     old_metadata['semantic_types'] = tuple(x for x in old_metadata['semantic_types'] if
+        #                                            x != 'https://metadata.datadrivendiscovery.org/types/Time')
+        #     df.metadata = df.metadata.update((mbase.ALL_ELEMENTS, col), old_metadata)
         for col in float_cols:
             old_metadata = dict(df.metadata.query((mbase.ALL_ELEMENTS, col)))
             if 'https://metadata.datadrivendiscovery.org/types/Attribute' not in old_metadata['semantic_types']:
