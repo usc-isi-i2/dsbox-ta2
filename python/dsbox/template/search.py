@@ -737,11 +737,20 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
             print("!!!!")
 
             if _logger.getEffectiveLevel() <= 10:
+                data_to_logger_info = []
+                if data['test_metrics']['metric']:
+                    data_to_logger_info.append(data['test_metrics']['metric'])
+                else:
+                    data_to_logger_info.append("No test metrics metric found")
+                if data['test_metrics']['value']:
+                    data_to_logger_info.append(data['test_metrics']['value'])
+                else:
+                    data_to_logger_info.append("No test metrics value found")
                 _logger.info('fitted id: %(fitted_pipeline_id)s, metric: %(metric)s, value: %(value)0.2f',
                              {
                                  'fitted_pipeline_id' : fitted_pipeline2.id,
-                                 'metric' : data['test_metrics']['metric'],
-                                 'value' : data['test_metrics']['value']
+                                 'metric' : data_to_logger_info[0],
+                                 'value' : data_to_logger_info[1]
                              })
 
             # Save fitted pipeline
