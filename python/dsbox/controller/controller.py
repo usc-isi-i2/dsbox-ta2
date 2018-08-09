@@ -277,16 +277,23 @@ class Controller:
         # Read all the json files in the pipelines
         piplines_name_list = os.listdir(pipelines_root)
         if len(piplines_name_list) < 20:
+            for name in piplines_name_list:
+                try:
+                    with open(os.path.join(pipelines_root, name)) as f:
+                        rank = json.load(f)['pipeline_rank']
+                except:
+                    os.remove(os.path.join(pipelines_root, name))
             return
-        
+
         pipelines_df = pd.DataFrame(0.0, index=piplines_name_list, columns=["rank"])
         for name in piplines_name_list:
-            with open(os.path.join(pipelines_root, name)) as f:
-                try:
+            try:
+                with open(os.path.join(pipelines_root, name)) as f:
                     rank = json.load(f)['pipeline_rank']
-                except (json.decoder.JSONDecodeError, KeyError) as e:
-                    rank = 0
-            pipelines_df.at[name, 'rank'] = rank
+                pipelines_df.at[name, 'rank'] = rank
+            except:
+                os.remove(os.path.join(pipelines_root, name))
+
 
         # sort them based on their rank field
         pipelines_df.sort_values(by='rank', ascending=True, inplace=True)
