@@ -367,7 +367,7 @@ def dsbox_generic_steps(data : str = "data", target : str = "target"):
                     "primitive": "d3m.primitives.sklearn_wrap.SKPCA",
                     "hyperparameters":
                     {
-                        'n_components': [10, 15, 25]
+                        'n_components': [10, 15]
                     }
                 },
                 "d3m.primitives.dsbox.DoNothing",
@@ -589,7 +589,7 @@ def dsbox_feature_selector(ptype):
                     {
                         "primitive" : "d3m.primitives.sklearn_wrap.SKSelectFwe",
                         "hyperparameters":{
-                            "alpha" : [float(x) for x in np.logspace(-4, -1, 6)]
+                            "alpha" : [float(x) for x in np.logspace(-4, -1, 5)]
                         }
                     },
 
@@ -598,7 +598,7 @@ def dsbox_feature_selector(ptype):
                         "hyperparameters":{
                             "score_func": ["f_regression"],
                             "mode" : ["percentile"],
-                            "param" : [5, 7, 10, 15, 30, 50, 75],
+                            "param" : [int(x) for x in np.linspace(10, 100, 10)]
                         }
                     },
                     "d3m.primitives.dsbox.DoNothing"
@@ -616,7 +616,7 @@ def dsbox_feature_selector(ptype):
                     {
                         "primitive" : "d3m.primitives.sklearn_wrap.SKSelectFwe",
                         "hyperparameters":{
-                            "alpha" : [float(x) for x in np.logspace(-4, -1, 6)]
+                            "alpha" : [float(x) for x in np.logspace(-4, -1, 5)]
                         }
                     },
 
@@ -624,7 +624,7 @@ def dsbox_feature_selector(ptype):
                         "primitive" : "d3m.primitives.sklearn_wrap.SKGenericUnivariateSelect",
                         "hyperparameters":{
                             "mode" : ["percentile"],
-                            "param" : [5, 7, 10, 15, 30, 50, 75],
+                            "param" : [int(x) for x in np.linspace(10, 100, 10)]
                         }
                     },
                     "d3m.primitives.dsbox.DoNothing"
@@ -3497,8 +3497,8 @@ class ClassificationWithSelection(DSBoxTemplate):
                                 "primitive":"d3m.primitives.sklearn_wrap.SKSGDClassifier",
                                 "hyperparameters":{
                                     "loss": ['log', 'hinge', 'squared_hinge', 'perceptron'],
-                                    "alpha": [float(x) for x in np.logspace(-6, -1.004, 5)],
-                                    "l1_ratio": [float(x) for x in np.logspace(-9, -0.004, 5)],
+                                    "alpha": [float(x) for x in np.logspace(-6, -1.004, 7)],
+                                    "l1_ratio": [float(x) for x in np.logspace(-9, -0.004, 7)],
                                     "penalty": ['elasticnet', 'l2']
                                 }
                             },
@@ -3546,8 +3546,8 @@ class RegressionWithSelection(DSBoxTemplate):
                                 "primitive":"d3m.primitives.sklearn_wrap.SKSGDRegressor",
                                 "hyperparameters":{
                                     "loss":['squared_loss', 'huber'],
-                                    "alpha":[float(x) for x in np.logspace(-5, -1.004, 5)],#cannot reach 0.1
-                                    "l1_ratio":[0.15, 0.3, 0.5, 0.6, 0.7], #cannot reach 1
+                                    "alpha":[float(x) for x in np.logspace(-5, -1.004, 7)],#cannot reach 0.1
+                                    "l1_ratio":[0.01,0.15, 0.3, 0.5, 0.6, 0.7, 0.9], #cannot reach 1
                                     "learning_rate": ['optimal', 'invscaling']
                                 }
                             },
