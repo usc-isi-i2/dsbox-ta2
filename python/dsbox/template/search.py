@@ -584,7 +584,8 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
             print("[INFO] Will use cross validation( n =", repeat_times, ") to choose best primitives.")
             # start training and testing
             fitted_pipeline = FittedPipeline(pipeline, self.train_dataset1.metadata.query(())['id'],
-                                             log_dir=self.log_dir, metric_descriptions=self.performance_metrics)
+                                             log_dir=self.log_dir, metric_descriptions=self.performance_metrics,
+                                             template = self.template, problem = self.problem)
             fitted_pipeline.fit(cache=cache, inputs=[self.train_dataset1])
             # fitted_pipeline.fit(inputs=[self.train_dataset1])
             training_ground_truth = get_target_columns(self.train_dataset1, self.problem)
@@ -616,7 +617,8 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
             for each_repeat in range(repeat_times):
                 # start training and testing
                 fitted_pipeline = FittedPipeline(pipeline, self.train_dataset2[each_repeat].metadata.query(())['id'],
-                                                 log_dir=self.log_dir, metric_descriptions=self.performance_metrics)
+                                                 log_dir=self.log_dir, metric_descriptions=self.performance_metrics,
+                                                 template = self.template, problem = self.problem)
 
                 fitted_pipeline.fit(cache=cache, inputs=[self.train_dataset2[each_repeat]])
                 # fitted_pipeline.fit(inputs=[self.train_dataset2[each_repeat]])
@@ -774,7 +776,8 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
                 print("[INFO] Now in normal mode, will add extra train with train_dataset1")
                 # otherwise train again with dataset_train1 and get the rank
                 fitted_pipeline2 = FittedPipeline(pipeline, self.train_dataset1.metadata.query(())['id'],
-                                                  log_dir=self.log_dir, metric_descriptions=self.performance_metrics)
+                                                  log_dir=self.log_dir, metric_descriptions=self.performance_metrics,
+                                                  template = self.template, problem = self.problem)
                 # retrain and compute ranking/metric using self.train_dataset
                 #fitted_pipeline2.fit(inputs = [self.train_dataset1])
                 fitted_pipeline2.fit(cache=cache, inputs=[self.train_dataset1])

@@ -10,6 +10,7 @@ import logging
 import sys
 import tempfile
 import multiprocessing.managers
+import time
 
 from pandas import DataFrame
 from numpy import vectorize
@@ -72,7 +73,9 @@ class Runtime:
         self.pipeline: typing.List[typing.Optional[base.PrimitiveBase]] = [None] * n_steps
         self.outputs: typing.List[typing.Tuple[str, int]] = []
         self.log_dir = log_dir
-
+        self.timing = {}
+        self.timing["total_time_used_with_cache"] = 0.0
+        self.timing["total_time_used_without_cache"] = 0.0
         # Getting the outputs
         for output in self.pipeline_description.outputs:
             origin = output['data'].split('.')[0]
@@ -148,6 +151,7 @@ class Runtime:
         hash_prefix = ""
 
         for i in range(0, len(self.execution_order)):
+            time_start = time.time()
             primitive_arguments: typing.Dict[str, typing.Any] = {}
             n_step = self.execution_order[i]
             for argument, value in self.primitives_arguments[n_step].items():
@@ -174,7 +178,7 @@ class Runtime:
                 prim_hash = hash(str([hyperparam_hash, dataset_hash, hash_prefix]))
 
                 hash_prefix = prim_hash
-
+                cache_hit = False
                 _logger.info(
                     "Primitive Fit. 'id': '%(primitive_id)s', '(name, hash)': ('%(name)s', '%(hash)s'), 'worker_id': '%(worker_id)s'.",
                     {
@@ -196,6 +200,7 @@ class Runtime:
                     self.pipeline[n_step] = model
                     print("[INFO] Hit@cache:", (prim_name, prim_hash))
                     _logger.debug("Hit@cache: (%s, %s)", prim_name, prim_hash)
+                    cache_hit = True
 
                     # assert type()
 
@@ -206,16 +211,16 @@ class Runtime:
                         typing.cast(PrimitiveStep,
                                     self.pipeline_description.steps[n_step]
                                     )
-
+                    
                     primitives_outputs[n_step], model = \
                         self._primitive_step_fit(n_step,
                                                  primitive_step,
                                                  primitive_arguments
                                                  )
-
                     # add the entry to cache:
                     try:
                         # copying back sklearn_wrap.SKGenericUnivariateSelect fails
+                        cache[(prim_name, prim_hash, "fit_timing")] = time.time() - time_start
                         cache[(prim_name, prim_hash)] = (primitives_outputs[n_step].copy(), model)
                     except:
                         _logger.info('Push Cache failed: (%s, %s)', prim_name, prim_hash)
@@ -248,6 +253,20 @@ class Runtime:
                                     primitives_outputs[n_step][:MAX_DUMP_SIZE].to_csv(debug_file)
                                 except:
                                     pass
+
+            self.timing["total_time_used_with_cache"] += (time.time() - time_start)
+            if cache_hit:
+                # if hit cache, we need to get the original fitting time used
+                if prim_name not in self.timing:
+                    self.timing[prim_name] = {}
+                self.timing[prim_name]["fit"] = cache[(prim_name, prim_hash, "fit_timing")]
+                self.timing["total_time_used_without_cache"] += cache[(prim_name, prim_hash, "fit_timing")]
+            else:
+                # otherwise, use the measured time
+                if prim_name not in self.timing:
+                    self.timing[prim_name] = {}
+                self.timing[prim_name]["fit"] = time.time() - time_start
+                self.timing["total_time_used_without_cache"] += (time.time() - time_start)
 
         # kyao!!!!
         self.fit_outputs = primitives_outputs
@@ -459,7 +478,7 @@ class Runtime:
                     'worker_id': current_process()
                 },
             )
-
+            time_start = time.time()
             for argument, value in self.primitives_arguments[n_step].items():
                 if argument in produce_arguments_primitive:
                     if value['origin'] == 'steps':
@@ -501,7 +520,13 @@ class Runtime:
                             steps_outputs[n_step][:MAX_DUMP_SIZE].to_csv(debug_file)
                         except:
                             pass
-
+            # for timing part
+            prim_name = str(primitive_step.primitive)
+            if prim_name not in self.timing:
+                self.timing[prim_name] = {}
+            self.timing[prim_name]["produce"] = time.time() - time_start
+            self.timing["total_time_used_without_cache"] += (time.time() - time_start)
+            self.timing["total_time_used_with_cache"] += (time.time() - time_start)
         # kyao!!!!
         self.produce_outputs = steps_outputs
 

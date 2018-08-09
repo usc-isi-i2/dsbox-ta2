@@ -36,13 +36,14 @@ class FittedPipeline:
         the location of the files of pipeline
     """
 
-    def __init__(self, pipeline: Pipeline, dataset_id: str, log_dir: str, *, id: str = None, metric_descriptions: typing.List = []) -> None:
+    def __init__(self, pipeline: Pipeline, dataset_id: str, log_dir: str, *, id: str = None, metric_descriptions: typing.List = [],template = None, problem = None) -> None:
 
         # these two are mandatory
         # TODO add the check
         self.dataset_id: str = dataset_id
         self.pipeline: Pipeline = pipeline
-
+        self.template = template
+        self.problem = problem
         if id is None:
             # Create id distinct, since there may be several fitted pipelines
             #  using the same pipeline
@@ -131,7 +132,10 @@ class FittedPipeline:
         structure["parent_id"] = self.pipeline.id
         structure['id'] = self.id
         structure['dataset_id'] = self.dataset_id
-
+        # add timing for each step
+        for each_step in structure['steps']:
+            primitive_name = each_step["primitive"]["python_path"]
+            each_step["timing"] = self.runtime.timing[primitive_name]
         # Save pipeline rank
         if self.metric:
             metric: str = self.metric['metric']
@@ -143,9 +147,19 @@ class FittedPipeline:
                     rank = 1/value
             else:
                 rank = value
+
+        structure['template_name'] = self.template.template['name']
+        structure['template_taskType'] = str(self.template.template['taskType'])
+        structure['template_taskSubtype'] = str(self.template.template['taskSubtype'])
+        problem_meta = self.problem.query(())['about']
+        structure['problem_taskType'] = str(problem_meta['taskType'])
+        structure['problem_taskSubType'] = str(problem_meta['taskSubType'])
+        structure['total_time_used_with_cache'] = self.runtime.timing["total_time_used_with_cache"]
+        structure['total_time_used_without_cache'] = self.runtime.timing["total_time_used_without_cache"]
         structure['pipeline_rank'] = rank
         structure['metric'] = metric
         structure['metric_value'] = value
+        # structure['template'] = runtime.
 
         # FIXME: this is here for testing purposes
         # structure['runtime_stats'] = str(self.auxiliary)
