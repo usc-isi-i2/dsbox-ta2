@@ -367,7 +367,7 @@ def dsbox_generic_steps(data : str = "data", target : str = "target"):
                     "primitive": "d3m.primitives.sklearn_wrap.SKPCA",
                     "hyperparameters":
                     {
-                        'n_components': [10, 15]
+                        'n_components': [10, 15, 25]
                     }
                 },
                 "d3m.primitives.dsbox.DoNothing",
@@ -589,7 +589,7 @@ def dsbox_feature_selector(ptype):
                     {
                         "primitive" : "d3m.primitives.sklearn_wrap.SKSelectFwe",
                         "hyperparameters":{
-                            "alpha" : [float(x) for x in np.logspace(-4, -1, 5)]
+                            "alpha" : [float(x) for x in np.logspace(-4, -1, 6)]
                         }
                     },
 
@@ -598,7 +598,7 @@ def dsbox_feature_selector(ptype):
                         "hyperparameters":{
                             "score_func": ["f_regression"],
                             "mode" : ["percentile"],
-                            "param" : [int(x) for x in np.linspace(10, 100, 10)]
+                            "param" : [5, 7, 10, 15, 30, 50, 75], 
                         }
                     },
                     "d3m.primitives.dsbox.DoNothing"
@@ -616,7 +616,7 @@ def dsbox_feature_selector(ptype):
                     {
                         "primitive" : "d3m.primitives.sklearn_wrap.SKSelectFwe",
                         "hyperparameters":{
-                            "alpha" : [float(x) for x in np.logspace(-4, -1, 5)]
+                            "alpha" : [float(x) for x in np.logspace(-4, -1, 6)]
                         }
                     },
 
@@ -624,7 +624,7 @@ def dsbox_feature_selector(ptype):
                         "primitive" : "d3m.primitives.sklearn_wrap.SKGenericUnivariateSelect",
                         "hyperparameters":{
                             "mode" : ["percentile"],
-                            "param" : [int(x) for x in np.linspace(10, 100, 10)]
+                            "param" : [5, 7, 10, 15, 30, 50, 75], 
                         }
                     },
                     "d3m.primitives.dsbox.DoNothing"
