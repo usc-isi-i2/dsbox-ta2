@@ -3496,8 +3496,8 @@ class ClassificationWithSelection(DSBoxTemplate):
                                 "primitive":"d3m.primitives.sklearn_wrap.SKSGDClassifier",
                                 "hyperparameters":{
                                     "loss": ['log', 'hinge', 'squared_hinge', 'perceptron'],
-                                    "alpha": [float(x) for x in np.logspace(-6, -1.004, 5)],
-                                    "l1_ratio": [float(x) for x in np.logspace(-9, -0.004, 5)],
+                                    "alpha": [float(x) for x in np.logspace(-6, -1.004, 7)],
+                                    "l1_ratio": [float(x) for x in np.logspace(-9, -0.004, 7)],
                                     "penalty": ['elasticnet', 'l2']
                                 }
                             },
@@ -3545,8 +3545,8 @@ class RegressionWithSelection(DSBoxTemplate):
                                 "primitive":"d3m.primitives.sklearn_wrap.SKSGDRegressor",
                                 "hyperparameters":{
                                     "loss":['squared_loss', 'huber'],
-                                    "alpha":[float(x) for x in np.logspace(-5, -1.004, 5)],#cannot reach 0.1
-                                    "l1_ratio":[0.15, 0.3, 0.5, 0.6, 0.7], #cannot reach 1
+                                    "alpha":[float(x) for x in np.logspace(-5, -1.004, 7)],#cannot reach 0.1
+                                    "l1_ratio":[0.01, 0.15, 0.3, 0.5, 0.6, 0.7, 0.9], #cannot reach 1
                                     "learning_rate": ['optimal', 'invscaling']
                                 }
                             },
