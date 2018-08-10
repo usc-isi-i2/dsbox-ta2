@@ -1,7 +1,7 @@
 # **default_classification_template**
 
 | TemplateSteps                              |                                                                                                                Primitives |
-|--------------------------------------------|--------------------------------------------------------------------------------------------------------------------------:|
+|:--------------------------------------------|--------------------------------------------------------------------------------------------------------------------------:|
 | denormalize_step                           |                                                                                                         dsbox.Denormalize |
 | to_dataframe_step                          |                                                                                                        DatasetToDataFrame |
 | extract_attribute_step/extract_target_step |                                                                                             ExtractColumnsBySemanticTypes |
