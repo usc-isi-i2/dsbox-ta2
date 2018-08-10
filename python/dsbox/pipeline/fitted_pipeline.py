@@ -19,6 +19,7 @@ TP = typing.TypeVar('TP', bound='FittedPipeline')
 
 _logger = logging.getLogger(__name__)
 
+
 class FittedPipeline:
     """
     Fitted pipeline
@@ -36,7 +37,7 @@ class FittedPipeline:
         the location of the files of pipeline
     """
 
-    def __init__(self, pipeline: Pipeline, dataset_id: str, log_dir: str, *, id: str = None, metric_descriptions: typing.List = [],template = None, problem = None) -> None:
+    def __init__(self, pipeline: Pipeline, dataset_id: str, log_dir: str, *, id: str = None, metric_descriptions: typing.List = [], template=None, problem=None) -> None:
 
         # these two are mandatory
         # TODO add the check
@@ -112,7 +113,7 @@ class FittedPipeline:
     def get_produce_step_output(self, step_number: int):
         return self.runtime.produce_outputs[step_number]
 
-    def save(self, folder_loc : str) -> None:
+    def save(self, folder_loc: str) -> None:
         '''
         Save the given fitted pipeline from TemplateDimensionalSearch
         '''
@@ -144,7 +145,7 @@ class FittedPipeline:
                 if value == 0.0:
                     rank = sys.float_info.max
                 else:
-                    rank = 1/value
+                    rank = 1 / value
             else:
                 rank = value
 
@@ -153,7 +154,10 @@ class FittedPipeline:
         structure['template_taskSubtype'] = str(self.template.template['taskSubtype'])
         problem_meta = self.problem.query(())['about']
         structure['problem_taskType'] = str(problem_meta['taskType'])
-        structure['problem_taskSubType'] = str(problem_meta['taskSubType'])
+        try:
+            structure['problem_taskSubType'] = str(problem_meta['taskSubType'])
+        except:
+            structure['problem_taskSubType'] = "NONE"
         structure['total_time_used_with_cache'] = self.runtime.timing["total_time_used_with_cache"]
         structure['total_time_used_without_cache'] = self.runtime.timing["total_time_used_without_cache"]
         structure['pipeline_rank'] = rank
@@ -192,7 +196,7 @@ class FittedPipeline:
         # return str(dag_order)
 
     @classmethod
-    def load(cls:typing.Type[TP], folder_loc: str,
+    def load(cls: typing.Type[TP], folder_loc: str,
              pipeline_id: str, log_dir: str, dataset_id: str = None,) -> typing.Tuple[TP, Runtime]:
         '''
         Load the pipeline with given pipeline id and folder location
@@ -233,7 +237,6 @@ class FittedPipeline:
             with open(file_loc, "rb") as f:
                 each_step = pickle.load(f)
                 run.pipeline[i] = each_step
-
 
         # fitted_pipeline_loaded = cls(pipeline_to_load, run, dataset)
         fitted_pipeline_loaded = cls(pipeline=pipeline_to_load,
