@@ -876,7 +876,7 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
                         )
                     })
                 return (training_metrics, test_metrics)
-            # END pecial design for objectDetectionAP
+            # END special design for objectDetectionAP
 
             regression_mode = metric_description["metric"] in self.regression_metric
             try:
