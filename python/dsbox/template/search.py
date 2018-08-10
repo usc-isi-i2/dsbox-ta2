@@ -747,7 +747,7 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
                     data_to_logger_info.append(data['test_metrics']['value'])
                 else:
                     data_to_logger_info.append("No test metrics value found")
-                _logger.info('fitted id: %(fitted_pipeline_id)s, metric: %(metric)s, value: %(value)0.2f',
+                _logger.info('fitted id: %(fitted_pipeline_id)s, metric: %(metric)s, value: %(value)s',
                              {
                                  'fitted_pipeline_id': fitted_pipeline2.id,
                                  'metric': data_to_logger_info[0],
