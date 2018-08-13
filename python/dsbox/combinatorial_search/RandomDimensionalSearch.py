@@ -116,9 +116,8 @@ class RandomDimensionalSearch(TemplateSpaceParallelBaseSearch[T]):
             # wait until all the candidates are evaluated
             self._get_evaluation_results(template_name=search.template.template['name'])
 
-            base_candidate = (
-                self.history.storage.loc[search.template.template['name']]['configuration']
-            )
+            base_candidate = self.history.get_best_candidate(search.template.template['name'])
+
         # END FOR
 
     def _generate_dimensional_search_list(self, dimension: str,
@@ -196,7 +195,7 @@ class RandomDimensionalSearch(TemplateSpaceParallelBaseSearch[T]):
         """
 
         template = base_search.template
-        candidate = self.history.storage.loc[template.template['name']]['configuration']
+        candidate = self.history.get_best_candidate(template.template['name'])
 
         if candidate is None:
             candidate = base_search.configuration_space.get_random_assignment()
@@ -205,16 +204,26 @@ class RandomDimensionalSearch(TemplateSpaceParallelBaseSearch[T]):
         for i in range(RandomDimensionalSearch.max_init_trials-1):
             try:
                 report = self.evaluate_blocking(base_search=base_search, candidate=candidate)
+                if report is None:
+                    raise ValueError("Initial Pipeline failed, Trying a random pipeline")
                 return report
             except:
                 traceback.print_exc()
                 _logger.warning('Initial Pipeline failed, Trying a random pipeline ...')
-                print("[WARN] Initial Pipeline failed, Trying a random pipeline ...")
+                # print("[WARN] Initial Pipeline failed, Trying a random pipeline ...")
                 pprint(candidate)
                 print("-" * 20)
                 candidate = base_search.configuration_space.get_random_assignment()
 
         raise ValueError("No valid initial candidates found")
+
+    def _select_next_template(self, num_iter: int = 2):
+        for i in range(num_iter):
+            print("#" * 50)
+            search = random.choice(self.confSpaceBaseSearch)
+            print("[INFO] Selecting Template:", search.template.template['name'])
+
+            yield search
 
     def search(self, num_iter: int=2) -> typing.Dict:
         """
@@ -235,12 +244,13 @@ class RandomDimensionalSearch(TemplateSpaceParallelBaseSearch[T]):
         self.job_manager.start_workers(target=self._evaluate_template)
         time.sleep(0.1)
 
-        for i in range(num_iter):
-            print("#" * 50)
-            search = random.choice(self.confSpaceBaseSearch)
-            print("[INFO] Selecting Template:", search.template.template['name'])
-
+        for search in self._select_next_template(num_iter=num_iter):
+            print("$"*100)
+            print("$"*100)
             self.search_one_iter(search=search, max_per_dim=5)
+            print("$"*100)
+            print(self.history)
+            print("$"*100)
 
         # cleanup the caches and cache manager
         self.cacheManager.cleanup()

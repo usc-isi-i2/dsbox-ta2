@@ -104,26 +104,28 @@ class TemplateSpaceParallelBaseSearch(TemplateSpaceBaseSearch[T]):
     def _get_evaluation_results(self, template_name: str = 'generic'):
         print("[INFO] Waiting for the results")
         counter = 0
-        # FIXME this is_idle method is not working properly
         while not self.job_manager.is_idle():
             # print("[INFO] Sleeping,", counter)
             print("[INFO] Main Process Sleeping:", counter)
             (kwargs, report) = self.job_manager.pop_job(block=True)
-            candidate = kwargs['candidate']
-            try:
-                if report is None:
-                    raise ValueError("Search Failed on candidate")
-
-                _logger.info("new report: {}".format(report))
-                self.history.update(report, template_name=template_name)
-                self.cacheManager.candidate_cache.push(report)
-            except:
-                traceback.print_exc()
-                print("[INFO] Search Failed on candidate ", hash(str(candidate)))
-                self.history.update_none(fail_report=None, template_name=template_name)
-                self.cacheManager.candidate_cache.push_None(candidate=candidate)
+            self._add_report_to_candidate_cache(kwargs, report, template_name)
             counter += 1
         print("[INFO] No more pending job")
+
+    def _add_report_to_candidate_cache(self, kwargs, report, template_name):
+        candidate = kwargs['candidate']
+        try:
+            if report is None:
+                raise ValueError("Search Failed on candidate")
+            report['template_name'] = template_name
+            _logger.info("new report: {}".format(report))
+            self.history.update(report, template_name=template_name)
+            self.cacheManager.candidate_cache.push(report)
+        except ValueError:
+            traceback.print_exc()
+            print("[INFO] Search Failed on candidate ", hash(str(candidate)))
+            self.history.update_none(fail_report=None, template_name=template_name)
+            self.cacheManager.candidate_cache.push_None(candidate=candidate)
 
     def _push_random_candidates(self, num_iter):
         print("#" * 50)
@@ -208,10 +210,11 @@ class TemplateSpaceParallelBaseSearch(TemplateSpaceBaseSearch[T]):
         # wait for the results
         (kwargs, report) = self.job_manager.pop_job(block=True)
         check_candidate = kwargs['candidate']
-        self.cacheManager.candidate_cache.push(report)
+
+        self._add_report_to_candidate_cache(kwargs=kwargs, report=report,
+                                            template_name=base_search.template.template['name'])
         if check_candidate != candidate:
             raise ValueError('Different candidate result was popped. The evaluate_blocking '
                              'assumes that it is the only process pushing jobs to jobManager')
-        self.history.update(report=report, template_name=base_search.template.template['name'])
 
         return report

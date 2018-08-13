@@ -292,23 +292,12 @@ class Controller:
             self._logger.error("[ERROR] No candidate found during search!")
             print("[INFO] cross_validation_metrics:", None)
         else:
-            value = report['cross_validation_metrics'][0]['value']
-            print("[INFO] cross_validation_metrics:", value)
-
             self._logger.info("******************\n[INFO] Writing results")
-            self._logger.info(str(report) + " " + str(value))
-            if report['training_metrics']:
-                self._logger.info('Training {} = {}'.format(
-                    report['training_metrics'][0]['metric'],
-                    report['training_metrics'][0]['value']))
-            if report['cross_validation_metrics']:
-                self._logger.info('CV {} = {}'.format(
-                    report['cross_validation_metrics'][0]['metric'],
-                    report['cross_validation_metrics'][0]['value']))
-            if report['test_metrics']:
-                self._logger.info('Validation {} = {}'.format(
-                    report['test_metrics'][0]['metric'],
-                    report['test_metrics'][0]['value']))
+            metric_list = ['training_metrics', 'cross_validation_metrics', 'test_metrics']
+            for m in metric_list:
+                if m in report and report[m]:
+                    self._logger.info('{} {} = {}'.format(
+                        m, report[m][0]['metric'], report[m][0]['value']))
 
         # # writing to the disk
         # dataset_name = self.output_executables_dir.rsplit("/", 2)[1]
@@ -437,7 +426,7 @@ class Controller:
             num_proc=self.num_cpus,
             timeout=self.TIMEOUT,
         )
-        report = searchMethod.search(num_iter=10)
+        report = searchMethod.search(num_iter=1)
 
         self._log_search_results(report=report)
 
@@ -881,8 +870,8 @@ class Controller:
         pid: int = os.fork()
         if pid == 0:  # run the search in the child process
             # self._run_SerialBaseSearch()
-            self._run_ParallelBaseSearch()
-            # self._run_RandomDimSearch()
+            # self._run_ParallelBaseSearch()
+            self._run_RandomDimSearch()
 
             print("[INFO] End of Search")
             os._exit(0)

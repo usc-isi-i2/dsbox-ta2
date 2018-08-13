@@ -20,8 +20,6 @@ reload(dsbox.controller.controller)
 from dsbox.controller.controller import Controller
 from  dsbox.controller.controller import Status
 import os
-# controller = Controller(development_mode=True)
-
 import getpass
 
 
@@ -66,7 +64,7 @@ def main(args):
         # Timeout less 1 minute to give system chance to clean up
         timeout = int(config['timeout']) - 1
     if args.timeout > -1:
-        # Overide config timeout
+        # Override config timeout
         timeout = args.timeout
     if timeout > 0:
         signal.signal(signal.SIGINT, write_results_and_exit)
@@ -88,8 +86,7 @@ def main(args):
                 suffix = config[key].split('/output/', 1)[1]
                 config[key] = os.path.join(args.output_prefix, suffix)
 
-    # os.system('clear')
-    print('Using configuation:')
+    print('Using config:')
     pprint(config)
 
     if 'test_data_schema' in config and config['test_data_schema'] != '':

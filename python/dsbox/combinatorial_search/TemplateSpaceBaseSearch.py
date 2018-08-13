@@ -74,7 +74,10 @@ class TemplateSpaceBaseSearch(typing.Generic[T]):
         self.history: ExecutionHistory = None
 
         # load libraries with a dummy evaluation
-        self.confSpaceBaseSearch[0].dummy_evaluate()
+        try:
+            self.confSpaceBaseSearch[-1].dummy_evaluate()
+        except:
+            pass
 
     def setup_exec_history(self, template_list: typing.List[DSBoxTemplate] = None):
         self.history = ExecutionHistory(template_list=template_list)

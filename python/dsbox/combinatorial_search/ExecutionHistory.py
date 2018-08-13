@@ -6,6 +6,7 @@ import copy
 import math
 from pprint import pprint
 from functools import reduce
+from dsbox.template.configuration_space import ConfigurationPoint
 
 _logger = logging.getLogger(__name__)
 
@@ -152,9 +153,14 @@ class ExecutionHistory:
         check_comparison_metrics = copy.deepcopy(ExecutionHistory.comparison_metrics)
         base_comparison_metrics = copy.deepcopy(ExecutionHistory.comparison_metrics)
         for s in ExecutionHistory.comparison_metrics:
-            if base[s] is None or (isinstance(base[s], float) and math.isnan(base[s])):
+            if base[s] is None or \
+               (isinstance(base[s], float) and math.isnan(base[s])) or \
+               len(base[s]) == 0:
                 base_comparison_metrics.remove(s)
-            if s not in check or check[s] is None:
+            if s not in check or \
+               not isinstance(check[s], list) or \
+               len(check[s]) == 0 or \
+               check[s] is None:
                 check_comparison_metrics.remove(s)
 
         # check if base is uninitialized
@@ -181,6 +187,10 @@ class ExecutionHistory:
 
         comparison_results = {}
         for s in base_comparison_metrics:
+            if len(base[s]) == 0:
+                raise ValueError("base is invalid {}".format(base))
+            if len(check[s]) == 0:
+                raise ValueError("check is invalid {}".format(check))
             assert base[s][0]["metric"] == check[s][0]["metric"], "{} not equal".format(s)
 
             opr = lambda a, b: False
@@ -198,7 +208,10 @@ class ExecutionHistory:
                   tup]))
 
         # return operator.and_(comparison_results[0], comparison_results[1])
-        return comparison_results[key_attribute]
+        if key_attribute in comparison_results:
+            return comparison_results[key_attribute]
+        else:
+            return list(comparison_results.values())[0]
 
     def get_best_history(self) -> typing.List[typing.Dict]:
         best = None
@@ -206,3 +219,9 @@ class ExecutionHistory:
             if ExecutionHistory._is_better(base=best, check=row, key_attribute=self.key_attribute):
                 best = row
         return best.to_dict()
+
+    def get_best_candidate(self, template_name: str) -> ConfigurationPoint:
+        return self.storage.loc[template_name]['configuration']
+
+    def __str__(self):
+        return self.storage.__str__()

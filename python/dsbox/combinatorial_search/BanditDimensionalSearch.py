@@ -35,20 +35,7 @@ from dsbox.combinatorial_search.search_utils import random_choices_without_repla
 from dsbox.combinatorial_search.ConfigurationSpaceBaseSearch import ConfigurationSpaceBaseSearch
 from dsbox.template.pipeline_utilities import pipe2str
 
-import importlib
-from dsbox.combinatorial_search.dimensional_search import TemplateDimensionalSearch
-colorama_spec = importlib.util.find_spec("colorama")
-STYLE = ""
-ERROR = ""
-WARNING = ""
-if colorama_spec is not None:
-    from colorama import Fore, Back, init
-
-    # STYLE = Fore.BLUE + Back.GREEN
-    STYLE = Fore.BLACK + Back.GREEN
-    ERROR = Fore.WHITE + Back.RED
-    WARNING = Fore.BLACK + Back.YELLOW
-    init(autoreset=True)
+from dsbox.combinatorial_search.RandomDimensionalSearch import RandomDimensionalSearch
 
 
 T = typing.TypeVar("T")
@@ -60,7 +47,7 @@ PrimitiveDescription = typing.NewType('PrimitiveDescription', dict)
 _logger = logging.getLogger(__name__)
 
 
-class DimensionalSearchWithUCT(TemplateDimensionalSearch):
+class BanditDimensionalSearch(RandomDimensionalSearch):
     """
     Use dimensional search with UCT to find best pipeline.
 
@@ -193,15 +180,6 @@ class DimensionalSearchWithUCT(TemplateDimensionalSearch):
         # print(self.exec_history.to_string())
         self.uct_score = [None] * len(self.template)
 
-    def run(self):
-        """
-        runs the dim search for each compatible template and returns the best trained pipeline
-        for the problem.
-        Returns:
-            fittedPipeline: the best fittedpipeline
-        """
-        for i in range(10):
-            pass
 
 
 
