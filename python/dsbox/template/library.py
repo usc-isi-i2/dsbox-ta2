@@ -13,23 +13,14 @@ import copy
 
 
 from dsbox.template.dsbox_templates.dsbox_classification import *
-
 from dsbox.template.dsbox_templates.dsbox_regression import *
-
 from dsbox.template.dsbox_templates.dsbox_large_datasets import *
-
 from dsbox.template.dsbox_templates.dsbox_timeseries_forcasting import *
-
 from dsbox.template.dsbox_templates.dsbox_timeseries_general import *
-
 from dsbox.template.dsbox_templates.dsbox_image import *
-
 from dsbox.template.dsbox_templates.dsbox_text import *
-
 from dsbox.template.dsbox_templates.dsbox_graph import *
-
 from dsbox.template.dsbox_templates.dsbox_TA1 import *
-
 from dsbox.template.dsbox_templates.dsbox_other import *
 
 
@@ -257,51 +248,5 @@ class TemplateLibrary:
         else:
             raise KeyError("Template not found, name: {}".format(template_name))
 
-
-class SemanticTypeDict(object):
-    def __init__(self, libdir):
-        self.pos = libdir
-        self.mapper = {}
-
-    def read_primitives(self) -> None:
-        # jsonPath = os.path.join(libdir, filename)
-        # print(self.pos)
-        user_Defined_Confs = glob.glob(
-            self.pos + "/*_template_semantic_mapping.json")
-        # print(user_Defined_Confs)
-        for u in user_Defined_Confs:
-            with open(u, "r") as cf:
-                print("opened", u)
-                for v in json.load(cf).items():
-                    self.mapper[v[0]] = v[1]
-
-    def create_configuration_space(self, template: TemplatePipeline):
-        definition = {}
-        # for t in TemplatePipeline:
-        #     if isinstance(t, list):
-        steps = template.template_nodes.keys()
-        for s in steps:
-            if template.template_nodes[s].semantic_type in self.mapper.keys():
-                definition[s] = self.mapper[
-                    template.template_nodes[s].semantic_type]
-        # return SimpleConfigurationSpace(definition)
-        return definition
-
-
-
-
-
-
-################################################################################################################
-
-
-
-
-######################################            Templates            #########################################
-
-
-
-
-################################################################################################################
 
 

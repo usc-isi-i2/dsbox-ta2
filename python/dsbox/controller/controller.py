@@ -43,7 +43,6 @@ from d3m.metadata.problem import parse_problem_description
 from dsbox.pipeline.fitted_pipeline import FittedPipeline
 from dsbox.template.library import TemplateDescription
 from dsbox.template.library import TemplateLibrary
-from dsbox.template.library import SemanticTypeDict
 from dsbox.template.search import ConfigurationSpace
 from dsbox.template.search import SimpleConfigurationSpace
 from dsbox.template.search import TemplateDimensionalSearch
@@ -330,22 +329,21 @@ class Controller:
         Public method (in alphabet)
         1 . auto_regress_convert
         2 . compute_UCT
-        3 . generate_configuration_space
-        4 . initialize_from_config_for_evaluation
-        5 . initialize_from_config_train_test
-        6 . initialize_uct
-        7 . load_pipe_runtime
-        8 . load_templates
-        9 . remove_empty_targets
-        10. search_template
-        11. select_next_template
-        12. split_dataset
-        13. test
-        14. test_fitted_pipeline
-        15. train
-        16. update_history
-        17. update_UCT_score
-        18. write_training_results
+        3 . initialize_from_config_for_evaluation
+        4 . initialize_from_config_train_test
+        5 . initialize_uct
+        6 . load_pipe_runtime
+        7 . load_templates
+        8 . remove_empty_targets
+        9. search_template
+        10. select_next_template
+        11. split_dataset
+        12. test
+        13. test_fitted_pipeline
+        14. train
+        15. update_history
+        16. update_UCT_score
+        17. write_training_results
         **********************************************************************
     '''
     def auto_regress_convert(self, dataset: "Dataset"):
@@ -383,25 +381,6 @@ class Controller:
             return None
 
 
-    @staticmethod
-    def generate_configuration_space(template_desc: TemplateDescription, problem: typing.Dict,
-                                     dataset: typing.Optional[Dataset]) -> ConfigurationSpace:
-        """
-        Generate search space
-        """
-
-        # TODO: Need to update dsbox.planner.common.ontology.D3MOntology and dsbox.planner.common.ontology.D3MPrimitiveLibrary, and integrate with them
-        libdir = os.path.join(os.getcwd(), "library")
-        # print(libdir)
-        mapper_to_primitives = SemanticTypeDict(libdir)
-        mapper_to_primitives.read_primitives()
-        # print(mapper_to_primitives.mapper)
-        # print(mapper_to_primitives.mapper)
-        values = mapper_to_primitives.create_configuration_space(template_desc.template)
-        # print(template_desc.template.template_nodes.items())
-        print("[INFO] Values: {}".format(values))
-        # values: typing.Dict[DimensionName, typing.List] = {}
-        return SimpleConfigurationSpace(values)
 
 
     def initialize_from_config_for_evaluation(self, config: typing.Dict) -> None:
