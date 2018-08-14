@@ -331,14 +331,7 @@ class Runtime:
             if total_columns > 500:
                 raise Exception('Total column limit exceeded after encoding: {}'.format(total_columns))
 
-        if str(primitive) == 'd3m.primitives.dsbox.CleaningFeaturizer':
-            model = self._work_around_for_cleaning_featurizer(model, training_arguments['inputs'])
-
-        if str(primitive) == 'd3m.primitives.dsbox.Profiler':
-            this_step_result = model.produce(**produce_params).value
-            produce_result = self._work_around_for_profiler(this_step_result)
-        else:
-            produce_result = model.produce(**produce_params).value
+        produce_result = model.produce(**produce_params).value
 
         return produce_result, model
 
@@ -489,12 +482,7 @@ class Runtime:
                         continue
             if isinstance(self.pipeline_description.steps[n_step], PrimitiveStep):
                 if n_step in self.produce_order:
-                    if str(primitive_step.primitive) == 'd3m.primitives.dsbox.Profiler':
-                        this_step_result = self.pipeline[n_step].produce(**produce_arguments).value
-                        steps_outputs[n_step] = self._work_around_for_profiler(this_step_result)
-
-                    else:
-                        steps_outputs[n_step] = self.pipeline[n_step].produce(**produce_arguments).value
+                    steps_outputs[n_step] = self.pipeline[n_step].produce(**produce_arguments).value
                 else:
                     steps_outputs[n_step] = None
 
@@ -546,61 +534,6 @@ class Runtime:
             count += len(values) + 1
         _logger.info('Encoder: column count before={} after={}'.format(df.shape[1], count))
         return count
-
-    @staticmethod
-    def _work_around_for_profiler(df):
-        float_cols = utils.list_columns_with_semantic_types(df.metadata, ['http://schema.org/Float'])
-
-        # !!! Do not delete these codes, those code is used to keep the fileName column
-        # filename_cols = list(set(utils.list_columns_with_semantic_types(df.metadata, [
-        #     'https://metadata.datadrivendiscovery.org/types/Time'])).intersection(
-        #     utils.list_columns_with_semantic_types(df.metadata,
-        #                                            ["https://metadata.datadrivendiscovery.org/types/FileName"])))
-
-        # for col in filename_cols:
-        #     old_metadata = dict(df.metadata.query((mbase.ALL_ELEMENTS, col)))
-        #     old_metadata['semantic_types'] = tuple(x for x in old_metadata['semantic_types'] if
-        #                                            x != 'https://metadata.datadrivendiscovery.org/types/Time')
-        #     df.metadata = df.metadata.update((mbase.ALL_ELEMENTS, col), old_metadata)
-        for col in float_cols:
-            old_metadata = dict(df.metadata.query((mbase.ALL_ELEMENTS, col)))
-            if 'https://metadata.datadrivendiscovery.org/types/Attribute' not in old_metadata['semantic_types']:
-                old_metadata['semantic_types'] += ('https://metadata.datadrivendiscovery.org/types/Attribute',)
-                df.metadata = df.metadata.update((mbase.ALL_ELEMENTS, col), old_metadata)
-
-        return df
-
-    @staticmethod
-    def _work_around_for_cleaning_featurizer(model, inputs):
-        vector_cols = list(set(utils.list_columns_with_semantic_types(inputs.metadata, [
-            'https://metadata.datadrivendiscovery.org/types/FloatVector'])).intersection(
-            utils.list_columns_with_semantic_types(inputs.metadata,
-                                                   ["https://metadata.datadrivendiscovery.org/types/Location"])))
-        for col in vector_cols:
-            try:
-                n = 10
-                split_to = sum(inputs.iloc[:n, col].apply(str).apply(vectorize(lambda x: len(x.split(','))))) // n
-            except:
-                split_to = 2
-
-            try:
-                if 'alpha_numeric_columns' not in model._mapping:
-                    model._mapping['alpha_numeric_columns'] = {
-                        "columns_to_perform": [col],
-                        "split_to": [split_to]
-                    }
-                else:
-                    if 'columns_to_perform' in model._mapping['alpha_numeric_columns']:
-                        model._mapping['alpha_numeric_columns']['columns_to_perform'].append(col)
-                        model._mapping['alpha_numeric_columns']['split_to'].append(split_to)
-                    else:
-                        model._mapping['alpha_numeric_columns'] = {
-                            "columns_to_perform": [col],
-                            "split_to": [split_to]
-                        }
-            except:
-                pass
-        return model
 
 
 def load_problem_doc(problem_doc_path: str) -> Metadata:
