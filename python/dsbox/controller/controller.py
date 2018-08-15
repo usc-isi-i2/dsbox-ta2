@@ -886,13 +886,18 @@ class Controller:
             # first check the target column amount
             target_column_list = []
             all_column_length = self.all_dataset.metadata.query((res_id,ALL_ELEMENTS))['dimension']['length']
-            for each_column in range(all_column_length - 1, 0, -1):
-                each_column_meta = self.all_dataset.metadata.query((res_id,ALL_ELEMENTS,each_column))
-                if ('https://metadata.datadrivendiscovery.org/types/SuggestedTarget' or  'https://metadata.datadrivendiscovery.org/types/Target' or  'https://metadata.datadrivendiscovery.org/types/TrueTarget') in each_column_meta['semantic_types']:
-                    target_column_list.append(each_column)
-                # to accelerate the program running, now we assume the target columns are always at the end of the columns
-                else:
-                    break
+            # for each_column in range(all_column_length - 1, 0, -1):
+            #     each_column_meta = self.all_dataset.metadata.query((res_id,ALL_ELEMENTS,each_column))
+            #     if ('https://metadata.datadrivendiscovery.org/types/SuggestedTarget' or  'https://metadata.datadrivendiscovery.org/types/Target' or  'https://metadata.datadrivendiscovery.org/types/TrueTarget') in each_column_meta['semantic_types']:
+            #         target_column_list.append(each_column)
+            #     # to accelerate the program running, now we assume the target columns are always at the end of the columns
+            # self._logger.info("Totally {} taget found.".format(len(target_column_list)))
+            # target_column_length = len(target_column_list)
+
+            #changed to use problem metadata to query targets
+            targets_from_problem = self.problem_doc_metadata.query(())["inputs"]["data"][0]["targets"]
+            for t in targets_from_problem:
+                target_column_list.append(t["colIndex"])
             self._logger.info("Totally {} taget found.".format(len(target_column_list)))
             target_column_length = len(target_column_list)
             # check again on the length of the column to ensure

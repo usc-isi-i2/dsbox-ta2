@@ -683,5 +683,6 @@ class TemplateSteps:
         try:
             g = index.get_primitive(primitive_name).metadata.query()["primitive_code"]["hyperparams"][parameter_name]['structural_type'](definition)
         except:
-            raise ("[ERROR] Hyperparameter not valid!")
+            print("[ERROR] Hyperparameter not valid!")
+            pass
         return g
