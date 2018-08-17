@@ -690,12 +690,9 @@ class TemplateSteps:
         g = None
         try:
             g = \
-                (index.get_primitive(primitive_name)
-                 .metadata.query()["primitive_code"]["hyperparams"]
-                 [parameter_name]['structural_type'](definition))
-        except ModuleNotFoundError:
-            print("[WARN] module {} not found.".format(primitive_name))
-            return
+            index.get_primitive(primitive_name).metadata.query()["primitive_code"]["hyperparams"][
+                parameter_name]['structural_type'](definition)
         except:
-            raise ("[ERROR] Hyperparameter not valid!")
+            print("[ERROR] Hyperparameter not valid!")
+            pass
         return g

@@ -194,6 +194,8 @@ class RandomDimensionalSearch(TemplateSpaceParallelBaseSearch[T]):
             report: typing.Dict
         """
 
+        _logger.info("setting up initial candidate")
+
         template = base_search.template
         candidate = self.history.get_best_candidate(template.template['name'])
 

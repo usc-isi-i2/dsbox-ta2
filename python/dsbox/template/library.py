@@ -59,10 +59,8 @@ class TemplateLibrary:
             "classification_with_feature_selection": ClassificationWithSelection,
             "regression_with_feature_selection": RegressionWithSelection,
 
-            "Large_column_number_with_numerical_only_classification":
-                Large_column_number_with_numerical_only_classification,
-            "Large_column_number_with_numerical_only_regression":
-                Large_column_number_with_numerical_only_regression,
+            "Large_column_number_with_numerical_only_classification": Large_column_number_with_numerical_only_classification,
+            "Large_column_number_with_numerical_only_regression": Large_column_number_with_numerical_only_regression,
 
             # new classification
             "random_forest_classification_template": RandomForestClassificationTemplate,
@@ -124,8 +122,7 @@ class TemplateLibrary:
             -> typing.List[DSBoxTemplate]:
         results = []
         results.append(
-            SRIMeanBaselineTemplate())  # put the meanbaseline here so whatever dataset will have
-        #  a result
+            SRIMeanBaselineTemplate())  # put the meanbaseline here so whatever dataset will have a result
         for template_class in self.templates:
             template = template_class()
             # sourceType refer to d3m/container/dataset.py ("SEMANTIC_TYPES" as line 40-70)
@@ -231,8 +228,7 @@ class TemplateLibrary:
         self.templates.append(RegressionWithSelection)
 
         # dsbox all in one templates
-        # move dsboxClassificationTemplate to last execution because sometimes this template have
-        #  bugs
+        # move dsboxClassificationTemplate to last execution because sometimes this template have bugs
         self.templates.append(dsboxClassificationTemplate)
         self.templates.append(dsboxRegressionTemplate)
 
@@ -276,16 +272,14 @@ class SemanticTypeDict(object):
 ################################################################################################################
 
 
-######################################            Templates
-# #########################################
+######################################            Templates            #########################################
 
 
 ################################################################################################################
 
 
 ################################################################################################################
-##################################### General Classification Templates
-# #########################################
+##################################### General Classification Templates #########################################
 ################################################################################################################
 
 ################################################################################################
@@ -681,8 +675,7 @@ class dsboxClassificationTemplate(DSBoxTemplate):
 
 
 ################################################################################################################
-####################################   General Regression Templates
-# #########################################
+####################################   General Regression Templates    #########################################
 ################################################################################################################
 
 ################################################################################################
@@ -954,7 +947,7 @@ class RegressionWithSelection(DSBoxTemplate):
                                          "alpha": [float(x) for x in np.logspace(-5, -1.004, 7)],
                                          # cannot reach 0.1
                                          "l1_ratio": [0.01, 0.15, 0.3, 0.5, 0.6, 0.7, 0.9],
-                                         # cannot reach 1
+                                     # cannot reach 1
                                          "learning_rate": ['optimal', 'invscaling']
                                      }
                                  },
@@ -1020,8 +1013,7 @@ class dsboxRegressionTemplate(DSBoxTemplate):
 
 
 ################################################################################################################
-#####################################   Templates for Large Datasets
-# ##########################################
+#####################################   Templates for Large Datasets  ##########################################
 ################################################################################################################
 
 
@@ -1081,8 +1073,7 @@ class Large_column_number_with_numerical_only_classification(DSBoxTemplate):
                 },
                 # {
                 #     "name": "encode1_step",
-                #     # "primitives": ["d3m.primitives.dsbox.UnaryEncoder",
-                # "d3m.primitives.dsbox.DoNothing"],
+                #     # "primitives": ["d3m.primitives.dsbox.UnaryEncoder","d3m.primitives.dsbox.DoNothing"],
                 #     "primitives": ["d3m.primitives.dsbox.UnaryEncoder"],
                 #     "inputs": ["extract_attribute_step"]
                 # },
@@ -1174,8 +1165,7 @@ class Large_column_number_with_numerical_only_regression(DSBoxTemplate):
                 },
                 # {
                 #     "name": "encode1_step",
-                #     # "primitives": ["d3m.primitives.dsbox.UnaryEncoder",
-                # "d3m.primitives.dsbox.DoNothing"],
+                #     # "primitives": ["d3m.primitives.dsbox.UnaryEncoder","d3m.primitives.dsbox.DoNothing"],
                 #     "primitives": ["d3m.primitives.dsbox.UnaryEncoder"],
                 #     "inputs": ["extract_attribute_step"]
                 # },
@@ -1215,8 +1205,7 @@ class Large_column_number_with_numerical_only_regression(DSBoxTemplate):
 
 
 ################################################################################################################
-#####################################   TimeSeriesForcasting Templates
-# ########################################
+#####################################   TimeSeriesForcasting Templates  ########################################
 ################################################################################################################
 
 
@@ -1525,8 +1514,7 @@ class TimeSeriesForcastingTestingTemplate2(DSBoxTemplate):
 
 
 ################################################################################################################
-#####################################   ObjectDetectionTemplates
-# #############################################
+#####################################   ObjectDetectionTemplates   #############################################
 ################################################################################################################
 
 
@@ -1615,8 +1603,7 @@ class TemporaryObjectDetectionTemplate(DSBoxTemplate):
 
 
 ################################################################################################################
-#####################################   TimeSeriesProblemsTemplates
-# ##########################################
+#####################################   TimeSeriesProblemsTemplates   ##########################################
 ################################################################################################################
 
 
@@ -1821,8 +1808,7 @@ class UCHITimeSeriesClassificationTemplate(DSBoxTemplate):
                 #             {
                 #                 'semantic_types': (
                 #                 'https://metadata.datadrivendiscovery.org/types/Target',
-                #                 'https://metadata.datadrivendiscovery.org/types/SuggestedTarget
-                # ',),
+                #                 'https://metadata.datadrivendiscovery.org/types/SuggestedTarget',),
                 #                 'use_columns': (),
                 #                 'exclude_columns': ()
                 #             }
@@ -1844,8 +1830,7 @@ class UCHITimeSeriesClassificationTemplate(DSBoxTemplate):
 
 
 ################################################################################################################
-#####################################   ImageProblemsTemplates
-# ###############################################
+#####################################   ImageProblemsTemplates   ###############################################
 ################################################################################################################
 
 
@@ -1855,10 +1840,7 @@ class TA1VggImageProcessingRegressionTemplate(DSBoxTemplate):
         self.template = {
             "name": "TA1VggImageProcessingRegressionTemplate",
             "taskType": TaskType.REGRESSION.name,
-            # See TaskType, range include 'CLASSIFICATION', 'CLUSTERING',
-            # 'COLLABORATIVE_FILTERING', 'COMMUNITY_DETECTION', 'GRAPH_CLUSTERING',
-            # 'GRAPH_MATCHING', 'LINK_PREDICTION', 'REGRESSION', 'TIME_SERIES_FORECASTING',
-            # 'VERTEX_NOMINATION'
+            # See TaskType, range include 'CLASSIFICATION', 'CLUSTERING', 'COLLABORATIVE_FILTERING', 'COMMUNITY_DETECTION', 'GRAPH_CLUSTERING', 'GRAPH_MATCHING', 'LINK_PREDICTION', 'REGRESSION', 'TIME_SERIES_FORECASTING', 'VERTEX_NOMINATION'
             "taskSubtype": {TaskSubtype.UNIVARIATE.name, TaskSubtype.MULTIVARIATE.name},
             "inputType": "image",  # See SEMANTIC_TYPES.keys() for range of values
             "output": "regressor_step",  # Name of the final step generating the prediction
@@ -2005,10 +1987,7 @@ class DefaultImageProcessingRegressionTemplate(DSBoxTemplate):
         self.template = {
             "name": "Default_image_processing_regression_template",
             "taskType": TaskType.REGRESSION.name,
-            # See TaskType, range include 'CLASSIFICATION', 'CLUSTERING',
-            # 'COLLABORATIVE_FILTERING', 'COMMUNITY_DETECTION', 'GRAPH_CLUSTERING',
-            # 'GRAPH_MATCHING', 'LINK_PREDICTION', 'REGRESSION', 'TIME_SERIES_FORECASTING',
-            # 'VERTEX_NOMINATION'
+            # See TaskType, range include 'CLASSIFICATION', 'CLUSTERING', 'COLLABORATIVE_FILTERING', 'COMMUNITY_DETECTION', 'GRAPH_CLUSTERING', 'GRAPH_MATCHING', 'LINK_PREDICTION', 'REGRESSION', 'TIME_SERIES_FORECASTING', 'VERTEX_NOMINATION'
             "taskSubtype": {TaskSubtype.UNIVARIATE.name, TaskSubtype.MULTIVARIATE.name},
             "inputType": "image",  # See SEMANTIC_TYPES.keys() for range of values
             "output": "regressor_step",  # Name of the final step generating the prediction
@@ -2075,8 +2054,7 @@ class DefaultImageProcessingRegressionTemplate(DSBoxTemplate):
 
 
 ################################################################################################################
-#####################################   TextProblemsTemplates
-# ################################################
+#####################################   TextProblemsTemplates   ################################################
 ################################################################################################################
 
 
@@ -2190,8 +2168,7 @@ class DefaultTextRegressionTemplate(DSBoxTemplate):
 
 
 ################################################################################################################
-#####################################   GraphProblemsTemplates
-# ###############################################
+#####################################   GraphProblemsTemplates   ###############################################
 ################################################################################################################
 
 
@@ -2273,8 +2250,7 @@ class SRIGraphMatchingTemplate(DSBoxTemplate):
         self.template = {
             "name": "SRI_GraphMatching_Template",
             "taskType": {TaskType.GRAPH_MATCHING.name, TaskType.LINK_PREDICTION.name},
-            # for some special condition, the taskSubtype can be "NONE" which indicate no
-            # taskSubtype given
+            # for some special condition, the taskSubtype can be "NONE" which indicate no taskSubtype given
             "taskSubtype": "NONE",
             "inputType": "graph",
             "output": "model_step",
@@ -2285,16 +2261,20 @@ class SRIGraphMatchingTemplate(DSBoxTemplate):
                         {
                             "primitive": "d3m.primitives.sri.psl.GraphMatchingLinkPrediction",
                             "hyperparameters": {
-                                "link_prediction_hyperparams": [
-                                    (TemplateSteps.class_hyperparameter_generator(
-                                        "d3m.primitives.sri.psl.GraphMatchingLinkPrediction",
-                                        "link_prediction_hyperparams", {
-                                            "truth_threshold": 0.0000001, "psl_options": "",
-                                            "psl_temp_dir": "/tmp/psl/run",
-                                            "postgres_db_name": "psl_d3m", "admm_iterations": 1000,
-                                            "max_threads": 0, "jvm_memory": 0.75,
-                                            "prediction_column": "match"
-                                        }))]
+                                "link_prediction_hyperparams": [(
+                                                                    TemplateSteps.class_hyperparameter_generator(
+                                                                        "d3m.primitives.sri.psl.GraphMatchingLinkPrediction",
+                                                                        "link_prediction_hyperparams",
+                                                                        {
+                                                                            "truth_threshold": 0.0000001,
+                                                                            "psl_options": "",
+                                                                            "psl_temp_dir": "/tmp/psl/run",
+                                                                            "postgres_db_name": "psl_d3m",
+                                                                            "admm_iterations": 1000,
+                                                                            "max_threads": 0,
+                                                                            "jvm_memory": 0.75,
+                                                                            "prediction_column": "match"
+                                                                        }))]
                             }
                         }
                     ],
@@ -2438,8 +2418,7 @@ class JHUGraphMatchingTemplate(DSBoxTemplate):
 
 
 ################################################################################################################
-#####################################   AudioClassificationTemplate
-# ##########################################
+#####################################   AudioClassificationTemplate   ##########################################
 ################################################################################################################
 
 
@@ -2584,8 +2563,7 @@ class BBNAudioClassificationTemplate(DSBoxTemplate):
 
 
 ################################################################################################################
-#####################################   SRIMeanbaselineTemplate
-# ##############################################
+#####################################   SRIMeanbaselineTemplate   ##############################################
 ################################################################################################################
 
 
@@ -2613,8 +2591,7 @@ class SRIMeanBaselineTemplate(DSBoxTemplate):
 
 
 ################################################################################################################
-#####################################   ClusteringTemplate
-# ###################################################
+#####################################   ClusteringTemplate   ###################################################
 ################################################################################################################
 
 
@@ -2677,8 +2654,7 @@ class CMUClusteringTemplate(DSBoxTemplate):
 
 
 ################################################################################################################
-#####################################   VideoClassificationTemplate
-# ##########################################
+#####################################   VideoClassificationTemplate   ##########################################
 ################################################################################################################
 
 
@@ -2751,8 +2727,7 @@ class MichiganVideoClassificationTemplate(DSBoxTemplate):
 
 
 ################################################################################################################
-#####################################   TA1Template
-# ##########################################################
+#####################################   TA1Template   ##########################################################
 ################################################################################################################
 
 class TA1ClassificationTemplate1(DSBoxTemplate):
@@ -3064,8 +3039,7 @@ class MuxinTA1ClassificationTemplate1(DSBoxTemplate):
                 },
                 {
                     "name": "encode1_step",
-                    # "primitives": ["d3m.primitives.dsbox.UnaryEncoder",
-                    # "d3m.primitives.dsbox.DoNothing"],
+                    # "primitives": ["d3m.primitives.dsbox.UnaryEncoder","d3m.primitives.dsbox.DoNothing"],
                     "primitives": ["d3m.primitives.dsbox.UnaryEncoder"],
                     "inputs": ["extract_attribute_step"]
                 },
@@ -3529,3 +3503,4 @@ class UU3TestTemplate(DSBoxTemplate):
     # @override
     def importance(datset, problem_description):
         return 7
+

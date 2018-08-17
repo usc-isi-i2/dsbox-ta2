@@ -55,7 +55,8 @@ class DistributedJobManager:
         result_queue: Queue = args[1]
         target: typing.Callable = args[2]
 
-        _logger.debug("worker process started {}".format(current_process()))
+        # _logger.debug("worker process started {}".format(current_process()))
+        print("worker process started {}".format(current_process()))
         counter: int = 0
         while True:
             # wait until a new job is available
@@ -104,7 +105,7 @@ class DistributedJobManager:
         Returns:
 
         """
-
+        print(f"[INFO] # ongoing_jobs {self.ongoing_jobs}")
         (kwargs, results) = self.result_queue.get(block=block)
         self.ongoing_jobs -= 1
         return (kwargs, results)
