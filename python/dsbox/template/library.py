@@ -92,7 +92,7 @@ class TemplateLibrary:
             "TA1Classification_2": TA1Classification_2,
             "TA1Classification_3": TA1Classification_3,
             "TA1VggImageProcessingRegressionTemplate": TA1VggImageProcessingRegressionTemplate,
-            "SRI_LinkPrediction_Template": SRILinkPredictionTemplate,
+            "Default_LinkPrediction_Template": DefaultLinkPredictionTemplate,
 
             # text
             "default_text_classification_template": DefaultTextClassificationTemplate,
@@ -205,7 +205,7 @@ class TemplateLibrary:
         self.templates.append(DefaultTimeseriesCollectionTemplate)
         self.templates.append(TimeSeriesForcastingTestingTemplate)
 
-        self.templates.append(SRILinkPredictionTemplate)
+        self.templates.append(DefaultLinkPredictionTemplate)
         self.templates.append(SRICommunityDetectionTemplate)
         self.templates.append(SRIGraphMatchingTemplate)
         self.templates.append(SRIVertexNominationTemplate)
@@ -216,8 +216,8 @@ class TemplateLibrary:
         self.templates.append(CMUClusteringTemplate)
         self.templates.append(MichiganVideoClassificationTemplate)
         self.templates.append(TemporaryObjectDetectionTemplate) 
-        # self.templates.append(JHUVertexNominationTemplate)
-        # self.templates.append(JHUGraphMatchingTemplate)
+        self.templates.append(JHUVertexNominationTemplate)
+        self.templates.append(JHUGraphMatchingTemplate)
 
         # templates used for datasets with a large number of columns
         self.templates.append(Large_column_number_with_numerical_only_classification)
@@ -2160,11 +2160,11 @@ class DefaultTextRegressionTemplate(DSBoxTemplate):
 ################################################################################################################
 
 
-class SRILinkPredictionTemplate(DSBoxTemplate):
+class DefaultLinkPredictionTemplate(DSBoxTemplate):
     def __init__(self):
         DSBoxTemplate.__init__(self)
         self.template = {
-            "name": "SRI_LinkPrediction_Template",
+            "name": "Default_LinkPrediction_Template",
             "taskType": {TaskType.LINK_PREDICTION.name,TaskType.GRAPH_MATCHING.name, TaskType.VERTEX_NOMINATION.name},
             "taskSubtype": "NONE",
             "inputType": "graph",
@@ -2353,11 +2353,27 @@ class JHUVertexNominationTemplate(DSBoxTemplate):
             "output": "model_step",
             "steps": [
                 {
-                    "name": "model_step",
-                    "primitives": ["d3m.primitives.jhu_primitives.SpectralGraphClustering"],
-                    "inputs": ["template_input"]
+                    "name": "readgraph_step", 
+                    "primitives": [
+                        "d3m.primitives.jhu_primitives.LargestConnectedComponent"
+                    ],
+                    "inputs":["template_input"]
+                },
+                {
+                    "name": "embedding_step",
+                    "primitives": [
+                        "d3m.primitives.jhu_primitives.AdjacencySpectralEmbedding"
+                    ],
+                    "inputs": ["readgraph_step"] 
 
-                }
+                },
+                {
+                    "name": "model_step", 
+                    "primitives":[
+                        "d3m.primitives.jhu_primitives.GaussianClassification"
+                    ],
+                    "inputs": ["embedding_step"]
+                }   
             ]
         }
 
