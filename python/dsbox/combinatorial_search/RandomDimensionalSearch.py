@@ -223,7 +223,7 @@ class RandomDimensionalSearch(TemplateSpaceParallelBaseSearch[T]):
         for i in range(num_iter):
             print("#" * 50)
             search = random.choice(self.confSpaceBaseSearch)
-            print("[INFO] Selecting Template:", search.template.template['name'])
+            print(f"[INFO] Randomly Selected Template: {search.template.template['name']}")
 
             yield search
 

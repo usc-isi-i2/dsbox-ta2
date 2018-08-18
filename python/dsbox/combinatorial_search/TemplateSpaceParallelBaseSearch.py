@@ -189,7 +189,7 @@ class TemplateSpaceParallelBaseSearch(TemplateSpaceBaseSearch[T]):
 
             # if cand_tmp is not None a compatible with dataset), then reevaluating the
             # candidate is redundant
-            if report['value'] is None:
+            if 'value' not in report or report['value'] is None:
                 raise ValueError("Initial candidate is not compatible with the dataset")
 
             return report

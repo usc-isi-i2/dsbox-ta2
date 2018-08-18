@@ -128,7 +128,7 @@ class PrimitivesCache:
             self.storage = manager.dict()
             self.write_lock = manager.Lock()
         else:
-            print("[WARN] dummy Manager")
+            warn("[WARN] dummy Manager")
             self.storage = {}
             self.write_lock = Lock()
 
@@ -154,8 +154,8 @@ class PrimitivesCache:
         try:
             if not self.is_hit_key(prim_name=prim_name, prim_hash=prim_hash):
                 self.storage[(prim_name, prim_hash)] = (primitives_output, model)
-                # _logger.info("[INFO] Push@cache:{},{}".format(prim_name, prim_hash))
-                print("[INFO] Push@cache:{},{}".format(prim_name, prim_hash))
+                _logger.info(f"[INFO] Push@cache:{prim_name},{prim_hash}")
+                # print("[INFO] Push@cache:{},{}".format(prim_name, prim_hash))
                 return 0
             else:
                 # print("[WARN] Double-push in Primitives Cache")
@@ -176,7 +176,7 @@ class PrimitivesCache:
 
     def lookup_key(self, prim_hash: int, prim_name: int) -> typing.Tuple[Dataset, PrimitiveBase]:
         if self.is_hit_key(prim_name=prim_name, prim_hash=prim_hash):
-            print("[INFO] Hit@cache: {},{}".format(prim_name, prim_hash))
+            _logger.info("[INFO] Hit@cache: {},{}".format(prim_name, prim_hash))
             return self.storage[(prim_name, prim_hash)]
         else:
             return (None, None)

@@ -216,8 +216,7 @@ class FittedPipeline:
 
         pipeline_definition_loc = os.path.join(pipeline_dir,
                                                fitted_pipeline_id + '.json')
-        print("The following pipeline file will be loaded:")
-        print(pipeline_definition_loc)
+        _logger.info(f"pipeline file will be loaded: {pipeline_definition_loc}")
 
         with open(pipeline_definition_loc, 'r') as f:
             structure = json.load(f)

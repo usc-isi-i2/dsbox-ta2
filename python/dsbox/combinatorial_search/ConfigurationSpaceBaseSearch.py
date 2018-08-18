@@ -649,12 +649,9 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
                 raise NotSupportedError(
                     '[ERROR] metric calculation failed in test pickled pipeline')
 
-        print('=== original')
-        pprint(test_metrics)
-        print('=== test')
-        print(test_pipeline_metrics)
-        print('=== test2')
-        print(test_pipeline_metrics2)
+        _logger.info(f'=== original:{test_metrics}')
+        _logger.info(f'=== test:{test_pipeline_metrics}')
+        _logger.info(f'=== test2:{test_pipeline_metrics2}')
 
         pairs = zip(test_metrics, test_pipeline_metrics2)
         if any(x != y for x, y in pairs):
@@ -688,9 +685,7 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
             )
             print("\n" * 5)
         else:
-            print("\n" * 5)
-            print("Pickling succeeded")
-            print("\n" * 5)
+            _logger.info(("\n" * 5)+"Pickling succeeded"+ ("\n" * 5))
 
     def graph_problem_conversion(self, prediction):
         tasktype = self.template.template["taskType"]
