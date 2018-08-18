@@ -1,16 +1,22 @@
+import sys
+import time
 from math import sqrt, log
 import traceback
 import importlib
 import typing
 import copy
+import logging
 from multiprocessing import Pool, current_process, Manager, Lock
 from dsbox.template.configuration_space import ConfigurationPoint
 from d3m.metadata.pipeline import PrimitiveStep
 from d3m.container.dataset import Dataset
+from d3m.container.pandas import DataFrame
 from d3m.primitive_interfaces.base import PrimitiveBase
 from dsbox.combinatorial_search.search_utils import comparison_metrics
+from multiprocessing import current_process
 
 T = typing.TypeVar("T")
+_logger = logging.getLogger(__name__)
 
 
 class CacheManager:
@@ -40,7 +46,8 @@ class CacheManager:
 
 
         """
-        print("[INFO] cleanup Cache Manager. candidate_cache:", len(self.candidate_cache.storage))
+        _logger.info("[INFO] cleanup Cache Manager. candidate_cache:{}".format(len(
+            self.candidate_cache.storage)))
         for m in self.manager:
             m.shutdown()
 
@@ -58,7 +65,7 @@ class CandidateCache:
 
         key = CandidateCache._get_hash(candidate)
         if key in self.storage:
-            print("[INFO] hit@Candidate: ({})".format(key))
+            _logger.info("[INFO] hit@Candidate: ({})".format(key))
             return self.storage[key]
         else:
             return None
@@ -90,7 +97,7 @@ class CandidateCache:
                        "New value for candidate:" + str(candidate)
 
         # push the candidate and its value into the cache
-        print("[INFO] push@Candidate: ({},{})".format(key, update))
+        _logger.info("[INFO] push@Candidate: ({},{})".format(key, update))
         self.storage[key] = update
 
     def is_hit(self, candidate: ConfigurationPoint[T]) -> bool:
@@ -102,11 +109,26 @@ class CandidateCache:
 
 
 class PrimitivesCache:
+    """
+        based on my profiling the dataset can be hashed by rate of 500MBpS (on dsbox server)
+        which is more than enough for our applications:
+            > A = pd.DataFrame(np.random.rand(1000*1000, 1000))
+            > A.shape
+             (10000000, 1000)
+            > %timeit hash(A.values.tobytes())
+             7.66 s ± 4.87 ms per loop (mean ± std. dev. of 7 runs, 1 loop each)
+    todo:
+        1. only add the primitive to the cache if it is reasonable to do so. (if the time to
+        recompute it is significantly more than reading it) (500 MBps)
+
+
+    """
     def __init__(self, manager: Manager=None):
         if manager is not None:
             self.storage = manager.dict()
             self.write_lock = manager.Lock()
         else:
+            warn("[WARN] dummy Manager")
             self.storage = {}
             self.write_lock = Lock()
 
@@ -120,16 +142,28 @@ class PrimitivesCache:
 
     def push_key(self, prim_hash: int, prim_name: int, model: PrimitiveBase,
                  primitives_output: typing.Dict) -> int:
+        # print("[INFO] acquiring")
+
         self.write_lock.acquire(blocking=True)
+        # while True:
+        #     if self.write_lock.acquire(blocking=False):
+        #         break
+        #     time.sleep(1)
+        #     print("still waiting")
+        # print("[INFO] got it")
         try:
             if not self.is_hit_key(prim_name=prim_name, prim_hash=prim_hash):
                 self.storage[(prim_name, prim_hash)] = (primitives_output, model)
-                # print("[INFO] Push@cache:", (prim_name, prim_hash))
+                _logger.info(f"[INFO] Push@cache:{prim_name},{prim_hash}")
+                # print("[INFO] Push@cache:{},{}".format(prim_name, prim_hash))
                 return 0
             else:
                 # print("[WARN] Double-push in Primitives Cache")
                 return 1
+        except:
+            traceback.print_exc()
         finally:
+            # print("[INFO] released")
             self.write_lock.release()
 
     def lookup(self, hash_prefix: int, pipe_step: PrimitiveStep,
@@ -142,7 +176,7 @@ class PrimitivesCache:
 
     def lookup_key(self, prim_hash: int, prim_name: int) -> typing.Tuple[Dataset, PrimitiveBase]:
         if self.is_hit_key(prim_name=prim_name, prim_hash=prim_hash):
-            # print("[INFO] Hit@cache:", (prim_name, prim_hash))
+            _logger.info("[INFO] Hit@cache: {},{}".format(prim_name, prim_hash))
             return self.storage[(prim_name, prim_hash)]
         else:
             return (None, None)
@@ -150,17 +184,19 @@ class PrimitivesCache:
     def is_hit(self, hash_prefix: int, pipe_step: PrimitiveStep,
                primitive_arguments: typing.Dict) -> bool:
         return (
-                (PrimitivesCache._get_hash(
-                    hash_prefix=hash_prefix, pipe_step=pipe_step,
-                    primitive_arguments=primitive_arguments)
+                (
+                    PrimitivesCache._get_hash(
+                        hash_prefix=hash_prefix, pipe_step=pipe_step,
+                        primitive_arguments=primitive_arguments)
                 ) in self.storage)
 
     def is_hit_key(self, prim_hash: int, prim_name: int) -> bool:
         return (prim_name, prim_hash) in self.storage
 
     @staticmethod
-    def _get_hash(hash_prefix: int, pipe_step: PrimitiveStep,
-                  primitive_arguments: typing.Dict) -> typing.Tuple[int,int]:
+    def _get_hash(pipe_step: PrimitiveStep, primitive_arguments: typing.Dict,
+                  hash_prefix: int=None) -> typing.Tuple[int, int]:
+        prim_name = str(pipe_step.primitive)
         hyperparam_hash = hash(str(pipe_step.hyperparams.items()))
         dataset_id = ""
         dataset_digest = ""
@@ -169,7 +205,21 @@ class PrimitivesCache:
             dataset_digest = str(primitive_arguments['inputs'].metadata.query(())['digest'])
         except:
             pass
-        dataset_hash = hash(str(primitive_arguments) + dataset_id + dataset_digest)
-        prim_name = str(pipe_step.primitive)
+
+        # print(primitive_arguments['inputs'])
+        # TODO the list part is related to timeseries datasets. chcek this with team
+        assert (isinstance(primitive_arguments['inputs'], Dataset) or
+                isinstance(primitive_arguments['inputs'], DataFrame) or
+                isinstance(primitive_arguments['inputs'], typing.List)), \
+               f"inputs type not valid {type(primitive_arguments['inputs'])}"
+
+        if hash_prefix is None:
+            _logger.info("Primtive cache, hash computed in prefix mode")
+            dataset_value_hash = hash(str(primitive_arguments['inputs']))
+        else:
+            dataset_value_hash = hash(primitive_arguments['inputs'].values.tobytes())
+
+        dataset_hash = hash(str(dataset_value_hash) + dataset_id + dataset_digest)
         prim_hash = hash(str([hyperparam_hash, dataset_hash, hash_prefix]))
+        _logger.info("[INFO] hash: {}, {}".format(prim_name, prim_hash))
         return prim_name, prim_hash

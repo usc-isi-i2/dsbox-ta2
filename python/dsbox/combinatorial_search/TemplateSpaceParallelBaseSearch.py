@@ -133,7 +133,7 @@ class TemplateSpaceParallelBaseSearch(TemplateSpaceBaseSearch[T]):
             template_index = random.randrange(0, len(self.confSpaceBaseSearch))
             search = self.confSpaceBaseSearch[template_index]
             candidate = search.configuration_space.get_random_assignment()
-            print("[INFO] Selecting ", hash(str(candidate)))
+            print("[INFO] Selecting Candidate: ", hash(str(candidate)))
             if self.cacheManager.candidate_cache.is_hit(candidate):
                 report = self.cacheManager.candidate_cache.lookup(candidate)
                 assert report is not None and 'configuration' in report, \
@@ -189,7 +189,7 @@ class TemplateSpaceParallelBaseSearch(TemplateSpaceBaseSearch[T]):
 
             # if cand_tmp is not None a compatible with dataset), then reevaluating the
             # candidate is redundant
-            if report['value'] is None:
+            if 'value' not in report or report['value'] is None:
                 raise ValueError("Initial candidate is not compatible with the dataset")
 
             return report

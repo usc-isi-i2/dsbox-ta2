@@ -1,9 +1,9 @@
 class TemplateSteps:
-
     '''
     Some steps and parameters that are used for creating templates
     Returns a list of dicts with the most common steps
     '''
+
     @staticmethod
     def dsbox_generic_steps(data: str = "data", target: str = "target"):
         '''
@@ -104,9 +104,9 @@ class TemplateSteps:
                     {
                         "primitive": "d3m.primitives.sklearn_wrap.SKPCA",
                         "hyperparameters":
-                        {
-                            'n_components': [10, 15, 25]
-                        }
+                            {
+                                'n_components': [10, 15, 25]
+                            }
                     },
                     "d3m.primitives.dsbox.DoNothing",
                 ],
@@ -118,7 +118,8 @@ class TemplateSteps:
                     "primitive": "d3m.primitives.data.ExtractColumnsBySemanticTypes",
                     "hyperparameters":
                         {
-                            'semantic_types': ('https://metadata.datadrivendiscovery.org/types/TrueTarget',),
+                            'semantic_types': (
+                            'https://metadata.datadrivendiscovery.org/types/TrueTarget',),
                             'use_columns': (),
                             'exclude_columns': ()
                         }
@@ -131,7 +132,8 @@ class TemplateSteps:
     @staticmethod
     def dsbox_generic_text_steps(data: str = "data", target: str = "target"):
         '''
-        dsbox generic step for classification and regression, specify on text data processing, directly lead to model step
+        dsbox generic step for classification and regression, specify on text data processing,
+        directly lead to model step
         '''
         return [
             {
@@ -231,7 +233,8 @@ class TemplateSteps:
                     "primitive": "d3m.primitives.data.ExtractColumnsBySemanticTypes",
                     "hyperparameters":
                         {
-                            'semantic_types': ('https://metadata.datadrivendiscovery.org/types/TrueTarget',),
+                            'semantic_types': (
+                            'https://metadata.datadrivendiscovery.org/types/TrueTarget',),
                             'use_columns': (),
                             'exclude_columns': ()
                         }
@@ -327,7 +330,8 @@ class TemplateSteps:
     def dsbox_feature_selector(ptype):
         import numpy as np
         '''
-        dsbox feature selection steps for classification and regression, lead to feature selector steps
+        dsbox feature selection steps for classification and regression, lead to feature selector 
+        steps
         '''
         if ptype == "regression":
             return [
@@ -350,7 +354,7 @@ class TemplateSteps:
                         },
                         "d3m.primitives.dsbox.DoNothing"
                     ],
-                    "inputs":["cast_step", "extract_target_step"]
+                    "inputs": ["cast_step", "extract_target_step"]
                 },
             ]
         else:
@@ -375,7 +379,7 @@ class TemplateSteps:
                         "d3m.primitives.dsbox.DoNothing"
 
                     ],
-                    "inputs":["cast_step", "extract_target_step"]
+                    "inputs": ["cast_step", "extract_target_step"]
                 },
             ]
 
@@ -424,6 +428,7 @@ class TemplateSteps:
                     "inputs": [feature_name]
                 }
             ]
+
     '''
     Other steps models
     '''
@@ -463,7 +468,8 @@ class TemplateSteps:
                         "primitive": "d3m.primitives.data.ExtractColumnsBySemanticTypes",
                         "hyperparameters":
                             {
-                                'semantic_types': ('https://metadata.datadrivendiscovery.org/types/TrueTarget',),
+                                'semantic_types': (
+                                'https://metadata.datadrivendiscovery.org/types/TrueTarget',),
                                 'use_columns': (),
                                 'exclude_columns': ()
                             }
@@ -601,7 +607,8 @@ class TemplateSteps:
                 {
                     "name": impute_name,
                     "primitives": [
-                        {"primitive": "d3m.primitives.sklearn_wrap.SKMaxAbsScaler", },  # IQR always create error
+                        {"primitive": "d3m.primitives.sklearn_wrap.SKMaxAbsScaler", },
+                        # IQR always create error
                         {"primitive": "d3m.primitives.dsbox.DoNothing", },
                     ],
                     "inputs": ["base_impute_step"]
@@ -635,14 +642,14 @@ class TemplateSteps:
                                 {
                                     'C': [(1), (10), (100)],  # (10), #
                                 }
-                    }, {
+                        }, {
                             "primitive":
                                 "d3m.primitives.sklearn_wrap.SKMultinomialNB",
                             "hyperparameters":
                                 {
                                     'alpha': [(1)],
                                 }
-                    },
+                        },
                     ],
                     "inputs": [feature_name, target_name]
                 }
@@ -658,7 +665,8 @@ class TemplateSteps:
                     "primitives": [
                         # linear ridge : simplistic linear regression with L2 regularization
                         {"primitive": "d3m.primitives.sklearn_wrap.SKRidge", },
-                        # Least-angle regression: (1 / (2 * n_samples)) * |y - Xw|^2_2 + alpha * |w|_1
+                        # Least-angle regression: (1 / (2 * n_samples)) * |y - Xw|^2_2 + alpha *
+                        # |w|_1
                         {"primitive": "d3m.primitives.sklearn_wrap.SKLars", },
                         # Nearest Neighbour
                         {"primitive": "d3m.primitives.sklearn_wrap.SKKNeighborsRegressor", },
@@ -681,7 +689,10 @@ class TemplateSteps:
         from d3m import index
         g = None
         try:
-            g = index.get_primitive(primitive_name).metadata.query()["primitive_code"]["hyperparams"][parameter_name]['structural_type'](definition)
+            g = \
+            index.get_primitive(primitive_name).metadata.query()["primitive_code"]["hyperparams"][
+                parameter_name]['structural_type'](definition)
         except:
-            raise ("[ERROR] Hyperparameter not valid!")
+            print("[ERROR] Hyperparameter not valid!")
+            pass
         return g

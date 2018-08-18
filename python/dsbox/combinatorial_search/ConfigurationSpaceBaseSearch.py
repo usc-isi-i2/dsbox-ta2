@@ -87,8 +87,7 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
                                       'rocAucMacro')
         self.regression_metric = ('meanSquaredError', 'rootMeanSquaredError',
                                   'rootMeanSquaredErrorAvg', 'meanAbsoluteError', 'rSquared',
-                                  'jaccardSimilarityScore', 'precisionAtTopK', 'objectDetectionAP')
-
+                                  'jaccardSimilarityScore', 'precisionAtTopK')
         self.quick_mode = False
         self.testing_mode = 0  # set default to not use cross validation mode
         # testing_mode = 0: normal testing mode with test only 1 time
@@ -130,6 +129,7 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
         Returns:
 
         """
+        _logger.info("Dummy evaluation started")
         configuration: ConfigurationPoint[PrimitiveDescription] = \
             self.configuration_space.get_first_assignment()
 
@@ -172,12 +172,16 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
         # if in cross validation mode
         if self.testing_mode == 1:
             repeat_times = int(self.validation_config['cross_validation'])
-            # print("[INFO] Will use cross validation( n =", repeat_times,
-            #       ") to choose best primitives.")
+            _logger.info("Will use cross validation(n ={}) to choose best primitives"
+                         .format(repeat_times))
             # start training and testing
-            fitted_pipeline = FittedPipeline(pipeline, self.train_dataset1.metadata.query(())['id'],
-                                             log_dir=self.log_dir,
-                                             metric_descriptions=self.performance_metrics)
+            fitted_pipeline = FittedPipeline(
+                pipeline=pipeline,
+                dataset_id=self.train_dataset1.metadata.query(())['id'],
+                log_dir=self.log_dir,
+                metric_descriptions=self.performance_metrics,
+                template=self.template, problem=self.problem)
+
             fitted_pipeline.fit(cache=cache, inputs=[self.train_dataset1])
             # fitted_pipeline.fit(inputs=[self.train_dataset1])
             training_ground_truth = get_target_columns(self.train_dataset1, self.problem)
@@ -195,7 +199,7 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
             else:
                 for each in test_metrics:
                     each["value"] = sys.float_info.max
-            # print("[INFO] Testing finish.!!!")
+            _logger.info("[INFO] CV finish")
 
         # if in normal testing mode(including default testing mode with train/test one time each)
         else:
@@ -210,11 +214,12 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
 
             for each_repeat in range(repeat_times):
                 # start training and testing
-                fitted_pipeline = FittedPipeline(pipeline,
-                                                 self.train_dataset2[each_repeat].metadata.query(
-                                                     ())['id'],
-                                                 log_dir=self.log_dir,
-                                                 metric_descriptions=self.performance_metrics)
+                fitted_pipeline = FittedPipeline(
+                    pipeline=pipeline,
+                    dataset_id=self.train_dataset2[each_repeat].metadata.query(())['id'],
+                    log_dir=self.log_dir,
+                    metric_descriptions=self.performance_metrics,
+                    template=self.template, problem=self.problem)
 
                 fitted_pipeline.fit(cache=cache, inputs=[self.train_dataset2[each_repeat]])
                 # fitted_pipeline.fit(inputs=[self.train_dataset2[each_repeat]])
@@ -353,7 +358,7 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
                 else:
                     data_to_logger_info.append("No test metrics value found")
                 _logger.info(
-                    'fitted id: %(fitted_pipeline_id)s, metric: %(metric)s, value: %(value)0.2f',
+                    'fitted id: %(fitted_pipeline_id)s, metric: %(metric)s, value: %(value)s',
                     {
                         'fitted_pipeline_id': fitted_pipeline2.id,
                         'metric': data_to_logger_info[0],
@@ -382,10 +387,12 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
             else:
                 _logger.info("[INFO] Now in normal mode, will add extra train with train_dataset1")
                 # otherwise train again with dataset_train1 and get the rank
-                fitted_pipeline2 = FittedPipeline(pipeline,
-                                                  self.train_dataset1.metadata.query(())['id'],
-                                                  log_dir=self.log_dir,
-                                                  metric_descriptions=self.performance_metrics)
+                fitted_pipeline2 = FittedPipeline(
+                    pipeline=pipeline,
+                    dataset_id=self.train_dataset1.metadata.query(())['id'],
+                    log_dir=self.log_dir,
+                    metric_descriptions=self.performance_metrics,
+                    template=self.template, problem=self.problem)
                 # retrain and compute ranking/metric using self.train_dataset
                 # fitted_pipeline2.fit(inputs = [self.train_dataset1])
                 fitted_pipeline2.fit(cache=cache, inputs=[self.train_dataset1])
@@ -456,6 +463,15 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
             metricDesc = PerformanceMetric.parse(metric_description['metric'])
             metric: typing.Callable = metricDesc.get_function()
             params: typing.Dict = metric_description['params']
+
+            # special design for objectDetectionAP
+            if metric_description["metric"] == "objectDetectionAP":
+                self.objectDetectionAP_special_design(metric, metric_description, params,
+                                                      test_ground_truth, test_metrics,
+                                                      test_prediction, training_ground_truth,
+                                                      training_metrics, training_prediction)
+                return (training_metrics, test_metrics)
+            # END special design for objectDetectionAP
             regression_mode = metric_description["metric"] in self.regression_metric
             try:
                 # generate the metrics for training results
@@ -467,6 +483,11 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
                         target_amount_train = len(training_prediction.columns)
                     else:
                         target_amount_train = len(training_prediction.columns) - 1
+
+                    truth_amount_train = len(training_ground_truth.columns) - 1
+                    assert truth_amount_train == target_amount_train, \
+                        "[ERROR] Truth and prediction does not match"
+
                     if regression_mode:
                         for each_column in range(- target_amount_train, 0, 1):
                             training_metrics.append({
@@ -500,6 +521,11 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
                         target_amount_test = len(test_prediction.columns)
                     else:
                         target_amount_test = len(test_prediction.columns) - 1
+
+                    truth_amount_test = len(test_ground_truth.columns) - 1
+                    assert truth_amount_test == target_amount_test, \
+                        "[ERROR] Truth and prediction does not match"
+
                     # if the test_ground_truth do not have results
                     if regression_mode:
                         for each_column in range(- target_amount_test, 0, 1):
@@ -540,6 +566,44 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
 
         # return the training and test metrics
         return (training_metrics, test_metrics)
+
+    def objectDetectionAP_special_design(self, metric, metric_description, params,
+                                         test_ground_truth, test_metrics, test_prediction,
+                                         training_ground_truth, training_metrics,
+                                         training_prediction):
+        if training_ground_truth is not None and training_prediction is not None:
+            training_image_name_column = training_ground_truth.iloc[:,
+                                         training_ground_truth.shape[1] - 2]
+            training_prediction.insert(loc=0, column='image_name',
+                                       value=training_image_name_column)
+            training_ground_truth_tosend = training_ground_truth.iloc[:,
+                                           training_ground_truth.shape[1] - 2:
+                                           training_ground_truth.shape[1]]
+            training_metrics.append({
+                'column_name': training_ground_truth.columns[-1],
+                'metric': metric_description['metric'],
+                'value': metric(
+                    training_ground_truth_tosend.astype(str).values.tolist(),
+                    training_prediction.astype(str).values.tolist(),
+                    **params
+                )
+            })
+        if test_ground_truth is not None and test_prediction is not None:
+            test_image_name_column = test_ground_truth.iloc[:,
+                                     test_ground_truth.shape[1] - 2]
+            test_prediction.insert(loc=0, column='image_name', value=test_image_name_column)
+            test_ground_truth_tosend = test_ground_truth.iloc[:,
+                                       test_ground_truth.shape[1] - 2:
+                                       test_ground_truth.shape[1]]
+            test_metrics.append({
+                'column_name': test_ground_truth.columns[-1],
+                'metric': metric_description['metric'],
+                'value': metric(
+                    test_ground_truth_tosend.astype(str).values.tolist(),
+                    test_prediction.astype(str).values.tolist(),
+                    **params
+                )
+            })
 
     def test_pickled_pipeline(self, folder_loc: str, pipeline_id: str, test_dataset: Dataset,
                               test_metrics: typing.List, test_ground_truth) -> None:
@@ -585,12 +649,9 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
                 raise NotSupportedError(
                     '[ERROR] metric calculation failed in test pickled pipeline')
 
-        print('=== original')
-        pprint(test_metrics)
-        print('=== test')
-        print(test_pipeline_metrics)
-        print('=== test2')
-        print(test_pipeline_metrics2)
+        _logger.info(f'=== original:{test_metrics}')
+        _logger.info(f'=== test:{test_pipeline_metrics}')
+        _logger.info(f'=== test2:{test_pipeline_metrics2}')
 
         pairs = zip(test_metrics, test_pipeline_metrics2)
         if any(x != y for x, y in pairs):
@@ -624,9 +685,7 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
             )
             print("\n" * 5)
         else:
-            print("\n" * 5)
-            print("Pickling succeeded")
-            print("\n" * 5)
+            _logger.info(("\n" * 5)+"Pickling succeeded"+ ("\n" * 5))
 
     def graph_problem_conversion(self, prediction):
         tasktype = self.template.template["taskType"]
