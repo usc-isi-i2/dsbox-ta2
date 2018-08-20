@@ -934,39 +934,16 @@ class Controller:
 
                 # else:
                     # run sampling method to randomly throw some columns
-                    # update problem metadata
-                    problem = dict(self.problem_doc_metadata.query(()))
-                    #data_meta = dict(problem["inputs"]["data"][0])
-                    data_meta = []
-                    for each_data in problem["inputs"]["data"]:
-                        # update targets metadata for each target columns
-                        target_meta = []
-                        each_data = dict(each_data)
-                        for each_target in each_data["targets"]:
-                            target_meta_each = dict(each_target)
-                            target_meta_each['colIndex'] = self.threshold_column_length + (all_column_length - target_meta_each['colIndex'])
-                            target_meta.append(frozendict.FrozenOrderedDict(target_meta_each))
-                        # return the updated target_meta
-                        each_data["targets"] = tuple(target_meta)
-                        data_meta.append(each_data)
-                    # return the updated data_meta
-                    problem["inputs"] = dict(problem["inputs"])
-                    problem["inputs"]["data"] = tuple(data_meta)
-
-                    problem["inputs"] = frozendict.FrozenOrderedDict(problem["inputs"])
-                    problem = frozendict.FrozenOrderedDict(problem)
-                    # update problem doc metadata
-                    self.problem_doc_metadata = self.problem_doc_metadata.update((),problem)
-                    # updating problem_doc_metadata finished
-
-                    all_attribute_columns = range(1, attribute_column_length + 1)
+                    all_attribute_columns_list = set(range(1, all_column_length))
+                    for each in target_column_list:
+                        all_attribute_columns_list.remove(each)
 
                     # generate new metadata
                     metadata_new = DataMetadata()
                     metadata_old = copy.copy(self.all_dataset.metadata)
 
                     # generate the remained column index randomly and sort it
-                    remained_columns = random.sample(all_attribute_columns, self.threshold_column_length)
+                    remained_columns = random.sample(all_attribute_columns_list, self.threshold_column_length)
                     remained_columns.sort()
                     remained_columns.insert(0,0) # add column 0 (index column)
                     remained_columns.extend(target_column_list) # add target columns
@@ -982,11 +959,15 @@ class Controller:
                     metadata_new = metadata_new.update((res_id,ALL_ELEMENTS), new_column_meta)
 
                     # update the metadata on each column remained
+                    metadata_new_target = {}
                     for new_column_count, each_remained_column in enumerate(remained_columns):
                         old_selector = (res_id, ALL_ELEMENTS, each_remained_column)
                         new_selector = (res_id, ALL_ELEMENTS, new_column_count)
                         metadata_new = metadata_new.update(new_selector, metadata_old.query(old_selector))
-
+                        # save the new target metadata
+                        if new_column_count > self.threshold_column_length:
+                            metadata_old.query(old_selector)['name']
+                            metadata_new_target[metadata_old.query(old_selector)['name']] = new_column_count
                     # update the new metadata to replace the old one
                     self.all_dataset.metadata = metadata_new
                     # update traget_index for spliting into train and test dataset
@@ -995,6 +976,35 @@ class Controller:
                             self.problem_info["target_index"][i] = self.threshold_column_length + i + 1
                     else:
                         self.problem_info["target_index"] = self.threshold_column_length + target_column_length
+
+                    # update problem metadata
+                    problem = dict(self.problem_doc_metadata.query(()))
+                    #data_meta = dict(problem["inputs"]["data"][0])
+                    data_meta = []
+                    for each_data in problem["inputs"]["data"]:
+                        # update targets metadata for each target columns
+                        target_meta = []
+                        each_data = dict(each_data)
+                        for each_target in each_data["targets"]:
+                            target_meta_each = dict(each_target)
+                            if target_meta_each['colName'] in  metadata_new_target:
+                                target_meta_each['colIndex'] = metadata_new_target[target_meta_each['colName']]
+                            else:
+                                self._logger.error("New target column for {} not found:".format(target_meta_each['colName']))
+                            #target_meta_each['colIndex'] = self.threshold_column_length + (all_column_length - target_meta_each['colIndex'])
+                            target_meta.append(frozendict.FrozenOrderedDict(target_meta_each))
+                        # return the updated target_meta
+                        each_data["targets"] = tuple(target_meta)
+                        data_meta.append(each_data)
+                    # return the updated data_meta
+                    problem["inputs"] = dict(problem["inputs"])
+                    problem["inputs"]["data"] = tuple(data_meta)
+
+                    problem["inputs"] = frozendict.FrozenOrderedDict(problem["inputs"])
+                    problem = frozendict.FrozenOrderedDict(problem)
+                    # update problem doc metadata
+                    self.problem_doc_metadata = self.problem_doc_metadata.update((),problem)
+                    # updating problem_doc_metadata finished
 
                     self._logger.info("Random sampling on columns Finished.")
 
