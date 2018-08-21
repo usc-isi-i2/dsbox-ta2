@@ -13,7 +13,7 @@ install:
   - conda update -q conda
   # Useful for debugging any issues with conda
   - conda info -a
-  - conda create --name ta2-env python=3.6
+  - conda-env create .
   - source activate ta2-env
   - pip install -r requirements.txt --progress-bar off
   - pwd
