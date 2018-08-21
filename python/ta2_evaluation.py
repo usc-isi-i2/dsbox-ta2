@@ -152,10 +152,10 @@ if __name__ == "__main__":
     sys.stdout = StdoutLogger(f)
     sys.stderr = StderrLogger(f)
 
+    result = main()
     sys.stdout = orig_stdout
     sys.stderr = orig_stderr
 
     f.close()
-    
-    result = main()
+
     os._exit(result)
