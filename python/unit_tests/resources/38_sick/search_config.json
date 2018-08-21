@@ -1,10 +1,10 @@
 {
-  "problem_schema": "/Users/runqishao/Documents/github/dsbox-rqs/dsbox-ta2/python/unit_tests/resources/38_sick/TRAIN/problem_TRAIN/problemDoc.json",
-  "problem_root": "/Users/runqishao/Documents/github/dsbox-rqs/dsbox-ta2/python/unit_tests/resources/38_sick/TRAIN/problem_TRAIN",
-  "dataset_schema": "/Users/runqishao/Documents/github/dsbox-rqs/dsbox-ta2/python/unit_tests/resources/38_sick/TRAIN/dataset_TRAIN/datasetDoc.json",
-  "training_data_root": "/Users/runqishao/Documents/github/dsbox-rqs/dsbox-ta2/python/unit_tests/resources/38_sick/TRAIN/dataset_TRAIN",
-  "pipeline_logs_root": "/Users/runqishao/Documents/github/dsbox-rqs/dsbox-ta2/python/unit_tests/resources/38_sick/pipelines",
-  "executables_root": "/Users/runqishao/Documents/github/dsbox-rqs/dsbox-ta2/python/unit_tests/resources/38_sick/executables",
-  "user_problems_root": "/Users/runqishao/Documents/github/dsbox-rqs/dsbox-ta2/python/unit_tests/resources/38_sick/user_problems",
-  "temp_storage_root": "/Users/runqishao/Documents/github/dsbox-rqs/dsbox-ta2/python/unit_tests/resources/38_sick/supporting_files"
+  "problem_schema": "TRAIN/problem_TRAIN/problemDoc.json",
+  "problem_root": "TRAIN/problem_TRAIN",
+  "dataset_schema": "TRAIN/dataset_TRAIN/datasetDoc.json",
+  "training_data_root": "TRAIN/dataset_TRAIN",
+  "pipeline_logs_root": "pipelines",
+  "executables_root": "executables",
+  "user_problems_root": "user_problems",
+  "temp_storage_root": "supporting_files"
 }

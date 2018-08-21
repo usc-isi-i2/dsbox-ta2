@@ -1,9 +1,9 @@
 {
-  "problem_schema": "/Users/runqishao/Documents/github/dsbox-rqs/dsbox-ta2/python/unit_tests/resources/38_sick/TEST/problem_TEST/problemDoc.json",
-  "problem_root": "/Users/runqishao/Documents/github/dsbox-rqs/dsbox-ta2/python/unit_tests/resources/38_sick/TEST/problem_TEST",
-  "dataset_schema": "/Users/runqishao/Documents/github/dsbox-rqs/dsbox-ta2/python/unit_tests/resources/38_sick/TEST/dataset_TEST/datasetDoc.json",
-  "test_data_root": "/Users/runqishao/Documents/github/dsbox-rqs/dsbox-ta2/python/unit_tests/resources/38_sick/TEST/dataset_TEST",
-  "results_root": "/Users/runqishao/Documents/github/dsbox-rqs/dsbox-ta2/python/unit_tests/resources/38_sick/predictions",
-  "executables_root": "/Users/runqishao/Documents/github/dsbox-rqs/dsbox-ta2/python/unit_tests/resources/38_sick/executables",
-  "temp_storage_root": "/Users/runqishao/Documents/github/dsbox-rqs/dsbox-ta2/python/unit_tests/resources/38_sick/supporting_files"
+  "problem_schema": "TEST/problem_TEST/problemDoc.json",
+  "problem_root": "TEST/problem_TEST",
+  "dataset_schema": "TEST/dataset_TEST/datasetDoc.json",
+  "test_data_root": "TEST/dataset_TEST",
+  "results_root": "predictions",
+  "executables_root": "executables",
+  "temp_storage_root": "supporting_files"
 }
