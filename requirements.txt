@@ -1,6 +1,0 @@
-numpy==1.15.1
--e git+https://gitlab.com/datadrivendiscovery/common-primitives@master#egg=common-primitives
--e git+https://gitlab.com/datadrivendiscovery/sklearn-wrap@dist#egg=sklearn-wrap
--e git+https://github.com/usc-isi-i2/dsbox-cleaning@master#egg=dsbox-datacleaning
--e git+https://github.com/usc-isi-i2/dsbox-featurizer@master#egg=dsbox-featurizer
--e git+https://github.com/brekelma/dsbox_corex@master#egg=dsbox_corex
