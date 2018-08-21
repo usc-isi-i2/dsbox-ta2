@@ -66,25 +66,6 @@ def main():
     timeout = int(os.environ["D3MTIMEOUT"]) - write_results_time
     config["timeout"] = timeout
 
-    if 'logs_root' in config:
-        std_dir = os.path.abspath(config['logs_root'])
-    else:
-        std_dir = os.path.join(config['temp_storage_root'], 'logs')
-
-    os.makedirs(std_dir, exist_ok=True)
-
-    orig_stdout = sys.stdout
-    orig_stderr = sys.stderr
-    f = open(os.path.join(std_dir, 'out.txt'), 'w')
-
-    sys.stdout = StdoutLogger(f)
-    sys.stderr = StderrLogger(f)
-
-    sys.stdout = orig_stdout
-    sys.stderr = orig_stderr
-
-    f.close()
-
     controller = Controller(development_mode=False)
 
     # Define signal handler to exit gracefully
@@ -152,5 +133,29 @@ def main():
 
 if __name__ == "__main__":
 
+    if os.environ["D3MRUN"] == "search":
+        config = json.load(open(os.path.join(os.environ["D3MINPUTDIR"], "search_config.json"), 'r'))
+    else:
+        config = json.load(open(os.path.join(os.environ["D3MINPUTDIR"], "test_config.json"), 'r'))
+
+    if 'logs_root' in config:
+        std_dir = os.path.abspath(config['logs_root'])
+    else:
+        std_dir = os.path.join(config['temp_storage_root'], 'logs')
+
+    os.makedirs(std_dir, exist_ok=True)
+
+    orig_stdout = sys.stdout
+    orig_stderr = sys.stderr
+    f = open(os.path.join(std_dir, 'out.txt'), 'w')
+
+    sys.stdout = StdoutLogger(f)
+    sys.stderr = StderrLogger(f)
+
     result = main()
+    sys.stdout = orig_stdout
+    sys.stderr = orig_stderr
+
+    f.close()
+
     os._exit(result)

@@ -19,6 +19,7 @@ TP = typing.TypeVar('TP', bound='FittedPipeline')
 
 _logger = logging.getLogger(__name__)
 
+
 class FittedPipeline:
     """
     Fitted pipeline
@@ -36,13 +37,14 @@ class FittedPipeline:
         the location of the files of pipeline
     """
 
-    def __init__(self, pipeline: Pipeline, dataset_id: str, log_dir: str, *, id: str = None, metric_descriptions: typing.List = []) -> None:
+    def __init__(self, pipeline: Pipeline, dataset_id: str, log_dir: str, *, id: str = None, metric_descriptions: typing.List = [], template=None, problem=None) -> None:
 
         # these two are mandatory
         # TODO add the check
         self.dataset_id: str = dataset_id
         self.pipeline: Pipeline = pipeline
-
+        self.template = template
+        self.problem = problem
         if id is None:
             # Create id distinct, since there may be several fitted pipelines
             #  using the same pipeline
@@ -111,7 +113,7 @@ class FittedPipeline:
     def get_produce_step_output(self, step_number: int):
         return self.runtime.produce_outputs[step_number]
 
-    def save(self, folder_loc : str) -> None:
+    def save(self, folder_loc: str) -> None:
         '''
         Save the given fitted pipeline from TemplateDimensionalSearch
         '''
@@ -131,7 +133,10 @@ class FittedPipeline:
         structure["parent_id"] = self.pipeline.id
         structure['id'] = self.id
         structure['dataset_id'] = self.dataset_id
-
+        # add timing for each step
+        for each_step in structure['steps']:
+            primitive_name = each_step["primitive"]["python_path"]
+            each_step["timing"] = self.runtime.timing[primitive_name]
         # Save pipeline rank
         if self.metric:
             metric: str = self.metric['metric']
@@ -140,12 +145,25 @@ class FittedPipeline:
                 if value == 0.0:
                     rank = sys.float_info.max
                 else:
-                    rank = 1/value
+                    rank = 1 / value
             else:
                 rank = value
+
+        structure['template_name'] = self.template.template['name']
+        structure['template_taskType'] = str(self.template.template['taskType'])
+        structure['template_taskSubtype'] = str(self.template.template['taskSubtype'])
+        problem_meta = self.problem.query(())['about']
+        structure['problem_taskType'] = str(problem_meta['taskType'])
+        try:
+            structure['problem_taskSubType'] = str(problem_meta['taskSubType'])
+        except:
+            structure['problem_taskSubType'] = "NONE"
+        structure['total_time_used_with_cache'] = self.runtime.timing["total_time_used_with_cache"]
+        structure['total_time_used_without_cache'] = self.runtime.timing["total_time_used_without_cache"]
         structure['pipeline_rank'] = rank
         structure['metric'] = metric
         structure['metric_value'] = value
+        # structure['template'] = runtime.
 
         # FIXME: this is here for testing purposes
         # structure['runtime_stats'] = str(self.auxiliary)
@@ -178,7 +196,7 @@ class FittedPipeline:
         # return str(dag_order)
 
     @classmethod
-    def load(cls:typing.Type[TP], folder_loc: str,
+    def load(cls: typing.Type[TP], folder_loc: str,
              pipeline_id: str, log_dir: str, dataset_id: str = None,) -> typing.Tuple[TP, Runtime]:
         '''
         Load the pipeline with given pipeline id and folder location
@@ -219,7 +237,6 @@ class FittedPipeline:
             with open(file_loc, "rb") as f:
                 each_step = pickle.load(f)
                 run.pipeline[i] = each_step
-
 
         # fitted_pipeline_loaded = cls(pipeline_to_load, run, dataset)
         fitted_pipeline_loaded = cls(pipeline=pipeline_to_load,

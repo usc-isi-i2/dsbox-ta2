@@ -10,6 +10,7 @@ import logging
 import sys
 import tempfile
 import multiprocessing.managers
+import time
 
 from pandas import DataFrame
 from numpy import vectorize
@@ -72,7 +73,9 @@ class Runtime:
         self.pipeline: typing.List[typing.Optional[base.PrimitiveBase]] = [None] * n_steps
         self.outputs: typing.List[typing.Tuple[str, int]] = []
         self.log_dir = log_dir
-
+        self.timing = {}
+        self.timing["total_time_used_with_cache"] = 0.0
+        self.timing["total_time_used_without_cache"] = 0.0
         # Getting the outputs
         for output in self.pipeline_description.outputs:
             origin = output['data'].split('.')[0]
@@ -148,6 +151,7 @@ class Runtime:
         hash_prefix = ""
 
         for i in range(0, len(self.execution_order)):
+            time_start = time.time()
             primitive_arguments: typing.Dict[str, typing.Any] = {}
             n_step = self.execution_order[i]
             for argument, value in self.primitives_arguments[n_step].items():
@@ -174,7 +178,7 @@ class Runtime:
                 prim_hash = hash(str([hyperparam_hash, dataset_hash, hash_prefix]))
 
                 hash_prefix = prim_hash
-
+                cache_hit = False
                 _logger.info(
                     "Primitive Fit. 'id': '%(primitive_id)s', '(name, hash)': ('%(name)s', '%(hash)s'), 'worker_id': '%(worker_id)s'.",
                     {
@@ -196,6 +200,7 @@ class Runtime:
                     self.pipeline[n_step] = model
                     print("[INFO] Hit@cache:", (prim_name, prim_hash))
                     _logger.debug("Hit@cache: (%s, %s)", prim_name, prim_hash)
+                    cache_hit = True
 
                     # assert type()
 
@@ -206,16 +211,16 @@ class Runtime:
                         typing.cast(PrimitiveStep,
                                     self.pipeline_description.steps[n_step]
                                     )
-
+                    
                     primitives_outputs[n_step], model = \
                         self._primitive_step_fit(n_step,
                                                  primitive_step,
                                                  primitive_arguments
                                                  )
-
                     # add the entry to cache:
                     try:
                         # copying back sklearn_wrap.SKGenericUnivariateSelect fails
+                        cache[(prim_name, prim_hash, "fit_timing")] = time.time() - time_start
                         cache[(prim_name, prim_hash)] = (primitives_outputs[n_step].copy(), model)
                     except:
                         _logger.info('Push Cache failed: (%s, %s)', prim_name, prim_hash)
@@ -248,6 +253,20 @@ class Runtime:
                                     primitives_outputs[n_step][:MAX_DUMP_SIZE].to_csv(debug_file)
                                 except:
                                     pass
+
+            self.timing["total_time_used_with_cache"] += (time.time() - time_start)
+            if cache_hit:
+                # if hit cache, we need to get the original fitting time used
+                if prim_name not in self.timing:
+                    self.timing[prim_name] = {}
+                self.timing[prim_name]["fit"] = cache[(prim_name, prim_hash, "fit_timing")]
+                self.timing["total_time_used_without_cache"] += cache[(prim_name, prim_hash, "fit_timing")]
+            else:
+                # otherwise, use the measured time
+                if prim_name not in self.timing:
+                    self.timing[prim_name] = {}
+                self.timing[prim_name]["fit"] = time.time() - time_start
+                self.timing["total_time_used_without_cache"] += (time.time() - time_start)
 
         # kyao!!!!
         self.fit_outputs = primitives_outputs
@@ -312,14 +331,7 @@ class Runtime:
             if total_columns > 500:
                 raise Exception('Total column limit exceeded after encoding: {}'.format(total_columns))
 
-        if str(primitive) == 'd3m.primitives.dsbox.CleaningFeaturizer':
-            model = self._work_around_for_cleaning_featurizer(model, training_arguments['inputs'])
-
-        if str(primitive) == 'd3m.primitives.dsbox.Profiler':
-            this_step_result = model.produce(**produce_params).value
-            produce_result = self._work_around_for_profiler(this_step_result)
-        else:
-            produce_result = model.produce(**produce_params).value
+        produce_result = model.produce(**produce_params).value
 
         return produce_result, model
 
@@ -459,7 +471,7 @@ class Runtime:
                     'worker_id': current_process()
                 },
             )
-
+            time_start = time.time()
             for argument, value in self.primitives_arguments[n_step].items():
                 if argument in produce_arguments_primitive:
                     if value['origin'] == 'steps':
@@ -470,12 +482,7 @@ class Runtime:
                         continue
             if isinstance(self.pipeline_description.steps[n_step], PrimitiveStep):
                 if n_step in self.produce_order:
-                    if str(primitive_step.primitive) == 'd3m.primitives.dsbox.Profiler':
-                        this_step_result = self.pipeline[n_step].produce(**produce_arguments).value
-                        steps_outputs[n_step] = self._work_around_for_profiler(this_step_result)
-
-                    else:
-                        steps_outputs[n_step] = self.pipeline[n_step].produce(**produce_arguments).value
+                    steps_outputs[n_step] = self.pipeline[n_step].produce(**produce_arguments).value
                 else:
                     steps_outputs[n_step] = None
 
@@ -501,7 +508,13 @@ class Runtime:
                             steps_outputs[n_step][:MAX_DUMP_SIZE].to_csv(debug_file)
                         except:
                             pass
-
+            # for timing part
+            prim_name = str(primitive_step.primitive)
+            if prim_name not in self.timing:
+                self.timing[prim_name] = {}
+            self.timing[prim_name]["produce"] = time.time() - time_start
+            self.timing["total_time_used_without_cache"] += (time.time() - time_start)
+            self.timing["total_time_used_with_cache"] += (time.time() - time_start)
         # kyao!!!!
         self.produce_outputs = steps_outputs
 
@@ -521,61 +534,6 @@ class Runtime:
             count += len(values) + 1
         _logger.info('Encoder: column count before={} after={}'.format(df.shape[1], count))
         return count
-
-    @staticmethod
-    def _work_around_for_profiler(df):
-        float_cols = utils.list_columns_with_semantic_types(df.metadata, ['http://schema.org/Float'])
-
-        # !!! Do not delete these codes, those code is used to keep the fileName column
-        # filename_cols = list(set(utils.list_columns_with_semantic_types(df.metadata, [
-        #     'https://metadata.datadrivendiscovery.org/types/Time'])).intersection(
-        #     utils.list_columns_with_semantic_types(df.metadata,
-        #                                            ["https://metadata.datadrivendiscovery.org/types/FileName"])))
-
-        # for col in filename_cols:
-        #     old_metadata = dict(df.metadata.query((mbase.ALL_ELEMENTS, col)))
-        #     old_metadata['semantic_types'] = tuple(x for x in old_metadata['semantic_types'] if
-        #                                            x != 'https://metadata.datadrivendiscovery.org/types/Time')
-        #     df.metadata = df.metadata.update((mbase.ALL_ELEMENTS, col), old_metadata)
-        for col in float_cols:
-            old_metadata = dict(df.metadata.query((mbase.ALL_ELEMENTS, col)))
-            if 'https://metadata.datadrivendiscovery.org/types/Attribute' not in old_metadata['semantic_types']:
-                old_metadata['semantic_types'] += ('https://metadata.datadrivendiscovery.org/types/Attribute',)
-                df.metadata = df.metadata.update((mbase.ALL_ELEMENTS, col), old_metadata)
-
-        return df
-
-    @staticmethod
-    def _work_around_for_cleaning_featurizer(model, inputs):
-        vector_cols = list(set(utils.list_columns_with_semantic_types(inputs.metadata, [
-            'https://metadata.datadrivendiscovery.org/types/FloatVector'])).intersection(
-            utils.list_columns_with_semantic_types(inputs.metadata,
-                                                   ["https://metadata.datadrivendiscovery.org/types/Location"])))
-        for col in vector_cols:
-            try:
-                n = 10
-                split_to = sum(inputs.iloc[:n, col].apply(str).apply(vectorize(lambda x: len(x.split(','))))) // n
-            except:
-                split_to = 2
-
-            try:
-                if 'alpha_numeric_columns' not in model._mapping:
-                    model._mapping['alpha_numeric_columns'] = {
-                        "columns_to_perform": [col],
-                        "split_to": [split_to]
-                    }
-                else:
-                    if 'columns_to_perform' in model._mapping['alpha_numeric_columns']:
-                        model._mapping['alpha_numeric_columns']['columns_to_perform'].append(col)
-                        model._mapping['alpha_numeric_columns']['split_to'].append(split_to)
-                    else:
-                        model._mapping['alpha_numeric_columns'] = {
-                            "columns_to_perform": [col],
-                            "split_to": [split_to]
-                        }
-            except:
-                pass
-        return model
 
 
 def load_problem_doc(problem_doc_path: str) -> Metadata:

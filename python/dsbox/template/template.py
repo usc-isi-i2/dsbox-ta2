@@ -322,7 +322,7 @@ class DSBoxTemplate():
             # ("<class 'd3m.container.pandas.DataFrame'>", "<class 'd3m.container.numpy.ndarray'>"): "d3m.primitives.sklearn_wrap.SKImputer",
             ("<class 'd3m.container.numpy.ndarray'>", "<class 'd3m.container.pandas.DataFrame'>"): "d3m.primitives.data.NDArrayToDataFrame"
         }
-
+        self.description_info = ""
         # Need to be set by subclass inheriting DSBoxTemplate
         # self.template = ""
 
@@ -339,7 +339,7 @@ class DSBoxTemplate():
                 except:
                     if inputs == outputs:
                         check[i][j] = 1
-        self.stepcheck = check
+        self.stepcheck = check                                 
 
     def to_pipeline(self, configuration_point: ConfigurationPoint) -> Pipeline:
         """
@@ -526,7 +526,7 @@ class DSBoxTemplate():
         # print(sequence)
         # print("[INFO] list:",list(map(str, PipelineContext)))
         pipeline = Pipeline(name="dsbox_" + str(id(binding)),
-                            context=PipelineContext.PRETRAINING) #'PRETRAINING'
+                            context=PipelineContext.PRETRAINING, description = self.description_info) #'PRETRAINING'
         templateinput = pipeline.add_input("input dataset")
 
         # save temporary output for another step to take as input

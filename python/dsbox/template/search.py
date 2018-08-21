@@ -510,7 +510,7 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
             performance_metrics
         ))
         self.classification_metric = ('accuracy', 'precision', 'normalizedMutualInformation', 'recall', 'f1', 'f1Micro', 'f1Macro', 'rocAuc', 'rocAucMicro', 'rocAucMacro')
-        self.regression_metric = ('meanSquaredError', 'rootMeanSquaredError', 'rootMeanSquaredErrorAvg', 'meanAbsoluteError', 'rSquared', 'jaccardSimilarityScore', 'precisionAtTopK', 'objectDetectionAP')
+        self.regression_metric = ('meanSquaredError', 'rootMeanSquaredError', 'rootMeanSquaredErrorAvg', 'meanAbsoluteError', 'rSquared', 'jaccardSimilarityScore', 'precisionAtTopK')
 
         self.output_directory = output_directory
         self.log_dir = log_dir
@@ -520,7 +520,7 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
         # print("[INFO] number of workers:", self.num_workers)
 
         # new searching method: first check whether we should train a second time with dataset_train1
-        self.go_quick_inputType = ["image","audio","video"]
+        self.go_quick_inputType = ["image", "audio", "video"]
         self.quick_mode = self._use_quick_mode_or_not()
 
         # new searching method: first check whether we will do corss validation or not
@@ -584,7 +584,8 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
             print("[INFO] Will use cross validation( n =", repeat_times, ") to choose best primitives.")
             # start training and testing
             fitted_pipeline = FittedPipeline(pipeline, self.train_dataset1.metadata.query(())['id'],
-                                             log_dir=self.log_dir, metric_descriptions=self.performance_metrics)
+                                             log_dir=self.log_dir, metric_descriptions=self.performance_metrics,
+                                             template = self.template, problem = self.problem)
             fitted_pipeline.fit(cache=cache, inputs=[self.train_dataset1])
             # fitted_pipeline.fit(inputs=[self.train_dataset1])
             training_ground_truth = get_target_columns(self.train_dataset1, self.problem)
@@ -616,13 +617,13 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
             for each_repeat in range(repeat_times):
                 # start training and testing
                 fitted_pipeline = FittedPipeline(pipeline, self.train_dataset2[each_repeat].metadata.query(())['id'],
-                                                 log_dir=self.log_dir, metric_descriptions=self.performance_metrics)
+                                                 log_dir=self.log_dir, metric_descriptions=self.performance_metrics,
+                                                 template = self.template, problem = self.problem)
 
                 fitted_pipeline.fit(cache=cache, inputs=[self.train_dataset2[each_repeat]])
                 # fitted_pipeline.fit(inputs=[self.train_dataset2[each_repeat]])
                 training_ground_truth = get_target_columns(self.train_dataset2[each_repeat], self.problem)
-                training_prediction = fitted_pipeline.get_fit_step_output(
-                    self.template.get_output_step_number())
+                training_prediction = fitted_pipeline.get_fit_step_output(self.template.get_output_step_number())
                 # only do test if the test_dataset exist
                 if self.test_dataset2[each_repeat] is not None:
                     results = fitted_pipeline.produce(inputs=[self.test_dataset2[each_repeat]])
@@ -748,9 +749,9 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
                     data_to_logger_info.append("No test metrics value found")
                 _logger.info('fitted id: %(fitted_pipeline_id)s, metric: %(metric)s, value: %(value)s',
                              {
-                                 'fitted_pipeline_id' : fitted_pipeline2.id,
-                                 'metric' : data_to_logger_info[0],
-                                 'value' : data_to_logger_info[1]
+                                 'fitted_pipeline_id': fitted_pipeline2.id,
+                                 'metric': data_to_logger_info[0],
+                                 'value': data_to_logger_info[1]
                              })
 
             # Save fitted pipeline
@@ -775,7 +776,8 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
                 print("[INFO] Now in normal mode, will add extra train with train_dataset1")
                 # otherwise train again with dataset_train1 and get the rank
                 fitted_pipeline2 = FittedPipeline(pipeline, self.train_dataset1.metadata.query(())['id'],
-                                                  log_dir=self.log_dir, metric_descriptions=self.performance_metrics)
+                                                  log_dir=self.log_dir, metric_descriptions=self.performance_metrics,
+                                                  template = self.template, problem = self.problem)
                 # retrain and compute ranking/metric using self.train_dataset
                 #fitted_pipeline2.fit(inputs = [self.train_dataset1])
                 fitted_pipeline2.fit(cache=cache, inputs=[self.train_dataset1])
@@ -840,10 +842,42 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
             test_prediction = self.graph_problem_conversion(test_prediction)
         target_amount_train = 0
         target_amount_test = 0
+
         for metric_description in self.performance_metrics:
             metricDesc = PerformanceMetric.parse(metric_description['metric'])
             metric: typing.Callable = metricDesc.get_function()
             params: typing.Dict = metric_description['params']
+            # special design for objectDetectionAP
+            if metric_description["metric"] == "objectDetectionAP":
+                if training_ground_truth is not None and training_prediction is not None:
+                    training_image_name_column = training_ground_truth.iloc[:, training_ground_truth.shape[1] - 2]
+                    training_prediction.insert(loc=0, column='image_name', value=training_image_name_column)
+                    training_ground_truth_tosend = training_ground_truth.iloc[:, training_ground_truth.shape[1] - 2: training_ground_truth.shape[1]]
+                    training_metrics.append({
+                        'column_name': training_ground_truth.columns[-1],
+                        'metric': metric_description['metric'],
+                        'value': metric(
+                            training_ground_truth_tosend.astype(str).values.tolist(),
+                            training_prediction.astype(str).values.tolist(),
+                            **params
+                        )
+                    })
+                if test_ground_truth is not None and test_prediction is not None:
+                    test_image_name_column = test_ground_truth.iloc[:, test_ground_truth.shape[1] - 2]
+                    test_prediction.insert(loc=0, column='image_name', value=test_image_name_column)
+                    test_ground_truth_tosend = test_ground_truth.iloc[:, test_ground_truth.shape[1] - 2: test_ground_truth.shape[1]]
+                    test_metrics.append({
+                        'column_name': test_ground_truth.columns[-1],
+                        'metric': metric_description['metric'],
+                        'value': metric(
+                            test_ground_truth_tosend.astype(str).values.tolist(),
+                            test_prediction.astype(str).values.tolist(),
+                            **params
+                        )
+                    })
+                return (training_metrics, test_metrics)
+            # END special design for objectDetectionAP
+
             regression_mode = metric_description["metric"] in self.regression_metric
             try:
                 # generate the metrics for training results
@@ -853,6 +887,8 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
                         target_amount_train = len(training_prediction.columns)
                     else:
                         target_amount_train = len(training_prediction.columns) - 1
+                    truth_amount_train = len(training_ground_truth.columns) - 1
+                    assert (truth_amount_train == target_amount_train), "[ERROR] Truth and prediction does not match"
                     if regression_mode:
                         for each_column in range(- target_amount_train, 0, 1):
                             training_metrics.append({
@@ -884,6 +920,8 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
                     else:
                         target_amount_test = len(test_prediction.columns) - 1
                     # if the test_ground_truth do not have results
+                    truth_amount_test  = len(test_ground_truth.columns)-1
+                    assert (truth_amount_test  == target_amount_test), "[ERROR] Truth and prediction does not match"
                     if regression_mode:
                         for each_column in range(- target_amount_test, 0, 1):
                             if test_ground_truth.iloc[0, -1] == '':
