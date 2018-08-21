@@ -1,0 +1,10 @@
+{
+  "problem_schema": "TRAIN/problem_TRAIN/problemDoc.json",
+  "problem_root": "TRAIN/problem_TRAIN",
+  "dataset_schema": "TRAIN/dataset_TRAIN/datasetDoc.json",
+  "training_data_root": "TRAIN/dataset_TRAIN",
+  "pipeline_logs_root": "pipelines",
+  "executables_root": "executables",
+  "user_problems_root": "user_problems",
+  "temp_storage_root": "supporting_files"
+}
