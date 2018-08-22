@@ -22,8 +22,8 @@ install:
   - pip install -e git+https://github.com/brekelma/dsbox_corex@master#egg=dsbox_corex --progress-bar off
 
 before_script:
-  - python -W ignore -m unittest python/unit_tests/test_config_format.py
-  - python python/ta2-search python/unit_tests/resources/38_sick/search_config.json --timeout 5
+  - python unit_tests/resources/construct_config.py 38_sick
+  - python python/ta2-search unit_tests/resources/38_sick/search_config.json --timeout 5
 
 script:
-  - python -W ignore -m unittest discover python/unit_tests/
+  - python -W ignore -m unittest discover unit_tests/

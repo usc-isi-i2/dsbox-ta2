@@ -1,13 +1,11 @@
 import unittest
 import json
 import os
-from .resources.construct_config import ConfigConstructor
 
 
 class TestConfigFormat(unittest.TestCase):
 
     def setUp(self):
-        ConfigConstructor.construct("38_sick")
         self.dirname = os.path.dirname(__file__)
         self.dataset_dir = os.path.join(self.dirname, 'resources/38_sick')
         self.search_config_keys = ["problem_schema", "problem_root", "dataset_schema", "training_data_root"]

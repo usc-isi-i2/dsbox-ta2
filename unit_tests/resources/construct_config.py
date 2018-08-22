@@ -1,12 +1,13 @@
 import json
 import os
+import sys
 
 
 class ConfigConstructor:
 
     @staticmethod
     def construct(dataset):
-        dirname = os.path.dirname(__file__)
+        dirname = os.path.abspath(os.path.dirname(__file__))
 
         dataset_dir = os.path.join(dirname, dataset)
 
@@ -24,3 +25,7 @@ class ConfigConstructor:
 
         with open(os.path.join(dataset_dir, "test_config.json"), 'w') as f:
             json.dump(test_config, f, indent=2)
+
+
+if __name__ == '__main__':
+    ConfigConstructor.construct(sys.argv[1])
