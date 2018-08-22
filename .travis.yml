@@ -21,7 +21,9 @@ install:
   - pip install -e git+https://github.com/usc-isi-i2/dsbox-featurizer@master#egg=dsbox-featurizer --progress-bar off
   - pip install -e git+https://github.com/brekelma/dsbox_corex@master#egg=dsbox_corex --progress-bar off
 
-script:
+before_script:
   - python -W ignore -m unittest python/unit_tests/test_config_format.py
   - python python/ta2-search python/unit_tests/resources/38_sick/search_config.json --timeout 7
+
+script:
   - python -W ignore -m unittest python/unit_tests/
