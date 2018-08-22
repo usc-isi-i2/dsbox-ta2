@@ -1,11 +1,13 @@
 import unittest
 import json
 import os
+from .resources.construct_config import ConfigConstructor
 
 
 class TestConfigFormat(unittest.TestCase):
 
     def setUp(self):
+        ConfigConstructor.construct("38_sick")
         self.dirname = os.path.dirname(__file__)
         self.dataset_dir = os.path.join(self.dirname, 'resources/38_sick')
         self.search_config_keys = ["problem_schema", "problem_root", "dataset_schema", "training_data_root"]
@@ -30,17 +32,9 @@ class TestConfigFormat(unittest.TestCase):
             if k in self.search_config_keys:
                 self.assertEqual(os.path.exists(os.path.join(self.dataset_dir, v)), True,
                                  "path: {} not exist".format(os.path.join(self.dataset_dir, v)))
-            search_config[k] = os.path.join(self.dataset_dir, v)
-
-        with open(os.path.join(self.dataset_dir, "search_config.json"), 'w') as f:
-            json.dump(search_config, f, indent=2)
 
         test_config = json.load(open(os.path.join(self.dataset_dir, "test_config.json"), 'r'))
         for k, v in test_config.items():
             if k in self.test_config_keys:
                 self.assertEqual(os.path.exists(os.path.join(self.dataset_dir, v)), True,
                                  "path: {} not exist".format(os.path.join(self.dataset_dir, v)))
-            test_config[k] = os.path.join(self.dataset_dir, v)
-
-        with open(os.path.join(self.dataset_dir, "test_config.json"), 'w') as f:
-            json.dump(test_config, f, indent=2)
