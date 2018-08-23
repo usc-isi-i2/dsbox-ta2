@@ -15,8 +15,15 @@ install:
   - conda info -a
   - conda create --name ta2-env python=3.6
   - source activate ta2-env
-  - pip install -r requirements.txt --progress-bar off
-  - pwd
+  - pip install -e git+https://gitlab.com/datadrivendiscovery/common-primitives@master#egg=common-primitives --progress-bar off
+  - pip install -e git+https://gitlab.com/datadrivendiscovery/sklearn-wrap@dist#egg=sklearn-wrap --progress-bar off
+  - pip install -e git+https://github.com/usc-isi-i2/dsbox-cleaning@master#egg=dsbox-datacleaning --progress-bar off
+  - pip install -e git+https://github.com/usc-isi-i2/dsbox-featurizer@master#egg=dsbox-featurizer --progress-bar off
+  - pip install -e git+https://github.com/brekelma/dsbox_corex@master#egg=dsbox_corex --progress-bar off
+
+before_script:
+  - python unit_tests/resources/construct_config.py 38_sick
+  - python python/ta2-search unit_tests/resources/38_sick/search_config.json --timeout 4
 
 script:
-  - python -W ignore -m unittest discover python/unit_tests/
+  - python -W ignore -m unittest discover unit_tests/
