@@ -135,6 +135,21 @@ def main(args):
     time_used = (time.time() - start_time) / 60.0
     print("[INFO] The time used for running program is {:0.2f} minutes.".format(time_used))
 
+    if args.test:
+        test_config = json.load(open(args.test_config, 'r'))
+        test_controller = Controller(development_mode=False)
+        controller.initialize_from_config_for_evaluation(test_config)
+        pipelines_dir = os.path.dirname(configuration_file["pipeline_logs_root"])
+
+        pipelines = [os.path.join(pipelines_dir, f) for f in
+                     os.listdir(pipelines_dir) if f.endswith(".json")]
+        rank_lst = list()
+        for pipeline in pipelines:
+            pipeline_json = json.load(open(pipeline, 'r'))
+            rank_lst.append((pipeline_json["pipeline_rank"], pipeline_json['id']))
+        best_fitted_pipeline_id = min(rank_lst)[1]
+        status = test_controller.test_fitted_pipeline(fitted_pipeline_id=best_fitted_pipeline_id)
+
     return status.value
 
 
@@ -180,6 +195,12 @@ if __name__ == "__main__":
                         Replace path prefix "*/output/" with argument''')
     parser.add_argument('--debug', action='store_true', default=False,
                         help='Debug mode. No timeout and no output redirection')
+
+    parser.add_argument('--test', action='store_true', default=False,
+                        help='')
+
+    parser.add_argument('--test_config', action='store', default="",
+                        help='')
 
     args = parser.parse_args()
 
