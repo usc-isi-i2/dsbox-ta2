@@ -2,27 +2,15 @@ import time
 import json
 import os
 import signal
-import subprocess
 import traceback
 import sys
 from pprint import pprint
-
+import psutil
 from dsbox.controller.controller import Controller
 from dsbox.controller.controller import Status
 
 start_time = time.time()
-def kill_child_processes(parent_pid, sig=signal.SIGTERM):	
-    ps_command = subprocess.Popen("ps -o pid --ppid %d --noheaders" % parent_pid, shell=True, stdout=subprocess.PIPE)	
-    ps_output = ps_command.stdout.read()	
-    retcode = ps_command.wait()	
-    assert retcode == 0, "ps command returned %d" % retcode	
-    print('parent id={}'.format(parent_pid), flush=True)	
-    for pid_str in ps_output.decode('utf-8').split("\n")[:-1]:	
-        try:	
-            print('chdild id={}'.format(pid_str), flush=True)	
-            os.kill(int(pid_str), sig)	
-        except:	
-            pass
+
 
 class StdoutLogger(object):
     def __init__(self, f):
@@ -67,6 +55,12 @@ def main():
 
     controller = Controller(development_mode=False)
 
+    def kill_child_processes():
+        process_id = os.getpid()
+        parent = psutil.Process(process_id)
+        for child in parent.children(recursive=True):  # or parent.children() for recursive=False
+            child.kill()
+
     # Define signal handler to exit gracefully
     def write_results_and_exit(a_signal, frame):
         print('==== Times up ====')
@@ -77,8 +71,6 @@ def main():
             signal.signal(signal.SIGALRM, signal.SIG_DFL)
 
             print('[INFO] Killing child processes', flush=True)
-            process_id = os.getpid()
-            kill_child_processes(process_id)
 
             print('[INFO] writing results', flush=True)
             controller.write_training_results()
@@ -86,6 +78,8 @@ def main():
             print('==== Done cleaning up ====', flush=True)
             time_used = (time.time() - start_time) / 60.0
             print("[INFO] The time used so far is {:0.2f} minutes.".format(time_used), flush=True)
+
+            kill_child_processes()
         except Exception as e:
             print(e)
             traceback.print_exc()

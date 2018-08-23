@@ -21,6 +21,7 @@ install:
   - pip install -e git+https://github.com/usc-isi-i2/dsbox-cleaning@master#egg=dsbox-datacleaning --progress-bar off
   - pip install -e git+https://github.com/usc-isi-i2/dsbox-featurizer@master#egg=dsbox-featurizer --progress-bar off
   - pip install -e git+https://github.com/brekelma/dsbox_corex@master#egg=dsbox_corex --progress-bar off
+  - pip install psutil==5.4.7
 
 before_script:
   - python unit_tests/resources/construct_config.py 38_sick
