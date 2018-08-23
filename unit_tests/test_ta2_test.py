@@ -13,6 +13,9 @@ class TestTA2Test(unittest.TestCase):
         self.pipelines_considered_dir = os.path.join(self.output_root, "pipelines_considered")
         self.prediction_dir_root = self.test_config["results_root"]
 
+        self.prediction_dirs = [x for x in os.listdir(self.prediction_dir_root) if
+                                os.path.isdir(os.path.join(self.prediction_dir_root, x))]
+
         pipelines = [os.path.join(self.output_root, "pipelines", f) for f in
                      os.listdir(os.path.join(self.output_root, "pipelines")) if f.endswith(".json")]
         rank_lst = list()
@@ -43,11 +46,12 @@ class TestTA2Test(unittest.TestCase):
     def test_prediction_dir(self):
         self.assertEqual(os.path.exists(self.prediction_dir_root), True, "Prediction dir not exist")
 
-    def test_prediction_file(self):
-        prediction_dirs = [x for x in os.listdir(self.prediction_dir_root) if
-                           os.path.isdir(os.path.join(self.prediction_dir_root, x))]
-        self.assertEqual(len(prediction_dirs), 1, "more than 1 prediction generated for running single test")
-        self.assertEqual(self.best_fitted_pipeline_id, prediction_dirs[0],
+    def test_prediction_file_number(self):
+        self.assertEqual(len(self.prediction_dirs), 1,
+                         "more than or less than 1 prediction generated for running single test")
+
+    def test_prediction_file_is_bast(self):
+        self.assertEqual(self.best_fitted_pipeline_id, self.prediction_dirs[-1],
                          "pipeline used for predict is not same as best pipeline")
 
     def test_prediction_result_column_index(self):
