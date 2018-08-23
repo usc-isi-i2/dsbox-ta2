@@ -11,18 +11,17 @@ from dsbox.controller.controller import Controller
 from dsbox.controller.controller import Status
 
 start_time = time.time()
-
-def kill_child_processes(parent_pid, sig=signal.SIGTERM):
-    ps_command = subprocess.Popen("ps -o pid --ppid %d --noheaders" % parent_pid, shell=True, stdout=subprocess.PIPE)
-    ps_output = ps_command.stdout.read()
-    retcode = ps_command.wait()
-    assert retcode == 0, "ps command returned %d" % retcode
-    print('parent id={}'.format(parent_pid), flush=True)
-    for pid_str in ps_output.decode('utf-8').split("\n")[:-1]:
-        try:
-            print('chdild id={}'.format(pid_str), flush=True)
-            os.kill(int(pid_str), sig)
-        except:
+def kill_child_processes(parent_pid, sig=signal.SIGTERM):	
+    ps_command = subprocess.Popen("ps -o pid --ppid %d --noheaders" % parent_pid, shell=True, stdout=subprocess.PIPE)	
+    ps_output = ps_command.stdout.read()	
+    retcode = ps_command.wait()	
+    assert retcode == 0, "ps command returned %d" % retcode	
+    print('parent id={}'.format(parent_pid), flush=True)	
+    for pid_str in ps_output.decode('utf-8').split("\n")[:-1]:	
+        try:	
+            print('chdild id={}'.format(pid_str), flush=True)	
+            os.kill(int(pid_str), sig)	
+        except:	
             pass
 
 class StdoutLogger(object):

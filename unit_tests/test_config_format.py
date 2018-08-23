@@ -30,17 +30,9 @@ class TestConfigFormat(unittest.TestCase):
             if k in self.search_config_keys:
                 self.assertEqual(os.path.exists(os.path.join(self.dataset_dir, v)), True,
                                  "path: {} not exist".format(os.path.join(self.dataset_dir, v)))
-            search_config[k] = os.path.join(self.dataset_dir, v)
-
-        with open(os.path.join(self.dataset_dir, "search_config.json"), 'w') as f:
-            json.dump(search_config, f, indent=2)
 
         test_config = json.load(open(os.path.join(self.dataset_dir, "test_config.json"), 'r'))
         for k, v in test_config.items():
             if k in self.test_config_keys:
                 self.assertEqual(os.path.exists(os.path.join(self.dataset_dir, v)), True,
                                  "path: {} not exist".format(os.path.join(self.dataset_dir, v)))
-            test_config[k] = os.path.join(self.dataset_dir, v)
-
-        with open(os.path.join(self.dataset_dir, "test_config.json"), 'w') as f:
-            json.dump(test_config, f, indent=2)
