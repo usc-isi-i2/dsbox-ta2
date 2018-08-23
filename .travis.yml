@@ -23,7 +23,7 @@ install:
 
 before_script:
   - python unit_tests/resources/construct_config.py 38_sick
-  - python python/ta2-search unit_tests/resources/38_sick/search_config.json --timeout 5
+  - python python/ta2-search unit_tests/resources/38_sick/search_config.json --timeout 4
 
 script:
   - python -W ignore -m unittest discover unit_tests/
