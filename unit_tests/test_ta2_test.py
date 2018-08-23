@@ -14,8 +14,6 @@ class TestTA2Test(unittest.TestCase):
     def setUp(self):
         self.dirname = os.path.dirname(__file__)
         self.test_config = json.load(open(os.path.join(self.dirname, "resources/38_sick/test_config.json"), 'r'))
-        self.controller = Controller(development_mode=False)
-        self.controller.initialize_from_config_for_evaluation(self.test_config)
         self.output_root = os.path.dirname(self.test_config["executables_root"])
         self.pipelines_considered_dir = os.path.join(self.output_root, "pipelines_considered")
         self.prediction_dir_root = self.test_config["results_root"]
@@ -28,15 +26,11 @@ class TestTA2Test(unittest.TestCase):
             rank_lst.append((pipeline_json["pipeline_rank"], pipeline_json['id']))
         self.best_fitted_pipeline_id = min(rank_lst)[1]
         self.best_fitted_pipeline_rank = min(rank_lst)[0]
-        self.status = self.controller.test_fitted_pipeline(fitted_pipeline_id=self.best_fitted_pipeline_id)
 
         self.prediction = pd.read_csv(
             os.path.join(self.output_root, "predictions", self.best_fitted_pipeline_id, "predictions.csv"))
 
         self.ground_truth = pd.read_csv(os.path.join(self.output_root, "SCORE", "targets.csv"))
-
-    def test_status(self):
-        self.assertEqual(self.status, Status.OK, "TA2 test finish with status not 'OK'")
 
     def test_ta2_test_result_layout(self):
         for key in ["results_root"]:
