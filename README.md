@@ -1,5 +1,14 @@
 # dsbox-ta2
 The DSBox TA2 component
+---------------------------------------------2018.8.29---------------------------------------------
+The template-PhaseI-refactored branch is the refactored code from template-june-2018.
+Main changes:
+- the search body code that was previously implemented in Controller and DimSearch classes is moved to a hierarchy of classes. First there is "dsbox-ta2/python/dsbox/combinatorial_search/ConfigurationSpaceBaseSearch.py" that encapsulates the evalute method and all its neccessary datastructures. This part is meant to be run on worker nodes so there should not be any sort of communication or shared state in it. On top of that, we have "dsbox-ta2/python/dsbox/combinatorial_search/TemplateSpaceBaseSearch.py" that is first attempt to support multiple template search through random sampling in sequencial (single worker) fashion. 
+The "dsbox-ta2/python/dsbox/combinatorial_search/TemplateSpaceParallelBaseSearch.py" is the parallel implementation of multi-template search using new parallel job manager and distributed caching system. 
+Finally we have, two form of dimensional search, one randomly samples templates and the other one uses MLB to select them. 
+- The code related to caching (primitive and pipeline) has been moved to "dsbox-ta2/python/dsbox/JobManager/cache.py" to provide a unified interface. 
+- Finally, the record keeping code has been encapsulated in "dsbox-ta2/python/dsbox/combinatorial_search/ExecutionHistory.py". It is compatible with our previous report execution report format generated in the evaluation method and add additional interfaces for simplicity of adding and reading records. 
+
 
 ---------------------------------------------2018.7.4---------------------------------------------
 
