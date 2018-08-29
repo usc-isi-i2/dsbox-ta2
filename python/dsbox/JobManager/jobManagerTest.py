@@ -3,25 +3,39 @@ import random
 from DistributedJobManager import DistributedJobManager
 
 
+class bar():
+    def __init__(self, a:int):
+        self.a = a
+
+    def work(self):
+        sl = random.randint(0, 5)
+        print(f"[INFO] sleeping for {sl}")
+        time.sleep(sl)
+        print(f"[INFO] I am working on {self.a}")
+        return self.a
+
 
 
 class foo():
     def __init__(self):
         self.m = DistributedJobManager(proc_num=4, timeout=10)
-        self.a = 10
+        self.b_list = [bar(random.random()) for _ in range(6)]
 
         self.m.start_workers(foo.job_process)
 
     @staticmethod
-    def job_process(in_val: int, a: int=10):
+    def job_process(in_val: bar, method: str):
         print("[INFO] I am job ", in_val)
+        method_to_call = getattr(in_val, method)
         # time.sleep(input)
-        return in_val+a
+        print(method_to_call)
+        result = method_to_call()
+        return result
 
     def run(self):
         for i in range(10):
-            num = random.randrange(0, 10, 1)
-            jid = self.m.push_job(kwargs={'in_val': num})
+            num = random.choice(self.b_list)
+            jid = self.m.push_job(kwargs={'in_val': num, 'method': 'work'})
             print("[INFO] Job pushed ", (jid, num))
 
         time.sleep(2)
@@ -34,7 +48,7 @@ class foo():
 
 
 
-o = foo()
+o=foo()
 o.run()
 # import multiprocessing, time
 #

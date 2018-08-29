@@ -76,7 +76,7 @@ class TemplateLibrary:
             "svr_regression_template": SVRRegressionTemplate,
 
             # older templates
-            "dsbox_classification_template": dsboxClassificationTemplate,
+            # "dsbox_classification_template": dsboxClassificationTemplate,
             "dsbox_regression_template": dsboxRegressionTemplate,
             "CMU_Clustering_Template": CMUClusteringTemplate,
             "Default_timeseries_collection_template": DefaultTimeseriesCollectionTemplate,
@@ -167,7 +167,7 @@ class TemplateLibrary:
 
     def _load_inline_templates(self):
         # template that gives us the mean baseline as a result
-        self.templates.append(SRIMeanBaselineTemplate)
+        #TODO self.templates.append(SRIMeanBaselineTemplate)
 
         self.templates.append(DefaultTimeseriesRegressionTemplate)
 
@@ -190,7 +190,7 @@ class TemplateLibrary:
         # takes too long to run self.templates.append(SVRRegressionTemplate)
 
         # text templates, but also support tabular data
-        self.templates.append(DefaultTextClassificationTemplate)
+        #TODO self.templates.append(DefaultTextClassificationTemplate)
         self.templates.append(DefaultTextRegressionTemplate)
 
         # Tabular Classification
@@ -203,7 +203,7 @@ class TemplateLibrary:
         self.templates.append(DefaultImageProcessingRegressionTemplate)
 
         # Others
-        self.templates.append(DefaultTimeseriesCollectionTemplate)
+        #TODO self.templates.append(DefaultTimeseriesCollectionTemplate)
         self.templates.append(TimeSeriesForcastingTestingTemplate)
 
         self.templates.append(SRILinkPredictionTemplate)
@@ -221,7 +221,7 @@ class TemplateLibrary:
         # self.templates.append(JHUGraphMatchingTemplate)
 
         # templates used for datasets with a large number of columns
-        self.templates.append(Large_column_number_with_numerical_only_classification)
+        #TODO self.templates.append(Large_column_number_with_numerical_only_classification)
         self.templates.append(Large_column_number_with_numerical_only_regression)
 
         self.templates.append(ClassificationWithSelection)

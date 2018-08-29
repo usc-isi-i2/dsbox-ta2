@@ -43,6 +43,7 @@ from dsbox.combinatorial_search.TemplateSpaceBaseSearch import TemplateSpaceBase
 from dsbox.combinatorial_search.TemplateSpaceParallelBaseSearch import \
     TemplateSpaceParallelBaseSearch
 from dsbox.combinatorial_search.RandomDimensionalSearch import RandomDimensionalSearch
+from dsbox.combinatorial_search.BanditDimensionalSearch import BanditDimensionalSearch
 
 from dsbox.combinatorial_search.search_utils import get_target_columns
 from dsbox.combinatorial_search.search_utils import random_choices_without_replacement
@@ -146,6 +147,10 @@ class Controller:
         4. _log_init
         5. _log_search_results
         6. _process_pipeline_submission
+        7. _run_BanditDimSearch
+        8. _run_ParallelBaseSearch
+        9. _run_RandomDimSearch
+        10.
         **********************************************************************
     '''
 
@@ -427,10 +432,28 @@ class Controller:
             num_proc=self.num_cpus,
             timeout=self.TIMEOUT,
         )
-        report = searchMethod.search(num_iter=5)
+        report = searchMethod.search(num_iter=2)
 
         self._log_search_results(report=report)
 
+    def _run_BanditDimSearch(self):
+        searchMethod = BanditDimensionalSearch(
+            template_list=self.template,
+            performance_metrics=self.problem['problem']['performance_metrics'],
+            problem=self.problem_doc_metadata,
+            test_dataset1=self.test_dataset1,
+            train_dataset1=self.train_dataset1,
+            test_dataset2=self.test_dataset2,
+            train_dataset2=self.train_dataset2,
+            all_dataset=self.all_dataset,
+            output_directory=self.output_directory,
+            log_dir=self.output_logs_dir,
+            num_proc=self.num_cpus,
+            timeout=self.TIMEOUT,
+        )
+        report = searchMethod.search(num_iter=5)
+
+        self._log_search_results(report=report)
     '''
         **********************************************************************
         Public method (in alphabet)
@@ -872,7 +895,8 @@ class Controller:
         if pid == 0:  # run the search in the child process
             # self._run_SerialBaseSearch()
             # self._run_ParallelBaseSearch()
-            self._run_RandomDimSearch()
+            # self._run_RandomDimSearch()
+            self._run_BanditDimSearch()
 
             print("[INFO] End of Search")
             os._exit(0)
