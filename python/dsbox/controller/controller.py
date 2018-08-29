@@ -895,8 +895,8 @@ class Controller:
         if pid == 0:  # run the search in the child process
             # self._run_SerialBaseSearch()
             # self._run_ParallelBaseSearch()
-            # self._run_RandomDimSearch()
-            self._run_BanditDimSearch()
+            self._run_RandomDimSearch()
+            #self._run_BanditDimSearch()
 
             print("[INFO] End of Search")
             os._exit(0)
