@@ -193,20 +193,25 @@ class Runtime:
             # if (prim_name, prim_hash) in cache:
             if cache.is_hit_key(prim_hash=prim_hash, prim_name=prim_name):
 
-                dummy, model = cache.lookup_key(prim_name=prim_name, prim_hash=prim_hash)
+                fitting_time, model = cache.lookup_key(prim_name=prim_name, prim_hash=prim_hash)
                 primitives_outputs[n_step] = \
                     self._produce_step(model=model, step=primitive_step,
                                        primitive_arguments=primitive_arguments)
                 self.pipeline[n_step] = model
+
+                cache_reading_time = (time.time() - time_start)
+                print(f"[INFO] cache reading took {cache_reading_time} s and "
+                      f"fitting time took {fitting_time} s")
                 cache_hit = True
             else:
 
                 primitives_outputs[n_step], model = \
                     self._primitive_step_fit(n_step, primitive_step, primitive_arguments)
 
+                fitting_time = (time.time() - time_start)
                 # add the entry to cache:
                 cache.push_key(prim_name=prim_name, prim_hash=prim_hash, model=model,
-                               primitives_output=None)
+                               fitting_time=fitting_time)
 
                 # log fitting results
                 self._log_fitted_step(cache, n_step, primitive_step, primitives_outputs)

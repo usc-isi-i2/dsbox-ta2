@@ -33,10 +33,6 @@ class RandomDimensionalSearch(TemplateSpaceParallelBaseSearch[T]):
     """
     Use dimensional search across randomly chosen templates to find best pipeline.
     """
-    # FIXME At this point, after each candidate evaluation we update the history which may result
-    #  in discrepancy in the dim search mechanism (the problematic scenario I am thinking about
-    # is when we have a super slow evaluation that will be finished in the middle of dim search
-    # on other steps of the pipeline)
 
     def __init__(self, template_list: typing.List[DSBoxTemplate],
                  performance_metrics: typing.List[typing.Dict],
@@ -219,12 +215,9 @@ class RandomDimensionalSearch(TemplateSpaceParallelBaseSearch[T]):
 
         raise ValueError("No valid initial candidates found")
 
-    def _select_next_template(self, num_iter: int = 2):
+    def _select_next_template(self, num_iter: int = 2) -> ConfigurationSpaceBaseSearch:
         for i in range(num_iter):
-            print("#" * 50)
             search = random.choice(self.confSpaceBaseSearch)
-            print(f"[INFO] Randomly Selected Template: {search.template.template['name']}")
-
             yield search
 
     def search(self, num_iter: int=2) -> typing.Dict:
@@ -246,13 +239,8 @@ class RandomDimensionalSearch(TemplateSpaceParallelBaseSearch[T]):
         self.job_manager.start_workers(target=self._evaluate_template)
         time.sleep(0.1)
 
-        for search in self._select_next_template(num_iter=num_iter):
-            print("$"*100)
-            print("$"*100)
-            self.search_one_iter(search=search, max_per_dim=5)
-            print("$"*100)
-            print(self.history)
-            print("$"*100)
+        # the actual search goes here
+        self._search_templates(num_iter=num_iter)
 
         # cleanup the caches and cache manager
         self.cacheManager.cleanup()
@@ -261,3 +249,14 @@ class RandomDimensionalSearch(TemplateSpaceParallelBaseSearch[T]):
         self.job_manager.kill_job_mananger()
 
         return self.history.get_best_history()
+
+    def _search_templates(self, num_iter: int = 2) -> None:
+        for search in self._select_next_template(num_iter=num_iter):
+            print("#" * 50)
+            print(f"[INFO] Selected Template: {search.template.template['name']}")
+            print("$" * 100)
+            print("$" * 100)
+            self.search_one_iter(search=search, max_per_dim=5)
+            print("$" * 100)
+            print(self.history)
+            print("$" * 100)

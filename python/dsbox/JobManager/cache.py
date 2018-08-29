@@ -133,29 +133,23 @@ class PrimitivesCache:
             self.write_lock = Lock()
 
     def push(self, hash_prefix: int, pipe_step: PrimitiveStep, primitive_arguments: typing.Dict,
-             primitives_output: Dataset, model: PrimitiveBase) -> int:
+             fitting_time: int, model: PrimitiveBase) -> int:
         prim_name, prim_hash = PrimitivesCache._get_hash(
             hash_prefix=hash_prefix, pipe_step=pipe_step, primitive_arguments=primitive_arguments)
 
-        return self.push_key(prim_hash=prim_hash, prim_name=prim_name,
-                             model=model, primitives_output=primitives_output)
+        return self.push_key(prim_hash=prim_hash, prim_name=prim_name, model=model,
+                             fitting_time=fitting_time)
 
     def push_key(self, prim_hash: int, prim_name: int, model: PrimitiveBase,
-                 primitives_output: typing.Dict) -> int:
-        # print("[INFO] acquiring")
+                 fitting_time: int) -> int:
 
         self.write_lock.acquire(blocking=True)
-        # while True:
-        #     if self.write_lock.acquire(blocking=False):
-        #         break
-        #     time.sleep(1)
-        #     print("still waiting")
-        # print("[INFO] got it")
+
         try:
             if not self.is_hit_key(prim_name=prim_name, prim_hash=prim_hash):
-                self.storage[(prim_name, prim_hash)] = (primitives_output, model)
+                self.storage[(prim_name, prim_hash)] = (fitting_time, model)
                 _logger.info(f"[INFO] Push@cache:{prim_name},{prim_hash}")
-                # print("[INFO] Push@cache:{},{}".format(prim_name, prim_hash))
+                # print(f"[INFO] Push@cache:{prim_name},{prim_hash}")
                 return 0
             else:
                 # print("[WARN] Double-push in Primitives Cache")
@@ -177,6 +171,7 @@ class PrimitivesCache:
     def lookup_key(self, prim_hash: int, prim_name: int) -> typing.Tuple[Dataset, PrimitiveBase]:
         if self.is_hit_key(prim_name=prim_name, prim_hash=prim_hash):
             _logger.info("[INFO] Hit@cache: {},{}".format(prim_name, prim_hash))
+            # print("[INFO] Hit@cache: {},{}".format(prim_name, prim_hash))
             return self.storage[(prim_name, prim_hash)]
         else:
             return (None, None)
