@@ -132,6 +132,13 @@ class TemplateSpaceParallelBaseSearch(TemplateSpaceBaseSearch[T]):
         for i in range(num_iter):
             template_index = random.randrange(0, len(self.confSpaceBaseSearch))
             search = self.confSpaceBaseSearch[template_index]
+            self._random_pipeline_sampling(search=search, num_iter=1)
+
+        print("#" * 50)
+
+    def _random_pipeline_sampling(self, search: ConfigurationSpaceBaseSearch, num_iter: int = 1) \
+            -> None:
+        for _ in range(num_iter):
             candidate = search.configuration_space.get_random_assignment()
             print("[INFO] Selecting Candidate: ", hash(str(candidate)))
             if self.cacheManager.candidate_cache.is_hit(candidate):
@@ -157,7 +164,6 @@ class TemplateSpaceParallelBaseSearch(TemplateSpaceBaseSearch[T]):
                 traceback.print_exc()
 
             time.sleep(0.1)
-        print("#" * 50)
 
     def evaluate_blocking(self, base_search: ConfigurationSpaceBaseSearch,
                           candidate: ConfigurationPoint[PrimitiveDescription]) -> typing.Dict:

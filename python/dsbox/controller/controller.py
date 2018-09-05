@@ -12,6 +12,8 @@ import shutil
 from math import sqrt, log
 import traceback
 
+from multiprocessing import Process
+
 import numpy as np
 import pandas as pd
 import frozendict
@@ -50,6 +52,8 @@ from dsbox.combinatorial_search.search_utils import random_choices_without_repla
 from dsbox.template.template import DSBoxTemplate
 from common_primitives import utils as common_primitives_utils
 
+import dsbox.JobManager.mplog as mplog
+
 __all__ = ['Status', 'Controller']
 
 import copy
@@ -60,7 +64,7 @@ from sklearn.model_selection import StratifiedShuffleSplit, ShuffleSplit
 import pandas as pd
 
 FILE_FORMATTER = "[%(levelname)s] - %(asctime)s - %(name)s - %(message)s"
-FILE_LOGGING_LEVEL = logging.WARNING
+FILE_LOGGING_LEVEL = logging.INFO
 LOG_FILENAME = 'dsbox.log'
 CONSOLE_LOGGING_LEVEL = logging.INFO
 # CONSOLE_LOGGING_LEVEL = logging.DEBUG
@@ -891,20 +895,36 @@ class Controller:
 
         # FIXME) come up with a better way to implement this part. The fork does not provide a way
         # FIXME) to catch the errors of the child process
-        pid: int = os.fork()
-        if pid == 0:  # run the search in the child process
-            # self._run_SerialBaseSearch()
-            # self._run_ParallelBaseSearch()
-            self._run_RandomDimSearch()
-            #self._run_BanditDimSearch()
+        # pid: int = os.fork()
+        # if pid == 0:  # run the search in the child process
+        #     # self._run_SerialBaseSearch()
+        #     # self._run_ParallelBaseSearch()
+        #     self._run_RandomDimSearch()
+        #     # self._run_BanditDimSearch()
+        #
+        #     print("[INFO] End of Search")
+        #     os._exit(0)
+        # else:
+        #     status = os.wait()
+        #     print("[INFO] Search Status:")
+        #     pprint.pprint(status)
+        with mplog.open_queue() as log_queue:
+            self._logger.info('Starting Search process')
 
-            print("[INFO] End of Search")
-            os._exit(0)
-        else:
-            status = os.wait()
+            # proc = multiprocessing.Process(target=self._run_RandomDimSearch)
+            proc = Process(target=mplog.logged_call,
+                                           args=(log_queue, self._run_RandomDimSearch,))
+            proc.start()
+
+            self._logger.info('At the end.')
+            # wait until process is done
+            proc.join()
+
+            status = proc.exitcode
             print("[INFO] Search Status:")
             pprint.pprint(status)
-        print("END OF FORK")
+            print("END OF FORK")
+
 
     def generate_dataset_splits(self):
         self.all_dataset = self.remove_empty_targets(self.all_dataset)
