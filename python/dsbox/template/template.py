@@ -14,7 +14,8 @@ from d3m.metadata.pipeline import Pipeline, PipelineStep, StepBase, \
     PrimitiveStep, PlaceholderStep, SubpipelineStep, ArgumentType, \
     PlaceholderStep, Resolver, PIPELINE_SCHEMA_VALIDATOR, PipelineContext
 from d3m.primitive_interfaces.base import PrimitiveBaseMeta
-from .configuration_space import DimensionName, ConfigurationSpace, SimpleConfigurationSpace, ConfigurationPoint
+from .configuration_space import DimensionName, ConfigurationSpace, SimpleConfigurationSpace, \
+    ConfigurationPoint
 # from dsbox.template.search import TemplateDimensionalRandomHyperparameterSearch, TemplateDimensionalSearch, ConfigurationSpace, SimpleConfigurationSpace, PythonPath, DimensionName
 # Define separate extended pipe step enum, because Python cannot extend Enum
 
@@ -70,17 +71,20 @@ class TemplateStep(PlaceholderStep):
     def add_expected_argument(self, name: str, argument_type: typing.Any):
 
         if name in self.expected_arguments:
-            raise exceptions.InvalidArgumentValueError("Argument with name '{name}' already exists.".format(name=name))
+            raise exceptions.InvalidArgumentValueError(
+                "Argument with name '{name}' already exists.".format(name=name))
 
         if argument_type not in [ArgumentType.CONTAINER, ArgumentType.DATA]:
-            raise exceptions.InvalidArgumentValueError("Invalid argument type: {argument_type}".format(argument_type=argument_type))
+            raise exceptions.InvalidArgumentValueError(
+                "Invalid argument type: {argument_type}".format(argument_type=argument_type))
 
         self.expected_arguments[name] = {
             'type': argument_type
         }
 
     @classmethod
-    def from_json(cls: typing.Type[TS], step_description: typing.Dict, *, resolver: Resolver = None) -> TS:
+    def from_json(cls: typing.Type[TS], step_description: typing.Dict, *,
+                  resolver: Resolver = None) -> TS:
         step = cls(step_description['name'], step_description['semanticType'], resolver=resolver)
 
         for input_description in step_description['inputs']:
@@ -112,9 +116,11 @@ class TemplatePipeline(Pipeline):
     Pipeline with template steps
     """
 
-    def __init__(self, pipeline_id: str = None, *, context: typing.Any, created: datetime.datetime = None,
+    def __init__(self, pipeline_id: str = None, *, context: typing.Any,
+                 created: datetime.datetime = None,
                  source: typing.Dict = None, name: str = None, description: str = None) -> None:
-        super().__init__(pipeline_id, context=context, created=created, source=source, name=name, description=description)
+        super().__init__(pipeline_id, context=context, created=created, source=source, name=name,
+                         description=description)
         self.template_nodes: typing.Dict[str, TemplateStep] = {}
 
     def add_step(self, step: StepBase) -> None:
@@ -122,7 +128,8 @@ class TemplatePipeline(Pipeline):
 
         if isinstance(step, TemplateStep):
             if step.name in self.template_nodes:
-                raise exceptions.InvalidArgumentValueError("TemplateStep '{}' already in pipeline".format(step.name))
+                raise exceptions.InvalidArgumentValueError(
+                    "TemplateStep '{}' already in pipeline".format(step.name))
             self.template_nodes[step.name] = step
 
     def to_step(cls, metadata: dict, resolver: Resolver = None) -> PrimitiveStep:
@@ -136,13 +143,18 @@ class TemplatePipeline(Pipeline):
             directive = metadata[HYPERPARAMETER_DIRECTIVE]
             if directive == HyperparamDirective.RANDOM:
                 primitive = resolver.get_primitive(metadata)
-                hyperparams_class = primitive.metadata.query()['primitive_code']['class_type_arguments']['Hyperparams']
+                hyperparams_class = \
+                primitive.metadata.query()['primitive_code']['class_type_arguments']['Hyperparams']
                 hyperparams = {}
                 for key, value in hyperparams_class.sample().items():
-                    if value is None or issubclass(type(value), int) or issubclass(type(value), float) or issubclass(type(value), str):
+                    if value is None or issubclass(type(value), int) or issubclass(type(value),
+                                                                                   float) or issubclass(
+                            type(value), str):
                         argument_type = ArgumentType.DATA
                     else:
-                        raise ValueError('TemplatePipeline.to_step(): Need to add case for type: {}'.format(type(value)))
+                        raise ValueError(
+                            'TemplatePipeline.to_step(): Need to add case for type: {}'.format(
+                                type(value)))
                     hyperparams[key] = {
                         'type': argument_type,
                         'data': value
@@ -151,7 +163,8 @@ class TemplatePipeline(Pipeline):
 
         return step
 
-    def to_steps(cls, primitive_map: typing.Dict[str, dict], resolver: Resolver = None) -> typing.Dict[str, PrimitiveStep]:
+    def to_steps(cls, primitive_map: typing.Dict[str, dict], resolver: Resolver = None) -> \
+    typing.Dict[str, PrimitiveStep]:
         """
         Convenience method for generating PrimitiveStep from primitive id
         """
@@ -160,8 +173,10 @@ class TemplatePipeline(Pipeline):
             result[template_node_name] = cls.to_step(metadata, resolver)
         return result
 
-    def get_pipeline(self, binding: typing.Dict[str, PrimitiveStep] = {}, pipeline_id: str = None, *, context: typing.Any,
-                     created: datetime.datetime = None, source: typing.Dict = None, name: str = None, description: str = None) -> Pipeline:
+    def get_pipeline(self, binding: typing.Dict[str, PrimitiveStep] = {}, pipeline_id: str = None,
+                     *, context: typing.Any,
+                     created: datetime.datetime = None, source: typing.Dict = None,
+                     name: str = None, description: str = None) -> Pipeline:
         """
         Generates regular Pipeline from this pipeline template.
 
@@ -184,27 +199,32 @@ class TemplatePipeline(Pipeline):
 
         """
         if not set(self.template_nodes.keys()) <= set(binding.keys()):
-            raise exceptions.InvalidArgumentValueError("Not all template steps have binding: {}".format(self.template_nodes.keys()))
+            raise exceptions.InvalidArgumentValueError(
+                "Not all template steps have binding: {}".format(self.template_nodes.keys()))
 
         if source is None:
             source = {}
         source['from_template'] = self.id
 
-        result = Pipeline(pipeline_id, context=context, created=created, source=source, name=name, description=description)
+        result = Pipeline(pipeline_id, context=context, created=created, source=source, name=name,
+                          description=description)
 
         for i, template_step in enumerate(self.steps):
             if isinstance(template_step, TemplateStep):
                 print('Hyperparam binding for template step {} ({}) : {}'.format(
-                    template_step.name, template_step.semantic_type, binding[template_step.name].hyperparams))
+                    template_step.name, template_step.semantic_type,
+                    binding[template_step.name].hyperparams))
                 result.add_step(binding[template_step.name])
             elif isinstance(template_step, PrimitiveStep):
                 result.add_step(PrimitiveStep(template_step.primitive_description))
             elif isinstance(template_step, SubpipelineStep):
-                result.add_step(SubpipelineStep(template_step.pipeline_id, resolver=template_step.resolver))
+                result.add_step(
+                    SubpipelineStep(template_step.pipeline_id, resolver=template_step.resolver))
             elif isinstance(template_step, PlaceholderStep):
                 result.add_step(PlaceholderStep(template_step.resolver))
             else:
-                raise exceptions.InvalidArgumentValueError("Unkown step type: {}".format(type(template_step)))
+                raise exceptions.InvalidArgumentValueError(
+                    "Unkown step type: {}".format(type(template_step)))
 
         for template_step, step in zip(self.steps, result.steps):
             # add ouptuts
@@ -216,7 +236,8 @@ class TemplatePipeline(Pipeline):
                 for name, detail in template_step.arguments.items():
                     step.add_argument(name, detail['type'], detail['data'])
             elif isinstance(template_step, TemplateStep):
-                for ((name, detail), data) in zip(template_step.expected_arguments.items(), template_step.inputs):
+                for ((name, detail), data) in zip(template_step.expected_arguments.items(),
+                                                  template_step.inputs):
                     step.add_argument(name, detail['type'], data)
             else:
                 for input in template_step.inputs:
@@ -230,7 +251,8 @@ class TemplatePipeline(Pipeline):
         return result
 
     @classmethod
-    def from_json(cls: typing.Type[TP], pipeline_description: typing.Dict, *, resolver: Resolver = None) -> TP:
+    def from_json(cls: typing.Type[TP], pipeline_description: typing.Dict, *,
+                  resolver: Resolver = None) -> TP:
         PIPELINE_SCHEMA_VALIDATOR.validate(pipeline_description)
 
         # If no timezone information is provided, we assume UTC. If there is timezone information,
@@ -241,17 +263,21 @@ class TemplatePipeline(Pipeline):
 
         pipeline = cls(
             pipeline_id=pipeline_description['id'], created=created, context=context, source=source,
-            name=pipeline_description.get('name', None), description=pipeline_description.get('description', None)
+            name=pipeline_description.get('name', None),
+            description=pipeline_description.get('description', None)
         )
 
         for input_description in pipeline_description['inputs']:
             pipeline.add_input(input_description.get('name', None))
 
         for step_description in pipeline_description['steps']:
-            if step_description['type'] == PipelineStep.PLACEHOLDER and 'subtype' in step_description:
-                step = cls._get_step_class(step_description['subtype']).from_json(step_description, resolver=resolver)
+            if step_description[
+                'type'] == PipelineStep.PLACEHOLDER and 'subtype' in step_description:
+                step = cls._get_step_class(step_description['subtype']).from_json(step_description,
+                                                                                  resolver=resolver)
             else:
-                step = cls._get_step_class(step_description['type']).from_json(step_description, resolver=resolver)
+                step = cls._get_step_class(step_description['type']).from_json(step_description,
+                                                                               resolver=resolver)
             pipeline.add_step(step)
 
         for output_description in pipeline_description['outputs']:
@@ -318,9 +344,11 @@ class DSBoxTemplate():
 
         self.step_number = {}
         self.addstep_mapper = {
-            ("<class 'd3m.container.pandas.DataFrame'>", "<class 'd3m.container.numpy.ndarray'>"): "d3m.primitives.data.DataFrameToNDArray",
+            ("<class 'd3m.container.pandas.DataFrame'>",
+             "<class 'd3m.container.numpy.ndarray'>"): "d3m.primitives.data.DataFrameToNDArray",
             # ("<class 'd3m.container.pandas.DataFrame'>", "<class 'd3m.container.numpy.ndarray'>"): "d3m.primitives.sklearn_wrap.SKImputer",
-            ("<class 'd3m.container.numpy.ndarray'>", "<class 'd3m.container.pandas.DataFrame'>"): "d3m.primitives.data.NDArrayToDataFrame"
+            ("<class 'd3m.container.numpy.ndarray'>",
+             "<class 'd3m.container.pandas.DataFrame'>"): "d3m.primitives.data.NDArrayToDataFrame"
         }
         self.description_info = ""
         # Need to be set by subclass inheriting DSBoxTemplate
@@ -329,9 +357,12 @@ class DSBoxTemplate():
     def add_stepcheck(self):
         check = np.zeros(shape=(len(self.primitive), len(self.primitive))).astype(int)
         for i, v in enumerate(self.primitive.keys()):
-            inputs = self.primitive[v].metadata.query()["primitive_code"]["class_type_arguments"]["Inputs"]
+            inputs = self.primitive[v].metadata.query()["primitive_code"]["class_type_arguments"][
+                "Inputs"]
             for j, u in enumerate(self.primitive.keys()):
-                outputs = self.primitive[u].metadata.query()["primitive_code"]["class_type_arguments"]["Outputs"]
+                outputs = \
+                self.primitive[u].metadata.query()["primitive_code"]["class_type_arguments"][
+                    "Outputs"]
                 try:
                     inp = inputs.__args__
                     if outputs in inp:
@@ -382,7 +413,8 @@ class DSBoxTemplate():
         # pprint(binding)
         return self._to_pipeline(binding, sequence)
 
-    def add_inputs_to_confPonit(self, configuration_point: ConfigurationPoint) -> ConfigurationPoint:
+    def add_inputs_to_confPonit(self,
+                                configuration_point: ConfigurationPoint) -> ConfigurationPoint:
 
         io_conf = copy.deepcopy(configuration_point)
         for step in self.template['steps']:
@@ -493,7 +525,7 @@ class DSBoxTemplate():
         return False
 
     def bind_primitive_IO(self, primitive: PrimitiveStep, *templateIO):
-        #print(templateIO)
+        # print(templateIO)
         if len(templateIO) > 0:
             primitive.add_argument(
                 name="inputs",
@@ -501,7 +533,8 @@ class DSBoxTemplate():
                 data_reference=templateIO[0])
 
         if len(templateIO) > 1:
-            arguments = primitive.primitive.metadata.query()['primitive_code']['instance_methods']['set_training_data']['arguments']
+            arguments = primitive.primitive.metadata.query()['primitive_code']['instance_methods'][
+                'set_training_data']['arguments']
             if "outputs" in arguments:
                 # Some primitives (e.g. GreedyImputer) require "outputs", while others do
                 # not (e.g. MeanImputer)
@@ -526,7 +559,8 @@ class DSBoxTemplate():
         # print(sequence)
         # print("[INFO] list:",list(map(str, PipelineContext)))
         pipeline = Pipeline(name="dsbox_" + str(id(binding)),
-                            context=PipelineContext.PRETRAINING, description = self.description_info) #'PRETRAINING'
+                            context=PipelineContext.PRETRAINING,
+                            description=self.description_info)  # 'PRETRAINING'
         templateinput = pipeline.add_input("input dataset")
 
         # save temporary output for another step to take as input
@@ -537,7 +571,8 @@ class DSBoxTemplate():
         #  pipeline. The IO and hyperparameter are also handled here.
         for i, step in enumerate(sequence):
             self.step_number[step] = i
-            #primitive_step = PrimitiveStep(self.primitive[binding[step]["primitive"]].metadata.query())
+            # primitive_step = PrimitiveStep(self.primitive[binding[step][
+            # "primitive"]].metadata.query())
             primitive_name = binding[step]["primitive"]
             if primitive_name in self.primitive:
                 primitive_desc = dict(d3m_index.get_primitive(primitive_name).metadata.query())
@@ -547,7 +582,8 @@ class DSBoxTemplate():
                     primitive_desc["runtime"] = binding[step]["runtime"]
                 primitive_step = PrimitiveStep(primitive_desc)
             else:
-                raise exceptions.InvalidArgumentValueError("Error, can't find the primitive : ", primitive_name)
+                raise exceptions.InvalidArgumentValueError("Error, can't find the primitive : ",
+                                                           primitive_name)
 
             if binding[step]["hyperparameters"] != {}:
                 hyper = binding[step]["hyperparameters"]
@@ -602,7 +638,7 @@ class DSBoxTemplate():
                 else:
                     # other data format, not supported, raise error
                     print("Error: Wrong format of the description: "
-                          "Unsupported data format found : ",type(description))
+                          "Unsupported data format found : ", type(description))
 
                 values += value_step
 
@@ -631,7 +667,7 @@ class DSBoxTemplate():
             # to a list with single tuple element
             hyperDict = dict(map(
                 lambda kv:
-                (kv[0], [kv[1]]) if isinstance(kv[1],tuple) else (kv[0], kv[1]),
+                (kv[0], [kv[1]]) if isinstance(kv[1], tuple) else (kv[0], kv[1]),
                 hyperDict.items()
             ))
 
@@ -645,7 +681,7 @@ class DSBoxTemplate():
         return value
 
     def get_target_step_number(self):
-        #self.template[0].template['output']
+        # self.template[0].template['output']
         return self.step_number[self.template['output']]
 
     def get_output_step_number(self):

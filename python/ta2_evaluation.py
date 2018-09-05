@@ -2,6 +2,7 @@ import time
 import json
 import os
 import signal
+import subprocess
 import traceback
 import sys
 from pprint import pprint
@@ -72,6 +73,7 @@ def main():
 
             print('[INFO] Killing child processes', flush=True)
 
+
             print('[INFO] writing results', flush=True)
             controller.write_training_results()
 
@@ -90,8 +92,6 @@ def main():
             # This os._exit() cannot be caught.
             # print('SIGNAL exiting {}'.format(configuration_file), flush=True)
             os._exit(0)
-
-
 
     if timeout > 0:
         signal.signal(signal.SIGALRM, write_results_and_exit)

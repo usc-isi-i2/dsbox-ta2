@@ -37,7 +37,8 @@ class FittedPipeline:
         the location of the files of pipeline
     """
 
-    def __init__(self, pipeline: Pipeline, dataset_id: str, log_dir: str, *, id: str = None, metric_descriptions: typing.List = [], template=None, problem=None) -> None:
+    def __init__(self, pipeline: Pipeline, dataset_id: str, log_dir: str, *, id: str = None,
+                 metric_descriptions: typing.List = [], template=None, problem=None) -> None:
 
         # these two are mandatory
         # TODO add the check
@@ -137,6 +138,11 @@ class FittedPipeline:
         for each_step in structure['steps']:
             primitive_name = each_step["primitive"]["python_path"]
             each_step["timing"] = self.runtime.timing[primitive_name]
+        # FIXME [TIMING]
+        # add timing for each step
+        # for each_step in structure['steps']:
+        #     primitive_name = each_step["primitive"]["python_path"]
+        #     each_step["timing"] = self.runtime.timing[primitive_name]
         # Save pipeline rank
         if self.metric:
             metric: str = self.metric['metric']
@@ -159,7 +165,9 @@ class FittedPipeline:
         except:
             structure['problem_taskSubType'] = "NONE"
         structure['total_time_used_with_cache'] = self.runtime.timing["total_time_used_with_cache"]
-        structure['total_time_used_without_cache'] = self.runtime.timing["total_time_used_without_cache"]
+
+        structure['total_time_used_without_cache'] = self.runtime.timing[
+            "total_time_used_without_cache"]
         structure['pipeline_rank'] = rank
         structure['metric'] = metric
         structure['metric_value'] = value
@@ -173,7 +181,8 @@ class FittedPipeline:
         with open(json_loc, 'w') as out:
             json.dump(structure, out)
 
-        # save the pipeline spec under executables to be a json file simply specifies the pipeline id.
+        # save the pipeline spec under executables to be a json file simply specifies the
+        # pipeline id.
         json_loc = os.path.join(executable_dir, self.id + '.json')
         with open(json_loc, 'w') as out:
             json.dump({"fitted_pipeline_id": self.id}, out)
@@ -198,6 +207,7 @@ class FittedPipeline:
     @classmethod
     def load(cls: typing.Type[TP], folder_loc: str,
              pipeline_id: str, log_dir: str, dataset_id: str = None,) -> typing.Tuple[TP, Runtime]:
+
         '''
         Load the pipeline with given pipeline id and folder location
         '''
@@ -212,8 +222,7 @@ class FittedPipeline:
 
         pipeline_definition_loc = os.path.join(pipeline_dir,
                                                fitted_pipeline_id + '.json')
-        print("The following pipeline file will be loaded:")
-        print(pipeline_definition_loc)
+        _logger.info(f"pipeline file will be loaded: {pipeline_definition_loc}")
 
         with open(pipeline_definition_loc, 'r') as f:
             structure = json.load(f)
@@ -251,11 +260,9 @@ class FittedPipeline:
         """
         This method is used by the pickler as the state of object.
         The object can be recovered through this state uniquely.
-
         Returns:
             state: Dict
                 dictionary of important attributes of the object
-
         """
         # print("[INFO] Get state called")
 
@@ -278,7 +285,6 @@ class FittedPipeline:
             state: typing.Dict
                 dictionary of the objects picklable state
         Returns:
-
         """
 
         # print("[INFO] Set state called!")

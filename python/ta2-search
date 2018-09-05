@@ -9,15 +9,17 @@ import argparse
 import json
 import os
 import signal
+import subprocess
 import sys
 import traceback
 from pprint import pprint
 
 from importlib import reload
 import dsbox.controller.controller
+
 reload(dsbox.controller.controller)
 from dsbox.controller.controller import Controller
-from  dsbox.controller.controller import Status
+from dsbox.controller.controller import Status
 import os
 import psutil
 # controller = Controller(development_mode=True)
@@ -26,9 +28,7 @@ import getpass
 
 start_time = time.time()
 
-
 def main(args):
-
     timeout = 0
     configuration_file = args.configuration_file
     debug = args.debug
@@ -138,6 +138,8 @@ def main(args):
 
     status = controller.train()
     print("*+" * 10)
+    controller.write_training_results()
+    print("*+" * 10)
     status = controller.test()
     print("[INFO] Testing Done")
 
@@ -185,7 +187,8 @@ if __name__ == "__main__":
     parser.add_argument('--cpus', action='store', type=int, default=-1,
                         help='Overide configuation number of cpus usage setting')
     parser.add_argument('--output-prefix', action='store', default=None,
-                        help='''Overide configuation output directories paths (pipeline_logs_root, executables_root, temp_storage_root).
+                        help='''Overide configuation output directories paths (
+                        pipeline_logs_root, executables_root, temp_storage_root).
                         Replace path prefix "*/output/" with argument''')
     parser.add_argument('--debug', action='store_true', default=False,
                         help='Debug mode. No timeout and no output redirection')

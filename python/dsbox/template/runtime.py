@@ -4,6 +4,7 @@ import json
 import os
 import typing
 import platform
+import time
 
 import contextlib
 import logging
@@ -29,6 +30,7 @@ from multiprocessing import current_process
 import common_primitives.utils as utils
 import d3m.metadata.base as mbase
 
+from dsbox.JobManager.cache import CandidateCache, PrimitivesCache
 
 _logger = logging.getLogger(__name__)
 
@@ -73,9 +75,11 @@ class Runtime:
         self.pipeline: typing.List[typing.Optional[base.PrimitiveBase]] = [None] * n_steps
         self.outputs: typing.List[typing.Tuple[str, int]] = []
         self.log_dir = log_dir
-        self.timing = {}
+
+        self.timing: typing.Dict = dict()
         self.timing["total_time_used_with_cache"] = 0.0
         self.timing["total_time_used_without_cache"] = 0.0
+
         # Getting the outputs
         for output in self.pipeline_description.outputs:
             origin = output['data'].split('.')[0]
@@ -85,7 +89,8 @@ class Runtime:
         # Constructing DAG to determine the execution order
         execution_graph = networkx.DiGraph()
         for i in range(0, n_steps):
-            primitive_step: PrimitiveStep = typing.cast(PrimitiveStep, self.pipeline_description.steps[i])
+            primitive_step: PrimitiveStep = typing.cast(PrimitiveStep,
+                                                        self.pipeline_description.steps[i])
             for argument, data in primitive_step.arguments.items():
                 argument_edge = data['data']
                 origin = argument_edge.split('.')[0]
@@ -142,11 +147,13 @@ class Runtime:
             Arguments required to train the Pipeline
         """
         if 'cache' in arguments:
-            cache = arguments['cache']
+            cache: PrimitivesCache = arguments['cache']
         else:
-            cache = {}
+            print("[INFO] using local cache")
+            cache = PrimitivesCache()
 
-        primitives_outputs: typing.List[typing.Optional[base.CallResult]] = [None] * len(self.execution_order)
+        primitives_outputs: typing.List[typing.Optional[base.CallResult]] = [None] * len(
+            self.execution_order)
 
         hash_prefix = ""
 
@@ -160,118 +167,109 @@ class Runtime:
                 else:
                     primitive_arguments[argument] = arguments[argument][value['source']]
 
-            if isinstance(self.pipeline_description.steps[n_step], PrimitiveStep):
-                # first we need to compute the key to query in cache. For the key we use a hashed combination of the primitive name,
-                # its hyperparameters and its input dataset hash.
-                hyperparam_hash = hash(str(self.pipeline_description.steps[n_step].hyperparams.items()))
+            assert isinstance(self.pipeline_description.steps[n_step], PrimitiveStep), \
+                "pipeline step is not of type PrimitiveStep"
 
-                dataset_id = ""
-                dataset_digest = ""
-                try:
-                    dataset_id = str(primitive_arguments['inputs'].metadata.query(())['id'])
-                    dataset_digest = str(primitive_arguments['inputs'].metadata.query(())['digest'])
-                except:
-                    pass
-                dataset_hash = hash(str(primitive_arguments) + dataset_id + dataset_digest)
+            # get the hyperparam hash
+            # pipe_step = self.pipeline_description.steps[n_step]
+            prim_name, prim_hash = cache._get_hash(
+                hash_prefix=None, pipe_step=self.pipeline_description.steps[n_step],
+                primitive_arguments=primitive_arguments)
 
-                prim_name = str(self.pipeline_description.steps[n_step].primitive)
-                prim_hash = hash(str([hyperparam_hash, dataset_hash, hash_prefix]))
+            cache_hit = False
+            _logger.info(
+                "Primitive Fit. 'id': '%(primitive_id)s', '(name, hash)': ('%(name)s', '%(hash)s'), 'worker_id': '%(worker_id)s'.",
+                {
+                    'primitive_id': self.pipeline_description.steps[n_step].primitive_description['id'],
+                    'name': prim_name,
+                    'hash': prim_hash,
+                    'worker_id': current_process()
+                },
+            )
+            primitive_step: PrimitiveStep = typing.cast(PrimitiveStep,
+                                                        self.pipeline_description.steps[n_step])
+            # _logger.debug('name: %s hyperparams: %s', prim_name, str(self.pipeline_description.steps[n_step].hyperparams))
+            if cache.is_hit_key(prim_hash=prim_hash, prim_name=prim_name):
 
-                hash_prefix = prim_hash
-                cache_hit = False
-                _logger.info(
-                    "Primitive Fit. 'id': '%(primitive_id)s', '(name, hash)': ('%(name)s', '%(hash)s'), 'worker_id': '%(worker_id)s'.",
-                    {
-                        'primitive_id': self.pipeline_description.steps[n_step].primitive_description['id'],
-                        'name': prim_name,
-                        'hash': prim_hash,
-                        'worker_id': current_process()
-                    },
-                )
-                _logger.debug('name: %s hyperparams: %s', prim_name, str(self.pipeline_description.steps[n_step].hyperparams))
+                fitting_time, model = cache.lookup_key(prim_name=prim_name, prim_hash=prim_hash)
+                primitives_outputs[n_step] = \
+                    self._produce_step(model=model, step=primitive_step,
+                                       primitive_arguments=primitive_arguments)
+                self.pipeline[n_step] = model
 
-                if (prim_name, prim_hash) in cache:
-                    # primitives_outputs[n_step],model =
-                    # self._primitive_step_fit(n_step,
-                    # self.pipeline_description.steps[n_step],
-                    # primitive_arguments)
-                    primitives_outputs[n_step], model = cache[
-                        (prim_name, prim_hash)]
-                    self.pipeline[n_step] = model
-                    print("[INFO] Hit@cache:", (prim_name, prim_hash))
-                    _logger.debug("Hit@cache: (%s, %s)", prim_name, prim_hash)
-                    cache_hit = True
-
-                    # assert type()
-
-                else:
-                    print("[INFO] Push@cache:", (prim_name, prim_hash))
-                    _logger.debug("Push@cache: (%s, %s)", prim_name, prim_hash)
-                    primitive_step: PrimitiveStep = \
-                        typing.cast(PrimitiveStep,
-                                    self.pipeline_description.steps[n_step]
-                                    )
-                    
-                    primitives_outputs[n_step], model = \
-                        self._primitive_step_fit(n_step,
-                                                 primitive_step,
-                                                 primitive_arguments
-                                                 )
-                    # add the entry to cache:
-                    try:
-                        # copying back sklearn_wrap.SKGenericUnivariateSelect fails
-                        cache[(prim_name, prim_hash, "fit_timing")] = time.time() - time_start
-                        cache[(prim_name, prim_hash)] = (primitives_outputs[n_step].copy(), model)
-                    except:
-                        _logger.info('Push Cache failed: (%s, %s)', prim_name, prim_hash)
-
-                    if _logger.getEffectiveLevel() <= 10:
-
-                        # _logger.debug('cache keys')
-                        # for key in sorted(cache.keys()):
-                        #     _logger.debug('   {}'.format(key))
-
-                        debug_file = os.path.join(
-                            self.log_dir, 'dfs',
-                            'fit_{}_{}_{:02}_{}'.format(self.pipeline_description.id, self.fitted_pipeline_id, n_step, primitive_step.primitive))
-                        _logger.debug(
-                            "'id': '%(pipeline_id)s', 'fitted': '%(fitted_pipeline_id)s', 'name': '%(name)s', 'worker_id': '%(worker_id)s'. Output is written to: '%(path)s'.",
-                            {
-                                'pipeline_id': self.pipeline_description.id,
-                                'fitted_pipeline_id': self.fitted_pipeline_id,
-                                'name': primitive_step.primitive,
-                                'worker_id': current_process(),
-                                'path': debug_file
-                            },
-                        )
-                        if primitives_outputs[n_step] is None:
-                            with open(debug_file) as f:
-                                f.write("None")
-                        else:
-                            if isinstance(primitives_outputs[n_step], DataFrame):
-                                try:
-                                    primitives_outputs[n_step][:MAX_DUMP_SIZE].to_csv(debug_file)
-                                except:
-                                    pass
-
-            self.timing["total_time_used_with_cache"] += (time.time() - time_start)
-            if cache_hit:
-                # if hit cache, we need to get the original fitting time used
-                if prim_name not in self.timing:
-                    self.timing[prim_name] = {}
-                self.timing[prim_name]["fit"] = cache[(prim_name, prim_hash, "fit_timing")]
-                self.timing["total_time_used_without_cache"] += cache[(prim_name, prim_hash, "fit_timing")]
+                cache_reading_time = (time.time() - time_start)
+                print(f"[INFO] cache reading took {cache_reading_time} s and "
+                      f"fitting time took {fitting_time} s")
+                cache_hit = True
             else:
-                # otherwise, use the measured time
-                if prim_name not in self.timing:
-                    self.timing[prim_name] = {}
-                self.timing[prim_name]["fit"] = time.time() - time_start
-                self.timing["total_time_used_without_cache"] += (time.time() - time_start)
 
+                primitives_outputs[n_step], model = \
+                    self._primitive_step_fit(n_step, primitive_step, primitive_arguments)
+
+                fitting_time = (time.time() - time_start)
+                # add the entry to cache:
+                cache.push_key(prim_name=prim_name, prim_hash=prim_hash, model=model,
+                               fitting_time=fitting_time)
+
+                # log fitting results
+                self._log_fitted_step(cache, n_step, primitive_step, primitives_outputs)
+
+            # update the timing logs of the fit process
+            self.timing["total_time_used_with_cache"] += (time.time() - time_start)
+            # FIXME [TIMING] this part of code is not compatible with current version. It has to
+            # either be transferd to the cache or discarded completely
+            # if cache_hit:
+            #     # if hit cache, we need to get the original fitting time used
+            #     if prim_name not in self.timing:
+            #         self.timing[prim_name] = {}
+            #     self.timing[prim_name]["fit"] = cache[(prim_name, prim_hash, "fit_timing")]
+            #     self.timing["total_time_used_without_cache"] += cache[
+            #         (prim_name, prim_hash, "fit_timing")]
+            # else:
+            #     # otherwise, use the measured time
+            #     if prim_name not in self.timing:
+            #         self.timing[prim_name] = {}
+            #     self.timing[prim_name]["fit"] = time.time() - time_start
+            #     self.timing["total_time_used_without_cache"] += (time.time() - time_start)
+        # END FOR
         # kyao!!!!
         self.fit_outputs = primitives_outputs
 
-    def _primitive_step_fit(self, n_step: int, step: PrimitiveStep, primitive_arguments: typing.Dict[str, typing.Any]) -> base.CallResult:
+    def _log_fitted_step(self, cache, n_step, primitive_step, primitives_outputs):
+        if _logger.getEffectiveLevel() <= 10:
+
+            _logger.debug('cache keys')
+            for key in sorted(cache.storage.keys()):
+                _logger.debug('   {}'.format(key))
+
+            debug_file = os.path.join(
+                self.log_dir, 'dfs',
+                'fit_{}_{}_{:02}_{}'.format(self.pipeline_description.id,
+                                            self.fitted_pipeline_id, n_step,
+                                            primitive_step.primitive))
+            _logger.debug(
+                "'id': '%(pipeline_id)s', 'fitted': '%(fitted_pipeline_id)s', 'name': '%("
+                "name)s', 'worker_id': '%(worker_id)s'. Output is written to: '%(path)s'.",
+                {
+                    'pipeline_id': self.pipeline_description.id,
+                    'fitted_pipeline_id': self.fitted_pipeline_id,
+                    'name': primitive_step.primitive,
+                    'worker_id': current_process(),
+                    'path': debug_file
+                },
+            )
+            if primitives_outputs[n_step] is None:
+                with open(debug_file) as f:
+                    f.write("None")
+            else:
+                if isinstance(primitives_outputs[n_step], DataFrame):
+                    try:
+                        primitives_outputs[n_step][:MAX_DUMP_SIZE].to_csv(debug_file)
+                    except:
+                        pass
+
+    def _primitive_step_fit(self, n_step: int, step: PrimitiveStep,
+                            primitive_arguments: typing.Dict[str, typing.Any]) -> base.CallResult:
         """
         Execute a step and train it with primitive arguments.
 
@@ -286,7 +284,8 @@ class Runtime:
 
         """
         primitive: typing.Type[base.PrimitiveBase] = step.primitive
-        primitive_hyperparams = primitive.metadata.query()['primitive_code']['class_type_arguments']['Hyperparams']
+        primitive_hyperparams = \
+        primitive.metadata.query()['primitive_code']['class_type_arguments']['Hyperparams']
         custom_hyperparams = dict()
 
         if bool(step.hyperparams):
@@ -296,16 +295,16 @@ class Runtime:
                 else:
                     custom_hyperparams[hyperparam] = value
 
-        training_arguments_primitive = self._primitive_arguments(primitive, 'set_training_data')
-        training_arguments: typing.Dict[str, typing.Any] = {}
-        produce_params_primitive = self._primitive_arguments(primitive, 'produce')
-        produce_params: typing.Dict[str, typing.Any] = {}
+        produce_params = self._get_fit_produce_params(primitive, primitive_arguments)
+        training_arguments = self._get_fit_produce_params(primitive, primitive_arguments,
+                                                          mode='set_training_data')
+        # training_arguments_primitive = self._primitive_arguments(primitive, 'set_training_data')
+        # training_arguments: typing.Dict[str, typing.Any] = {}
+        #
+        # for param, value in primitive_arguments.items():
+        #     if param in training_arguments_primitive:
+        #         training_arguments[param] = value
 
-        for param, value in primitive_arguments.items():
-            if param in produce_params_primitive:
-                produce_params[param] = value
-            if param in training_arguments_primitive:
-                training_arguments[param] = value
         try:
             model = primitive(hyperparams=primitive_hyperparams(
                 primitive_hyperparams.defaults(), **custom_hyperparams))
@@ -317,23 +316,50 @@ class Runtime:
         # now only run when "cross_validation" was found
         # TODO: add one more "if" to restrict runtime to run cross validation only for tuning steps
         # if step_number == pass_in_number
-        if 'runtime' in step.primitive_description and "cross_validation" in step.primitive_description['runtime']:
+        if 'runtime' in step.primitive_description and "cross_validation" in \
+                step.primitive_description['runtime']:
             self.cross_validation_result = self._cross_validation(
-                primitive, training_arguments, produce_params, primitive_hyperparams, custom_hyperparams,
+                primitive, training_arguments, produce_params, primitive_hyperparams,
+                custom_hyperparams,
                 step.primitive_description['runtime'])
 
         model.set_training_data(**training_arguments)
         model.fit()
         self.pipeline[n_step] = model
 
-        if str(primitive) == 'd3m.primitives.dsbox.Encoder':
-            total_columns = self._total_encoder_columns(model, produce_params['inputs'])
-            if total_columns > 500:
-                raise Exception('Total column limit exceeded after encoding: {}'.format(total_columns))
+# <<<<<<< HEAD
+#         if str(primitive) == 'd3m.primitives.dsbox.Encoder':
+#             total_columns = self._total_encoder_columns(model, produce_params['inputs'])
+#             if total_columns > 500:
+#                 raise Exception('Total column limit exceeded after encoding: {}'.format(total_columns))
 
-        produce_result = model.produce(**produce_params).value
+#         produce_result = model.produce(**produce_params).value
+
+#         return produce_result, model
+# =======
+        produce_result = self._produce_step(model=model, step=step,
+                                            primitive_arguments=primitive_arguments)
 
         return produce_result, model
+
+    def _produce_step(self, model: base.PrimitiveBase, step: PrimitiveStep,
+                      primitive_arguments: typing.Dict[str, typing.Any]):
+
+        primitive: typing.Type[base.PrimitiveBase] = step.primitive
+        produce_params = self._get_fit_produce_params(primitive, primitive_arguments)
+
+        produce_result = model.produce(**produce_params)
+
+        return produce_result.value
+
+    def _get_fit_produce_params(self, primitive, primitive_arguments, mode='produce'):
+        params_primitive = self._primitive_arguments(primitive, mode)
+        params: typing.Dict[str, typing.Any] = {}
+        for param, value in primitive_arguments.items():
+            if param in params_primitive:
+                params[param] = value
+        return params
+# >>>>>>> template-phaseI-refactored
 
     def _cross_validation(self, primitive: typing.Type[base.PrimitiveBase],
                           training_arguments: typing.Dict,
@@ -374,8 +400,11 @@ class Runtime:
                             model = primitive(hyperparams=primitive_hyperparams(
                                 primitive_hyperparams.defaults(), **custom_hyperparams))
                         except:
-                            print("******************\n[ERROR]Hyperparameters unsuccesfully set - using defaults")
-                            model = primitive(hyperparams=primitive_hyperparams(primitive_hyperparams.defaults()))
+                            print(
+                                "******************\n[ERROR]Hyperparameters unsuccesfully set - "
+                                "using defaults")
+                            model = primitive(
+                                hyperparams=primitive_hyperparams(primitive_hyperparams.defaults()))
 
                         if model is None:
                             return results
@@ -405,10 +434,12 @@ class Runtime:
                                 metricDesc = PerformanceMetric.parse(metric_description['metric'])
                                 metric: typing.Callable = metricDesc.get_function()
                                 params: typing.Dict = metric_description['params']
-                                validation_metrics[metric_description['metric']].append(metric(testY, ypred, **params))
+                                validation_metrics[metric_description['metric']].append(
+                                    metric(testY, ypred, **params))
 
                         except Exception as e:
-                            sys.stderr.write("ERROR: cross_validation {}: {}\n".format(primitive, e))
+                            sys.stderr.write(
+                                "ERROR: cross_validation {}: {}\n".format(primitive, e))
                             # traceback.print_exc(e)
 
         if num == 0:
@@ -444,7 +475,8 @@ class Runtime:
         method
             A method of the primitive.
         """
-        return set(primitive.metadata.query()['primitive_code']['instance_methods'][method]['arguments'])
+        return set(
+            primitive.metadata.query()['primitive_code']['instance_methods'][method]['arguments'])
 
     def produce(self, **arguments: typing.Any) -> typing.List:
         """
@@ -459,12 +491,15 @@ class Runtime:
 
         for i in range(0, len(self.execution_order)):
             n_step = self.execution_order[i]
-            primitive_step: PrimitiveStep = typing.cast(PrimitiveStep, self.pipeline_description.steps[n_step])
-            produce_arguments_primitive = self._primitive_arguments(primitive_step.primitive, 'produce')
+            primitive_step: PrimitiveStep = typing.cast(PrimitiveStep,
+                                                        self.pipeline_description.steps[n_step])
+            produce_arguments_primitive = self._primitive_arguments(primitive_step.primitive,
+                                                                    'produce')
             produce_arguments: typing.Dict[str, typing.Any] = {}
 
             _logger.info(
-                "Primitive Produce. 'id': '%(primitive_id)s', 'name': '%(name)s', 'worker_id': '%(worker_id)s'.",
+                "Primitive Produce. 'id': '%(primitive_id)s', 'name': '%(name)s', 'worker_id': "
+                "'%(worker_id)s'.",
                 {
                     'primitive_id': primitive_step.primitive_description['id'],
                     'name': primitive_step.primitive,
@@ -488,9 +523,16 @@ class Runtime:
 
             if _logger.getEffectiveLevel() <= 10:
                 debug_file = os.path.join(self.log_dir, 'dfs',
-                                          'pro_{}_{}_{:02}_{}'.format(self.pipeline_description.id, self.fitted_pipeline_id, n_step, primitive_step.primitive))
+# <<<<<<< HEAD
+#                                           'pro_{}_{}_{:02}_{}'.format(self.pipeline_description.id, self.fitted_pipeline_id, n_step, primitive_step.primitive))
+# =======
+                                          'produce_{}_{}_{:02}_{}'.format(
+                                              self.pipeline_description.id, self.fitted_pipeline_id,
+                                              n_step, primitive_step.primitive))
+# >>>>>>> template-phaseI-refactored
                 _logger.debug(
-                    "'id': '%(pipeline_id)s', 'fitted': '%(fitted_pipeline_id)s', 'name': '%(name)s', 'worker_id': '%(worker_id)s'. Output is written to: '%(path)s'.",
+                    "'id': '%(pipeline_id)s', 'fitted': '%(fitted_pipeline_id)s', 'name': '%("
+                    "name)s', 'worker_id': '%(worker_id)s'. Output is written to: '%(path)s'.",
                     {
                         'pipeline_id': self.pipeline_description.id,
                         'fitted_pipeline_id': self.fitted_pipeline_id,
@@ -567,22 +609,26 @@ def add_target_columns_metadata(dataset: 'Dataset', problem_doc_metadata: 'Metad
         targets = data['targets']
         for target in targets:
             semantic_types = list(dataset.metadata.query(
-                (target['resID'], metadata_base.ALL_ELEMENTS, target['colIndex'])).get('semantic_types', []))
+                (target['resID'], metadata_base.ALL_ELEMENTS, target['colIndex'])).get(
+                'semantic_types', []))
 
             if 'https://metadata.datadrivendiscovery.org/types/Target' not in semantic_types:
                 semantic_types.append('https://metadata.datadrivendiscovery.org/types/Target')
                 dataset.metadata = dataset.metadata.update(
-                    (target['resID'], metadata_base.ALL_ELEMENTS, target['colIndex']), {'semantic_types': semantic_types})
+                    (target['resID'], metadata_base.ALL_ELEMENTS, target['colIndex']),
+                    {'semantic_types': semantic_types})
 
             if 'https://metadata.datadrivendiscovery.org/types/TrueTarget' not in semantic_types:
                 semantic_types.append('https://metadata.datadrivendiscovery.org/types/TrueTarget')
                 dataset.metadata = dataset.metadata.update(
-                    (target['resID'], metadata_base.ALL_ELEMENTS, target['colIndex']), {'semantic_types': semantic_types})
+                    (target['resID'], metadata_base.ALL_ELEMENTS, target['colIndex']),
+                    {'semantic_types': semantic_types})
 
     return dataset
 
 
-def generate_pipeline(pipeline_path: str, dataset_path: str, problem_doc_path: str, resolver: Resolver = None) -> Runtime:
+def generate_pipeline(pipeline_path: str, dataset_path: str, problem_doc_path: str,
+                      resolver: Resolver = None) -> Runtime:
     """
     Simplified interface that fit a pipeline with a dataset
 
@@ -602,10 +648,12 @@ def generate_pipeline(pipeline_path: str, dataset_path: str, problem_doc_path: s
     pipeline_description = None
     if '.json' in pipeline_path:
         with open(pipeline_path) as pipeline_file:
-            pipeline_description = Pipeline.from_json(string_or_file=pipeline_file, resolver=resolver)
+            pipeline_description = Pipeline.from_json(string_or_file=pipeline_file,
+                                                      resolver=resolver)
     else:
         with open(pipeline_path) as pipeline_file:
-            pipeline_description = Pipeline.from_yaml(string_or_file=pipeline_file, resolver=resolver)
+            pipeline_description = Pipeline.from_yaml(string_or_file=pipeline_file,
+                                                      resolver=resolver)
 
     # Problem Doc
     problem_doc = load_problem_doc(problem_doc_path)

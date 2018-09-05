@@ -185,16 +185,16 @@ print()
 point = None
 for i in range(10):
     print(i)
-    point, result = df.search_one_iter(point, max_per_dimension=3)
+    point, result = df.search_one_iter(point, max_per_dim=3)
     print(point, result)
 
 print()
 point = None
 for i in range(10):
     print(i)
-    point, result = df.search_one_iter(point, max_per_dimension=3)
+    point, result = df.search_one_iter(point, max_per_dim=3)
     print(point, result)
-    point, result = df.search_one_iter(point, result, max_per_dimension=3)
+    point, result = df.search_one_iter(point, result, max_per_dim=3)
     print(point, result)
 
 ######
