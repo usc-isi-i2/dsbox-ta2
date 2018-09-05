@@ -5,8 +5,9 @@ import logging
 from threading import Timer
 from math import ceil
 import traceback
-from multiprocessing import Pool, Queue, Manager, Semaphore, current_process
+from multiprocessing import Pool, Queue, Manager, Process, current_process
 from multiprocessing import get_logger
+import dsbox.JobManager.mplog as mplog
 
 _logger = logging.getLogger(__name__)
 
@@ -142,7 +143,7 @@ class DistributedJobManager:
     def _setup_timeout_timer(self):
         self.timer = Timer(self.timeout*60, self._kill_me)
         self.timer.start()
-        print("timer started: {} min".format(self.timeout))
+        _logger.warning(f"timer started: {self.timeout} min")
 
     def _kill_me(self):
         _logger.warning("search TIMEOUT reached! Killing search Process")
