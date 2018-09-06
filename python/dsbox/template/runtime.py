@@ -10,7 +10,11 @@ import contextlib
 import logging
 import sys
 import tempfile
+import multiprocessing.managers
+import time
+
 from pandas import DataFrame
+from numpy import vectorize
 from collections import defaultdict
 from sklearn.model_selection import KFold, StratifiedKFold  # type: ignore
 from d3m.metadata.problem import PerformanceMetric
@@ -23,6 +27,9 @@ from d3m.metadata.base import Metadata
 from d3m.metadata.pipeline import Pipeline, PrimitiveStep, Resolver
 from d3m.primitive_interfaces import base
 from multiprocessing import current_process
+import common_primitives.utils as utils
+import d3m.metadata.base as mbase
+
 from dsbox.JobManager.cache import CandidateCache, PrimitivesCache
 
 _logger = logging.getLogger(__name__)
@@ -163,34 +170,25 @@ class Runtime:
             assert isinstance(self.pipeline_description.steps[n_step], PrimitiveStep), \
                 "pipeline step is not of type PrimitiveStep"
 
-            # first we need to compute the key to query in cache. For the key we use a hashed
-            # combination of the primitive name,
-
             # get the hyperparam hash
             # pipe_step = self.pipeline_description.steps[n_step]
             prim_name, prim_hash = cache._get_hash(
                 hash_prefix=None, pipe_step=self.pipeline_description.steps[n_step],
                 primitive_arguments=primitive_arguments)
 
-            # FIXME get rid of this loop as it completely ruins the cache
-            hash_prefix = prim_hash
-
             cache_hit = False
             _logger.info(
-                "Primitive Fit. 'id': '%(primitive_id)s', '(name, hash)': ('%(name)s', "
-                "'%(hash)s'), 'worker_id': '%(worker_id)s'.",
+                "Primitive Fit. 'id': '%(primitive_id)s', '(name, hash)': ('%(name)s', '%(hash)s'), 'worker_id': '%(worker_id)s'.",
                 {
-                    'primitive_id': (self.pipeline_description.steps[n_step]
-                                     .primitive_description['id']),
+                    'primitive_id': self.pipeline_description.steps[n_step].primitive_description['id'],
                     'name': prim_name,
                     'hash': prim_hash,
                     'worker_id': current_process()
                 },
             )
-
             primitive_step: PrimitiveStep = typing.cast(PrimitiveStep,
                                                         self.pipeline_description.steps[n_step])
-            # if (prim_name, prim_hash) in cache:
+            # _logger.debug('name: %s hyperparams: %s', prim_name, str(self.pipeline_description.steps[n_step].hyperparams))
             if cache.is_hit_key(prim_hash=prim_hash, prim_name=prim_name):
 
                 fitting_time, model = cache.lookup_key(prim_name=prim_name, prim_hash=prim_hash)
@@ -329,6 +327,16 @@ class Runtime:
         model.fit()
         self.pipeline[n_step] = model
 
+# <<<<<<< HEAD
+#         if str(primitive) == 'd3m.primitives.dsbox.Encoder':
+#             total_columns = self._total_encoder_columns(model, produce_params['inputs'])
+#             if total_columns > 500:
+#                 raise Exception('Total column limit exceeded after encoding: {}'.format(total_columns))
+
+#         produce_result = model.produce(**produce_params).value
+
+#         return produce_result, model
+# =======
         produce_result = self._produce_step(model=model, step=step,
                                             primitive_arguments=primitive_arguments)
 
@@ -351,6 +359,7 @@ class Runtime:
             if param in params_primitive:
                 params[param] = value
         return params
+# >>>>>>> template-phaseI-refactored
 
     def _cross_validation(self, primitive: typing.Type[base.PrimitiveBase],
                           training_arguments: typing.Dict,
@@ -497,7 +506,7 @@ class Runtime:
                     'worker_id': current_process()
                 },
             )
-
+            time_start = time.time()
             for argument, value in self.primitives_arguments[n_step].items():
                 if argument in produce_arguments_primitive:
                     if value['origin'] == 'steps':
@@ -514,9 +523,13 @@ class Runtime:
 
             if _logger.getEffectiveLevel() <= 10:
                 debug_file = os.path.join(self.log_dir, 'dfs',
+# <<<<<<< HEAD
+#                                           'pro_{}_{}_{:02}_{}'.format(self.pipeline_description.id, self.fitted_pipeline_id, n_step, primitive_step.primitive))
+# =======
                                           'produce_{}_{}_{:02}_{}'.format(
                                               self.pipeline_description.id, self.fitted_pipeline_id,
                                               n_step, primitive_step.primitive))
+# >>>>>>> template-phaseI-refactored
                 _logger.debug(
                     "'id': '%(pipeline_id)s', 'fitted': '%(fitted_pipeline_id)s', 'name': '%("
                     "name)s', 'worker_id': '%(worker_id)s'. Output is written to: '%(path)s'.",
@@ -537,7 +550,13 @@ class Runtime:
                             steps_outputs[n_step][:MAX_DUMP_SIZE].to_csv(debug_file)
                         except:
                             pass
-
+            # for timing part
+            prim_name = str(primitive_step.primitive)
+            if prim_name not in self.timing:
+                self.timing[prim_name] = {}
+            self.timing[prim_name]["produce"] = time.time() - time_start
+            self.timing["total_time_used_without_cache"] += (time.time() - time_start)
+            self.timing["total_time_used_with_cache"] += (time.time() - time_start)
         # kyao!!!!
         self.produce_outputs = steps_outputs
 
@@ -549,6 +568,14 @@ class Runtime:
             else:
                 pipeline_output.append(arguments[output[0][output[1]]])
         return pipeline_output
+
+    @staticmethod
+    def _total_encoder_columns(encoder_primitive, df):
+        count = df.shape[1] - len(encoder_primitive._empty_columns) - len(encoder_primitive._cat_columns)
+        for values in encoder_primitive._mapping.values():
+            count += len(values) + 1
+        _logger.info('Encoder: column count before={} after={}'.format(df.shape[1], count))
+        return count
 
 
 def load_problem_doc(problem_doc_path: str) -> Metadata:

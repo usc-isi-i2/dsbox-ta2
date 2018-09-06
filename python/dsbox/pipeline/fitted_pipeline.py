@@ -134,6 +134,10 @@ class FittedPipeline:
         structure["parent_id"] = self.pipeline.id
         structure['id'] = self.id
         structure['dataset_id'] = self.dataset_id
+        # add timing for each step
+        for each_step in structure['steps']:
+            primitive_name = each_step["primitive"]["python_path"]
+            each_step["timing"] = self.runtime.timing[primitive_name]
         # FIXME [TIMING]
         # add timing for each step
         # for each_step in structure['steps']:
@@ -161,6 +165,7 @@ class FittedPipeline:
         except:
             structure['problem_taskSubType'] = "NONE"
         structure['total_time_used_with_cache'] = self.runtime.timing["total_time_used_with_cache"]
+
         structure['total_time_used_without_cache'] = self.runtime.timing[
             "total_time_used_without_cache"]
         structure['pipeline_rank'] = rank
@@ -201,7 +206,8 @@ class FittedPipeline:
 
     @classmethod
     def load(cls: typing.Type[TP], folder_loc: str,
-             pipeline_id: str, log_dir: str, dataset_id: str = None, ) -> typing.Tuple[TP, Runtime]:
+             pipeline_id: str, log_dir: str, dataset_id: str = None,) -> typing.Tuple[TP, Runtime]:
+
         '''
         Load the pipeline with given pipeline id and folder location
         '''
