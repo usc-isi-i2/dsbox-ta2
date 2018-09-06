@@ -145,12 +145,11 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
         cache: PrimitivesCache = args[1]
         dump2disk = args[2] if len(args) == 3 else True
 
-        print("[INFO] START Evaluation of {} in {}".format(hash(str(configuration)),
-                                                           current_process()))
+        _logger.info(f"START Evaluation of {hash(str(configuration))} in {current_process()}")
+
         evaluation_result = self._evaluate(configuration, cache, dump2disk)
 
-        print("[INFO] END Evaluation of {} in {}".format(hash(str(configuration)),
-                                                         current_process()))
+        _logger.info(f"END Evaluation of {hash(str(configuration))} in {current_process()}")
 
         # try:
         #     evaluation_result = self._evaluate(configuration, cache, dump2disk)
@@ -557,12 +556,12 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
         # END for loop
 
         if len(training_metrics) > target_amount_train:
-            print("[WARN] Training metrics's amount is larger than target amount.")
+            _logger.warning("[WARN] Training metrics's amount is larger than target amount.")
         # if len(test_metrics) == 1:
         #     test_metrics = test_metrics[0]
         # el
         if len(test_metrics) > target_amount_test:
-            print("[WARN] Test metrics's amount is larger than target amount.")
+            _logger.warning("[WARN] Test metrics's amount is larger than target amount.")
 
         # return the training and test metrics
         return (training_metrics, test_metrics)
