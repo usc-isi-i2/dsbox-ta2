@@ -2,9 +2,9 @@ import sys
 from hashlib import blake2b
 import pickle
 
-from d3m_metadata.metadata import PrimitiveMetadata, PrimitiveFamily, PrimitiveAlgorithmType
-from d3m_metadata.hyperparams import Hyperparams
-from primitive_interfaces.base import PrimitiveBase
+from d3m.metadata.base import PrimitiveMetadata, PrimitiveFamily, PrimitiveAlgorithmType
+from d3m.metadata.hyperparams import Hyperparams
+from d3m.primitive_interfaces.base import PrimitiveBase
 
 class Primitive(object):
     """

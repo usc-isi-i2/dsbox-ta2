@@ -96,6 +96,8 @@ class SimpleEncoder(json.JSONEncoder):
             return str(type(obj))
         if isinstance(obj, np.int64):
             return int(obj)
+        if isinstance(obj, np.ndarray):
+            return json.JSONEncoder.default(self, obj.tolist())
         return json.JSONEncoder.default(self, obj)
 
 
@@ -184,6 +186,10 @@ class ExecutionStatistics:
         '''Print sucessful pipelines'''
         pipeline_stats: PipelineExecStat = self.pipeline_stats.values()
         pipelines = [s.pipeline for s in pipeline_stats if s.pipeline.planner_result is not None]
+        if not pipelines:
+            print('All pipelines failed')
+            return
+
         metrics = [name for name in pipelines[0].planner_result.metric_values.keys()]
         pipelines_sorted = sorted(pipelines, key=lambda p: p.planner_result.metric_values[metrics[0]], reverse=True)
         for pipeline in pipelines_sorted:
@@ -433,8 +439,6 @@ class ResourceManager:
                 if df is None:
                     # primitive in previous stage failed
                     self.log.debug('%s Primitive previous stage failed %s', pipeline.id, primitive)
-                    self.stats.pipeline_finished(exec_pipeline)
-                    exec_pipeline.finished = True
                     return None
 
                 self.log.debug('%s Primitive scheduling %s', pipeline.id, cachekey)
@@ -455,11 +459,9 @@ class ResourceManager:
                     with await cv:
                         cv.notify_all()
             except Exception as e:
-                print("ERROR execute_pipeline(%s %s) : %s\n" % (exec_pipeline, exec_pipeline.id, e))
                 sys.stderr.write(
                     "ERROR execute_pipeline(%s %s) : %s\n" % (exec_pipeline, exec_pipeline.id, e))
                 traceback.print_exc()
-                self.stats.pipeline_finished(exec_pipeline)
                 exec_pipeline.finished = True
                 return None
 
@@ -570,8 +572,6 @@ class ResourceManager:
             self.primitive_cache[cachekey] = (primitive.executables, primitive.unified_interface)
 
         else:
-            # !!!!
-            inline = True
             self.log.debug('%s Run primitive other primitive type', exec_pipeline.id)
             if inline:
                 # Re-profile intermediate data here.
@@ -595,15 +595,12 @@ class ResourceManager:
 
                 if task.done():
                     result = task.result()
-                    if result is None or isinstance(result, Exception):
-                        self.log.debug('%s Run primitive FAILED    %s', exec_pipeline.id, primitive)
+                    if isinstance(result, Exception):
+                        self.log.debug(result)
                         df = None
                     else:
-                        self.log.debug('%s Run primitive Success   %s', exec_pipeline.id, primitive)
-                        print(len(result))
                         df, executables, unified_interface = result
                 else:
-                    self.log.debug('%s Run primitive FAILED2   %s', exec_pipeline.id, primitive)
                     df = None
                 primitive.executables = executables
                 primitive.unified_interface = unified_interface

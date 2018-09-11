@@ -1,0 +1,10 @@
+{
+  "pipeline_logs_root": "/dsbox_efs/runs/seed/38_sick/pipelines",
+  "executables_root": "/dsbox_efs/runs/seed/38_sick/executables",
+  "problem_schema": "/dsbox_efs/dataset/seed_datasets_current/38_sick/38_sick_problem/problemDoc.json",
+  "user_problems_root": "/dsbox_efs/runs/seed/38_sick/user_problems",
+  "training_data_root": "/dsbox_efs/dataset/seed_datasets_current/38_sick/38_sick_dataset",
+  "dataset_schema": "/dsbox_efs/dataset/seed_datasets_current/38_sick/38_sick_dataset/datasetDoc.json",
+  "temp_storage_root": "/dsbox_efs/runs/seed/38_sick/supporting_files",
+  "problem_root": "/dsbox_efs/dataset/seed_datasets_current/38_sick/38_sick_problem"
+}
