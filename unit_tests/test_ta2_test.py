@@ -22,11 +22,12 @@ class TestTA2Test(unittest.TestCase):
         for pipeline in pipelines:
             pipeline_json = json.load(open(pipeline, 'r'))
             rank_lst.append((pipeline_json["pipeline_rank"], pipeline_json['id']))
-        self.best_fitted_pipeline_id = min(rank_lst)[1]
+
         self.best_fitted_pipeline_rank = min(rank_lst)[0]
+        self.best_fitted_pipeline_ids = [x[1] for x in rank_lst if x[0] == self.best_fitted_pipeline_rank]
 
         self.prediction = pd.read_csv(
-            os.path.join(self.output_root, "predictions", self.best_fitted_pipeline_id, "predictions.csv"))
+            os.path.join(self.output_root, "predictions", self.prediction_dirs[0], "predictions.csv"))
 
         self.ground_truth = pd.read_csv(os.path.join(self.output_root, "SCORE", "targets.csv"))
 
@@ -50,8 +51,8 @@ class TestTA2Test(unittest.TestCase):
         self.assertEqual(len(self.prediction_dirs), 1,
                          "more than or less than 1 prediction generated for running single test")
 
-    def test_prediction_file_is_bast(self):
-        self.assertEqual(self.best_fitted_pipeline_id, self.prediction_dirs[-1],
+    def test_prediction_file_is_best(self):
+        self.assertIn(self.prediction_dirs[-1], self.best_fitted_pipeline_ids,
                          "pipeline used for predict is not same as best pipeline")
 
     def test_prediction_result_column_index(self):

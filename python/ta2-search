@@ -194,7 +194,7 @@ if __name__ == "__main__":
                         help='Debug mode. No timeout and no output redirection')
 
     parser.add_argument('--test', action='store', default=None,
-                        help='Run a single test after search')
+                        help='Run a single test after search, need a test config')
 
     args = parser.parse_args()
 
