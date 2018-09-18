@@ -70,6 +70,9 @@ class TemplateSteps:
                         "primitive": "d3m.primitives.dsbox.CorexText",
                         "hyperparameters":
                             {
+                                'n_hidden': [5, 10],
+                                'threshold': [0, 500],
+                                'n_grams': [1, 3],
                             }
                     },
                 ],
