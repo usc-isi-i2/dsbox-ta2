@@ -13,34 +13,24 @@ import subprocess
 import sys
 import traceback
 from pprint import pprint
+from sklearn import metrics, preprocessing
 
+import pandas as pd
 from importlib import reload
 import dsbox.controller.controller
+
 reload(dsbox.controller.controller)
 from dsbox.controller.controller import Controller
-from  dsbox.controller.controller import Status
+from dsbox.controller.controller import Status
 import os
+import psutil
 # controller = Controller(development_mode=True)
 
 import getpass
 
 start_time = time.time()
 
-def kill_child_processes(parent_pid, sig=signal.SIGTERM):
-    ps_command = subprocess.Popen("ps -o pid --ppid %d --noheaders" % parent_pid, shell=True, stdout=subprocess.PIPE)
-    ps_output = ps_command.stdout.read()
-    retcode = ps_command.wait()
-    assert retcode == 0, "ps command returned %d" % retcode
-    print('parent id={}'.format(parent_pid), flush=True)
-    for pid_str in ps_output.decode('utf-8').split("\n")[:-1]:
-        try:
-            print('chdild id={}'.format(pid_str), flush=True)
-            os.kill(int(pid_str), sig)
-        except:
-            pass
-
 def main(args):
-
     timeout = 0
     configuration_file = args.configuration_file
     debug = args.debug
@@ -64,6 +54,12 @@ def main(args):
 
     print('[INFO] Time out is ', timeout)
 
+    def kill_child_processes():
+        process_id = os.getpid()
+        parent = psutil.Process(process_id)
+        for child in parent.children(recursive=True):  # or parent.children() for recursive=False
+            child.kill()
+
     # Define signal handler to exit gracefully
     def write_results_and_exit(a_signal, frame):
         print('==== Times up ====')
@@ -74,8 +70,6 @@ def main(args):
             signal.signal(signal.SIGALRM, signal.SIG_DFL)
 
             print('[INFO] Killing child processes', flush=True)
-            process_id = os.getpid()
-            kill_child_processes(process_id)
 
             print('[INFO] writing results', flush=True)
             controller.write_training_results()
@@ -83,6 +77,8 @@ def main(args):
             print('==== Done cleaning up ====', flush=True)
             time_used = (time.time() - start_time) / 60.0
             print("[INFO] The time used so far is {:0.2f} minutes.".format(time_used), flush=True)
+
+            kill_child_processes()
         except Exception as e:
             print(e)
             traceback.print_exc()
@@ -92,7 +88,81 @@ def main(args):
 
             # This os._exit() cannot be caught.
             # print('SIGNAL exiting {}'.format(configuration_file), flush=True)
+            best_pipeline_id = None
+            if args.test:
+                best_pipeline_id = run_single_test()
+
+            if args.test_generated_pipelines:
+                run_generated_pipelines(best_pipeline_id)
+
+            if args.score:
+                scoring()
+
+            kill_child_processes()
             os._exit(0)
+
+    def run_single_test():
+        print("[INFO] Pick the best pipeline and run a test")
+        test_config_single_pipeline = json.load(open(args.test, 'r'))
+        test_controller_single_pipeline = Controller(development_mode=False)
+        test_controller_single_pipeline.initialize_from_config_for_evaluation(test_config_single_pipeline)
+
+        rank_lst = list()
+        for pipeline in [os.path.join(controller.output_pipelines_dir, x) for x in
+                         os.listdir(controller.output_pipelines_dir) if x.endswith(".json")]:
+            pipeline_json = json.load(open(pipeline, 'r'))
+            rank_lst.append((pipeline_json["pipeline_rank"], pipeline_json['id']))
+        best_fitted_pipeline_id = min(rank_lst)[1]
+        test_controller_single_pipeline.test_fitted_pipeline(fitted_pipeline_id=best_fitted_pipeline_id)
+        return best_fitted_pipeline_id
+
+    def run_generated_pipelines(best_pipeline_id=None):
+        print("[INFO] Pick all pipelines and run test")
+        test_config = json.load(open(args.test_generated_pipelines, 'r'))
+        test_controller = Controller(development_mode=False)
+        test_controller.initialize_from_config_for_evaluation(test_config)
+
+        for pipeline in [os.path.join(controller.output_pipelines_dir, x) for x in
+                         os.listdir(controller.output_pipelines_dir) if x.endswith(".json")]:
+            pipeline_json = json.load(open(pipeline, 'r'))
+            fitted_pipeline_id = pipeline_json['id']
+            if fitted_pipeline_id != best_pipeline_id:
+                test_controller.test_fitted_pipeline(fitted_pipeline_id=fitted_pipeline_id)
+
+    def scoring():
+        if args.test:
+            prediction_path = json.load(open(args.test, 'r'))["results_root"]
+        elif args.test_generated_pipelines:
+            prediction_path = json.load(open(args.test_generated_pipelines, 'r'))["results_root"]
+        else:
+            return
+
+        ground_truth = pd.read_csv(args.score, index_col='d3mIndex')
+        label_binarizer = preprocessing.LabelBinarizer()
+        scores = dict()
+        for prediction_dir in os.listdir(prediction_path):
+            if os.path.isdir(os.path.join(prediction_path, prediction_dir)):
+                try:
+                    metric = \
+                    json.load(open(os.path.join(controller.output_pipelines_dir, "{}.json".format(prediction_dir))))[
+                        "metric"]
+                    prediction = pd.read_csv(os.path.join(prediction_path, prediction_dir, "predictions.csv"),
+                                             index_col='d3mIndex')
+
+                    if metric == "f1Macro":
+                        y_true = label_binarizer.fit_transform(ground_truth)
+                        y_pred = label_binarizer.transform(prediction)
+                        score = metrics.f1_score(y_true, y_pred)
+                    elif metric == "meanSquaredError":
+                        score = metrics.mean_squared_error(ground_truth, prediction)
+                    else:
+                        score = None
+                    scores[prediction_dir] = score
+                except:
+                    pass
+
+        with open(os.path.join(prediction_path, 'scores.json')) as scores_f:
+            json.dump(scores, scores_f, indent=2)
 
     if timeout > 0:
         signal.signal(signal.SIGALRM, write_results_and_exit)
@@ -127,8 +197,10 @@ def main(args):
 
     status = controller.train()
     print("*+" * 10)
-    status = controller.test()
-    print("[INFO] Testing Done")
+    controller.write_training_results()
+    print("*+" * 10)
+    #status = controller.test()
+    #print("[INFO] Testing Done")
 
     time_used = (time.time() - start_time) / 60.0
     print("[INFO] The time used for running program is {:0.2f} minutes.".format(time_used))
@@ -174,10 +246,20 @@ if __name__ == "__main__":
     parser.add_argument('--cpus', action='store', type=int, default=-1,
                         help='Overide configuation number of cpus usage setting')
     parser.add_argument('--output-prefix', action='store', default=None,
-                        help='''Overide configuation output directories paths (pipeline_logs_root, executables_root, temp_storage_root).
+                        help='''Overide configuation output directories paths (
+                        pipeline_logs_root, executables_root, temp_storage_root).
                         Replace path prefix "*/output/" with argument''')
     parser.add_argument('--debug', action='store_true', default=False,
                         help='Debug mode. No timeout and no output redirection')
+
+    parser.add_argument('--test', action='store', default=None,
+                        help='Run a single test after search, need a test config')
+
+    parser.add_argument('--test_generated_pipelines', action='store', default=None,
+                        help='After search, run all generated pipelines on test data, need a test config')
+
+    parser.add_argument('--score', action='store', default=None,
+                        help='Calculate score for each prediction, need the path to ground truth')
 
     args = parser.parse_args()
 
