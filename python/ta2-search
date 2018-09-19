@@ -98,7 +98,7 @@ def main(args):
             if args.score:
                 scoring()
 
-            kill_child_processes()
+            # kill_child_processes()
             os._exit(0)
 
     def run_single_test():
@@ -110,8 +110,11 @@ def main(args):
         rank_lst = list()
         for pipeline in [os.path.join(controller.output_pipelines_dir, x) for x in
                          os.listdir(controller.output_pipelines_dir) if x.endswith(".json")]:
-            pipeline_json = json.load(open(pipeline, 'r'))
-            rank_lst.append((pipeline_json["pipeline_rank"], pipeline_json['id']))
+            try:
+                pipeline_json = json.load(open(pipeline, 'r'))
+                rank_lst.append((pipeline_json["pipeline_rank"], pipeline_json['id']))
+            except:
+                pass
         best_fitted_pipeline_id = min(rank_lst)[1]
         test_controller_single_pipeline.test_fitted_pipeline(fitted_pipeline_id=best_fitted_pipeline_id)
         return best_fitted_pipeline_id
@@ -124,10 +127,13 @@ def main(args):
 
         for pipeline in [os.path.join(controller.output_pipelines_dir, x) for x in
                          os.listdir(controller.output_pipelines_dir) if x.endswith(".json")]:
-            pipeline_json = json.load(open(pipeline, 'r'))
-            fitted_pipeline_id = pipeline_json['id']
-            if fitted_pipeline_id != best_pipeline_id:
-                test_controller.test_fitted_pipeline(fitted_pipeline_id=fitted_pipeline_id)
+            try:
+                pipeline_json = json.load(open(pipeline, 'r'))
+                fitted_pipeline_id = pipeline_json['id']
+                if fitted_pipeline_id != best_pipeline_id:
+                    test_controller.test_fitted_pipeline(fitted_pipeline_id=fitted_pipeline_id)
+            except:
+                pass
 
     def scoring():
         if args.test:
@@ -147,8 +153,7 @@ def main(args):
                     json.load(open(os.path.join(controller.output_pipelines_dir, "{}.json".format(prediction_dir))))[
                         "metric"]
                     prediction = pd.read_csv(os.path.join(prediction_path, prediction_dir, "predictions.csv"),
-                                             index_col='d3mIndex')
-
+                                             index_col='d3mIndex').loc[ground_truth.index, :]
                     if metric == "f1Macro":
                         y_true = label_binarizer.fit_transform(ground_truth)
                         y_pred = label_binarizer.transform(prediction)
@@ -160,8 +165,7 @@ def main(args):
                     scores[prediction_dir] = score
                 except:
                     pass
-
-        with open(os.path.join(prediction_path, 'scores.json')) as scores_f:
+        with open(os.path.join(prediction_path, 'scores.json'), 'w') as scores_f:
             json.dump(scores, scores_f, indent=2)
 
     if timeout > 0:
