@@ -397,13 +397,13 @@ class TemplateSteps:
             },
             {
                 "name": "profiler_step",
-                "primitives": ["d3m.primitives.dsbox.DoNothing"],
+                "primitives": ["d3m.primitives.dsbox.Profiler"],
                 "inputs": ["extract_attribute_step"]
             },
             {
                 "name": "clean_step",
                 "primitives": [
-                    # "d3m.primitives.dsbox.CleaningFeaturizer",
+                    "d3m.primitives.dsbox.CleaningFeaturizer",
                     "d3m.primitives.dsbox.DoNothing",
                 ],
                 "inputs": ["profiler_step"]
@@ -524,13 +524,13 @@ class TemplateSteps:
             },
             {
                 "name": "profiler_step",
-                "primitives": ["d3m.primitives.dsbox.DoNothing"],
+                "primitives": ["d3m.primitives.dsbox.Profiler"],
                 "inputs": ["extract_attribute_step"]
             },
             {
                 "name": "clean_step",
                 "primitives": [
-                    # "d3m.primitives.dsbox.CleaningFeaturizer",
+                    "d3m.primitives.dsbox.CleaningFeaturizer",
                     "d3m.primitives.dsbox.DoNothing",
                 ],
                 "inputs": ["profiler_step"]
@@ -636,13 +636,13 @@ class TemplateSteps:
             },
             {
                 "name": "profiler_step",
-                "primitives": ["d3m.primitives.dsbox.DoNothing"],
+                "primitives": ["d3m.primitives.dsbox.Profiler"],
                 "inputs": ["extract_attribute_step"]
             },
             {
                 "name": "clean_step",
                 "primitives": [
-                    # "d3m.primitives.dsbox.CleaningFeaturizer",
+                    "d3m.primitives.dsbox.CleaningFeaturizer",
                     "d3m.primitives.dsbox.DoNothing",
                 ],
                 "inputs": ["profiler_step"]
@@ -872,13 +872,13 @@ class TemplateSteps:
                 *TemplateSteps.default_dataparser(target_name=target_name),
                 {
                     "name": "profile_step",
-                    "primitives": ["d3m.primitives.dsbox.DoNothing"],
+                    "primitives": ["d3m.primitives.dsbox.Profiler"],
                     "inputs": ["extract_attribute_step"]
                 },
                 {
                     "name": clean_name,
                     "primitives": [
-                        # "d3m.primitives.dsbox.CleaningFeaturizer",
+                        "d3m.primitives.dsbox.CleaningFeaturizer",
                         "d3m.primitives.dsbox.DoNothing"
                     ],
                     "inputs": ["profile_step"]
