@@ -96,9 +96,12 @@ def main(args):
                 run_generated_pipelines(best_pipeline_id)
 
             if args.score:
-                scoring()
+                try:
+                    scoring()
+                except:
+                    pass
 
-            # kill_child_processes()
+            kill_child_processes()
             os._exit(0)
 
     def run_single_test():
@@ -143,8 +146,20 @@ def main(args):
         else:
             return
 
-        ground_truth = pd.read_csv(args.score, index_col='d3mIndex')
-        label_binarizer = preprocessing.LabelBinarizer()
+        training_data_root = config["training_data_root"]
+        solution_root = "/".join(
+            config["training_data_root"].split("/")[:-1] + ["{}_solution".format(config["training_data_root"].split("/")[-2])])
+
+        ground_truth_idx = pd.read_csv(os.path.join(solution_root, "predictions.csv"), index_col='d3mIndex').index
+        ground_truth = pd.read_csv(os.path.join(training_data_root, "tables/learningData.csv"),
+                                   index_col='d3mIndex').loc[ground_truth_idx, :]
+
+        dataset_schema = json.load(open(config["dataset_schema"], "r"))
+        for col in dataset_schema['dataResources'][0]['columns']:
+            if col['colName'] != "d3mIndex" and 'suggestedTarget' in col['role']:
+                target = col['colName']
+                break
+        ground_truth = ground_truth.loc[:, target]
         scores = dict()
         for prediction_dir in os.listdir(prediction_path):
             if os.path.isdir(os.path.join(prediction_path, prediction_dir)):
@@ -153,11 +168,10 @@ def main(args):
                     json.load(open(os.path.join(controller.output_pipelines_dir, "{}.json".format(prediction_dir))))[
                         "metric"]
                     prediction = pd.read_csv(os.path.join(prediction_path, prediction_dir, "predictions.csv"),
-                                             index_col='d3mIndex').loc[ground_truth.index, :]
+                                             index_col='d3mIndex').loc[ground_truth_idx, :]
+
                     if metric == "f1Macro":
-                        y_true = label_binarizer.fit_transform(ground_truth)
-                        y_pred = label_binarizer.transform(prediction)
-                        score = metrics.f1_score(y_true, y_pred)
+                        score = metrics.f1_score(ground_truth, prediction, average='macro')
                     elif metric == "meanSquaredError":
                         score = metrics.mean_squared_error(ground_truth, prediction)
                     else:
@@ -262,8 +276,8 @@ if __name__ == "__main__":
     parser.add_argument('--test_generated_pipelines', action='store', default=None,
                         help='After search, run all generated pipelines on test data, need a test config')
 
-    parser.add_argument('--score', action='store', default=None,
-                        help='Calculate score for each prediction, need the path to ground truth')
+    parser.add_argument('--score', action='store_true', default=False,
+                        help='Calculate score for each prediction')
 
     args = parser.parse_args()
 
