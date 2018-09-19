@@ -170,13 +170,13 @@ class TemplateLibrary:
 
         self.templates.append(SRIMeanBaselineTemplate)
 
-        # self.templates.append(DefaultTimeseriesRegressionTemplate)
+        self.templates.append(DefaultTimeseriesRegressionTemplate)
 
         # default tabular templates, encompassing many of the templates below
-        # self.templates.append(DefaultClassificationTemplate)
-        # self.templates.append(NaiveBayesClassificationTemplate)
+        self.templates.append(DefaultClassificationTemplate)
+        self.templates.append(NaiveBayesClassificationTemplate)
 
-        # self.templates.append(DefaultRegressionTemplate)
+        self.templates.append(DefaultRegressionTemplate)
 
         # new tabular classification
         # self.templates.append(RandomForestClassificationTemplate)
@@ -191,20 +191,20 @@ class TemplateLibrary:
         # takes too long to run self.templates.append(SVRRegressionTemplate)
 
         # text templates, but also support tabular data
-        # self.templates.append(DefaultTextClassificationTemplate)
-        # self.templates.append(DefaultTextRegressionTemplate)
+        self.templates.append(DefaultTextClassificationTemplate)
+        self.templates.append(DefaultTextRegressionTemplate)
 
         # Tabular Classification
         # self.templates.append(TA1Classification_3)
         # self.templates.append(MuxinTA1ClassificationTemplate1)
-        # self.templates.append(UU3TestTemplate)
+        self.templates.append(UU3TestTemplate)
         # self.templates.append(TA1ClassificationTemplate1)
 
         # Image Regression
         self.templates.append(DefaultImageProcessingRegressionTemplate)
 
         # Others
-        # self.templates.append(DefaultTimeseriesCollectionTemplate)
+        self.templates.append(DefaultTimeseriesCollectionTemplate)
         self.templates.append(TimeSeriesForcastingTestingTemplate)
 
         self.templates.append(DefaultLinkPredictionTemplate)
@@ -218,21 +218,21 @@ class TemplateLibrary:
         self.templates.append(CMUClusteringTemplate)
         self.templates.append(MichiganVideoClassificationTemplate)
         self.templates.append(TemporaryObjectDetectionTemplate)
-        self.templates.append(JHUVertexNominationTemplate)
-        self.templates.append(JHUGraphMatchingTemplate)
+        # self.templates.append(JHUVertexNominationTemplate)
+        # self.templates.append(JHUGraphMatchingTemplate)
 
         # templates used for datasets with a large number of columns
-        # self.templates.append(Large_column_number_with_numerical_only_classification)
-        # self.templates.append(Large_column_number_with_numerical_only_regression)
+        self.templates.append(Large_column_number_with_numerical_only_classification)
+        self.templates.append(Large_column_number_with_numerical_only_regression)
 
-        # self.templates.append(ClassificationWithSelection)
-        # self.templates.append(RegressionWithSelection)
-        self.templates.append(MegaClassificationTemplate)
-        self.templates.append(MegaRegressionTemplate)
+        self.templates.append(ClassificationWithSelection)
+        self.templates.append(RegressionWithSelection)
+        # self.templates.append(MegaClassificationTemplate)
+        # self.templates.append(MegaRegressionTemplate)
         # dsbox all in one templates
         # move dsboxClassificationTemplate to last execution because sometimes this template have bugs
-        # self.templates.append(dsboxClassificationTemplate)
-        # self.templates.append(dsboxRegressionTemplate)
+        self.templates.append(dsboxClassificationTemplate)
+        self.templates.append(dsboxRegressionTemplate)
 
     def _load_single_inline_templates(self, template_name):
         if template_name in self.all_templates:
