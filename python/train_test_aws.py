@@ -27,7 +27,9 @@ home = str(Path.home())
 config_dir = sys.argv[1]
 
 for conf in os.listdir(config_dir):
-    command = "python3 ta2-search " + os.path.join(config_dir, conf, "search_config.json ") + " --timeout " + str(timeout) + " --cpus " + str(cpus)
+    command = "python3 ta2-search " + os.path.join(config_dir, conf, "search_config.json ") + " --timeout " + str(
+        timeout) + " --cpus " + str(cpus) + " --test_generated_pipelines " + os.path.join(config_dir, conf,
+                                                                                          "test_config.json ")
 
     tp.apply_async(call_ta2search, (command,))
 
