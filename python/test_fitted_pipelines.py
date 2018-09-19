@@ -9,7 +9,7 @@ from d3m.metadata.base import Metadata, ALL_ELEMENTS
 
 # import evaluation packages
 # remember to install it from https://gitlab.datadrivendiscovery.org/nist/nist_eval_output_validation_scoring
-from d3m_outputs import Predictions
+# from d3m_outputs import Predictions
 
 # import python packages
 import argparse
@@ -19,6 +19,7 @@ import os
 import csv
 # from importlib import reload
 
+TOP_NUM = 20
 
 from dsbox.pipeline.fitted_pipeline import FittedPipeline
 from dsbox.template.runtime import Runtime, add_target_columns_metadata
@@ -161,8 +162,6 @@ def main(args):
     # print(args.path, args.filename)
     all_pipelines = load_all_fitted_pipeline(args.path)
     run_pipelines = top_selection(all_pipelines)
-    TOP_NUM = args.top_n
-    global TOP_NUM
 
     for dataset_pipeline in run_pipelines.keys():
         print("Start testing", dataset_pipeline)
@@ -196,6 +195,5 @@ if __name__ == "__main__":
     parser.add_argument("--path", help="Where the pipelines stored, example: /nfs1/dsbox-repo/muxin/ta2-outputs/seed", default="/nfs1/dsbox-repo/muxin/ta2-outputs/seed")
     parser.add_argument("--configs", help="Where the configuration files stored, example: /nfs1/dsbox-repo/muxin/all_confs/seed", default="/nfs1/dsbox-repo/muxin/all_confs/seed")
     parser.add_argument("--filename", help="Name of the output csv", default=-1)
-    parser.add_argument("--top_n", help="top n pipelines for testing", default=20)
     args = parser.parse_args()
     main(args)
