@@ -55,6 +55,7 @@ def main(args):
     print('[INFO] Time out is ', timeout)
 
     def kill_child_processes():
+        print("[INFO]Killing child processes")
         process_id = os.getpid()
         parent = psutil.Process(process_id)
         for child in parent.children(recursive=True):  # or parent.children() for recursive=False
@@ -99,6 +100,7 @@ def main(args):
                 try:
                     scoring()
                 except:
+                    traceback.print_exc()
                     pass
 
             kill_child_processes()
@@ -136,6 +138,7 @@ def main(args):
                 if fitted_pipeline_id != best_pipeline_id:
                     test_controller.test_fitted_pipeline(fitted_pipeline_id=fitted_pipeline_id)
             except:
+                traceback.print_exc()
                 pass
 
     def scoring():
@@ -161,12 +164,15 @@ def main(args):
                 break
         ground_truth = ground_truth.loc[:, target]
         scores = dict()
+        metric = None
         for prediction_dir in os.listdir(prediction_path):
             if os.path.isdir(os.path.join(prediction_path, prediction_dir)):
                 try:
-                    metric = \
-                    json.load(open(os.path.join(controller.output_pipelines_dir, "{}.json".format(prediction_dir))))[
-                        "metric"]
+                    if not metric:
+                        metric = \
+                            json.load(
+                                open(os.path.join(controller.output_pipelines_dir, "{}.json".format(prediction_dir))))[
+                                "metric"]
                     prediction = pd.read_csv(os.path.join(prediction_path, prediction_dir, "predictions.csv"),
                                              index_col='d3mIndex').loc[ground_truth_idx, :]
 
@@ -178,6 +184,7 @@ def main(args):
                         score = None
                     scores[prediction_dir] = score
                 except:
+                    traceback.print_exc()
                     pass
         with open(os.path.join(prediction_path, 'scores.json'), 'w') as scores_f:
             json.dump(scores, scores_f, indent=2)
