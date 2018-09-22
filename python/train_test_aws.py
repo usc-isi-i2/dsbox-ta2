@@ -4,7 +4,7 @@ import sys
 from multiprocessing.pool import ThreadPool
 from pathlib import Path
 
-timeout = 90
+timeout = 120
 cpus = 12
 num_threads = 10
 
