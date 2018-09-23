@@ -41,7 +41,7 @@ def main(args):
         config = json.load(data)
 
     # Time to write results (in minutes)
-    write_results_time = 62
+    write_results_time = 2
     if args.timeout:
         timeout = args.timeout - write_results_time
     else:
