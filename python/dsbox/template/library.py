@@ -342,7 +342,7 @@ class DefaultClassificationTemplate(DSBoxTemplate):
             "inputType": "table",  # See SEMANTIC_TYPES.keys() for range of values
             "output": "model_step",  # Name of the final step generating the prediction
             "target": "extract_target_step",  # Name of the step generating the ground truth
-            "steps": TemplateSteps.dsbox_generic_steps() + [
+            "steps": TemplateSteps.dsbox_generic_steps() + TemplateSteps.dsbox_feature_selector("classification") +  [
                 {
                     "name": "model_step",
                     "runtime": {
@@ -389,7 +389,7 @@ class DefaultClassificationTemplate(DSBoxTemplate):
                                 }
                         },
                     ],
-                    "inputs": ["data", "target"]
+                    "inputs": ["feature_selector_step", "target"]
                 }
             ]
         }
