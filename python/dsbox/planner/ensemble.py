@@ -49,12 +49,10 @@ class Ensemble(object):
         self.discrete_metric = True if self.problem.task_subtype in DISCRETE_METRIC else False
 
 
-    def greedy_add(self, pipelines, X, y, max_pipelines = None, plan = True, median = False, pred_minmax_stdevs = 2, cv = 10, seed = 0):
+    def greedy_add(self, pipelines, X, y, max_pipelines = None, plan = True, median = None, pred_minmax_stdevs = 2, cv = 10, seed = 0):
         self.median = median if median is not None else self.median
 
-    
         stdev_pred = np.std(y.values)
-
         self.prediction_range = [np.min(y.values) - pred_minmax_stdevs*stdev_pred, np.max(y.values) + pred_minmax_stdevs*stdev_pred]
         print("Using MEDIAN for ENSEMBLE Add" if self.median else "Using MEAN for ENSEMBLE Add")
         which_result = 'planner_result' if plan else 'test_result'
@@ -65,7 +63,7 @@ class Ensemble(object):
 
         max_pipelines = self.max_pipelines if max_pipelines is None else max_pipelines
         found_improvement = True
-        
+
         while found_improvement and len(np.unique([pl.id for pl in self.all_pipelines])) < max_pipelines:
             best_score =  float('inf') if self.minimize_metric else 0
             if self.metric_values is not None:
@@ -79,9 +77,8 @@ class Ensemble(object):
                 best_pipeline = pipelines[0]
                 best_metrics = getattr(pipelines[0], which_result).metric_values
                 best_score = np.mean(np.array([a for a in best_metrics.values()]))
-                #metric_val.add_fold_metric(metric, getattr(pipelines[0], which_result).metric_values) 
+                # metric_val.add_fold_metric(metric, getattr(pipelines[0], which_result).metric_values)
                 metric_val = getattr(pipelines[0], which_result).stat
-                best_stat = metric_val
                 found_improvement = True
                 print('Best single pipeline score ',  str(best_score))
             else:
@@ -128,7 +125,7 @@ class Ensemble(object):
                 self.all_pipelines.append(best_pipeline)
                 self.predictions = best_predictions
                 self.metric_values = best_metrics
-                self.cv_stat = best_stat 
+                self.cv_stat = best_stat
                 self.score = best_score
 
         print('Found ensemble of size ', str(len(self.all_pipelines)), ' with score ',  str(self.score))
@@ -157,7 +154,7 @@ class Ensemble(object):
         return ens_pl
 
     def _add_median_prediction(self, pipelines, new_result):
-        all_preds = [p.planner_result.predictions.values for p in self.all_pipelines]
+        all_preds = [p.values for p in self.all_pipelines]
         all_preds.append(new_result)
         all_preds = np.concatenate(all_preds, axis = -1) # join predictions as columns
         return np.median(all_preds, axis = -1)

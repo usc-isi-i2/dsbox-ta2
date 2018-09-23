@@ -1,32 +1,42 @@
 [
-  {
-    "Id": "sklearn.preprocessing.Normalizer",
-    "Class": "sklearn.preprocessing.Normalizer",
-    "Name": "Normalizer",
-    "Task": "PreProcessing",
-    "LearningType": "Normalization",
-    "Requirements": ["!NORMALIZED"],
-    "Effects": ["NORMALIZED"]
-  },
-  {
-    "Id": "sklearn.preprocessing.LabelEncoder",
-    "Class": "sklearn.preprocessing.LabelEncoder",
-    "Name": "Label Encoder",
-    "Task": "PreProcessing",
-    "LearningType": "Encoding",
-    "RequiresColumnData": true,
-    "NotPersistent": true,
-    "Requirements": ["!NUMERICAL"],
-    "Effects": ["NUMERICAL"]
-  },
-  {
-    "Id": "sklearn.preprocessing.Imputer",
-    "Class": "sklearn.preprocessing.Imputer",
-    "Name": "Imputer",
-    "Task": "PreProcessing",
-    "LearningType": "Imputation",
-    "NotPersistent": true,
-    "Requirements": ["NUMERICAL", "MISSING_VALUES"],
-    "Effects": ["!MISSING_VALUES"]
-  }
+    {
+	"Id": "sklearn.preprocessing.Normalizer",
+	"Class": "sklearn.preprocessing.Normalizer",
+	"Name": "Normalizer",
+	"Task": "PreProcessing",
+	"LearningType": "Normalization",
+	"Requirements": ["!NORMALIZED"],
+	"Effects": ["NORMALIZED"]
+    },
+    {
+	"Id": "18f0bb42-6350-3753-8f2d-d1c3da70f279",
+	"Class": "d3m.primitives.dsbox.Encoder",
+	"Name": "DSBox Data Encoder",
+	"Task": "PreProcessing",
+	"LearningType": "Encoding",
+	"RequiresColumnData": false,
+	"NotPersistent": false,
+	"Effects": ["NUMERICAL"]
+    },
+    {
+	"Id": "sklearn.preprocessing.LabelEncoder",
+	"Class": "sklearn.preprocessing.LabelEncoder",
+	"Name": "Label Encoder",
+	"Task": "PreProcessing",
+	"LearningType": "Encoding",
+	"RequiresColumnData": true,
+	"NotPersistent": true,
+	"Requirements": ["!NUMERICAL"],
+	"Effects": ["NUMERICAL"]
+    },
+    {
+	"Id": "sklearn.preprocessing.Imputer",
+	"Class": "sklearn.preprocessing.Imputer",
+	"Name": "Imputer",
+	"Task": "PreProcessing",
+	"LearningType": "Imputation",
+	"NotPersistent": true,
+	"Requirements": ["NUMERICAL", "MISSING_VALUES"],
+	"Effects": ["!MISSING_VALUES"]
+    }
 ]

@@ -6,4 +6,4 @@ from dsbox.schema.primitive_schema import (
     PrimitiveAnnotationSchema, AttributeSchema, MethodSchema, ParameterSchema,
     ALGORITHM_TYPE, TASK_TYPE, LEARNING_TYPE, INPUT_TYPE, OUTPUT_TYPE)
 
-__path__ = __import__('pkgutil').extend_path(__path__, __name__)
+__path__ = __import__('pkgutil').extend_path(__path__, __name__)  # type: ignore
