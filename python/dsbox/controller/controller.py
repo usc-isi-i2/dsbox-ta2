@@ -231,14 +231,26 @@ class Controller:
                                        'pipelines_considered')
         self._logger.info('Considered output directory: %s' % considered_root)
 
+    def _load_problem_doc(self, problem_doc_path: str) -> Metadata:
+        """
+        Load problem_doc from problem_doc_path
+
+        Paramters
+        ---------
+        problem_doc_path
+            Path where the problemDoc.json is located
+        """
+        with open(problem_doc_path) as file:
+            problem_doc = json.load(file)
+        return Metadata(problem_doc)
+
     def _load_schema(self, config):
         # Do not use
         # self.config = config
 
         # Problem
         self.problem = parse_problem_description(config['problem_schema'])
-        self.problem_doc_metadata = runtime.load_problem_doc(
-            os.path.abspath(config['problem_schema']))
+        self.problem_doc_metadata = self._load_problem_doc(os.path.abspath(config['problem_schema']))
         self.task_type = self.problem['problem']['task_type']
         self.task_subtype = self.problem['problem']['task_subtype']
 
@@ -476,9 +488,16 @@ class Controller:
         **********************************************************************
     '''
 
-    def auto_regress_convert(self, dataset: "Dataset"):
+    def auto_regress_convert_and_add_metadata(self, dataset: "Dataset"):
         '''
-        do auto convert for timeseriesforecasting prob
+        Add metadata to the dataset from problem_doc_metadata
+        If the dataset is timeseriesforecasting, do auto convert for timeseriesforecasting prob
+        Paramters
+        ---------
+        dataset
+            Dataset
+        problem_doc_metadata:
+            Metadata about the problemDoc
         '''
         problem = self.problem_doc_metadata.query(())
         targets = problem["inputs"]["data"][0]["targets"]
@@ -492,7 +511,26 @@ class Controller:
                 meta = dict(dataset.metadata.query((resID, ALL_ELEMENTS, colIndex)))
                 meta["structural_type"] = float
                 dataset.metadata = dataset.metadata.update((resID, ALL_ELEMENTS, colIndex), meta)
-        return dataset
+
+        for data in self.problem_doc_metadata.query(())['inputs']['data']:
+            targets = data['targets']
+            for target in targets:
+                semantic_types = list(dataset.metadata.query(
+                    (target['resID'], ALL_ELEMENTS, target['colIndex'])).get(
+                    'semantic_types', []))
+
+                if 'https://metadata.datadrivendiscovery.org/types/Target' not in semantic_types:
+                    semantic_types.append('https://metadata.datadrivendiscovery.org/types/Target')
+                    dataset.metadata = dataset.metadata.update(
+                        (target['resID'], ALL_ELEMENTS, target['colIndex']),
+                        {'semantic_types': semantic_types})
+
+                if 'https://metadata.datadrivendiscovery.org/types/TrueTarget' not in semantic_types:
+                    semantic_types.append('https://metadata.datadrivendiscovery.org/types/TrueTarget')
+                    dataset.metadata = dataset.metadata.update(
+                        (target['resID'], ALL_ELEMENTS, target['colIndex']),
+                        {'semantic_types': semantic_types})
+            return dataset
 
     @staticmethod
     def generate_configuration_space(template_desc: TemplateDescription, problem: typing.Dict,
@@ -738,8 +776,8 @@ class Controller:
 
         self._logger.info("[INFO] testing data")
 
-        self.all_dataset = self.auto_regress_convert(self.all_dataset)
-        runtime.add_target_columns_metadata(self.all_dataset, self.problem_doc_metadata)
+        self.all_dataset = self.auto_regress_convert_and_add_metadata(self.all_dataset)
+        # runtime.add_target_columns_metadata(self.all_dataset, self.problem_doc_metadata)
         run_test.produce(inputs=[self.all_dataset])
 
         try:
@@ -818,8 +856,8 @@ class Controller:
         # pprint(self.test_dataset.head())
 
         # pipeline_load.runtime.produce(inputs=[self.test_dataset])
-        self.all_dataset = self.auto_regress_convert(self.all_dataset)
-        runtime.add_target_columns_metadata(self.all_dataset, self.problem_doc_metadata)
+        self.all_dataset = self.auto_regress_convert_and_add_metadata(self.all_dataset)
+        # runtime.add_target_columns_metadata(self.all_dataset, self.problem_doc_metadata)
         run_test.produce(inputs=[self.all_dataset])
 
         try:
@@ -928,8 +966,8 @@ class Controller:
 
     def generate_dataset_splits(self):
         self.all_dataset = self.remove_empty_targets(self.all_dataset)
-        self.all_dataset = self.auto_regress_convert(self.all_dataset)
-        runtime.add_target_columns_metadata(self.all_dataset, self.problem_doc_metadata)
+        self.all_dataset = self.auto_regress_convert_and_add_metadata(self.all_dataset)
+        # runtime.add_target_columns_metadata(self.all_dataset, self.problem_doc_metadata)
         res_id = self.problem_info['res_id']
         # check the shape of the dataset
         main_res_shape = self.all_dataset[res_id].shape
