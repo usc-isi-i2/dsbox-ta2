@@ -76,9 +76,6 @@ def main(args):
             time_used = (time.time() - start_time) / 60.0
             print("[INFO] The time used so far is {:0.2f} minutes.".format(time_used), flush=True)
 
-            if args.test:
-                run_single_test()
-
             kill_child_processes()
         except Exception as e:
             print(e)
@@ -89,13 +86,21 @@ def main(args):
 
             # This os._exit() cannot be caught.
             # print('SIGNAL exiting {}'.format(configuration_file), flush=True)
+            best_pipeline_id = None
+            if args.test:
+                best_pipeline_id = run_single_test()
+
+            if args.test_generated_pipelines:
+                run_generated_pipelines(best_pipeline_id)
+
+            kill_child_processes()
             os._exit(0)
 
     def run_single_test():
         print("[INFO] Pick the best pipeline and run a test")
-        test_config = json.load(open(args.test, 'r'))
-        test_controller = Controller(development_mode=False)
-        test_controller.initialize_from_config_for_evaluation(test_config)
+        test_config_single_pipeline = json.load(open(args.test, 'r'))
+        test_controller_single_pipeline = Controller(development_mode=False)
+        test_controller_single_pipeline.initialize_from_config_for_evaluation(test_config_single_pipeline)
 
         rank_lst = list()
         for pipeline in [os.path.join(controller.output_pipelines_dir, x) for x in
@@ -103,7 +108,21 @@ def main(args):
             pipeline_json = json.load(open(pipeline, 'r'))
             rank_lst.append((pipeline_json["pipeline_rank"], pipeline_json['id']))
         best_fitted_pipeline_id = min(rank_lst)[1]
-        test_controller.test_fitted_pipeline(fitted_pipeline_id=best_fitted_pipeline_id)
+        test_controller_single_pipeline.test_fitted_pipeline(fitted_pipeline_id=best_fitted_pipeline_id)
+        return best_fitted_pipeline_id
+
+    def run_generated_pipelines(best_pipeline_id=None):
+        print("[INFO] Pick all pipelines and run test")
+        test_config = json.load(open(args.test_generated_pipelines, 'r'))
+        test_controller = Controller(development_mode=False)
+        test_controller.initialize_from_config_for_evaluation(test_config)
+
+        for pipeline in [os.path.join(controller.output_pipelines_dir, x) for x in
+                         os.listdir(controller.output_pipelines_dir) if x.endswith(".json")]:
+            pipeline_json = json.load(open(pipeline, 'r'))
+            fitted_pipeline_id = pipeline_json['id']
+            if fitted_pipeline_id != best_pipeline_id:
+                test_controller.test_fitted_pipeline(fitted_pipeline_id=fitted_pipeline_id)
 
     if timeout > 0:
         signal.signal(signal.SIGALRM, write_results_and_exit)
@@ -140,8 +159,8 @@ def main(args):
     print("*+" * 10)
     controller.write_training_results()
     print("*+" * 10)
-    status = controller.test()
-    print("[INFO] Testing Done")
+    #status = controller.test()
+    #print("[INFO] Testing Done")
 
     time_used = (time.time() - start_time) / 60.0
     print("[INFO] The time used for running program is {:0.2f} minutes.".format(time_used))
@@ -195,6 +214,9 @@ if __name__ == "__main__":
 
     parser.add_argument('--test', action='store', default=None,
                         help='Run a single test after search, need a test config')
+
+    parser.add_argument('--test_generated_pipelines', action='store', default=None,
+                        help='After search, run all generated pipelines on test data, need a test config')
 
     args = parser.parse_args()
 
