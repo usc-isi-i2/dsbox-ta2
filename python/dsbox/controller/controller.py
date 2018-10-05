@@ -970,7 +970,7 @@ class Controller:
             print("[INFO] Search Status:")
             pprint.pprint(status)
             print("END OF FORK")
-
+        return Status.OK
 
     def generate_dataset_splits(self):
         self.all_dataset = self.remove_empty_targets(self.all_dataset)
