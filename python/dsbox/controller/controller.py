@@ -357,6 +357,10 @@ class Controller:
         piplines_name_list = os.listdir(pipelines_root)
         if len(piplines_name_list) < 20:
             return
+        try:
+            piplines_name_list.remove(".DS_Store")
+        except:
+            pass
 
         pipelines_df = pd.DataFrame(0.0, index=piplines_name_list, columns=["rank"])
         for name in piplines_name_list:
@@ -716,7 +720,7 @@ class Controller:
                                                              ignore_index=True)
 
                         outdf_train = d3m_DataFrame(outdf_train, generate_metadata=False)
-                        outdf_train = outdf_train.set_index("d3mIndex", drop=False)
+                        # outdf_train = outdf_train.set_index("d3mIndex", drop=False)
                         train = _add_meta_data(dataset=dataset, res_id=res_id,
                                                input_part=outdf_train)
                         # train = _add_meta_data(dataset = dataset, res_id = res_id, input_part =
@@ -730,7 +734,7 @@ class Controller:
                                 outdf_test = outdf_test.append(indf.loc[each_index],
                                                                ignore_index=True)
                             outdf_test = d3m_DataFrame(outdf_test, generate_metadata=False)
-                            outdf_test = outdf_test.set_index("d3mIndex", drop=False)
+                            # outdf_test = outdf_test.set_index("d3mIndex", drop=False)
                             test = _add_meta_data(dataset=dataset, res_id=res_id,
                                                   input_part=outdf_test)
                             # test = _add_meta_data(dataset = dataset, res_id = res_id,
@@ -769,6 +773,8 @@ class Controller:
         """
             First read the fitted pipeline and then run trained pipeline on test data.
         """
+        import pdb
+        pdb.set_trace()
         self._logger.info("[INFO] Start test function")
         outputs_loc, pipeline_load, read_pipeline_id, run_test = self.load_pipe_runtime()
 
@@ -780,14 +786,17 @@ class Controller:
         # runtime.add_target_columns_metadata(self.all_dataset, self.problem_doc_metadata)
         run_test.produce(inputs=[self.all_dataset])
 
-        try:
-            step_number_output = int(pipeline_load.pipeline.outputs[0]['data'].split('.')[1])
-        except:
-            self._logger.error("Warning: searching the output step number failed! "
-                               "Will use the last step's output of the pipeline.")
-            # step_number_output = len(pipeline_load.runtime.produce_outputs) - 1
-            step_number_output = len(run_test.produce_outputs) - 1
+        # try:
+        #     step_number_output = int(pipeline_load.pipeline.outputs[0]['data'].split('.')[1])
+        # except:
+        #     self._logger.error("Warning: searching the output step number failed! "
+        #                        "Will use the last step's output of the pipeline.")
+        #     # step_number_output = len(pipeline_load.runtime.produce_outputs) - 1
+            # step_number_output = len(run_test.produce_outputs) - 1
 
+        # update: it seems now prediction on new runtime will only have last output
+        # TODO: check whether it fit all dataset
+        step_number_output = 0
         # get the target column name
         prediction_class_name = []
         try:
@@ -804,7 +813,7 @@ class Controller:
                 "[Warning] Can't find the prediction class name, will use default name "
                 "'prediction'.")
             prediction_class_name.append("prediction")
-
+        pdb.set_trace()
         prediction = run_test.produce_outputs[step_number_output]
 
         # if the prediction results do not have d3m_index column
@@ -930,7 +939,6 @@ class Controller:
         # self._check_and_set_dataset_metadata()
 
         self.generate_dataset_splits()
-
         # FIXME) come up with a better way to implement this part. The fork does not provide a way
         # FIXME) to catch the errors of the child process
         # pid: int = os.fork()

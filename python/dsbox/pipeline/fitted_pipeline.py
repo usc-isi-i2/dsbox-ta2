@@ -106,8 +106,7 @@ class FittedPipeline:
         self.runtime.produce(**arguments)
 
     def get_cross_validation_metrics(self) -> typing.List:
-        return None
-        # return self.runtime.cross_validation_result
+        return self.runtime.cross_validation_result
 
     def get_fit_step_output(self, step_number: int):
         #return self.runtime.fit_outputs[step_number]
@@ -168,7 +167,7 @@ class FittedPipeline:
             structure['problem_taskSubType'] = str(problem_meta['taskSubType'])
         except:
             structure['problem_taskSubType'] = "NONE"
-        # structure['total_time_used_with_cache'] = self.runtime.timing["total_time_used_with_cache"]
+        structure['total_time_used'] = self.runtime.timing["total_time_used"]
 
         # structure['total_time_used_without_cache'] = self.runtime.timing["total_time_used_without_cache"]
         structure['pipeline_rank'] = rank

@@ -424,8 +424,7 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
                 'fitted_pipeline': fitted_pipeline_final,
                 'training_metrics': training_metrics,
                 'cross_validation_metrics':training_metrics, 
-                # fix it: temporary block CV function!!!
-                # 'cross_validation_metrics': fitted_pipeline_final.get_cross_validation_metrics(),
+                'cross_validation_metrics': fitted_pipeline_final.get_cross_validation_metrics(),
                 'test_metrics': test_metrics2,
                 'total_runtime': time.time() - start_time,
                 'configuration': configuration,
