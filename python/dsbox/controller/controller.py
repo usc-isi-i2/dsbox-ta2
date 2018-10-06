@@ -869,14 +869,14 @@ class Controller:
         # runtime.add_target_columns_metadata(self.all_dataset, self.problem_doc_metadata)
         run_test.produce(inputs=[self.all_dataset])
 
-        try:
-            step_number_output = int(pipeline_load.pipeline.outputs[0]['data'].split('.')[1])
-        except:
-            self._logger.error("Warning: searching the output step number failed! "
-                               "Will use the last step's output of the pipeline.")
-            # step_number_output = len(pipeline_load.runtime.produce_outputs) - 1
-            step_number_output = len(run_test.produce_outputs) - 1
-
+        # try:
+        #     step_number_output = int(pipeline_load.pipeline.outputs[0]['data'].split('.')[1])
+        # except:
+        #     self._logger.error("Warning: searching the output step number failed! "
+        #                        "Will use the last step's output of the pipeline.")
+        #     # step_number_output = len(pipeline_load.runtime.produce_outputs) - 1
+        #     step_number_output = len(run_test.produce_outputs) - 1
+        step_number_output = 0
         # get the target column name
         prediction_class_name = []
         try:
