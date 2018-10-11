@@ -7,9 +7,9 @@ class bar():
     def __init__(self, a: int):
         self.a = a
 
-    def work(self):
+    def work(self, work_arg=20):
         sl = random.randint(0, 5)
-        print(f"[INFO] sleeping for {sl}")
+        print(f"[INFO] sleeping for {sl} with args {work_arg}")
         time.sleep(sl)
         print(f"[INFO] I am working on {self.a}")
         return self.a
@@ -35,7 +35,9 @@ class foo():
     def run(self):
         for i in range(10):
             num = random.choice(self.b_list)
-            jid = self.m.push_job(kwargs={'target_obj': num, 'target_method': 'work'})
+            jid = self.m.push_job(kwargs={'target_obj': num,
+                                          'target_method': 'work',
+                                          'kwargs': {'work_arg': 10}})
             print("[INFO] Job pushed ", (jid, num))
 
         time.sleep(2)

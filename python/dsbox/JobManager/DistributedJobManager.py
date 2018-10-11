@@ -49,12 +49,14 @@ class DistributedJobManager:
         self.job_pool.close()  # prevents any additional worker to be added to the pool
 
     @staticmethod
-    def _posted_job_wrapper(target_obj, target_method):
+    def _posted_job_wrapper(target_obj: typing.Any, target_method: str,
+                            kwargs: typing.Dict = {}) -> typing.Any:
+
         # print("[INFO] I am job ")
         method_to_call = getattr(target_obj, target_method)
         # time.sleep(input)
         # print(method_to_call)
-        result = method_to_call()
+        result = method_to_call(**kwargs)
         return result
 
     @staticmethod
@@ -106,6 +108,15 @@ class DistributedJobManager:
             hash of the input argument
 
         """
+        hint_message = "kwargs must be a dict with format: " \
+                       "{\'target_obj\': ... , " \
+                       "\'target_method\': ..., " \
+                       "\'kwargs\': {[arg_name]: ...,}}"
+        assert isinstance(kwargs, dict), hint_message
+        assert all(l in kwargs for l in ['target_obj', 'target_method', 'kwargs']), hint_message
+        assert isinstance(kwargs['kwargs'], dict), hint_message
+
+
         self.ongoing_jobs += 1
         self.arguments_queue.put(kwargs)
 
