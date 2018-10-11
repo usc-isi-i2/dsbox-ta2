@@ -421,6 +421,8 @@ class Controller:
 
         self._log_search_results(report=report)
 
+        searchMethod.job_manager.kill_job_mananger()
+
     def _run_RandomDimSearch(self):
         searchMethod = RandomDimensionalSearch(
             template_list=self.template,
@@ -439,6 +441,8 @@ class Controller:
         report = searchMethod.search(num_iter=2)
 
         self._log_search_results(report=report)
+
+        searchMethod.job_manager.kill_job_mananger()
 
     def _run_BanditDimSearch(self):
         searchMethod = BanditDimensionalSearch(
@@ -911,9 +915,10 @@ class Controller:
         with mplog.open_queue() as log_queue:
             self._logger.info('Starting Search process')
 
-            # proc = multiprocessing.Process(target=self._run_RandomDimSearch)
+            # proc = Process(target=mplog.logged_call,
+            #                args=(log_queue, self._run_ParallelBaseSearch,))
             proc = Process(target=mplog.logged_call,
-                           args=(log_queue, self._run_ParallelBaseSearch(),))
+                           args=(log_queue, self._run_SerialBaseSearch,))
             # _run_RandomDimSearch
             proc.start()
 

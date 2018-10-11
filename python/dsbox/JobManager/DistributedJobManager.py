@@ -87,6 +87,7 @@ class DistributedJobManager:
             except:
                 _logger.exception('Evaulate pipeline failed')
                 traceback.print_exc()
+                _logger.error(traceback.format_exc())
                 result = None
 
             # push the results
@@ -168,12 +169,22 @@ class DistributedJobManager:
             raise TimeoutError("Timeout reached: {}/{}".format(elapsed_min, self.timeout))
 
     def kill_job_mananger(self):
+        """
+        Safely kills the jobManager and all of its components
+        Returns:
+            None
+        """
         _logger.debug("self.job_pool.terminate()")
         self.job_pool.terminate()
+
         _logger.debug("self.manager.shutdown()")
         self.manager.shutdown()
-        _logger.debug("kill_child_processes()")
-        DistributedJobManager.kill_child_processes()
+
+        # _logger.debug("kill_child_processes()")
+        # DistributedJobManager.kill_child_processes()
+
+        _logger.debug("self.kill_timer()")
+        self.kill_timer()
 
     def kill_timer(self):
         _logger.warning(f"timer killed")

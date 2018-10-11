@@ -324,7 +324,7 @@ class TemplateSteps:
         ]
 
     @staticmethod
-    def dsbox_feature_selector(ptype):
+    def dsbox_feature_selector(ptype, first_input='cast_step', second_input='extract_target_step'):
         import numpy as np
         '''
         dsbox feature selection steps for classification and regression, lead to feature selector steps
@@ -350,7 +350,7 @@ class TemplateSteps:
                         },
                         "d3m.primitives.dsbox.DoNothing"
                     ],
-                    "inputs":["cast_step", "extract_target_step"]
+                    "inputs":[first_input, second_input]
                 },
             ]
         else:
@@ -375,7 +375,7 @@ class TemplateSteps:
                         "d3m.primitives.dsbox.DoNothing"
 
                     ],
-                    "inputs":["cast_step", "extract_target_step"]
+                    "inputs":[first_input, second_input]
                 },
             ]
 

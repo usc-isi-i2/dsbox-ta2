@@ -172,7 +172,6 @@ class TemplateLibrary:
         # default tabular templates, encompassing many of the templates below
         self.templates.append(DefaultClassificationTemplate)
         self.templates.append(NaiveBayesClassificationTemplate)
-
         self.templates.append(DefaultRegressionTemplate)
 
         # new tabular classification
@@ -296,8 +295,11 @@ class DefaultClassificationTemplate(DSBoxTemplate):
             "inputType": "table",  # See SEMANTIC_TYPES.keys() for range of values
             "output": "model_step",  # Name of the final step generating the prediction
             "target": "extract_target_step",  # Name of the step generating the ground truth
-            "steps": TemplateSteps.dsbox_generic_steps() + TemplateSteps.dsbox_feature_selector(
-                "classification") + [
+            "steps": TemplateSteps.dsbox_generic_steps() +
+                     TemplateSteps.dsbox_feature_selector("classification",
+                                                          first_input='data',
+                                                          second_input='target') +
+                     [
                          {
                              "name": "model_step",
                              "runtime": {

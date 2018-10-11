@@ -72,6 +72,8 @@ class TemplateSpaceBaseSearch(typing.Generic[T]):
         self.cacheManager = CacheManager()
 
         self.history: ExecutionHistory = None
+        # setup the execution history to store the results of each template separately
+        self._setup_exec_history(template_list=self.template_list)
 
         # load libraries with a dummy evaluation
         # try:
@@ -79,7 +81,7 @@ class TemplateSpaceBaseSearch(typing.Generic[T]):
         # except:
         #     pass
 
-    def setup_exec_history(self, template_list: typing.List[DSBoxTemplate] = None):
+    def _setup_exec_history(self, template_list: typing.List[DSBoxTemplate] = None):
         self.history = ExecutionHistory(template_list=template_list)
 
     def search(self, num_iter=1) -> typing.Dict[str, typing.Any]:
@@ -93,8 +95,6 @@ class TemplateSpaceBaseSearch(typing.Generic[T]):
         Returns:
 
         """
-        self.setup_exec_history()
-
         for i in range(num_iter):
             print("#"*50)
             search = random.choice(self.confSpaceBaseSearch)
@@ -105,18 +105,71 @@ class TemplateSpaceBaseSearch(typing.Generic[T]):
                 report = self.cacheManager.candidate_cache.lookup(candidate)
                 assert report is not None and 'configuration' in report, \
                     'invalid candidate_cache line: {}->{}'.format(candidate, report)
-            else:
-                try:
-                    report = search.evaluate_pipeline(
-                        args=(candidate, self.cacheManager.primitive_cache, True))
-                    self.history.update(report)
-                    self.cacheManager.candidate_cache.push(report)
-                except:
-                    traceback.print_exc()
-                    print("[INFO] Search Failed on candidate")
-                    pprint(candidate)
-                    self.history.update_none(fail_report=None)
-                    self.cacheManager.candidate_cache.push_None(candidate=candidate)
+                continue
+
+            self.cacheManager.candidate_cache.push_None(candidate=candidate)
+            try:
+                report = search.evaluate_pipeline(
+                    args=(candidate, self.cacheManager.primitive_cache, True))
+            except:
+                traceback.print_exc()
+                _logger.error(traceback.format_exc())
+                print("[INFO] Search Failed on candidate")
+                pprint(candidate)
+                report = None
+
+            kwargs_bundle = self._prepare_job_posting(candidate=candidate,
+                                                      search=search)
+            self._add_report_to_history(kwargs_bundle=kwargs_bundle,
+                                        report=report)
 
         self.cacheManager.cleanup()
         return self.history.get_best_history()
+
+    def _add_report_to_history(self, kwargs_bundle: typing.Dict[str, typing.Any],
+                               report: typing.Dict[str, typing.Any]) -> None:
+        """
+        extract information from input of jobmanager (kwargs_bundle) and pipeline's evaluation
+        output (report) to update evaluation history object
+        Args:
+            kwargs_bundle: {'target_object':..., 'target_method':...., 'kwargs':{'args':(...)}}
+            report: generated report from pipeline evaluation method
+
+        Returns:
+
+        """
+        candidate = kwargs_bundle['kwargs']['args'][0]
+        template_name = kwargs_bundle['target_obj'].template.template['name']
+        try:
+            if report is None:
+                raise ValueError("Search Failed on candidate")
+            report['template_name'] = template_name
+            _logger.info("new report: {}".format(report))
+            self.history.update(report, template_name=template_name)
+            self.cacheManager.candidate_cache.push(report)
+        except ValueError:
+            traceback.print_exc()
+            _logger.error(traceback.format_exc())
+            print("[INFO] Search Failed on candidate ", hash(str(candidate)))
+            self.history.update_none(fail_report=None, template_name=template_name)
+            self.cacheManager.candidate_cache.push_None(candidate=candidate)
+
+    def _prepare_job_posting(self,
+                             candidate: typing.Dict[str, typing.Any],
+                             search: ConfigurationSpaceBaseSearch) -> typing.Dict[str, typing.Any]:
+        """
+        prepares the candidate pipeline in a format that can be passed to jobManager
+        Args:
+            candidate: the candidate pipeline to be evaluated
+            search: the confSpace (template) that pipeline is sampled from
+
+        Returns:
+            dictionary containing information for jobManager in the compatible format
+        """
+        return {
+            'target_obj': search,
+            'target_method': 'evaluate_pipeline',
+            'kwargs': {
+                'args': (candidate, self.cacheManager.primitive_cache, True)
+            }
+        }

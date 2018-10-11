@@ -1,7 +1,6 @@
 import traceback
 import logging
 import time
-import traceback
 import typing
 import random
 from multiprocessing import Pool
@@ -207,6 +206,7 @@ class RandomDimensionalSearch(TemplateSpaceParallelBaseSearch[T]):
                 return report
             except:
                 traceback.print_exc()
+                _logger.error(traceback.format_exc())
                 _logger.warning('Initial Pipeline failed, Trying a random pipeline ...')
                 # print("[WARN] Initial Pipeline failed, Trying a random pipeline ...")
                 pprint(candidate)
@@ -232,9 +232,6 @@ class RandomDimensionalSearch(TemplateSpaceParallelBaseSearch[T]):
             the report related to the best template (only the evaluated templates not the whole
             list)
         """
-        # setup the execution history to store the results of each template separately
-        self.setup_exec_history(template_list=self.template_list)
-
         # start the worker processes
         self.job_manager._start_workers(target_method=self._evaluate_template)
         time.sleep(0.1)
