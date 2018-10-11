@@ -4,7 +4,7 @@ from DistributedJobManager import DistributedJobManager
 
 
 class bar():
-    def __init__(self, a:int):
+    def __init__(self, a: int):
         self.a = a
 
     def work(self):
@@ -21,30 +21,34 @@ class foo():
         self.m = DistributedJobManager(proc_num=4, timeout=10)
         self.b_list = [bar(random.random()) for _ in range(6)]
 
-        self.m.start_workers(foo.job_process)
+        # self.m._start_workers(foo.job_process)
 
-    @staticmethod
-    def job_process(in_val: bar, method: str):
-        print("[INFO] I am job ", in_val)
-        method_to_call = getattr(in_val, method)
-        # time.sleep(input)
-        print(method_to_call)
-        result = method_to_call()
-        return result
+    # @staticmethod
+    # def job_process(in_val: bar, method: str):
+    #     print("[INFO] I am job ", in_val)
+    #     method_to_call = getattr(in_val, method)
+    #     # time.sleep(input)
+    #     print(method_to_call)
+    #     result = method_to_call()
+    #     return result
 
     def run(self):
         for i in range(10):
             num = random.choice(self.b_list)
-            jid = self.m.push_job(kwargs={'in_val': num, 'method': 'work'})
+            jid = self.m.push_job(kwargs={'target_obj': num, 'target_method': 'work'})
             print("[INFO] Job pushed ", (jid, num))
 
         time.sleep(2)
 
         while not self.m.is_idle():
             (num, result) = self.m.pop_job(block=True)
-            print("[INFO] Job popped ", hash(str(num)))
-
+            print(f"[INFO] Job popped {num['target_obj']} -> {result}")
+        # hash(str(num))
+        print("[INFO] Killing job manager")
         self.m.kill_job_mananger()
+        print("[INFO] Done")
+
+        self.m.kill_timer()
 
 
 
