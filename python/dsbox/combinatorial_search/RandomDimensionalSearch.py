@@ -215,10 +215,6 @@ class RandomDimensionalSearch(TemplateSpaceParallelBaseSearch[T]):
 
         raise ValueError("No valid initial candidates found")
 
-    def _select_next_template(self, num_iter: int = 2) -> ConfigurationSpaceBaseSearch:
-        for i in range(num_iter):
-            search = random.choice(self.confSpaceBaseSearch)
-            yield search
 
     def search(self, num_iter: int=2) -> typing.Dict:
         """
@@ -232,10 +228,6 @@ class RandomDimensionalSearch(TemplateSpaceParallelBaseSearch[T]):
             the report related to the best template (only the evaluated templates not the whole
             list)
         """
-        # start the worker processes
-        self.job_manager._start_workers(target_method=self._evaluate_template)
-        time.sleep(0.1)
-
         # the actual search goes here
         self._search_templates(num_iter=num_iter)
 

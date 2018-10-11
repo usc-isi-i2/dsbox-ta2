@@ -134,15 +134,13 @@ class TemplateSpaceParallelBaseSearch(TemplateSpaceBaseSearch[T]):
 
         """
         print("#" * 50)
-        for i in range(num_iter):
-            template_index = random.randrange(0, len(self.confSpaceBaseSearch))
-            search = self.confSpaceBaseSearch[template_index]
-            self._random_pipeline_sampling(search=search, num_iter=1)
+        for search in self._select_next_template(num_iter=num_iter):
+            self._random_pipeline_evaluation_push(search=search, num_iter=1)
 
         print("#" * 50)
 
-    def _random_pipeline_sampling(self, search: ConfigurationSpaceBaseSearch,
-                                  num_iter: int = 1) -> None:
+    def _random_pipeline_evaluation_push(self, search: ConfigurationSpaceBaseSearch,
+                                         num_iter: int = 1) -> None:
         """
         randomly samples 'num_iter' unique pipelines from an specified configuration space and
         pushes them to jobManager for evaluation.
@@ -153,26 +151,14 @@ class TemplateSpaceParallelBaseSearch(TemplateSpaceBaseSearch[T]):
         Returns:
 
         """
-        for _ in range(num_iter):
-            candidate = search.configuration_space.get_random_assignment()
-            print("[INFO] Selecting Candidate: ", hash(str(candidate)))
-            if self.cacheManager.candidate_cache.is_hit(candidate):
-                report = self.cacheManager.candidate_cache.lookup(candidate)
-                assert report is not None and 'configuration' in report, \
-                    'invalid candidate_cache line: {}->{}'.format(candidate, report)
-                continue
+        for candidate in self._sample_random_pipeline(search=search, num_iter=num_iter):
 
             try:
-                # first we just add the candidate as failure to the candidates cache to
-                # prevent it from being evaluated again while it is being evaluated
-                self.cacheManager.candidate_cache.push_None(candidate=candidate)
-
                 # push the candidate to the job manager
                 self.job_manager.push_job(
                     kwargs_bundle=self._prepare_job_posting(candidate=candidate,
-                                                           search=search)
+                                                            search=search)
                 )
-
             except:
                 traceback.print_exc()
                 _logger.error(traceback.format_exc())

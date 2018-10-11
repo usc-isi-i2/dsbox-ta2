@@ -10,6 +10,7 @@ from pprint import pprint
 from d3m.container.dataset import Dataset
 from d3m.metadata.base import Metadata
 from dsbox.combinatorial_search.ConfigurationSpaceBaseSearch import ConfigurationSpaceBaseSearch
+from dsbox.template.configuration_space import ConfigurationPoint
 from dsbox.combinatorial_search.ExecutionHistory import ExecutionHistory
 from dsbox.JobManager.cache import CacheManager
 from dsbox.JobManager.cache import CacheManager
@@ -81,7 +82,7 @@ class TemplateSpaceBaseSearch(typing.Generic[T]):
         # except:
         #     pass
 
-    def _setup_exec_history(self, template_list: typing.List[DSBoxTemplate] = None):
+    def _setup_exec_history(self, template_list: typing.List[DSBoxTemplate]):
         self.history = ExecutionHistory(template_list=template_list)
 
     def search(self, num_iter=1) -> typing.Dict[str, typing.Any]:
@@ -95,33 +96,22 @@ class TemplateSpaceBaseSearch(typing.Generic[T]):
         Returns:
 
         """
-        for i in range(num_iter):
-            print("#"*50)
-            search = random.choice(self.confSpaceBaseSearch)
-            candidate = search.configuration_space.get_random_assignment()
-            print("[INFO] Selecting Template:", search.template.template['name'])
+        for search in self._select_next_template(num_iter=num_iter):
+            for candidate in self._sample_random_pipeline(search=search, num_iter=1):
+                try:
+                    report = search.evaluate_pipeline(
+                        args=(candidate, self.cacheManager.primitive_cache, True))
+                except:
+                    traceback.print_exc()
+                    _logger.error(traceback.format_exc())
+                    print("[INFO] Search Failed on candidate")
+                    pprint(candidate)
+                    report = None
 
-            if self.cacheManager.candidate_cache.is_hit(candidate):
-                report = self.cacheManager.candidate_cache.lookup(candidate)
-                assert report is not None and 'configuration' in report, \
-                    'invalid candidate_cache line: {}->{}'.format(candidate, report)
-                continue
-
-            self.cacheManager.candidate_cache.push_None(candidate=candidate)
-            try:
-                report = search.evaluate_pipeline(
-                    args=(candidate, self.cacheManager.primitive_cache, True))
-            except:
-                traceback.print_exc()
-                _logger.error(traceback.format_exc())
-                print("[INFO] Search Failed on candidate")
-                pprint(candidate)
-                report = None
-
-            kwargs_bundle = self._prepare_job_posting(candidate=candidate,
-                                                      search=search)
-            self._add_report_to_history(kwargs_bundle=kwargs_bundle,
-                                        report=report)
+                kwargs_bundle = self._prepare_job_posting(candidate=candidate,
+                                                          search=search)
+                self._add_report_to_history(kwargs_bundle=kwargs_bundle,
+                                            report=report)
 
         self.cacheManager.cleanup()
         return self.history.get_best_history()
@@ -173,3 +163,41 @@ class TemplateSpaceBaseSearch(typing.Generic[T]):
                 'args': (candidate, self.cacheManager.primitive_cache, True)
             }
         }
+
+    def _select_next_template(self, num_iter: int = 2) \
+            -> typing.Iterable[ConfigurationSpaceBaseSearch]:
+        """
+        Selects a confSpace (template) randomly from the list of available ones
+        Args: 
+            num_iter: number of samples to draw
+
+        Returns:
+            generator containing confSpace objects
+
+        """
+        for _ in range(num_iter):
+            search = random.choice(self.confSpaceBaseSearch)
+            yield search
+
+    def _sample_random_pipeline(self,
+                                search: ConfigurationSpaceBaseSearch,
+                                num_iter: int = 1) \
+            -> typing.Iterable[ConfigurationPoint]:
+        for _ in range(num_iter):
+            candidate = search.configuration_space.get_random_assignment()
+            print("[INFO] Selecting Candidate: ", hash(str(candidate)))
+            if self.cacheManager.candidate_cache.is_hit(candidate):
+                report = self.cacheManager.candidate_cache.lookup(candidate)
+                assert report is not None and 'configuration' in report, \
+                    'invalid candidate_cache line: {}->{}'.format(candidate, report)
+                continue
+
+            try:
+                # first we just add the candidate as failure to the candidates cache to
+                # prevent it from being evaluated again while it is being evaluated
+                self.cacheManager.candidate_cache.push_None(candidate=candidate)
+            except:
+                traceback.print_exc()
+                _logger.error(traceback.format_exc())
+
+            yield candidate
