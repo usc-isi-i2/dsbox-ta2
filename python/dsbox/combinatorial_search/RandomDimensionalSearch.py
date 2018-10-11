@@ -236,7 +236,7 @@ class RandomDimensionalSearch(TemplateSpaceParallelBaseSearch[T]):
         self.setup_exec_history(template_list=self.template_list)
 
         # start the worker processes
-        self.job_manager.start_workers(target=self._evaluate_template)
+        self.job_manager._start_workers(target_method=self._evaluate_template)
         time.sleep(0.1)
 
         # the actual search goes here

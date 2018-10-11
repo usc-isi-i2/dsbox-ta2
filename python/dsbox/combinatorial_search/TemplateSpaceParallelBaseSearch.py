@@ -62,11 +62,11 @@ class TemplateSpaceParallelBaseSearch(TemplateSpaceBaseSearch[T]):
         )
 
 
-    @staticmethod
-    def _evaluate_template(confspace_search: ConfigurationSpaceBaseSearch,
-                           candidate: ConfigurationPoint, cache: PrimitivesCache,
-                           dump2disk: bool = True):
-        return confspace_search.evaluate_pipeline(args=(candidate, cache, dump2disk))
+    # @staticmethod
+    # def _evaluate_template(confspace_search: ConfigurationSpaceBaseSearch,
+    #                        candidate: ConfigurationPoint, cache: PrimitivesCache,
+    #                        dump2disk: bool = True):
+    #     return confspace_search.evaluate_pipeline(args=(candidate, cache, dump2disk))
 
     def search(self, num_iter=1) -> typing.Dict:
         """
@@ -81,7 +81,7 @@ class TemplateSpaceParallelBaseSearch(TemplateSpaceBaseSearch[T]):
         """
         self.setup_exec_history()
         # start the worker processes
-        self.job_manager.start_workers(target=self._evaluate_template)
+        # self.job_manager._start_workers(target_method=self._evaluate_template)
         time.sleep(0.1)
 
         # randomly send the candidates to job manager for evaluation
@@ -101,19 +101,43 @@ class TemplateSpaceParallelBaseSearch(TemplateSpaceBaseSearch[T]):
 
         return self.history.get_best_history()
 
-    def _get_evaluation_results(self, template_name: str = 'generic'):
-        print("[INFO] Waiting for the results")
+    def _get_evaluation_results(self, template_name: str = 'generic') -> None:
+        """
+        The process is sleeped on jobManager's result queue until a result is ready, then it pops
+        the results and updates history and candidate's cache with it. The method repeats this
+        process until there are no pending jobs in the jobManager.
+        Args:
+            template_name: name of the template
+
+        Returns:
+            None
+        """
+        _logger.debug("[INFO] Waiting for the results")
         counter = 0
         while not self.job_manager.is_idle():
             # print("[INFO] Sleeping,", counter)
-            print("[INFO] Main Process Sleeping:", counter)
-            (kwargs, report) = self.job_manager.pop_job(block=True)
-            self._add_report_to_candidate_cache(kwargs, report, template_name)
+            _logger.debug("[INFO] Main Process Sleeping:", counter)
+            (kwargs_bundle, report) = self.job_manager.pop_job(block=True)
+            _logger.warning(f"kwargs: {kwargs_bundle}")
+            self._add_report_to_candidate_cache(kwargs_bundle, report, template_name)
             counter += 1
-        print("[INFO] No more pending job")
+        _logger.info("[INFO] No more pending job")
 
-    def _add_report_to_candidate_cache(self, kwargs, report, template_name):
-        candidate = kwargs['candidate']
+    def _add_report_to_candidate_cache(self, kwargs_bundle: typing.Dict[str, typing.Any],
+                                       report: typing.Dict[str, typing.Any],
+                                       template_name: str) -> None:
+        """
+        extract information from input of jobmanager (kwargs_bundle) and pipeline's evaluation
+        output (report) to update evaluation history object
+        Args:
+            kwargs_bundle: {'target_object':..., 'target_method':...., 'kwargs':{'args':(...)}}
+            report: generated report from pipeline evaluation method
+            template_name: name of the template that was used
+
+        Returns:
+
+        """
+        candidate = kwargs_bundle['kwargs']['args'][0]
         try:
             if report is None:
                 raise ValueError("Search Failed on candidate")
@@ -127,7 +151,16 @@ class TemplateSpaceParallelBaseSearch(TemplateSpaceBaseSearch[T]):
             self.history.update_none(fail_report=None, template_name=template_name)
             self.cacheManager.candidate_cache.push_None(candidate=candidate)
 
-    def _push_random_candidates(self, num_iter):
+    def _push_random_candidates(self, num_iter: int):
+        """
+        randomly samples 'num_iter' unique pipelines from a random configuration space and pushes
+        them to jobManager for evaluation.
+        Args:
+            num_iter: number of pipeline samples
+
+        Returns:
+
+        """
         print("#" * 50)
         for i in range(num_iter):
             template_index = random.randrange(0, len(self.confSpaceBaseSearch))
@@ -136,8 +169,18 @@ class TemplateSpaceParallelBaseSearch(TemplateSpaceBaseSearch[T]):
 
         print("#" * 50)
 
-    def _random_pipeline_sampling(self, search: ConfigurationSpaceBaseSearch, num_iter: int = 1) \
-            -> None:
+    def _random_pipeline_sampling(self, search: ConfigurationSpaceBaseSearch,
+                                  num_iter: int = 1) -> None:
+        """
+        randomly samples 'num_iter' unique pipelines from an specified configuration space and
+        pushes them to jobManager for evaluation.
+        Args:
+            search: the selected configuration space (template)
+            num_iter: number of pipelines to sample
+
+        Returns:
+
+        """
         for _ in range(num_iter):
             candidate = search.configuration_space.get_random_assignment()
             print("[INFO] Selecting Candidate: ", hash(str(candidate)))
@@ -153,13 +196,22 @@ class TemplateSpaceParallelBaseSearch(TemplateSpaceBaseSearch[T]):
                 self.cacheManager.candidate_cache.push_None(candidate=candidate)
 
                 # push the candidate to the job manager
+                # self.job_manager.push_job(
+                #     {
+                #         'confspace_search': search,
+                #         'cache': self.cacheManager.primitive_cache,
+                #         'candidate': candidate,
+                #         'dump2disk': True,
+                #     })
                 self.job_manager.push_job(
-                    {
-                        'confspace_search': search,
-                        'cache': self.cacheManager.primitive_cache,
-                        'candidate': candidate,
-                        'dump2disk': True,
-                    })
+                    kwargs_bundle={
+                        'target_obj': search,
+                        'target_method': 'evaluate_pipeline',
+                        'kwargs': {
+                            'args': (candidate, self.cacheManager.primitive_cache, True)}
+                    }
+                )
+
             except:
                 traceback.print_exc()
 
@@ -181,7 +233,7 @@ class TemplateSpaceParallelBaseSearch(TemplateSpaceBaseSearch[T]):
                 the evaluation result in the same format that evaluate will produce
         Warnings:
             the code assumes that no other process is reading results from the executionManger's
-            output queue. If the poped job is not the same that was submitted the method will
+            output queue. If the popped job is not the same that was submitted the method will
             raise exception.
 
         """
@@ -205,22 +257,31 @@ class TemplateSpaceParallelBaseSearch(TemplateSpaceBaseSearch[T]):
         self.cacheManager.candidate_cache.push_None(candidate=candidate)
 
         # push the candidate to the job manager
+        # self.job_manager.push_job(
+        #     {
+        #         'confspace_search': base_search,
+        #         'cache': self.cacheManager.primitive_cache,
+        #         'candidate': candidate,
+        #         'dump2disk': True,
+        #     })
         self.job_manager.push_job(
-            {
-                'confspace_search': base_search,
-                'cache': self.cacheManager.primitive_cache,
-                'candidate': candidate,
-                'dump2disk': True,
-            })
+            kwargs_bundle={
+                'target_obj': base_search,
+                'target_method': 'evaluate_pipeline',
+                'kwargs': {
+                    'args': (candidate, self.cacheManager.primitive_cache, True)
+                }
+            }
+        )
 
         # wait for the results
-        (kwargs, report) = self.job_manager.pop_job(block=True)
-        check_candidate = kwargs['candidate']
+        (kwargs_bundle, report) = self.job_manager.pop_job(block=True)
+        check_candidate = kwargs_bundle['kwargs']['args'][0]
 
-        self._add_report_to_candidate_cache(kwargs=kwargs, report=report,
-                                            template_name=base_search.template.template['name'])
         if check_candidate != candidate:
             raise ValueError('Different candidate result was popped. The evaluate_blocking '
                              'assumes that it is the only process pushing jobs to jobManager')
 
+        self._add_report_to_candidate_cache(kwargs_bundle=kwargs_bundle, report=report,
+                                            template_name=base_search.template.template['name'])
         return report

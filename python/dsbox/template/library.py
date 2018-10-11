@@ -176,15 +176,15 @@ class TemplateLibrary:
         self.templates.append(DefaultRegressionTemplate)
 
         # new tabular classification
-        # self.templates.append(RandomForestClassificationTemplate)
-        # self.templates.append(ExtraTreesClassificationTemplate)
-        # self.templates.append(GradientBoostingClassificationTemplate)
+        self.templates.append(RandomForestClassificationTemplate)
+        self.templates.append(ExtraTreesClassificationTemplate)
+        self.templates.append(GradientBoostingClassificationTemplate)
         # takes too long to run self.templates.append(SVCClassificationTemplate)
 
         # new tabular regression
-        # self.templates.append(RandomForestRegressionTemplate)
-        # self.templates.append(ExtraTreesRegressionTemplate)
-        # self.templates.append(GradientBoostingRegressionTemplate)
+        self.templates.append(RandomForestRegressionTemplate)
+        self.templates.append(ExtraTreesRegressionTemplate)
+        self.templates.append(GradientBoostingRegressionTemplate)
         # takes too long to run self.templates.append(SVRRegressionTemplate)
 
         # text templates, but also support tabular data
@@ -192,10 +192,10 @@ class TemplateLibrary:
         self.templates.append(DefaultTextRegressionTemplate)
 
         # Tabular Classification
-        # self.templates.append(TA1Classification_3)
-        # self.templates.append(MuxinTA1ClassificationTemplate1)
+        self.templates.append(TA1Classification_3)
+        self.templates.append(MuxinTA1ClassificationTemplate1)
         self.templates.append(UU3TestTemplate)
-        # self.templates.append(TA1ClassificationTemplate1)
+        self.templates.append(TA1ClassificationTemplate1)
 
         # Image Regression
         self.templates.append(DefaultImageProcessingRegressionTemplate)
@@ -296,56 +296,57 @@ class DefaultClassificationTemplate(DSBoxTemplate):
             "inputType": "table",  # See SEMANTIC_TYPES.keys() for range of values
             "output": "model_step",  # Name of the final step generating the prediction
             "target": "extract_target_step",  # Name of the step generating the ground truth
-            "steps": TemplateSteps.dsbox_generic_steps() + [
-                {
-                    "name": "model_step",
-                    "runtime": {
-                        "cross_validation": 10,
-                        "stratified": True
-                    },
-                    "primitives": [
-                        {
-                            "primitive":
-                                "d3m.primitives.sklearn_wrap.SKRandomForestClassifier",
-                            "hyperparameters":
-                                {
-                                    'bootstrap': [True, False],
-                                    'max_depth': [15, 30, None],
-                                    'min_samples_leaf': [1, 2, 4],
-                                    'min_samples_split': [2, 5, 10],
-                                    'max_features': ['auto', 'sqrt'],
-                                    'n_estimators': [10, 50, 100],
-                                }
-                        },
-                        {
-                            "primitive":
-                                "d3m.primitives.sklearn_wrap.SKExtraTreesClassifier",
-                            "hyperparameters":
-                                {
-                                    'bootstrap': [True, False],
-                                    'max_depth': [15, 30, None],
-                                    'min_samples_leaf': [1, 2, 4],
-                                    'min_samples_split': [2, 5, 10],
-                                    'max_features': ['auto', 'sqrt'],
-                                    'n_estimators': [10, 50, 100],
-                                }
-                        },
-                        {
-                            "primitive":
-                                "d3m.primitives.sklearn_wrap.SKGradientBoostingClassifier",
-                            "hyperparameters":
-                                {
-                                    'max_depth': [2, 3, 4, 5],
-                                    'n_estimators': [50, 60, 80, 100],
-                                    'learning_rate': [0.1, 0.2, 0.4, 0.5],
-                                    'min_samples_split': [2, 3],
-                                    'min_samples_leaf': [1, 2],
-                                }
-                        },
-                    ],
-                    "inputs": ["data", "target"]
-                }
-            ]
+            "steps": TemplateSteps.dsbox_generic_steps() + TemplateSteps.dsbox_feature_selector(
+                "classification") + [
+                         {
+                             "name": "model_step",
+                             "runtime": {
+                                 "cross_validation": 10,
+                                 "stratified": True
+                             },
+                             "primitives": [
+                                 {
+                                     "primitive":
+                                         "d3m.primitives.sklearn_wrap.SKRandomForestClassifier",
+                                     "hyperparameters":
+                                         {
+                                             'bootstrap': [True, False],
+                                             'max_depth': [15, 30, None],
+                                             'min_samples_leaf': [1, 2, 4],
+                                             'min_samples_split': [2, 5, 10],
+                                             'max_features': ['auto', 'sqrt'],
+                                             'n_estimators': [10, 50, 100],
+                                         }
+                                 },
+                                 {
+                                     "primitive":
+                                         "d3m.primitives.sklearn_wrap.SKExtraTreesClassifier",
+                                     "hyperparameters":
+                                         {
+                                             'bootstrap': [True, False],
+                                             'max_depth': [15, 30, None],
+                                             'min_samples_leaf': [1, 2, 4],
+                                             'min_samples_split': [2, 5, 10],
+                                             'max_features': ['auto', 'sqrt'],
+                                             'n_estimators': [10, 50, 100],
+                                         }
+                                 },
+                                 {
+                                     "primitive":
+                                         "d3m.primitives.sklearn_wrap.SKGradientBoostingClassifier",
+                                     "hyperparameters":
+                                         {
+                                             'max_depth': [2, 3, 4, 5],
+                                             'n_estimators': [50, 60, 80, 100],
+                                             'learning_rate': [0.1, 0.2, 0.4, 0.5],
+                                             'min_samples_split': [2, 3],
+                                             'min_samples_leaf': [1, 2],
+                                         }
+                                 },
+                             ],
+                             "inputs": ["feature_selector_step", "target"]
+                         }
+                     ]
         }
 
     # @override
@@ -2925,7 +2926,7 @@ class TA1Classification_3(DSBoxTemplate):
                         "d3m.primitives.dsbox.CleaningFeaturizer",
                         "d3m.primitives.dsbox.DoNothing",
                     ],
-                    "inputs": ["profiler_step"]
+                    "inputs": ["profile_step"]
                 },
                 {
                     "name": "impute_step",

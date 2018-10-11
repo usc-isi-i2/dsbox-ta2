@@ -913,7 +913,8 @@ class Controller:
 
             # proc = multiprocessing.Process(target=self._run_RandomDimSearch)
             proc = Process(target=mplog.logged_call,
-                                           args=(log_queue, self._run_RandomDimSearch,))
+                           args=(log_queue, self._run_ParallelBaseSearch(),))
+            # _run_RandomDimSearch
             proc.start()
 
             self._logger.info('At the end.')

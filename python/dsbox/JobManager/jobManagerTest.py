@@ -35,7 +35,7 @@ class foo():
     def run(self):
         for i in range(10):
             num = random.choice(self.b_list)
-            jid = self.m.push_job(kwargs={'target_obj': num,
+            jid = self.m.push_job(kwargs_bundle={'target_obj': num,
                                           'target_method': 'work',
                                           'kwargs': {'work_arg': 10}})
             print("[INFO] Job pushed ", (jid, num))

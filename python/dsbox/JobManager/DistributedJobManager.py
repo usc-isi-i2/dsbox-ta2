@@ -96,13 +96,13 @@ class DistributedJobManager:
 
             counter += 1
 
-    def push_job(self, kwargs: typing.Dict = {}) -> int:
+    def push_job(self, kwargs_bundle: typing.Dict = {}) -> int:
         """
         The method creates a new process for the given job and returns the pid of the job
         Args:
             target:
             name:
-            kwargs:
+            kwargs_bundle:
 
         Returns: int
             hash of the input argument
@@ -112,15 +112,15 @@ class DistributedJobManager:
                        "{\'target_obj\': ... , " \
                        "\'target_method\': ..., " \
                        "\'kwargs\': {[arg_name]: ...,}}"
-        assert isinstance(kwargs, dict), hint_message
-        assert all(l in kwargs for l in ['target_obj', 'target_method', 'kwargs']), hint_message
-        assert isinstance(kwargs['kwargs'], dict), hint_message
+        assert isinstance(kwargs_bundle, dict), hint_message
+        assert all(l in kwargs_bundle for l in ['target_obj', 'target_method', 'kwargs']), hint_message
+        assert isinstance(kwargs_bundle['kwargs'], dict), hint_message
 
 
         self.ongoing_jobs += 1
-        self.arguments_queue.put(kwargs)
+        self.arguments_queue.put(kwargs_bundle)
 
-        return hash(str(kwargs))
+        return hash(str(kwargs_bundle))
 
     def pop_job(self, block: bool = False) -> typing.Tuple[typing.Dict, typing.Any]:
         """
@@ -145,13 +145,14 @@ class DistributedJobManager:
 
     def are_workers_idle(self):
         print(f"ongoing Jobs:{self.ongoing_jobs}")
+        _logger.info(f"ongoing Jobs:{self.ongoing_jobs}")
         return self.ongoing_jobs == 0
 
     def are_queues_empty(self) -> bool:
         # _logger.info(f"arguments_queue:{len(self.arguments_queue)}, "
         #              f"result_queue:{len(self.result_queue)}")
-        _logger.info(f"are_queues_empty: {self.arguments_queue.empty()} and "
-                     f"{self.result_queue.empty()}")
+        _logger.debug(f"are_queues_empty: {self.arguments_queue.empty()} and "
+                      f"{self.result_queue.empty()}")
         return self.arguments_queue.empty() and self.result_queue.empty()
 
     def check_timeout(self):
@@ -167,13 +168,11 @@ class DistributedJobManager:
             raise TimeoutError("Timeout reached: {}/{}".format(elapsed_min, self.timeout))
 
     def kill_job_mananger(self):
-        print("Test")
-        _logger.info("self.job_pool.terminate()")
+        _logger.debug("self.job_pool.terminate()")
         self.job_pool.terminate()
-        print("Test")
-        _logger.info("self.manager.shutdown()")
+        _logger.debug("self.manager.shutdown()")
         self.manager.shutdown()
-        _logger.info("kill_child_processes()")
+        _logger.debug("kill_child_processes()")
         DistributedJobManager.kill_child_processes()
 
     def kill_timer(self):
