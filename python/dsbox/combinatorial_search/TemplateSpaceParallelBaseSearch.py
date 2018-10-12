@@ -102,7 +102,7 @@ class TemplateSpaceParallelBaseSearch(TemplateSpaceBaseSearch[T]):
 
         return self.history.get_best_history()
 
-    def _get_evaluation_results(self) -> None:
+    def _get_evaluation_results(self, max_num: int=-1) -> None:
         """
         The process is sleeped on jobManager's result queue until a result is ready, then it pops
         the results and updates history and candidate's cache with it. The method repeats this
@@ -114,7 +114,7 @@ class TemplateSpaceParallelBaseSearch(TemplateSpaceBaseSearch[T]):
         """
         _logger.debug("Waiting for the results")
         counter = 0
-        while not self.job_manager.is_idle():
+        while not counter > max_num or not self.job_manager.is_idle():
             # print("[INFO] Sleeping,", counter)
             _logger.debug(f"Main Process Sleeping:{counter}")
             (kwargs_bundle, report) = self.job_manager.pop_job(block=True)

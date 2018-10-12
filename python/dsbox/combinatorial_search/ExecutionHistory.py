@@ -97,10 +97,20 @@ class ExecutionHistory:
         for k in update:
             self.storage.loc[template_name][k] = update[k]
 
+        # check validity of the storage
+        # measures = ['training_metrics', 'cross_validation_metrics', 'test_metrics']
+        # self.storage[measures].applymap(lambda e: e is None or isinstance(e, list))
+            # assert all([e is None or isinstance(e, list) for e in self.storage[k].values]), \
+            #     "column {} must be list".format(k)
+            #
+            # assert all([
+            #     isinstance(e[0], dict) for e in self.storage[k].values if isinstance(e, list)
+            # ]), "column {} must be list of dict".format(k)
+
     def normalize(self) -> pd.DataFrame:
         """
         Returns the normalized version of execution history. The normalized dataframe only
-        contains the value not other metadata related to each one of the attibutes of history (
+        contains the value not other metadata related to each one of the attributes of history (
         e.g. evaluation metric's names)
 
         Returns:
@@ -115,7 +125,7 @@ class ExecutionHistory:
                      'sim_count', 'total_runtime'])
 
         for k in ['training_metrics', 'cross_validation_metrics', 'test_metrics']:
-            normalize[k] = self.storage[k][0]['value']
+            normalize[k] = self.storage[k].map(lambda r: r[0]['value'], na_action='ignore')
 
         for k in ['sim_count', 'total_runtime']:
             normalize[k] = self.storage[k]
