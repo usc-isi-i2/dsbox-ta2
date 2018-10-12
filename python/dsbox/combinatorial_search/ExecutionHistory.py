@@ -117,6 +117,8 @@ class ExecutionHistory:
             normalize: pd.DataFrame
                 normalized history dataframe
         """
+        print("normalized",'&'*100)
+        self.storage.to_csv("selfStorage.csv")
         alpha = 0.01
         normalize = pd.DataFrame(
             0,

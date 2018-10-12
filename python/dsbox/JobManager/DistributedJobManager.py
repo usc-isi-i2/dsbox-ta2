@@ -6,7 +6,7 @@ import psutil
 from threading import Timer
 from math import ceil
 import traceback
-from multiprocessing import Pool, Queue, Manager, Process, current_process
+from multiprocessing import Pool, Queue, Manager, Process, current_process, Lock
 from multiprocessing import get_logger
 # import dsbox.JobManager.mplog as mplog
 
@@ -25,6 +25,8 @@ class DistributedJobManager:
         # self.manager.start()
         self.arguments_queue: Queue = self.manager.Queue()
         self.result_queue: Queue = self.manager.Queue()
+
+        self.Qlock = self.manager.Lock()
 
         # initialize
         self.job_pool: Pool = None
@@ -119,9 +121,10 @@ class DistributedJobManager:
         assert isinstance(kwargs_bundle['kwargs'], dict), hint_message
 
 
+        self.Qlock.acquire()
         self.ongoing_jobs += 1
         self.arguments_queue.put(kwargs_bundle)
-
+        self.Qlock.release()
         return hash(str(kwargs_bundle))
 
     def pop_job(self, block: bool = False) -> typing.Tuple[typing.Dict, typing.Any]:
@@ -136,8 +139,11 @@ class DistributedJobManager:
         """
         _logger.info(f"# ongoing_jobs {self.ongoing_jobs}")
         print(f"# ongoing_jobs {self.ongoing_jobs}")
+        self.Qlock.acquire()
+        print(f"[PID] pid:{os.getpid()}")
         (kwargs, results) = self.result_queue.get(block=block)
         self.ongoing_jobs -= 1
+        self.Qlock.release()
         # _logger.info(f"[INFO] end of pop # ongoing_jobs {self.ongoing_jobs}")
         return (kwargs, results)
 

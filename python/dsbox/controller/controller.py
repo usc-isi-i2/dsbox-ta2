@@ -481,7 +481,7 @@ class Controller:
             num_proc=self.num_cpus,
             timeout=self.TIMEOUT,
         )
-        report = searchMethod.search(num_iter=20)
+        report = searchMethod.search(num_iter=30)
 
         self._log_search_results(report=report)
 
