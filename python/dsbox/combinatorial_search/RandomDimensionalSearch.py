@@ -102,7 +102,7 @@ class RandomDimensionalSearch(TemplateSpaceParallelBaseSearch[T]):
                 time.sleep(0.1)
 
             # wait until all the candidates are evaluated
-            self._get_evaluation_results(template_name=search.template.template['name'])
+            self._get_evaluation_results()
 
             base_candidate = self.history.get_best_candidate(search.template.template['name'])
 

@@ -46,6 +46,7 @@ from dsbox.combinatorial_search.TemplateSpaceParallelBaseSearch import \
     TemplateSpaceParallelBaseSearch
 from dsbox.combinatorial_search.RandomDimensionalSearch import RandomDimensionalSearch
 from dsbox.combinatorial_search.BanditDimensionalSearch import BanditDimensionalSearch
+from dsbox.combinatorial_search.MultiBanditSearch import MultiBanditSearch
 
 from dsbox.combinatorial_search.search_utils import get_target_columns
 from dsbox.combinatorial_search.search_utils import random_choices_without_replacement
@@ -438,7 +439,7 @@ class Controller:
             num_proc=self.num_cpus,
             timeout=self.TIMEOUT,
         )
-        report = searchMethod.search(num_iter=2)
+        report = searchMethod.search(num_iter=10)
 
         self._log_search_results(report=report)
 
@@ -446,6 +447,27 @@ class Controller:
 
     def _run_BanditDimSearch(self):
         searchMethod = BanditDimensionalSearch(
+            template_list=self.template,
+            performance_metrics=self.problem['problem']['performance_metrics'],
+            problem=self.problem_doc_metadata,
+            test_dataset1=self.test_dataset1,
+            train_dataset1=self.train_dataset1,
+            test_dataset2=self.test_dataset2,
+            train_dataset2=self.train_dataset2,
+            all_dataset=self.all_dataset,
+            output_directory=self.output_directory,
+            log_dir=self.output_logs_dir,
+            num_proc=self.num_cpus,
+            timeout=self.TIMEOUT,
+        )
+        report = searchMethod.search(num_iter=5)
+
+        self._log_search_results(report=report)
+
+        searchMethod.job_manager.kill_job_mananger()
+
+    def _run_MultiBanditSearch(self):
+        searchMethod = MultiBanditSearch(
             template_list=self.template,
             performance_metrics=self.problem['problem']['performance_metrics'],
             problem=self.problem_doc_metadata,
@@ -905,7 +927,9 @@ class Controller:
             self._logger.info('Starting Search process')
 
             proc = Process(target=mplog.logged_call,
-                           args=(log_queue, self._run_ParallelBaseSearch,))
+                           args=(log_queue, self._run_RandomDimSearch,))
+            # proc = Process(target=mplog.logged_call,
+            #                args=(log_queue, self._run_ParallelBaseSearch,))
             # proc = Process(target=mplog.logged_call,
             #                args=(log_queue, self._run_SerialBaseSearch,))
             # _run_RandomDimSearch
