@@ -543,7 +543,7 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
 
     def _use_quick_mode_or_not(self) -> bool:
         '''
-            The function to determine whether to use quick mode or now
+            The function to determine whether to use quick mode or not
             Now it is hard coded
         '''
         for each_type in self.template.template['inputType']:
@@ -578,8 +578,15 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
         pipeline = self.template.to_pipeline(configuration)
         # Todo: update ResourceManager to run pipeline:  ResourceManager.add_pipeline(pipeline)
 
+
         # if in cross validation mode
-        if self.testing_mode == 1:
+
+        # if self.testing_mode == 1:
+        if self.testing_mode == 10:
+            pass
+        '''
+        # !!! temorary block cross validation function
+        
             repeat_times = int(self.validation_config['cross_validation'])
             print("[INFO] Will use cross validation( n =", repeat_times, ") to choose best primitives.")
             # start training and testing
@@ -603,7 +610,7 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
                 for each in test_metrics:
                     each["value"] = sys.float_info.max
             print("[INFO] Testing finish.!!!")
-
+        '''
         # if in normal testing mode(including default testing mode with train/test one time each)
         else:
             if self.testing_mode == 2:
