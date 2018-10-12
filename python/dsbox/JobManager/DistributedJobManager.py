@@ -85,15 +85,16 @@ class DistributedJobManager:
                 # TODO add timelimit to single work in the worker
                 result = target(**kwargs)
             except:
-                _logger.exception('Evaulate pipeline failed')
+                _logger.exception(f'Target evaluation {hash(str(kwargs))}, '
+                                  f'failed in {current_process()}')
                 traceback.print_exc()
-                _logger.error(traceback.format_exc())
+                # _logger.error(traceback.format_exc())
                 result = None
 
             # push the results
-            print("Pushing Results {}".format(current_process()))
+            print(f"Pushing Results {current_process()}")
             result_queue.put((kwargs, result))
-            print("Worker is Idle {}".format(current_process()))
+            print(f"Worker is Idle {current_process()}")
 
             counter += 1
 
@@ -133,9 +134,11 @@ class DistributedJobManager:
         Returns:
 
         """
-        print(f"[INFO] # ongoing_jobs {self.ongoing_jobs}")
+        _logger.info(f"# ongoing_jobs {self.ongoing_jobs}")
+        print(f"# ongoing_jobs {self.ongoing_jobs}")
         (kwargs, results) = self.result_queue.get(block=block)
         self.ongoing_jobs -= 1
+        # _logger.info(f"[INFO] end of pop # ongoing_jobs {self.ongoing_jobs}")
         return (kwargs, results)
 
     def any_pending_job(self):

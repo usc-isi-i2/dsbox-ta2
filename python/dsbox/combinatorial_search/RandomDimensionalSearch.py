@@ -92,21 +92,14 @@ class RandomDimensionalSearch(TemplateSpaceParallelBaseSearch[T]):
             print("-"*50)
             # send all the candidates to the execution Engine
             for conf in new_candidates:
-                # first we just add the candidate as failure to the candidates cache to
-                # prevent it from being evaluated again while it is being evaluated
-                self.cacheManager.candidate_cache.push_None(candidate=conf)
 
                 # push the candidate to the job manager
+                # push the candidate to the job manager
                 self.job_manager.push_job(
-                    {
-                        'confspace_search': search,
-                        'cache': self.cacheManager.primitive_cache,
-                        'candidate': conf,
-                        'dump2disk': True,
-                    })
+                    kwargs_bundle=self._prepare_job_posting(candidate=conf,
+                                                            search=search)
+                )
                 time.sleep(0.1)
-
-            time.sleep(1)
 
             # wait until all the candidates are evaluated
             self._get_evaluation_results(template_name=search.template.template['name'])
@@ -169,8 +162,10 @@ class RandomDimensionalSearch(TemplateSpaceParallelBaseSearch[T]):
             # regenerate the pipeline
             candidate_ = search.configuration_space.get_point(new)
 
-            if not self.cacheManager.candidate_cache.is_hit(candidate_):
+            if self._prepare_candidate_4_eval(candidate=candidate_):
                 new_candidates.append(candidate_)
+            # if not self.cacheManager.candidate_cache.is_hit(candidate_):
+            #     new_candidates.append(candidate_)
 
         return new_candidates
 
@@ -198,7 +193,7 @@ class RandomDimensionalSearch(TemplateSpaceParallelBaseSearch[T]):
             candidate = base_search.configuration_space.get_random_assignment()
 
         # first, then random, then another random
-        for i in range(RandomDimensionalSearch.max_init_trials-1):
+        for i in range(RandomDimensionalSearch.max_init_trials):
             try:
                 report = self.evaluate_blocking(base_search=base_search, candidate=candidate)
                 if report is None:

@@ -417,7 +417,7 @@ class Controller:
             num_proc=self.num_cpus,
             timeout=self.TIMEOUT,
         )
-        report = searchMethod.search(num_iter=10)
+        report = searchMethod.search(num_iter=15)
 
         self._log_search_results(report=report)
 
@@ -462,6 +462,8 @@ class Controller:
         report = searchMethod.search(num_iter=5)
 
         self._log_search_results(report=report)
+
+        searchMethod.job_manager.kill_job_mananger()
     '''
         **********************************************************************
         Public method (in alphabet)
@@ -899,37 +901,25 @@ class Controller:
 
         # FIXME) come up with a better way to implement this part. The fork does not provide a way
         # FIXME) to catch the errors of the child process
-        # pid: int = os.fork()
-        # if pid == 0:  # run the search in the child process
-        #     # self._run_SerialBaseSearch()
-        #     # self._run_ParallelBaseSearch()
-        #     self._run_RandomDimSearch()
-        #     # self._run_BanditDimSearch()
-        #
-        #     print("[INFO] End of Search")
-        #     os._exit(0)
-        # else:
-        #     status = os.wait()
-        #     print("[INFO] Search Status:")
-        #     pprint.pprint(status)
         with mplog.open_queue() as log_queue:
             self._logger.info('Starting Search process')
 
-            # proc = Process(target=mplog.logged_call,
-            #                args=(log_queue, self._run_ParallelBaseSearch,))
             proc = Process(target=mplog.logged_call,
-                           args=(log_queue, self._run_SerialBaseSearch,))
+                           args=(log_queue, self._run_ParallelBaseSearch,))
+            # proc = Process(target=mplog.logged_call,
+            #                args=(log_queue, self._run_SerialBaseSearch,))
             # _run_RandomDimSearch
             proc.start()
 
-            self._logger.info('At the end.')
+            self._logger.info('Searching is finished')
             # wait until process is done
             proc.join()
 
             status = proc.exitcode
             print("[INFO] Search Status:")
             pprint.pprint(status)
-            print("END OF FORK")
+        
+        print("END OF FORK")
 
 
     def generate_dataset_splits(self):

@@ -186,18 +186,33 @@ class TemplateSpaceBaseSearch(typing.Generic[T]):
         for _ in range(num_iter):
             candidate = search.configuration_space.get_random_assignment()
             print("[INFO] Selecting Candidate: ", hash(str(candidate)))
-            if self.cacheManager.candidate_cache.is_hit(candidate):
-                report = self.cacheManager.candidate_cache.lookup(candidate)
-                assert report is not None and 'configuration' in report, \
-                    'invalid candidate_cache line: {}->{}'.format(candidate, report)
+
+            if self._prepare_candidate_4_eval(candidate=candidate):
+                yield candidate
+            else:
                 continue
 
-            try:
-                # first we just add the candidate as failure to the candidates cache to
-                # prevent it from being evaluated again while it is being evaluated
-                self.cacheManager.candidate_cache.push_None(candidate=candidate)
-            except:
-                traceback.print_exc()
-                _logger.error(traceback.format_exc())
+    def _prepare_candidate_4_eval(self, candidate: ConfigurationPoint) -> bool:
+        """
 
-            yield candidate
+        Args:
+            candidate:
+
+        Returns:
+            Bool: whether candidate evaluation is needed or not
+        """
+        if self.cacheManager.candidate_cache.is_hit(candidate):
+            report = self.cacheManager.candidate_cache.lookup(candidate)
+            assert report is not None and 'configuration' in report, \
+                'invalid candidate_cache line: {}->{}'.format(candidate, report)
+            return False
+
+        try:
+            # first we just add the candidate as failure to the candidates cache to
+            # prevent it from being evaluated again while it is being evaluated
+            self.cacheManager.candidate_cache.push_None(candidate=candidate)
+        except:
+            traceback.print_exc()
+            _logger.error(traceback.format_exc())
+
+        return True

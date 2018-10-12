@@ -120,21 +120,21 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
                 return True
         return False
 
-    def dummy_evaluate(self, ) -> None:
-        """
-        This method is only used to import tensorflow before running the parallel jobs
-        Args:
-            configuration:
-
-        Returns:
-
-        """
-        _logger.info("Dummy evaluation started")
-        configuration: ConfigurationPoint[PrimitiveDescription] = \
-            self.configuration_space.get_first_assignment()
-
-        pipeline = self.template.to_pipeline(configuration)
-        return pipeline
+    # def dummy_evaluate(self, ) -> None:
+    #     """
+    #     This method is only used to import tensorflow before running the parallel jobs
+    #     Args:
+    #         configuration:
+    #
+    #     Returns:
+    #
+    #     """
+    #     _logger.info("Dummy evaluation started")
+    #     configuration: ConfigurationPoint[PrimitiveDescription] = \
+    #         self.configuration_space.get_first_assignment()
+    #
+    #     pipeline = self.template.to_pipeline(configuration)
+    #     return pipeline
 
     def evaluate_pipeline(self, args) -> typing.Dict:
         """
