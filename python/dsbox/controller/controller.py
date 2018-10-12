@@ -414,7 +414,7 @@ class Controller:
             output_directory=self.output_directory,
             log_dir=self.output_logs_dir,
         )
-        report = searchMethod.search(num_iter=10)
+        report = searchMethod.search(num_iter=50)
 
         self._log_search_results(report=report)
 

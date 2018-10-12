@@ -17,6 +17,7 @@ from d3m.metadata.pipeline import Pipeline, PrimitiveStep
 from d3m.primitive_interfaces import base
 from d3m.runtime import Runtime as d3m_runtime
 from d3m.runtime import Phase
+from d3m import exceptions
 from multiprocessing import current_process
 from dsbox.JobManager.cache import PrimitivesCache
 
@@ -25,9 +26,9 @@ _logger = logging.getLogger(__name__)
 MAX_DUMP_SIZE = 50  # 1000
 
 class ForkedPdb(pdb.Pdb):
-    """A Pdb subclass that may be used
+    """
+    A Pdb subclass that may be used
     from a forked multiprocessing child
-
     """
     def interaction(self, *args, **kwargs):
         _stdin = sys.stdin
@@ -92,28 +93,6 @@ class Runtime(d3m_runtime):
     def set_metric_descriptions(self, metric_descriptions):
         self.metric_descriptions = metric_descriptions
 
-    def _primitive_arguments(self, primitive: typing.Type[base.PrimitiveBase], method: str) -> set:
-        """
-        Get the arguments of a primitive given a function.
-
-        Paramters
-        ---------
-        primitive
-            A primitive.
-        method
-            A method of the primitive.
-        """
-        return set(
-            primitive.metadata.query()['primitive_code']['instance_methods'][method]['arguments'])
-
-    def _get_fit_produce_params(self, primitive, primitive_arguments, mode='produce'):
-        params_primitive = self._primitive_arguments(primitive, mode)
-        params: typing.Dict[str, typing.Any] = {}
-        for param, value in primitive_arguments.items():
-            if param in params_primitive:
-                params[param] = value
-        return params
-
     def _run_primitive(self, this_step: PrimitiveStep) -> None:
         '''
             Override the d3m_runtime's function
@@ -135,15 +114,19 @@ class Runtime(d3m_runtime):
                 # TODO: add one more "if" to restrict runtime to run cross validation only for tuning steps
                 primitive_hyperparams = primitive.metadata.query()['primitive_code']['class_type_arguments']['Hyperparams']
                 custom_hyperparams = dict()
-                produce_params = self._get_fit_produce_params(primitive, primitive_arguments)
-                training_arguments = self._get_fit_produce_params(primitive, primitive_arguments,
-                                                                  mode='set_training_data')
+                # ForkedPdb().set_trace()
+                # produce_params only have 'inputs'
+                produce_params = dict((k, primitive_arguments[k]) for k in ["inputs"])
+                # training_arguments have ['inputs', 'outputs']
+                training_arguments = dict((k, primitive_arguments[k]) for k in ["inputs","outputs"])
+                
                 if bool(this_step.hyperparams):
                     for hyperparam, value in this_step.hyperparams.items():
                         if isinstance(value, dict):
                             custom_hyperparams[hyperparam] = value['data']
                         else:
                             custom_hyperparams[hyperparam] = value
+                            
                 self.cross_validation_result = self._cross_validation(
                     primitive, training_arguments, produce_params, primitive_hyperparams,
                     custom_hyperparams, this_step.primitive_description['runtime'])
