@@ -161,7 +161,12 @@ def main(args):
     print("*+" * 10)
     #status = controller.test()
     #print("[INFO] Testing Done")
+    if args.test:
+        best_pipeline_id = run_single_test()
 
+    if args.test_generated_pipelines:
+        run_generated_pipelines(best_pipeline_id)
+        
     time_used = (time.time() - start_time) / 60.0
     print("[INFO] The time used for running program is {:0.2f} minutes.".format(time_used))
 

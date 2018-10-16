@@ -409,18 +409,27 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
             training_metrics2, test_metrics2 = self._calculate_score(
                 None, None, test_ground_truth, test_prediction)
 
+            # update here: 
+            # Now new version of d3m runtime don't allow to run ".fit()" again on a given runtime object second time
+            # So here we need to create a new FittedPipeline object to run second time's runtime.fit()
+            fitted_pipeline_final = FittedPipeline(
+                    pipeline=pipeline,
+                    dataset_id=self.all_dataset.metadata.query(())['id'],
+                    log_dir=self.log_dir,
+                    metric_descriptions=self.performance_metrics,
+                    template=self.template, problem=self.problem)
             # set the metric for calculating the rank
-            fitted_pipeline2.set_metric(test_metrics2[0])
+            fitted_pipeline_final.set_metric(test_metrics2[0])
 
             # finally, fit the model with all data and save it
             _logger.info("[INFO] Now are training the pipeline with all dataset and saving the pipeline.")
-            fitted_pipeline2.fit(cache=cache, inputs=[self.all_dataset])
-            # fitted_pipeline2.fit(inputs = [self.all_dataset])
+            fitted_pipeline_final.fit(cache=cache, inputs=[self.all_dataset])
 
             data = {
-                'fitted_pipeline': fitted_pipeline2,
+                'fitted_pipeline': fitted_pipeline_final,
                 'training_metrics': training_metrics,
-                'cross_validation_metrics': fitted_pipeline2.get_cross_validation_metrics(),
+                'cross_validation_metrics':training_metrics, 
+                'cross_validation_metrics': fitted_pipeline_final.get_cross_validation_metrics(),
                 'test_metrics': test_metrics2,
                 'total_runtime': time.time() - start_time,
                 'configuration': configuration,
@@ -429,19 +438,19 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
 
             # Save fiteed pipeline
             if self.output_directory is not None and dump2disk:
-                fitted_pipeline2.save(self.output_directory)
+                fitted_pipeline_final.save(self.output_directory)
 
             # Pickle test
             if self.output_directory is not None and dump2disk:
-                _ = fitted_pipeline2.produce(inputs=[self.test_dataset1])
-                test_prediction3 = fitted_pipeline2.get_produce_step_output(
+                _ = fitted_pipeline_final.produce(inputs=[self.test_dataset1])
+                test_prediction3 = fitted_pipeline_final.get_produce_step_output(
                     self.template.get_output_step_number())
                 _, test_metrics3 = self._calculate_score(None, None, test_ground_truth,
                                                          test_prediction3)
 
-                _logger.debug("Test pickled pipeline. id: {}".format(fitted_pipeline2.id))
+                _logger.info("Test pickled pipeline. id: {}".format(fitted_pipeline_final.id))
                 self.test_pickled_pipeline(folder_loc=self.output_directory,
-                                           pipeline_id=fitted_pipeline2.id,
+                                           pipeline_id=fitted_pipeline_final.id,
                                            test_dataset=self.test_dataset1,
                                            test_metrics=test_metrics3,
                                            test_ground_truth=test_ground_truth)
