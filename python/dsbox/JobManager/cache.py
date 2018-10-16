@@ -148,7 +148,7 @@ class PrimitivesCache:
         try:
             if not self.is_hit_key(prim_name=prim_name, prim_hash=prim_hash):
                 self.storage[(prim_name, prim_hash)] = (fitting_time, model)
-                _logger.info(f"[INFO] Push@cache:{prim_name},{prim_hash}")
+                _logger.debug(f"[INFO] Push@cache:{prim_name},{prim_hash}")
                 # print(f"[INFO] Push@cache:{prim_name},{prim_hash}")
                 return 0
             else:
@@ -170,7 +170,7 @@ class PrimitivesCache:
 
     def lookup_key(self, prim_hash: int, prim_name: int) -> typing.Tuple[Dataset, PrimitiveBase]:
         if self.is_hit_key(prim_name=prim_name, prim_hash=prim_hash):
-            _logger.info("[INFO] Hit@cache: {},{}".format(prim_name, prim_hash))
+            _logger.debug("[INFO] Hit@cache: {},{}".format(prim_name, prim_hash))
             # print("[INFO] Hit@cache: {},{}".format(prim_name, prim_hash))
             return self.storage[(prim_name, prim_hash)]
         else:
@@ -209,12 +209,12 @@ class PrimitivesCache:
                f"inputs type not valid {type(primitive_arguments['inputs'])}"
 
         if hash_prefix is None:
-            _logger.info("Primtive cache, hash computed in prefix mode")
+            _logger.debug("Primtive cache, hash computed in prefix mode")
             dataset_value_hash = hash(str(primitive_arguments['inputs']))
         else:
             dataset_value_hash = hash(primitive_arguments['inputs'].values.tobytes())
 
         dataset_hash = hash(str(dataset_value_hash) + dataset_id + dataset_digest)
         prim_hash = hash(str([hyperparam_hash, dataset_hash, hash_prefix]))
-        _logger.info("[INFO] hash: {}, {}".format(prim_name, prim_hash))
+        _logger.debug("[INFO] hash: {}, {}".format(prim_name, prim_hash))
         return prim_name, prim_hash

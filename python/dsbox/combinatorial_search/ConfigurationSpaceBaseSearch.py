@@ -120,21 +120,21 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
                 return True
         return False
 
-    def dummy_evaluate(self, ) -> None:
-        """
-        This method is only used to import tensorflow before running the parallel jobs
-        Args:
-            configuration:
-
-        Returns:
-
-        """
-        _logger.info("Dummy evaluation started")
-        configuration: ConfigurationPoint[PrimitiveDescription] = \
-            self.configuration_space.get_first_assignment()
-
-        pipeline = self.template.to_pipeline(configuration)
-        return pipeline
+    # def dummy_evaluate(self, ) -> None:
+    #     """
+    #     This method is only used to import tensorflow before running the parallel jobs
+    #     Args:
+    #         configuration:
+    #
+    #     Returns:
+    #
+    #     """
+    #     _logger.info("Dummy evaluation started")
+    #     configuration: ConfigurationPoint[PrimitiveDescription] = \
+    #         self.configuration_space.get_first_assignment()
+    #
+    #     pipeline = self.template.to_pipeline(configuration)
+    #     return pipeline
 
     def evaluate_pipeline(self, args) -> typing.Dict:
         """
@@ -149,7 +149,12 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
 
         evaluation_result = self._evaluate(configuration, cache, dump2disk)
 
+        evaluation_result.pop('fitted_pipeline')
+
         _logger.info(f"END Evaluation of {hash(str(configuration))} in {current_process()}")
+
+        # assert hasattr(evaluation_result['fitted_pipeline'], 'runtime'), \
+        #     'Eval does not have runtime'
 
         # try:
         #     evaluation_result = self._evaluate(configuration, cache, dump2disk)
@@ -171,7 +176,7 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
         # if in cross validation mode
         if self.testing_mode == 1:
             repeat_times = int(self.validation_config['cross_validation'])
-            _logger.info("Will use cross validation(n ={}) to choose best primitives"
+            _logger.debug("Will use cross validation(n ={}) to choose best primitives"
                          .format(repeat_times))
             # start training and testing
             fitted_pipeline = FittedPipeline(
@@ -198,7 +203,7 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
             else:
                 for each in test_metrics:
                     each["value"] = sys.float_info.max
-            _logger.info("[INFO] CV finish")
+            _logger.debug("[INFO] CV finish")
 
         # if in normal testing mode(including default testing mode with train/test one time each)
         else:
@@ -370,7 +375,7 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
 
             # Pickle test
             if self.output_directory is not None and dump2disk:
-                _logger.info("Test pickled pipeline. id: {}".format(fitted_pipeline2.id))
+                _logger.debug("Test pickled pipeline. id: {}".format(fitted_pipeline2.id))
                 self.test_pickled_pipeline(folder_loc=self.output_directory,
                                            pipeline_id=fitted_pipeline2.id,
                                            test_dataset=self.train_dataset2[0],
@@ -693,7 +698,7 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
             )
             print("\n" * 5)
         else:
-            _logger.info(("\n" * 5)+"Pickling succeeded"+ ("\n" * 5))
+            _logger.debug(("\n" * 5)+"Pickling succeeded"+ ("\n" * 5))
 
     def graph_problem_conversion(self, prediction):
         tasktype = self.template.template["taskType"]

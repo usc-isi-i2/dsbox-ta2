@@ -46,6 +46,7 @@ from dsbox.combinatorial_search.TemplateSpaceParallelBaseSearch import \
     TemplateSpaceParallelBaseSearch
 from dsbox.combinatorial_search.RandomDimensionalSearch import RandomDimensionalSearch
 from dsbox.combinatorial_search.BanditDimensionalSearch import BanditDimensionalSearch
+from dsbox.combinatorial_search.MultiBanditSearch import MultiBanditSearch
 
 from dsbox.combinatorial_search.search_utils import get_target_columns
 from dsbox.combinatorial_search.search_utils import random_choices_without_replacement
@@ -433,9 +434,11 @@ class Controller:
             num_proc=self.num_cpus,
             timeout=self.TIMEOUT,
         )
-        report = searchMethod.search(num_iter=10)
+        report = searchMethod.search(num_iter=15)
 
         self._log_search_results(report=report)
+
+        searchMethod.job_manager.kill_job_mananger()
 
     def _run_RandomDimSearch(self):
         searchMethod = RandomDimensionalSearch(
@@ -452,9 +455,11 @@ class Controller:
             num_proc=self.num_cpus,
             timeout=self.TIMEOUT,
         )
-        report = searchMethod.search(num_iter=2)
+        report = searchMethod.search(num_iter=10)
 
         self._log_search_results(report=report)
+
+        searchMethod.job_manager.kill_job_mananger()
 
     def _run_BanditDimSearch(self):
         searchMethod = BanditDimensionalSearch(
@@ -474,6 +479,29 @@ class Controller:
         report = searchMethod.search(num_iter=5)
 
         self._log_search_results(report=report)
+
+        searchMethod.job_manager.kill_job_mananger()
+
+    def _run_MultiBanditSearch(self):
+        searchMethod = MultiBanditSearch(
+            template_list=self.template,
+            performance_metrics=self.problem['problem']['performance_metrics'],
+            problem=self.problem_doc_metadata,
+            test_dataset1=self.test_dataset1,
+            train_dataset1=self.train_dataset1,
+            test_dataset2=self.test_dataset2,
+            train_dataset2=self.train_dataset2,
+            all_dataset=self.all_dataset,
+            output_directory=self.output_directory,
+            log_dir=self.output_logs_dir,
+            num_proc=self.num_cpus,
+            timeout=self.TIMEOUT,
+        )
+        report = searchMethod.search(num_iter=30)
+
+        self._log_search_results(report=report)
+
+        searchMethod.job_manager.kill_job_mananger()
     '''
         **********************************************************************
         Public method (in alphabet)
@@ -941,35 +969,29 @@ class Controller:
         self.generate_dataset_splits()
         # FIXME) come up with a better way to implement this part. The fork does not provide a way
         # FIXME) to catch the errors of the child process
-        # pid: int = os.fork()
-        # if pid == 0:  # run the search in the child process
-        #     # self._run_SerialBaseSearch()
-        #     # self._run_ParallelBaseSearch()
-        #     self._run_RandomDimSearch()
-        #     # self._run_BanditDimSearch()
-        #
-        #     print("[INFO] End of Search")
-        #     os._exit(0)
-        # else:
-        #     status = os.wait()
-        #     print("[INFO] Search Status:")
-        #     pprint.pprint(status)
         with mplog.open_queue() as log_queue:
             self._logger.info('Starting Search process')
 
-            # proc = multiprocessing.Process(target=self._run_RandomDimSearch)
             proc = Process(target=mplog.logged_call,
-                                           args=(log_queue, self._run_RandomDimSearch,))
+                           args=(log_queue, self._run_MultiBanditSearch,))
+            # proc = Process(target=mplog.logged_call,
+            #                args=(log_queue, self._run_RandomDimSearch,))
+            # proc = Process(target=mplog.logged_call,
+            #                args=(log_queue, self._run_ParallelBaseSearch,))
+            # proc = Process(target=mplog.logged_call,
+            #                args=(log_queue, self._run_SerialBaseSearch,))
+
             proc.start()
 
-            self._logger.info('At the end.')
+            self._logger.info('Searching is finished')
             # wait until process is done
             proc.join()
 
             status = proc.exitcode
             print("[INFO] Search Status:")
             pprint.pprint(status)
-            print("END OF FORK")
+
+        print(f"END OF FORK {proc.exitcode}")
         return Status.OK
 
     def generate_dataset_splits(self):

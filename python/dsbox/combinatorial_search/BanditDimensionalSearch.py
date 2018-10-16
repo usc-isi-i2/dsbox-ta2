@@ -126,19 +126,4 @@ class BanditDimensionalSearch(RandomDimensionalSearch):
 
         self._get_evaluation_results(template_name=search.template.template['name'])
 
-    @staticmethod
-    def compute_UCT(history: typing.Union[pd.Series, pd.DataFrame, typing.Dict]):
-        beta = 10
-        gamma = 1
-        delta = 4
-        try:
-            # / history['trial']
-
-            return (beta * (history['reward']) * max(log(10 * history['trial']), 1) +
-                    gamma * history['trial']) / sqrt(2 * log(self.total_run) +
-                    delta * sqrt(2 * log(self.total_time) / history['exe_time']))
-        except (KeyError, ZeroDivisionError):
-            self._logger.error('Failed to compute UCT. Defaulting to None')
-            # print(STYLE+"[WARN] compute UCT failed:", history.tolist())
-            return None
 

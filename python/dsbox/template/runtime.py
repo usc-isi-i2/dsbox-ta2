@@ -38,6 +38,10 @@ class ForkedPdb(pdb.Pdb):
         finally:
             sys.stdin = _stdin
 
+logging.getLogger("urllib3").setLevel(logging.WARNING)
+logging.getLogger("theano").setLevel(logging.WARNING)
+logging.getLogger("dill").setLevel(logging.WARNING)
+
 class Runtime(d3m_runtime):
     """
     Class to run the build and run a Pipeline.
@@ -133,7 +137,7 @@ class Runtime(d3m_runtime):
             # END for cross-validation process
 
             cache_hit = False
-            _logger.info(
+            _logger.debug(
                 "Primitive Fit. 'id': '%(primitive_id)s', '(name, hash)': ('%(name)s', '%(hash)s'), 'worker_id': '%(worker_id)s'.",
                 {
                     'primitive_id': self.pipeline_description.steps[self.current_step].primitive_description['id'],
@@ -149,8 +153,8 @@ class Runtime(d3m_runtime):
 
                 # print cache reading time
                 cache_reading_time = (time.time() - time_start)
-                # print(f"[INFO] cache reading took {cache_reading_time} s and "
-                #       f"fitting time took {fitting_time} s")
+                _logger.debug(f"[INFO] cache reading took {cache_reading_time} s and "
+                              f"fitting time took {fitting_time} s")
                 cache_hit = True
                 # print("!!!!Fit step with hitted finished!!!!")
 
