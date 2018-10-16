@@ -502,6 +502,7 @@ class Controller:
         self._log_search_results(report=report)
 
         searchMethod.job_manager.kill_job_mananger()
+
     '''
         **********************************************************************
         Public method (in alphabet)
@@ -972,6 +973,8 @@ class Controller:
         with mplog.open_queue() as log_queue:
             self._logger.info('Starting Search process')
 
+            # proc = Process(target=mplog.logged_call,
+            #                args=(log_queue, self._run_BanditDimSearch,))
             proc = Process(target=mplog.logged_call,
                            args=(log_queue, self._run_MultiBanditSearch,))
             # proc = Process(target=mplog.logged_call,

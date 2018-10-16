@@ -59,11 +59,13 @@ class MultiBanditSearch(TemplateSpaceParallelBaseSearch[T]):
     def _select_next_template(self, num_iter=2) -> \
             typing.Tuple[ConfigurationSpaceBaseSearch, str]:
 
+        yield from self._bandit_select_next_template(num_iter)
+
+    def _bandit_select_next_template(self, num_iter):
         # initial evaluation
         for search in self.confSpaceBaseSearch:
             # yield search, "random"
             yield search, "random"
-
         # UCT based evaluation
         for _ in range(num_iter):
             # while True:
