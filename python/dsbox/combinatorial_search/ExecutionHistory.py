@@ -7,6 +7,7 @@ import math
 from pprint import pprint
 from functools import reduce
 from dsbox.template.configuration_space import ConfigurationPoint
+import numpy as np
 
 _logger = logging.getLogger(__name__)
 
@@ -91,7 +92,13 @@ class ExecutionHistory:
         if ExecutionHistory._is_better(base=row, check=report, key_attribute=self.key_attribute):
             for k in ['configuration', 'training_metrics', 'cross_validation_metrics',
                       'test_metrics']:
-                update[k] = report[k]
+                assert isinstance(report[k], list) or \
+                       isinstance(report[k], dict), \
+                    f"report of {k} must be a list or dict {type(report[k])}"
+                if len(report[k]) == 0:
+                    update[k] = np.NaN
+                else:
+                    update[k] = report[k]
 
         # apply all the changes
         for k in update:
@@ -117,8 +124,8 @@ class ExecutionHistory:
             normalize: pd.DataFrame
                 normalized history dataframe
         """
-        print("normalized",'&'*100)
-        self.storage.to_csv("selfStorage.csv")
+        # print("normalized",'&'*100)
+        # self.storage.to_pickle("selfStorage_.csv")
         alpha = 0.01
         normalize = pd.DataFrame(
             0,
@@ -135,7 +142,10 @@ class ExecutionHistory:
         scale = (normalize.max() - normalize.min())
         scale.replace(to_replace=0, value=1, inplace=True)
         normalize = (normalize - normalize.min()) / scale
+        normalize.fillna(0, inplace=True)
         normalize.clip(lower=0.01, upper=1, inplace=True)
+
+        normalize.to_pickle("normalized.pkl")
 
         return normalize
 

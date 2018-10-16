@@ -86,6 +86,8 @@ class DistributedJobManager:
             try:
                 # TODO add timelimit to single work in the worker
                 result = target(**kwargs)
+                # assert hasattr(result['fitted_pipeline'], 'runtime'), \
+                #     '[DJM] Eval does not have runtime'
             except:
                 _logger.exception(f'Target evaluation {hash(str(kwargs))}, '
                                   f'failed in {current_process()}')
@@ -94,11 +96,20 @@ class DistributedJobManager:
                 result = None
 
             # push the results
-            print(f"Pushing Results {current_process()}")
-            result_queue.put((kwargs, result))
-            print(f"Worker is Idle {current_process()}")
-
+            print(f"Pushing Results {current_process()} > "
+                  f"{result}")
+            pushed = False
+            # while not pushed:
+            try:
+                result_queue.put((kwargs, result))
+                pushed = True
+            except:
+                traceback.print_exc()
+                print(f"time out or result_queue is full {result_queue.full()}")
+                exit(1)
             counter += 1
+            print(f"Worker is Idle {current_process()}, done {counter} jobs")
+
 
     def push_job(self, kwargs_bundle: typing.Dict = {}) -> int:
         """
@@ -140,9 +151,9 @@ class DistributedJobManager:
         _logger.info(f"# ongoing_jobs {self.ongoing_jobs}")
         print(f"# ongoing_jobs {self.ongoing_jobs}")
         self.Qlock.acquire()
-        print(f"[PID] pid:{os.getpid()}")
         (kwargs, results) = self.result_queue.get(block=block)
         self.ongoing_jobs -= 1
+        print(f"[PID] pid:{os.getpid()}")
         self.Qlock.release()
         # _logger.info(f"[INFO] end of pop # ongoing_jobs {self.ongoing_jobs}")
         return (kwargs, results)

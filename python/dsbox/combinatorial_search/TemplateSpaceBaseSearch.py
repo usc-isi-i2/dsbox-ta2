@@ -139,10 +139,11 @@ class TemplateSpaceBaseSearch(typing.Generic[T]):
             self.cacheManager.candidate_cache.push(report)
         except ValueError:
             traceback.print_exc()
-            _logger.error(traceback.format_exc())
+            _logger.warning(traceback.format_exc())
             print("[INFO] Search Failed on candidate ", hash(str(candidate)))
             self.history.update_none(fail_report=None, template_name=template_name)
             self.cacheManager.candidate_cache.push_None(candidate=candidate)
+        print("[INFO] _add_report_to_history Done!")
 
     def _prepare_job_posting(self,
                              candidate: typing.Dict[str, typing.Any],
@@ -185,9 +186,9 @@ class TemplateSpaceBaseSearch(typing.Generic[T]):
             -> typing.Iterable[ConfigurationPoint]:
         for _ in range(num_iter):
             candidate = search.configuration_space.get_random_assignment()
-            print("[INFO] Selecting Candidate: ", hash(str(candidate)))
 
             if self._prepare_candidate_4_eval(candidate=candidate):
+                print("[INFO] Selecting Candidate: ", hash(str(candidate)))
                 yield candidate
             else:
                 continue

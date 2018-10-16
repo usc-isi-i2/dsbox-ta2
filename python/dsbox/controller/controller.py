@@ -934,7 +934,7 @@ class Controller:
             #                args=(log_queue, self._run_ParallelBaseSearch,))
             # proc = Process(target=mplog.logged_call,
             #                args=(log_queue, self._run_SerialBaseSearch,))
-            # _run_RandomDimSearch
+
             proc.start()
 
             self._logger.info('Searching is finished')
@@ -945,7 +945,8 @@ class Controller:
             print("[INFO] Search Status:")
             pprint.pprint(status)
         
-        print("END OF FORK")
+        print(f"END OF FORK {proc.exitcode}")
+        return Status.OK
 
 
     def generate_dataset_splits(self):

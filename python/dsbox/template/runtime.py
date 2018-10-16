@@ -36,6 +36,9 @@ _logger = logging.getLogger(__name__)
 
 MAX_DUMP_SIZE = 50  # 1000
 
+logging.getLogger("urllib3").setLevel(logging.WARNING)
+logging.getLogger("theano").setLevel(logging.WARNING)
+logging.getLogger("dill").setLevel(logging.WARNING)
 
 class Runtime:
     """
@@ -177,7 +180,7 @@ class Runtime:
                 primitive_arguments=primitive_arguments)
 
             cache_hit = False
-            _logger.info(
+            _logger.debug(
                 "Primitive Fit. 'id': '%(primitive_id)s', '(name, hash)': ('%(name)s', '%(hash)s'), 'worker_id': '%(worker_id)s'.",
                 {
                     'primitive_id': self.pipeline_description.steps[n_step].primitive_description['id'],
@@ -497,7 +500,7 @@ class Runtime:
                                                                     'produce')
             produce_arguments: typing.Dict[str, typing.Any] = {}
 
-            _logger.info(
+            _logger.debug(
                 "Primitive Produce. 'id': '%(primitive_id)s', 'name': '%(name)s', 'worker_id': "
                 "'%(worker_id)s'.",
                 {
