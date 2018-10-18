@@ -104,6 +104,7 @@ class Controller:
         self.test_dataset1: Dataset = None
         self.test_dataset2: typing.List[Dataset] = None
         self.all_dataset: Dataset = None
+        self.ensemble_dataset: Dataset = None
         self.taskSourceType: typing.Set[str] = set()  # str from SEMANTIC_TYPES
 
         # Dataset limits
@@ -113,6 +114,7 @@ class Controller:
         # TODO: check whether "speech" type should be put into this list or not
         self.data_type_cannot_split = ["graph", "edgeList", "audio"]
         self.task_type_can_split = ["CLASSIFICATION", "REGRESSION", "TIME_SERIES_FORECASTING"]
+        self.do_ensemble_tune = True
 
         # Resource limits
         self.num_cpus: int = 0
@@ -520,6 +522,49 @@ class Controller:
         12. write_training_results
         **********************************************************************
     '''
+    def add_d3m_index_and_prediction_class_name(self, prediction, from_dataset = None):
+        '''
+            The function to process the prediction results
+            1. If no prediction column name founnd, add the prediction column name
+            2. Add the d3m index into the output predictions
+        '''
+        # setup an initial condition
+        if not from_dataset:
+            from_dataset = self.all_dataset
+
+        prediction_class_name = []
+        try:
+            with open(self.dataset_schema_file, 'r') as dataset_description_file:
+                dataset_description = json.load(dataset_description_file)
+                for each_resource in dataset_description["dataResources"]:
+                    if "columns" in each_resource:
+                        for each_column in each_resource["columns"]:
+                            if "suggestedTarget" in each_column["role"] or "target" in each_column[
+                                "role"]:
+                                prediction_class_name.append(each_column["colName"])
+        except:
+            self._logger.error(
+                "[Warning] Can't find the prediction class name, will use default name "
+                "'prediction'.")
+            prediction_class_name.append("prediction")
+        
+
+        # if the prediction results do not have d3m_index column
+        if 'd3mIndex' not in prediction.columns:
+            d3m_index = get_target_columns(from_dataset, self.problem_doc_metadata)["d3mIndex"]
+            d3m_index = d3m_index.reset_index().drop(columns=['index'])
+            # prediction.drop("confidence", axis=1, inplace=True, errors = "ignore")#some
+            # prediction has "confidence"
+            prediction_col_name = ['d3mIndex']
+            for each in prediction.columns:
+                prediction_col_name.append(each)
+            prediction['d3mIndex'] = d3m_index
+            prediction = prediction[prediction_col_name]
+            prediction_col_name.remove('d3mIndex')
+            for i in range(len(prediction_class_name)):
+                prediction = prediction.rename(
+                    columns={prediction_col_name[i]: prediction_class_name[i]})
+        return prediction
 
     def auto_regress_convert_and_add_metadata(self, dataset: "Dataset"):
         '''
@@ -565,26 +610,82 @@ class Controller:
                         {'semantic_types': semantic_types})
             return dataset
 
-    @staticmethod
-    def generate_configuration_space(template_desc: TemplateDescription, problem: typing.Dict,
-                                     dataset: typing.Optional[Dataset]) -> ConfigurationSpace:
-        """
-        Generate search space
-        """
+    def ensemble_tuning(self):
+        '''
+            function to do ensemble tuning
+            Teporary put in our ta2 system controller part for testing purpose
+        '''
+        from dsbox.datapostprocessing.vertical_concat import VerticalConcat,VerticalConcatHyperparams
 
-        # TODO: Need to update dsbox.planner.common.ontology.D3MOntology and
-        # dsbox.planner.common.ontology.D3MPrimitiveLibrary, and integrate with them
-        libdir = os.path.join(os.getcwd(), "library")
-        # print(libdir)
-        mapper_to_primitives = SemanticTypeDict(libdir)
-        mapper_to_primitives.read_primitives()
-        # print(mapper_to_primitives.mapper)
-        # print(mapper_to_primitives.mapper)
-        values = mapper_to_primitives.create_configuration_space(template_desc.template)
-        # print(template_desc.template.template_nodes.items())
-        print("[INFO] Values: {}".format(values))
-        # values: typing.Dict[DimensionName, typing.List] = {}
-        return SimpleConfigurationSpace(values)
+        if not self.ensemble_dataset:
+            self._logger.error("No ensemble tuning dataset found!")
+            return
+        else:
+            all_predictions = []
+            d = os.path.expanduser(self.output_directory + '/pipelines')
+            files = os.listdir(d)
+
+            for each_file in files:
+                if each_file[0] == "." or each_file[-4:] != "json":
+                    # skip the files which is not json files or is system files
+                    continue
+                else:
+                    each_file = os.path.join(d, each_file)
+                    read_pipeline_id = each_file.split('/')[-1].split('.')[0]
+                    pipeline_load, each_runtime = FittedPipeline.load(folder_loc=self.output_directory,
+                                                         pipeline_id=read_pipeline_id,
+                                                         log_dir=self.output_logs_dir)
+                    each_runtime.produce(inputs=[self.ensemble_dataset])
+                    step_number_output = 0 # !!!hard code here, need to check corner case
+                    each_prediction = each_runtime.produce_outputs[step_number_output]
+                    each_prediction = self.add_d3m_index_and_prediction_class_name(each_prediction, self.ensemble_dataset)
+                    # if no confidence found
+                    if "confidence" not in each_prediction.columns:
+                        each_prediction['confidence'] = 1.0
+                    each_prediction['pipeline_id'] = read_pipeline_id
+                    '''
+                    each_prediction['inputs'] = None
+                    add inputs to the prediction
+                    # beacuse inputs is also a DataFrame structure, here we transfter each line into a list of attribute, it will cause print the whole dataframe failed but won't influence the using.
+                    for each in each_prediction.index:
+                        each_prediction.at[each, 'inputs'] = self.ensemble_dataset[self.problem_info["res_id"]].loc[each].tolist()
+                    '''
+                    # after the processing, there will be following attributes in each_prediction:
+                    # Index(['d3mIndex', PredictionClassName, 'confidence', 'pipeline_id', 'inputs'], dtype='object')
+                    all_predictions.append(each_prediction)
+            
+            # import pdb
+            # pdb.set_trace()
+            h1 = VerticalConcatHyperparams.defaults()
+            concate_primitive = VerticalConcat(hyperparams = h1)
+            predictions_concate = concate_primitive.produce(inputs = all_predictions)
+
+            # import pdb
+            # pdb.set_trace()
+
+
+
+# each_prediction.at[1, 'inputs'] = self.ensemble_dataset[self.problem_info["res_id"]].loc[1].tolist()
+    # @staticmethod
+    # def generate_configuration_space(template_desc: TemplateDescription, problem: typing.Dict,
+    #                                  dataset: typing.Optional[Dataset]) -> ConfigurationSpace:
+    #     """
+    #     Generate search space
+    #     """
+
+    #     # TODO: Need to update dsbox.planner.common.ontology.D3MOntology and
+    #     # dsbox.planner.common.ontology.D3MPrimitiveLibrary, and integrate with them
+    #     libdir = os.path.join(os.getcwd(), "library")
+    #     # print(libdir)
+    #     mapper_to_primitives = SemanticTypeDict(libdir)
+    #     mapper_to_primitives.read_primitives()
+    #     # print(mapper_to_primitives.mapper)
+    #     # print(mapper_to_primitives.mapper)
+    #     values = mapper_to_primitives.create_configuration_space(template_desc.template)
+    #     # print(template_desc.template.template_nodes.items())
+    #     print("[INFO] Values: {}".format(values))
+    #     # values: typing.Dict[DimensionName, typing.List] = {}
+    #     return SimpleConfigurationSpace(values)
 
     def initialize_from_config_for_evaluation(self, config: typing.Dict) -> None:
         '''
@@ -673,8 +774,7 @@ class Controller:
 
         return dataset
 
-    def split_dataset(self, dataset, random_state=42, test_size=0.2, n_splits=1,
-                      need_test_dataset=True):
+    def split_dataset(self, dataset, random_state=42, test_size=0.2, n_splits=1, need_test_dataset=True):
         '''
             Split dataset into 2 parts for training and test
         '''
@@ -802,8 +902,6 @@ class Controller:
         """
             First read the fitted pipeline and then run trained pipeline on test data.
         """
-        import pdb
-        pdb.set_trace()
         self._logger.info("[INFO] Start test function")
         outputs_loc, pipeline_load, read_pipeline_id, run_test = self.load_pipe_runtime()
 
@@ -827,39 +925,8 @@ class Controller:
         # TODO: check whether it fit all dataset
         step_number_output = 0
         # get the target column name
-        prediction_class_name = []
-        try:
-            with open(self.dataset_schema_file, 'r') as dataset_description_file:
-                dataset_description = json.load(dataset_description_file)
-                for each_resource in dataset_description["dataResources"]:
-                    if "columns" in each_resource:
-                        for each_column in each_resource["columns"]:
-                            if "suggestedTarget" in each_column["role"] or "target" in each_column[
-                                "role"]:
-                                prediction_class_name.append(each_column["colName"])
-        except:
-            self._logger.error(
-                "[Warning] Can't find the prediction class name, will use default name "
-                "'prediction'.")
-            prediction_class_name.append("prediction")
-        pdb.set_trace()
         prediction = run_test.produce_outputs[step_number_output]
-
-        # if the prediction results do not have d3m_index column
-        if 'd3mIndex' not in prediction.columns:
-            d3m_index = get_target_columns(self.all_dataset, self.problem_doc_metadata)["d3mIndex"]
-            d3m_index = d3m_index.reset_index().drop(columns=['index'])
-            # prediction.drop("confidence", axis=1, inplace=True, errors = "ignore")#some
-            # prediction has "confidence"
-            prediction_col_name = ['d3mIndex']
-            for each in prediction.columns:
-                prediction_col_name.append(each)
-            prediction['d3mIndex'] = d3m_index
-            prediction = prediction[prediction_col_name]
-            prediction_col_name.remove('d3mIndex')
-            for i in range(len(prediction_class_name)):
-                prediction = prediction.rename(
-                    columns={prediction_col_name[i]: prediction_class_name[i]})
+        prediction = self.add_d3m_index_and_prediction_class_name(prediction)
         prediction_folder_loc = outputs_loc + "/predictions/" + read_pipeline_id
         folder = os.path.exists(prediction_folder_loc)
         if not folder:
@@ -970,11 +1037,12 @@ class Controller:
         self.generate_dataset_splits()
         # FIXME) come up with a better way to implement this part. The fork does not provide a way
         # FIXME) to catch the errors of the child process
+        
         with mplog.open_queue() as log_queue:
             self._logger.info('Starting Search process')
 
             # proc = Process(target=mplog.logged_call,
-            #                args=(log_queue, self._run_BanditDimSearch,))
+                           # args=(log_queue, self._run_BanditDimSearch,))
             proc = Process(target=mplog.logged_call,
                            args=(log_queue, self._run_MultiBanditSearch,))
             # proc = Process(target=mplog.logged_call,
@@ -989,6 +1057,10 @@ class Controller:
             self._logger.info('Searching is finished')
             # wait until process is done
             proc.join()
+        
+        if self.do_ensemble_tune:
+            self._logger.info("Normal searching finished, now starting ensemble tuning")
+            self.ensemble_tuning()
 
             status = proc.exitcode
             print("[INFO] Search Status:")
@@ -1014,25 +1086,18 @@ class Controller:
             target_column_list = []
             all_column_length = \
             self.all_dataset.metadata.query((res_id, ALL_ELEMENTS))['dimension']['length']
-            # for each_column in range(all_column_length - 1, 0, -1):
-            #     each_column_meta = self.all_dataset.metadata.query((res_id,ALL_ELEMENTS,each_column))
-            #     if ('https://metadata.datadrivendiscovery.org/types/SuggestedTarget' or  'https://metadata.datadrivendiscovery.org/types/Target' or  'https://metadata.datadrivendiscovery.org/types/TrueTarget') in each_column_meta['semantic_types']:
-            #         target_column_list.append(each_column)
-            #     # to accelerate the program running, now we assume the target columns are always at the end of the columns
-            # self._logger.info("Totally {} taget found.".format(len(target_column_list)))
-            # target_column_length = len(target_column_list)
-
-            # changed to use problem metadata to query targets
             targets_from_problem = self.problem_doc_metadata.query(())["inputs"]["data"][0][
                 "targets"]
             for t in targets_from_problem:
                 target_column_list.append(t["colIndex"])
             self._logger.info("Totally {} taget found.".format(len(target_column_list)))
             target_column_length = len(target_column_list)
+
             # check again on the length of the column to ensure
             if (main_res_shape[1] - target_column_length - 1) <= self.threshold_column_length:
                 pass
             else:
+                # TODO: current large dataset processing function is not fully finished!!!
                 attribute_column_length = all_column_length - target_column_length - 1
                 # skip the column 0 which is d3mIndex]
                 is_all_numerical = True
@@ -1166,8 +1231,16 @@ class Controller:
             self.all_dataset = self.all_dataset[0]
             self._logger.info("Random sampling on rows Finished.")
 
-        # split the dataset first time
-        self.train_dataset1, self.test_dataset1 = self.split_dataset(dataset=self.all_dataset)
+        # if we need to do ensemble tune, we split one extra time
+        if self.do_ensemble_tune:
+            self.train_dataset1, self.ensemble_dataset = self.split_dataset(dataset=self.all_dataset, test_size = 0.1)
+            self.train_dataset1 = self.train_dataset1[0]
+            self.ensemble_dataset = self.ensemble_dataset[0]
+            self.train_dataset1, self.test_dataset1 = self.split_dataset(dataset=self.train_dataset1)
+
+        else:
+            # split the dataset first time
+            self.train_dataset1, self.test_dataset1 = self.split_dataset(dataset=self.all_dataset, test_size = 0.1)
 
         # here we only split one times, so no need to use list to include the dataset
         if len(self.train_dataset1) == 1:
