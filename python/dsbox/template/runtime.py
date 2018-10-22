@@ -45,7 +45,7 @@ logging.getLogger("dill").setLevel(logging.WARNING)
 class Runtime(d3m_runtime):
     """
     Class to run the build and run a Pipeline.
-    
+
     Caution:
     Some method adapted from d3m's runtime, so if you find that our system can't run after updated the new d3m,
     It is extremely possible that d3m changed some of their codes on runtime and we copied part of their codes
@@ -82,7 +82,7 @@ class Runtime(d3m_runtime):
 
         super().__init__(pipeline = pipeline_description, hyperparams = None, problem_description = None)
 
-        self.cache = None
+        self.cache = PrimitivesCache()
         self.cross_validation_result = None
         self.fitted_pipeline_id = fitted_pipeline_id
         self.fit_outputs = None
@@ -112,29 +112,30 @@ class Runtime(d3m_runtime):
                     hash_prefix=None, pipe_step=self.pipeline_description.steps[self.current_step],
                     primitive_arguments=primitive_arguments)
 
-            # if we need to do cross validation, do it before normal fit() step
-            if 'runtime' in this_step.primitive_description and "cross_validation" in this_step.primitive_description['runtime']:
-                primitive: typing.Type[base.PrimitiveBase] = this_step.primitive
-                # TODO: add one more "if" to restrict runtime to run cross validation only for tuning steps
-                primitive_hyperparams = primitive.metadata.query()['primitive_code']['class_type_arguments']['Hyperparams']
-                custom_hyperparams = dict()
-                # ForkedPdb().set_trace()
-                # produce_params only have 'inputs'
-                produce_params = dict((k, primitive_arguments[k]) for k in ["inputs"])
-                # training_arguments have ['inputs', 'outputs']
-                training_arguments = dict((k, primitive_arguments[k]) for k in ["inputs","outputs"])
-                
-                if bool(this_step.hyperparams):
-                    for hyperparam, value in this_step.hyperparams.items():
-                        if isinstance(value, dict):
-                            custom_hyperparams[hyperparam] = value['data']
-                        else:
-                            custom_hyperparams[hyperparam] = value
-                            
-                self.cross_validation_result = self._cross_validation(
-                    primitive, training_arguments, produce_params, primitive_hyperparams,
-                    custom_hyperparams, this_step.primitive_description['runtime'])
-            # END for cross-validation process
+            if not self.skip_fit_phase:
+                # if we need to do cross validation, do it before normal fit() step
+                if 'runtime' in this_step.primitive_description and "cross_validation" in this_step.primitive_description['runtime']:
+                    primitive: typing.Type[base.PrimitiveBase] = this_step.primitive
+                    # TODO: add one more "if" to restrict runtime to run cross validation only for tuning steps
+                    primitive_hyperparams = primitive.metadata.query()['primitive_code']['class_type_arguments']['Hyperparams']
+                    custom_hyperparams = dict()
+                    # ForkedPdb().set_trace()
+                    # produce_params only have 'inputs'
+                    produce_params = dict((k, primitive_arguments[k]) for k in ["inputs"])
+                    # training_arguments have ['inputs', 'outputs']
+                    training_arguments = dict((k, primitive_arguments[k]) for k in ["inputs","outputs"])
+
+                    if bool(this_step.hyperparams):
+                        for hyperparam, value in this_step.hyperparams.items():
+                            if isinstance(value, dict):
+                                custom_hyperparams[hyperparam] = value['data']
+                            else:
+                                custom_hyperparams[hyperparam] = value
+
+                    self.cross_validation_result = self._cross_validation(
+                        primitive, training_arguments, produce_params, primitive_hyperparams,
+                        custom_hyperparams, this_step.primitive_description['runtime'])
+                # END for cross-validation process
 
             cache_hit = False
             _logger.debug(
@@ -147,7 +148,7 @@ class Runtime(d3m_runtime):
                 },
             )
             # if this primitive hitted
-            if self.cache.is_hit_key(prim_hash=prim_hash, prim_name=prim_name): 
+            if self.cache.is_hit_key(prim_hash=prim_hash, prim_name=prim_name):
                 fitting_time, model = self.cache.lookup_key(prim_name=prim_name, prim_hash=prim_hash)
                 self.steps_state[self.current_step] = model
 
@@ -185,9 +186,9 @@ class Runtime(d3m_runtime):
                 for output_id in this_step.outputs:
                     output_data_reference = 'steps.{i}.{output_id}'.format(i=this_step.index, output_id=output_id)
                 self._log_fitted_step(self.cache, output_data_reference, this_step, self.environment)
-        # END processing part for FIT Phase
+            # END processing part for FIT Phase
 
-        # if in produce step, always use the d3m's codes
+            # if in produce step, always use the d3m's codes
         elif self.phase == Phase.PRODUCE:
             d3m_runtime._run_primitive(self, this_step)
 
@@ -371,4 +372,3 @@ class Runtime(d3m_runtime):
             Arguments required to execute the Pipeline
         """
         self.produce_outputs = d3m_runtime.produce(self, inputs = arguments['inputs'])
-

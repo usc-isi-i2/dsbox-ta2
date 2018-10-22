@@ -1058,9 +1058,9 @@ class Controller:
             # wait until process is done
             proc.join()
         
-        if self.do_ensemble_tune:
-            self._logger.info("Normal searching finished, now starting ensemble tuning")
-            self.ensemble_tuning()
+        # if self.do_ensemble_tune:
+        #     self._logger.info("Normal searching finished, now starting ensemble tuning")
+        #     self.ensemble_tuning()
 
             status = proc.exitcode
             print("[INFO] Search Status:")
