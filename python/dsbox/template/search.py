@@ -578,7 +578,6 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
         pipeline = self.template.to_pipeline(configuration)
         # Todo: update ResourceManager to run pipeline:  ResourceManager.add_pipeline(pipeline)
 
-
         # if in cross validation mode
 
         # if self.testing_mode == 1:
@@ -627,7 +626,18 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
                                                  log_dir=self.log_dir, metric_descriptions=self.performance_metrics,
                                                  template = self.template, problem = self.problem)
 
-                fitted_pipeline.fit(cache=cache, inputs=[self.train_dataset2[each_repeat]])
+                try:
+                    fitted_pipeline.fit(cache=cache, inputs=[self.train_dataset2[each_repeat]])
+                except:
+                    from dsbox.template.runtime import ForkedPdb
+                    # ForkedPdb().set_trace()
+                    fitted_pipeline.pipeline.to_json_structure()
+                    structure["unfinished"] = True
+                    pipeline_dir = "/Users/minazuki/Desktop/studies/master/2018Summer/data"
+                    json_loc = os.path.join(pipeline_dir, fitted_pipeline.id + 'unfinished.json')
+                    with open(json_loc, 'w') as out:
+                        json.dump(structure, out)
+
                 # fitted_pipeline.fit(inputs=[self.train_dataset2[each_repeat]])
                 training_ground_truth = get_target_columns(self.train_dataset2[each_repeat], self.problem)
                 training_prediction = fitted_pipeline.get_fit_step_output(self.template.get_output_step_number())
@@ -734,7 +744,7 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
             data = {
                 'fitted_pipeline': fitted_pipeline2,
                 'training_metrics': training_metrics,
-                'cross_validation_metrics': fitted_pipeline2.get_cross_validation_metrics(),
+                'cross_validation_metrics': training_metrics,# fitted_pipeline2.get_cross_validation_metrics(),
                 'test_metrics': training_metrics,
                 'total_runtime': time.time() - start_time
             }

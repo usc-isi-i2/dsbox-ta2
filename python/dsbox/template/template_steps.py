@@ -27,7 +27,9 @@ class TemplateSteps:
                     "hyperparameters":
                         {
                             'semantic_types': (
-                                'https://metadata.datadrivendiscovery.org/types/Attribute',),
+                                'https://metadata.datadrivendiscovery.org/types/PrimaryKey',
+                                'https://metadata.datadrivendiscovery.org/types/Attribute',
+                                ),
                             'use_columns': (),
                             'exclude_columns': ()
                         }
@@ -42,7 +44,7 @@ class TemplateSteps:
             {
                 "name": "clean_step",
                 "primitives": [
-                    "d3m.primitives.dsbox.CleaningFeaturizer",
+                    # "d3m.primitives.dsbox.CleaningFeaturizer",
                     "d3m.primitives.dsbox.DoNothing",
                 ],
                 "inputs": ["profiler_step"]
@@ -75,10 +77,15 @@ class TemplateSteps:
             {
                 "name": "scaler_step",
                 "primitives": [
-                    {
-                        "primitive": "d3m.primitives.sklearn_wrap.SKMaxAbsScaler",
-                        "hyperparameters": {}
-                    },
+                    # {
+                    #     "primitive": "d3m.primitives.sklearn_wrap.SKMaxAbsScaler",
+                    #     "hyperparameters": 
+                    #     {
+                    #         'use_semantic_types':[True],
+                    #         'return_result':['new'],
+                    #         'add_index_columns':[True],
+                    #     }
+                    # },
                     {
                         "primitive": "d3m.primitives.dsbox.IQRScaler",
                         "hyperparameters": {}
@@ -92,7 +99,12 @@ class TemplateSteps:
                 "primitives": [
                     {
                         "primitive": "d3m.primitives.data.CastToType",
-                        "hyperparameters": {"type_to_cast": ["float"]}
+                        "hyperparameters": 
+                                        {
+                                        "type_to_cast": ["float"],
+                                        "exclude_columns": (0,),
+                                        "use_columns": (0,),
+                                        }
                     },
                     "d3m.primitives.dsbox.DoNothing",
                 ],
@@ -104,7 +116,10 @@ class TemplateSteps:
                     {
                         "primitive": "d3m.primitives.sklearn_wrap.SKPCA",
                         "hyperparameters":
-                        {
+                        { 
+                            'use_semantic_types':[True],
+                            'return_result':['new'],
+                            'add_index_columns':[True],
                             'n_components': [10, 15, 25]
                         }
                     },
@@ -118,7 +133,9 @@ class TemplateSteps:
                     "primitive": "d3m.primitives.data.ExtractColumnsBySemanticTypes",
                     "hyperparameters":
                         {
-                            'semantic_types': ('https://metadata.datadrivendiscovery.org/types/TrueTarget',),
+                            'semantic_types': (
+                                #'https://metadata.datadrivendiscovery.org/types/PrimaryKey',
+                                'https://metadata.datadrivendiscovery.org/types/TrueTarget',),
                             'use_columns': (),
                             'exclude_columns': ()
                         }
@@ -337,12 +354,18 @@ class TemplateSteps:
                         {
                             "primitive": "d3m.primitives.sklearn_wrap.SKSelectFwe",
                             "hyperparameters": {
+                            'use_semantic_types':[True],
+                                'return_result':['new'],
+                                'add_index_columns':[True],
                                 "alpha": [float(x) for x in np.logspace(-4, -1, 6)]
                             }
                         },
                         {
                             "primitive": "d3m.primitives.sklearn_wrap.SKGenericUnivariateSelect",
                             "hyperparameters": {
+                                'use_semantic_types':[True],
+                                'return_result':['new'],
+                                'add_index_columns':[True],
                                 "score_func": ["f_regression"],
                                 "mode": ["percentile"],
                                 "param": [5, 7, 10, 15, 30, 50, 75],
@@ -361,6 +384,9 @@ class TemplateSteps:
                         {
                             "primitive": "d3m.primitives.sklearn_wrap.SKSelectFwe",
                             "hyperparameters": {
+                            'use_semantic_types':[True],
+                                'return_result':['new'],
+                                'add_index_columns':[True],
                                 "alpha": [float(x) for x in np.logspace(-4, -1, 6)]
                             }
                         },
@@ -368,6 +394,9 @@ class TemplateSteps:
                         {
                             "primitive": "d3m.primitives.sklearn_wrap.SKGenericUnivariateSelect",
                             "hyperparameters": {
+                                'use_semantic_types':[True],
+                                'return_result':['new'],
+                                'add_index_columns':[True],
                                 "mode": ["percentile"],
                                 "param": [5, 7, 10, 15, 30, 50, 75],
                             }

@@ -103,7 +103,7 @@ class Runtime(d3m_runtime):
             And add the cache support
         '''
         time_start = time.time()
-
+        # ForkedPdb().set_trace()
         if self.phase == Phase.FIT:
             # Same as old codes, use argument as the cache system's key
             primitive_arguments = self._prepare_primitive_arguments(this_step)
@@ -115,26 +115,28 @@ class Runtime(d3m_runtime):
             if not self.skip_fit_phase:
                 # if we need to do cross validation, do it before normal fit() step
                 if 'runtime' in this_step.primitive_description and "cross_validation" in this_step.primitive_description['runtime']:
-                    primitive: typing.Type[base.PrimitiveBase] = this_step.primitive
-                    # TODO: add one more "if" to restrict runtime to run cross validation only for tuning steps
-                    primitive_hyperparams = primitive.metadata.query()['primitive_code']['class_type_arguments']['Hyperparams']
-                    custom_hyperparams = dict()
+                    pass
+                    # primitive: typing.Type[base.PrimitiveBase] = this_step.primitive
                     # ForkedPdb().set_trace()
-                    # produce_params only have 'inputs'
-                    produce_params = dict((k, primitive_arguments[k]) for k in ["inputs"])
-                    # training_arguments have ['inputs', 'outputs']
-                    training_arguments = dict((k, primitive_arguments[k]) for k in ["inputs","outputs"])
+                    # # TODO: add one more "if" to restrict runtime to run cross validation only for tuning steps
+                    # primitive_hyperparams = primitive.metadata.query()['primitive_code']['class_type_arguments']['Hyperparams']
+                    # custom_hyperparams = dict()
+                    # # ForkedPdb().set_trace()
+                    # # produce_params only have 'inputs'
+                    # produce_params = dict((k, primitive_arguments[k]) for k in ["inputs"])
+                    # # training_arguments have ['inputs', 'outputs']
+                    # training_arguments = dict((k, primitive_arguments[k]) for k in ["inputs","outputs"])
 
-                    if bool(this_step.hyperparams):
-                        for hyperparam, value in this_step.hyperparams.items():
-                            if isinstance(value, dict):
-                                custom_hyperparams[hyperparam] = value['data']
-                            else:
-                                custom_hyperparams[hyperparam] = value
+                    # if bool(this_step.hyperparams):
+                    #     for hyperparam, value in this_step.hyperparams.items():
+                    #         if isinstance(value, dict):
+                    #             custom_hyperparams[hyperparam] = value['data']
+                    #         else:
+                    #             custom_hyperparams[hyperparam] = value
 
-                    self.cross_validation_result = self._cross_validation(
-                        primitive, training_arguments, produce_params, primitive_hyperparams,
-                        custom_hyperparams, this_step.primitive_description['runtime'])
+                    # self.cross_validation_result = self._cross_validation(
+                    #     primitive, training_arguments, produce_params, primitive_hyperparams,
+                    #     custom_hyperparams, this_step.primitive_description['runtime'])
                 # END for cross-validation process
 
             cache_hit = False
@@ -190,8 +192,11 @@ class Runtime(d3m_runtime):
 
             # if in produce step, always use the d3m's codes
         elif self.phase == Phase.PRODUCE:
-            d3m_runtime._run_primitive(self, this_step)
-
+            try:
+                d3m_runtime._run_primitive(self, this_step)
+            except ValueError:
+                print("Error")
+                ForkedPdb().set_trace()
         else:
             raise exceptions.UnexpectedValueError("Unknown phase: {phase}".format(phase=self.phase))
 
