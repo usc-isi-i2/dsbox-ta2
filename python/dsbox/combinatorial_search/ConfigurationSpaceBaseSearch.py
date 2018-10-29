@@ -189,7 +189,7 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
                 fitted_pipeline.fit(cache=cache, inputs=[self.train_dataset1])
 
 
-            except:
+            except ValueError:
                 import os
                 import json
                 from dsbox.template.runtime import ForkedPdb
