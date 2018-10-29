@@ -94,24 +94,26 @@ class TemplateSteps:
                 ],
                 "inputs": ["impute_step"]
             },
+            # {
+            #     "name": "cast_1_step",  # turn columns to float
+            #     # "name": data,
+            #     "primitives": [
+            #         {
+            #             "primitive": "d3m.primitives.data.CastToType",
+            #             "hyperparameters": 
+            #                             {
+            #                             "type_to_cast": ["float"],
+            #                             "exclude_columns": (0,),
+            #                             "use_columns": (0,),
+            #                             }
+            #         },
+            #         "d3m.primitives.dsbox.DoNothing",
+            #     ],
+            #     # "inputs": ["scaler_step"]
+            #     "inputs":["extract_attribute_step"]
+            # },
             {
-                "name": "cast_1_step",  # turn columns to float
-                "primitives": [
-                    {
-                        "primitive": "d3m.primitives.data.CastToType",
-                        "hyperparameters": 
-                                        {
-                                        "type_to_cast": ["float"],
-                                        "exclude_columns": (0,),
-                                        "use_columns": (0,),
-                                        }
-                    },
-                    "d3m.primitives.dsbox.DoNothing",
-                ],
-                "inputs": ["scaler_step"]
-            },
-            {
-                "name": data,
+                "name": "PCA_step",
                 "primitives": [
                     {
                         "primitive": "d3m.primitives.sklearn_wrap.SKPCA",
@@ -125,7 +127,20 @@ class TemplateSteps:
                     },
                     "d3m.primitives.dsbox.DoNothing",
                 ],
-                "inputs": ["cast_1_step"]
+                # "inputs": ["cast_1_step"]
+                "inputs":["scaler_step"]
+            },
+            {
+                "name": data,
+                "primitives": [
+                    {
+                        "primitive": "d3m.primitives.data.CastToType",
+                        "hyperparameters": {"type_to_cast": ["float"]}
+                    },
+                    "d3m.primitives.dsbox.DoNothing",
+                ],
+                # "inputs": ["scaler_step"]
+                "inputs":["PCA_step"]
             },
             {
                 "name": target,
@@ -134,8 +149,8 @@ class TemplateSteps:
                     "hyperparameters":
                         {
                             'semantic_types': (
-                                #'https://metadata.datadrivendiscovery.org/types/PrimaryKey',
-                                'https://metadata.datadrivendiscovery.org/types/TrueTarget',),
+                                # 'https://metadata.datadrivendiscovery.org/types/PrimaryKey',
+                                'https://metadata.datadrivendiscovery.org/types/SuggestTarget',),
                             'use_columns': (),
                             'exclude_columns': ()
                         }

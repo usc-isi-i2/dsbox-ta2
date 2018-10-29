@@ -965,12 +965,12 @@ class Controller:
         if not self.template:
             return Status.PROBLEM_NOT_IMPLEMENT
 
-        # self._check_and_set_dataset_metadata()
+        self._check_and_set_dataset_metadata()
 
         self.generate_dataset_splits()
 
 
-        '''
+        
         import sys
         import os
         import pprint
@@ -1043,6 +1043,7 @@ class Controller:
         dataset_train = self.all_dataset
 
         import pdb
+        # pdb.set_trace()
         # step 1: load the dataset with denormalize primitive
         train1 = a.produce(inputs = dataset_train)
         #predict1 = a.produce(inputs = dataset_test)
@@ -1062,7 +1063,7 @@ class Controller:
 
         e.set_training_data(inputs = train5_1.value)
         e.fit()
-        train5 = d.produce(inputs = train5_1.value)
+        train5 = e.produce(inputs = train5_1.value)
 
         f.set_training_data(inputs = train5.value)
         f.fit()
@@ -1073,24 +1074,19 @@ class Controller:
         train7 = g.produce(inputs = train6.value)
 
 
-        pdb.set_trace()
         h.set_training_data(inputs = train7.value)
         h.fit()
-        train8 = d.produce(inputs = train7.value)
-
+        train8 = h.produce(inputs = train7.value)
 
         jj.set_training_data(inputs = train8.value, outputs = train3_B.value)
         jj.fit()
-        predict = jj.produce(inputs = train7.value)
+        predict = jj.produce(inputs = train8.value)
 
 
         print("predict value is:")
         print(predict.value)
-
-
-        '''
-
-
+        
+        pdb.set_trace()
 
 
         # FIXME) come up with a better way to implement this part. The fork does not provide a way

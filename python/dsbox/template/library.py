@@ -165,13 +165,13 @@ class TemplateLibrary:
 
     def _load_inline_templates(self):
         # template that gives us the mean baseline as a result
-        self.templates.append(SRIMeanBaselineTemplate)
+        # self.templates.append(SRIMeanBaselineTemplate)
 
-        self.templates.append(DefaultTimeseriesRegressionTemplate)
+        # self.templates.append(DefaultTimeseriesRegressionTemplate)
 
         # default tabular templates, encompassing many of the templates below
-        self.templates.append(DefaultClassificationTemplate)
-        self.templates.append(NaiveBayesClassificationTemplate)
+        # self.templates.append(DefaultClassificationTemplate)
+        # self.templates.append(NaiveBayesClassificationTemplate)
         # self.templates.append(DefaultRegressionTemplate)
 
         # new tabular classification
