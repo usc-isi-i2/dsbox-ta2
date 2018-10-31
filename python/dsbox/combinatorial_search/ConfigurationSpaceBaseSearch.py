@@ -55,6 +55,7 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
                  problem: Metadata, train_dataset1: Dataset,
                  train_dataset2: typing.List[Dataset], test_dataset1: Dataset,
                  test_dataset2: typing.List[Dataset], all_dataset: Dataset,
+                 ensemble_tuning_dataset: Dataset,
                  performance_metrics: typing.List[typing.Dict], output_directory: str,
                  log_dir: str, ) -> None:
 
@@ -69,6 +70,12 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
         self.test_dataset1 = test_dataset1
         self.test_dataset2 = test_dataset2
         self.all_dataset = all_dataset
+        if ensemble_tuning_dataset:
+            self.do_ensemble_tuning = True
+            self.ensemble_tuning_dataset = ensemble_tuning_dataset
+        else:
+            self.do_ensemble_tuning = False
+            self.ensemble_tuning_dataset = None
 
         self.performance_metrics = list(map(
             lambda d: {'metric': d['metric'].unparse(), 'params': d['params']},
@@ -336,6 +343,7 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
             fitted_pipeline2 = fitted_pipeline
             # set the metric for calculating the rank
             fitted_pipeline2.set_metric(training_metrics[0])
+            ensemble_tuning_result = None
 
             data = {
                 'fitted_pipeline': fitted_pipeline2,
@@ -344,6 +352,7 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
                 'test_metrics': training_metrics,
                 'total_runtime': time.time() - start_time,
                 'configuration': configuration,
+                'ensemble_tuning_result': ensemble_tuning_result,
             }
             fitted_pipeline.auxiliary = dict(data)
 
@@ -424,7 +433,8 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
             # finally, fit the model with all data and save it
             _logger.info("[INFO] Now are training the pipeline with all dataset and saving the pipeline.")
             fitted_pipeline_final.fit(cache=cache, inputs=[self.all_dataset])
-
+            ensemble_tuning_result = fitted_pipeline_final.produce(cache=cache, inputs=[self.ensemble_tuning_dataset])
+            
             data = {
                 'fitted_pipeline': fitted_pipeline_final,
                 'training_metrics': training_metrics,
@@ -433,6 +443,7 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
                 'test_metrics': test_metrics2,
                 'total_runtime': time.time() - start_time,
                 'configuration': configuration,
+                'ensemble_tuning_result': ensemble_tuning_result,
             }
             fitted_pipeline.auxiliary = dict(data)
 

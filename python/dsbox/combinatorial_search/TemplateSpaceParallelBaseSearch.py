@@ -49,6 +49,7 @@ class TemplateSpaceParallelBaseSearch(TemplateSpaceBaseSearch[T]):
                  problem: Metadata, train_dataset1: Dataset,
                  train_dataset2: typing.List[Dataset], test_dataset1: Dataset,
                  test_dataset2: typing.List[Dataset], all_dataset: Dataset,
+                 ensemble_tuning_dataset: Dataset,
                  output_directory: str, log_dir: str, timeout: int=55, num_proc: int=4) -> None:
 
         self.job_manager = DistributedJobManager(proc_num=num_proc, timeout=timeout)
@@ -58,6 +59,7 @@ class TemplateSpaceParallelBaseSearch(TemplateSpaceBaseSearch[T]):
             template_list=template_list, performance_metrics=performance_metrics,
             problem=problem, train_dataset1=train_dataset1, train_dataset2=train_dataset2,
             test_dataset1=test_dataset1, test_dataset2=test_dataset2, all_dataset=all_dataset,
+            ensemble_tuning_dataset = ensemble_tuning_dataset,
             output_directory=output_directory, log_dir=log_dir
         )
 

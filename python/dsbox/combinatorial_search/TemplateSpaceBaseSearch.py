@@ -49,6 +49,7 @@ class TemplateSpaceBaseSearch(typing.Generic[T]):
                  problem: Metadata, train_dataset1: Dataset,
                  train_dataset2: typing.List[Dataset], test_dataset1: Dataset,
                  test_dataset2: typing.List[Dataset], all_dataset: Dataset,
+                 ensemble_tuning_dataset: Dataset,
                  output_directory: str, log_dir: str,) -> None:
 
         self.template_list = template_list
@@ -64,6 +65,7 @@ class TemplateSpaceBaseSearch(typing.Generic[T]):
                     problem=problem, train_dataset1=train_dataset1, train_dataset2=train_dataset2,
                     test_dataset1=test_dataset1, test_dataset2=test_dataset2,
                     all_dataset=all_dataset, performance_metrics=performance_metrics,
+                    ensemble_tuning_dataset = ensemble_tuning_dataset,
                     output_directory=output_directory, log_dir=log_dir
                 ),
                 zip(template_list, self.configuration_space_list)

@@ -56,6 +56,7 @@ class BanditDimensionalSearch(RandomDimensionalSearch, MultiBanditSearch):
                  problem: Metadata, train_dataset1: Dataset,
                  train_dataset2: typing.List[Dataset], test_dataset1: Dataset,
                  test_dataset2: typing.List[Dataset], all_dataset: Dataset,
+                 ensemble_tuning_dataset:Dataset,
                  output_directory: str, log_dir: str, timeout: int = 55, num_proc: int = 4) -> None:
 
         # Use first metric from test
@@ -66,6 +67,7 @@ class BanditDimensionalSearch(RandomDimensionalSearch, MultiBanditSearch):
             problem=problem, train_dataset1=train_dataset1,
             train_dataset2=train_dataset2, test_dataset1=test_dataset1,
             test_dataset2=test_dataset2, all_dataset=all_dataset,
+            ensemble_tuning_dataset = ensemble_tuning_dataset,
             log_dir=log_dir, output_directory=output_directory, timeout=timeout, num_proc=num_proc)
 
         MultiBanditSearch.__init__(
@@ -75,6 +77,7 @@ class BanditDimensionalSearch(RandomDimensionalSearch, MultiBanditSearch):
             problem=problem, train_dataset1=train_dataset1,
             train_dataset2=train_dataset2, test_dataset1=test_dataset1,
             test_dataset2=test_dataset2, all_dataset=all_dataset,
+            ensemble_tuning_dataset = ensemble_tuning_dataset,
             log_dir=log_dir, output_directory=output_directory, timeout=timeout, num_proc=num_proc)
 
     # def search(self, num_iter: int = 2) -> typing.Dict:

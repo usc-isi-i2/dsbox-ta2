@@ -114,6 +114,8 @@ class Controller:
         # TODO: check whether "speech" type should be put into this list or not
         self.data_type_cannot_split = ["graph", "edgeList", "audio"]
         self.task_type_can_split = ["CLASSIFICATION", "REGRESSION", "TIME_SERIES_FORECASTING"]
+        # !!! hard code here
+        # TODO: add if statement to determine it
         self.do_ensemble_tune = True
 
         # Resource limits
@@ -414,6 +416,7 @@ class Controller:
             test_dataset2=self.test_dataset2,
             train_dataset2=self.train_dataset2,
             all_dataset=self.all_dataset,
+            ensemble_tuning_dataset = self.ensemble_dataset,
             output_directory=self.output_directory,
             log_dir=self.output_logs_dir,
         )
@@ -431,9 +434,11 @@ class Controller:
             test_dataset2=self.test_dataset2,
             train_dataset2=self.train_dataset2,
             all_dataset=self.all_dataset,
+            ensemble_tuning_dataset = self.ensemble_dataset,
             output_directory=self.output_directory,
             log_dir=self.output_logs_dir,
             num_proc=self.num_cpus,
+
             timeout=self.TIMEOUT,
         )
         report = searchMethod.search(num_iter=15)
@@ -452,6 +457,7 @@ class Controller:
             test_dataset2=self.test_dataset2,
             train_dataset2=self.train_dataset2,
             all_dataset=self.all_dataset,
+            ensemble_tuning_dataset = self.ensemble_dataset,
             output_directory=self.output_directory,
             log_dir=self.output_logs_dir,
             num_proc=self.num_cpus,
@@ -473,6 +479,7 @@ class Controller:
             test_dataset2=self.test_dataset2,
             train_dataset2=self.train_dataset2,
             all_dataset=self.all_dataset,
+            ensemble_tuning_dataset = self.ensemble_dataset,
             output_directory=self.output_directory,
             log_dir=self.output_logs_dir,
             num_proc=self.num_cpus,
@@ -494,6 +501,7 @@ class Controller:
             test_dataset2=self.test_dataset2,
             train_dataset2=self.train_dataset2,
             all_dataset=self.all_dataset,
+            ensemble_tuning_dataset = self.ensemble_dataset,
             output_directory=self.output_directory,
             log_dir=self.output_logs_dir,
             num_proc=self.num_cpus,
@@ -1061,6 +1069,8 @@ class Controller:
         # if self.do_ensemble_tune:
         #     self._logger.info("Normal searching finished, now starting ensemble tuning")
         #     self.ensemble_tuning()
+            import pdb
+            pdb.set_trace()
 
             status = proc.exitcode
             print("[INFO] Search Status:")
