@@ -165,7 +165,7 @@ class TemplateLibrary:
 
     def _load_inline_templates(self):
         # template that gives us the mean baseline as a result
-        self.templates.append(SRIMeanBaselineTemplate)
+        # self.templates.append(SRIMeanBaselineTemplate)
 
         # self.templates.append(DefaultTimeseriesRegressionTemplate)
 
@@ -178,19 +178,20 @@ class TemplateLibrary:
         self.templates.append(RandomForestClassificationTemplate)
         # self.templates.append(ExtraTreesClassificationTemplate)
         # self.templates.append(GradientBoostingClassificationTemplate)
-        # takes too long to run self.templates.append(SVCClassificationTemplate)
 
-        # new tabular regression
+        # # takes too long to run self.templates.append(SVCClassificationTemplate)
+
+        # # new tabular regression
         # self.templates.append(RandomForestRegressionTemplate)
         # self.templates.append(ExtraTreesRegressionTemplate)
         # self.templates.append(GradientBoostingRegressionTemplate)
-        # takes too long to run self.templates.append(SVRRegressionTemplate)
+        # # takes too long to run self.templates.append(SVRRegressionTemplate)
 
         # # text templates, but also support tabular data
         # self.templates.append(DefaultTextClassificationTemplate)
         # self.templates.append(DefaultTextRegressionTemplate)
 
-        # Tabular Classification
+        # # Tabular Classification
         # self.templates.append(TA1Classification_3)
         # self.templates.append(MuxinTA1ClassificationTemplate1)
         # self.templates.append(UU3TestTemplate)
@@ -328,7 +329,7 @@ class DefaultClassificationTemplate(DSBoxTemplate):
                                          "d3m.primitives.sklearn_wrap.SKExtraTreesClassifier",
                                      "hyperparameters":
                                          {
-                                            'use_semantic_types':[True],
+                                         'use_semantic_types':[True],
                                             'return_result':['new'],
                                             'add_index_columns':[True],
                                              'bootstrap': [True, False],
@@ -344,7 +345,7 @@ class DefaultClassificationTemplate(DSBoxTemplate):
                                          "d3m.primitives.sklearn_wrap.SKGradientBoostingClassifier",
                                      "hyperparameters":
                                          {
-                                            'use_semantic_types':[True],
+                                         'use_semantic_types':[True],
                                             'return_result':['new'],
                                             'add_index_columns':[True],
                                              'max_depth': [2, 3, 4, 5],
@@ -392,7 +393,7 @@ class NaiveBayesClassificationTemplate(DSBoxTemplate):
                                 "d3m.primitives.sklearn_wrap.SKBernoulliNB",
                             "hyperparameters":
                                 {
-                                                                            'use_semantic_types':[True],
+                                    'use_semantic_types':[True],
                                             'return_result':['new'],
                                             'add_index_columns':[True],
                                     'alpha': [0, .5, 1],
@@ -403,7 +404,7 @@ class NaiveBayesClassificationTemplate(DSBoxTemplate):
                                 "d3m.primitives.sklearn_wrap.SKGaussianNB",
                             "hyperparameters":
                                 {
-                                                                            'use_semantic_types':[True],
+                                'use_semantic_types':[True],
                                             'return_result':['new'],
                                             'add_index_columns':[True],
                                 }
@@ -413,7 +414,7 @@ class NaiveBayesClassificationTemplate(DSBoxTemplate):
                                 "d3m.primitives.sklearn_wrap.SKMultinomialNB",
                             "hyperparameters":
                                 {
-                                                                            'use_semantic_types':[True],
+                                'use_semantic_types':[True],
                                             'return_result':['new'],
                                             'add_index_columns':[True],
                                     'alpha': [0, .5, 1]
@@ -456,9 +457,10 @@ class RandomForestClassificationTemplate(DSBoxTemplate):
                                 "d3m.primitives.sklearn_wrap.SKRandomForestClassifier",
                             "hyperparameters":
                                 {
-                                    'use_semantic_types':[True],
-                                    'return_result':['new'],
-                                    'add_index_columns':[True],
+
+                                'use_semantic_types':[True],
+                                            'return_result':['new'],
+                                            'add_index_columns':[True],
                                     'bootstrap': [True, False],
                                     'max_depth': [15, 30, None],
                                     'min_samples_leaf': [1, 2, 4],

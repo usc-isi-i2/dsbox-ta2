@@ -194,7 +194,8 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
                 template=self.template, problem=self.problem)
 
             fitted_pipeline.fit(cache=cache, inputs=[self.train_dataset1])
-            # fitted_pipeline.fit(inputs=[self.train_dataset1])
+
+
             training_ground_truth = get_target_columns(self.train_dataset1, self.problem)
             training_prediction = fitted_pipeline.get_fit_step_output(
                 self.template.get_output_step_number())
@@ -348,7 +349,8 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
             data = {
                 'fitted_pipeline': fitted_pipeline2,
                 'training_metrics': training_metrics,
-                'cross_validation_metrics': fitted_pipeline2.get_cross_validation_metrics(),
+                # 'cross_validation_metrics': fitted_pipeline2.get_cross_validation_metrics(),
+                'cross_validation_metrics': training_metrics,
                 'test_metrics': training_metrics,
                 'total_runtime': time.time() - start_time,
                 'configuration': configuration,

@@ -932,7 +932,6 @@ class Controller:
         # update: it seems now prediction on new runtime will only have last output
         # TODO: check whether it fit all dataset
         step_number_output = 0
-        # get the target column name
         prediction = run_test.produce_outputs[step_number_output]
         prediction = self.add_d3m_index_and_prediction_class_name(prediction)
         prediction_folder_loc = outputs_loc + "/predictions/" + read_pipeline_id
@@ -1040,9 +1039,130 @@ class Controller:
         if not self.template:
             return Status.PROBLEM_NOT_IMPLEMENT
 
-        # self._check_and_set_dataset_metadata()
+        self._check_and_set_dataset_metadata()
 
         self.generate_dataset_splits()
+
+
+        '''
+        import sys
+        import os
+        import pprint
+        from d3m.container.dataset import D3MDatasetLoader, Dataset, CSVLoader
+        import pandas as pd 
+        # 1. here you need to modify to load the primitives you want to load, following the format like this one
+        from common_primitives.denormalize import DenormalizePrimitive, Hyperparams as hyper_Den
+        from common_primitives.dataset_to_dataframe import DatasetToDataFramePrimitive, Hyperparams as hyper_DD
+        from common_primitives.extract_columns_semantic_types import ExtractColumnsBySemanticTypesPrimitive, Hyperparams as hyper_EXS
+        from dsbox.datapreprocessing.cleaner.data_profile import Profiler,Hyperparams as hyer_profile
+        from dsbox.datapreprocessing.cleaner.encoder import Encoder, EncHyperparameter as hyper_enc
+        from dsbox.datapreprocessing.cleaner.mean import MeanImputation, MeanHyperparameter as hyper_mean
+        from dsbox.datapreprocessing.cleaner.IQRScaler import IQRScaler, IQRHyperparams as hyper_IQR
+        from corex_text import CorexText, CorexText_Hyperparams as hyper_Core
+        from sklearn_wrap.SKPCA import SKPCA, Hyperparams as hyper_PCA
+        from sklearn_wrap.SKRandomForestClassifier import SKRandomForestClassifier, Hyperparams as hpyer_RF
+        from sklearn_wrap.SKBernoulliNB import SKBernoulliNB, Hyperparams as hyper_BN
+
+        h1 = hyper_Den.defaults()
+        h2 =hyper_DD.defaults()
+        h3_1 = {
+                                    'semantic_types': (
+                                        'https://metadata.datadrivendiscovery.org/types/PrimaryKey',
+                                        'https://metadata.datadrivendiscovery.org/types/Attribute',
+                                        ),
+                                    'use_columns': (),
+                                    'exclude_columns': ()
+                                }
+        h3_2 = {
+                                    'semantic_types': (
+                                        #'https://metadata.datadrivendiscovery.org/types/PrimaryKey',
+                                        'https://metadata.datadrivendiscovery.org/types/SuggestedTarget',),
+                                    'use_columns': (),
+                                    'exclude_columns': ()
+                                }
+        h4 = hyer_profile.defaults()
+        h5 = hyper_enc.defaults()
+        h6 = hyper_mean.defaults()
+        h7 = hyper_IQR.defaults()
+        h8 = hyper_PCA.defaults()
+        h9 = hyper_BN.defaults()
+        h10 = hpyer_RF.defaults()
+        h8 = h8.replace({"use_semantic_types":True, "return_result":"new", "add_index_columns":True})
+        h9 = h9.replace({"use_semantic_types":True, "return_result":"new", "add_index_columns":True,"alpha":0.5})
+        h10 = h10.replace({"use_semantic_types":True, "return_result":"new", "add_index_columns":True})
+        h11 = hyper_Core.defaults()
+
+        a = DenormalizePrimitive(hyperparams = h1)
+        b = DatasetToDataFramePrimitive(hyperparams = h2)
+        c1 = ExtractColumnsBySemanticTypesPrimitive(hyperparams = h3_1)
+        c2 = ExtractColumnsBySemanticTypesPrimitive(hyperparams = h3_2)
+        d = Profiler(hyperparams = h4)
+        e = Encoder(hyperparams = h5)
+        f = MeanImputation(hyperparams = h6)
+        g = IQRScaler(hyperparams = h7)
+        h = SKPCA(hyperparams = h8)
+        i = SKBernoulliNB(hyperparams = h9)
+        jj = SKRandomForestClassifier(hyperparams = h10)
+        kk = CorexText(hyperparams = h11)
+
+        # define the location of the description file of the dataset which should be a json
+        #dataset_file_path = '/Users/minazuki/Desktop/studies/master/2018Summer/data/datasets/seed_datasets_current/22_handgeometry/22_handgeometry_dataset/datasetDoc.json'
+
+        # dataset_train_file_path = '/Users/minazuki/Desktop/studies/master/2018Summer/data/datasets/seed_datasets_current/22_handgeometry/22_handgeometry_dataset/datasetDoc.json'
+
+        #dataset_test_file_path = '/Users/minazuki/Desktop/studies/master/2018Summer/data/datasets/seed_datasets_current/66_chlorineConcentration/TEST/dataset_TEST/datasetDoc.json'
+
+        # dataset_train = dataset.load('file://{dataset_doc_path}'.format(dataset_doc_path=os.path.abspath(dataset_file_path)))
+        #dataset_test =  dataset.load('file://{dataset_doc_path}'.format(dataset_doc_path=os.path.abspath(dataset_test_file_path)))
+        dataset_train = self.all_dataset
+
+        import pdb
+        # pdb.set_trace()
+        # step 1: load the dataset with denormalize primitive
+        train1 = a.produce(inputs = dataset_train)
+        #predict1 = a.produce(inputs = dataset_test)
+
+        # step 2: transform the dataset to dataframe
+        train2 = b.produce(inputs = train1.value) # this should be the input to this primitive
+        #predict2 = b.produce(inputs = predict1.value)
+        # step 3: transform the dataframe to the ndarry
+        train3_A = c1.produce(inputs = train2.value)
+        train3_B = c2.produce(inputs = train2.value)
+
+        train4 = d.produce(inputs = train3_A.value)
+
+        kk.set_training_data(inputs = train4.value)
+        kk.fit()
+        train5_1 = kk.produce(inputs = train4.value)
+
+        e.set_training_data(inputs = train5_1.value)
+        e.fit()
+        train5 = e.produce(inputs = train5_1.value)
+
+        f.set_training_data(inputs = train5.value)
+        f.fit()
+        train6 = f.produce(inputs = train5.value)
+
+        g.set_training_data(inputs = train6.value)
+        g.fit()
+        train7 = g.produce(inputs = train6.value)
+
+
+        h.set_training_data(inputs = train7.value)
+        h.fit()
+        train8 = h.produce(inputs = train7.value)
+
+        jj.set_training_data(inputs = train8.value, outputs = train3_B.value)
+        jj.fit()
+        predict = jj.produce(inputs = train8.value)
+
+
+        print("predict value is:")
+        print(predict.value)
+        
+        pdb.set_trace()
+        '''
+
         # FIXME) come up with a better way to implement this part. The fork does not provide a way
         # FIXME) to catch the errors of the child process
         
