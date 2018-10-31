@@ -1171,14 +1171,14 @@ class Controller:
 
             # proc = Process(target=mplog.logged_call,
                            # args=(log_queue, self._run_BanditDimSearch,))
-            proc = Process(target=mplog.logged_call,
-                           args=(log_queue, self._run_MultiBanditSearch,))
+            # proc = Process(target=mplog.logged_call,
+                           # args=(log_queue, self._run_MultiBanditSearch,))
             # proc = Process(target=mplog.logged_call,
             #                args=(log_queue, self._run_RandomDimSearch,))
             # proc = Process(target=mplog.logged_call,
             #                args=(log_queue, self._run_ParallelBaseSearch,))
-            # proc = Process(target=mplog.logged_call,
-            #                args=(log_queue, self._run_SerialBaseSearch,))
+            proc = Process(target=mplog.logged_call,
+                           args=(log_queue, self._run_SerialBaseSearch,))
 
             proc.start()
 

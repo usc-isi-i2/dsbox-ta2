@@ -127,6 +127,8 @@ class MultiBanditSearch(TemplateSpaceParallelBaseSearch[T]):
         self._search_templates(num_iter=num_iter)
 
         # cleanup the caches and cache manager
+        # import pdb
+        # pdb.set_trace()
         self.cacheManager.cleanup()
 
         # cleanup job manager

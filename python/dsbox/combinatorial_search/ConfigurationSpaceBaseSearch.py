@@ -435,13 +435,15 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
             # finally, fit the model with all data and save it
             _logger.info("[INFO] Now are training the pipeline with all dataset and saving the pipeline.")
             fitted_pipeline_final.fit(cache=cache, inputs=[self.all_dataset])
-            ensemble_tuning_result = fitted_pipeline_final.produce(cache=cache, inputs=[self.ensemble_tuning_dataset])
-            
+            fitted_pipeline_final.produce(inputs=[self.ensemble_tuning_dataset])
+            ensemble_tuning_result = fitted_pipeline_final.get_produce_step_output(self.template.get_output_step_number())
+
+
             data = {
                 'fitted_pipeline': fitted_pipeline_final,
                 'training_metrics': training_metrics,
                 'cross_validation_metrics':training_metrics, 
-                'cross_validation_metrics': fitted_pipeline_final.get_cross_validation_metrics(),
+                # 'cross_validation_metrics': fitted_pipeline_final.get_cross_validation_metrics(),
                 'test_metrics': test_metrics2,
                 'total_runtime': time.time() - start_time,
                 'configuration': configuration,
