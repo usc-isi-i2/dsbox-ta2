@@ -170,8 +170,8 @@ class TemplateLibrary:
         # self.templates.append(DefaultTimeseriesRegressionTemplate)
 
         # default tabular templates, encompassing many of the templates below
-        # self.templates.append(DefaultClassificationTemplate)
-        # self.templates.append(NaiveBayesClassificationTemplate)
+        self.templates.append(DefaultClassificationTemplate)
+        self.templates.append(NaiveBayesClassificationTemplate)
         # self.templates.append(DefaultRegressionTemplate)
 
         # new tabular classification

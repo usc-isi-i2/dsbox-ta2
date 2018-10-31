@@ -970,7 +970,7 @@ class Controller:
         self.generate_dataset_splits()
 
 
-        
+        '''
         import sys
         import os
         import pprint
@@ -1087,7 +1087,7 @@ class Controller:
         print(predict.value)
         
         pdb.set_trace()
-
+        '''
 
         # FIXME) come up with a better way to implement this part. The fork does not provide a way
         # FIXME) to catch the errors of the child process

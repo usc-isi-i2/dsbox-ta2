@@ -185,21 +185,9 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
                 log_dir=self.log_dir,
                 metric_descriptions=self.performance_metrics,
                 template=self.template, problem=self.problem)
-            try:
-                fitted_pipeline.fit(cache=cache, inputs=[self.train_dataset1])
 
+            fitted_pipeline.fit(cache=cache, inputs=[self.train_dataset1])
 
-            except ValueError:
-                import os
-                import json
-                from dsbox.template.runtime import ForkedPdb
-                print("CNNMMMMMMMM")
-                structure = fitted_pipeline.pipeline.to_json_structure()
-                structure["unfinished"] = True
-                pipeline_dir = "/Users/minazuki/Desktop/studies/master/2018Summer/data"
-                json_loc = os.path.join(pipeline_dir, fitted_pipeline.id + 'unfinished.json')
-                with open(json_loc, 'w') as out:
-                    json.dump(structure, out)
 
             training_ground_truth = get_target_columns(self.train_dataset1, self.problem)
             training_prediction = fitted_pipeline.get_fit_step_output(

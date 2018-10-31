@@ -133,10 +133,10 @@ class TemplateSteps:
             {
                 "name": data,
                 "primitives": [
-                    {
-                        "primitive": "d3m.primitives.data.CastToType",
-                        "hyperparameters": {"type_to_cast": ["float"]}
-                    },
+                    # {
+                    #     "primitive": "d3m.primitives.data.CastToType",
+                    #     "hyperparameters": {"type_to_cast": ["float"]}
+                    # },
                     "d3m.primitives.dsbox.DoNothing",
                 ],
                 # "inputs": ["scaler_step"]
@@ -150,7 +150,7 @@ class TemplateSteps:
                         {
                             'semantic_types': (
                                 # 'https://metadata.datadrivendiscovery.org/types/PrimaryKey',
-                                'https://metadata.datadrivendiscovery.org/types/SuggestTarget',),
+                                'https://metadata.datadrivendiscovery.org/types/TrueTarget',),
                             'use_columns': (),
                             'exclude_columns': ()
                         }
