@@ -842,7 +842,7 @@ class Controller:
                 "[Warning] Can't find the prediction class name, will use default name "
                 "'prediction'.")
             prediction_class_name.append("prediction")
-        pdb.set_trace()
+        # pdb.set_trace()
         prediction = run_test.produce_outputs[step_number_output]
 
         # if the prediction results do not have d3m_index column

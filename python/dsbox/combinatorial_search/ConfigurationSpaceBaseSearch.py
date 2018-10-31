@@ -341,7 +341,8 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
             data = {
                 'fitted_pipeline': fitted_pipeline2,
                 'training_metrics': training_metrics,
-                'cross_validation_metrics': fitted_pipeline2.get_cross_validation_metrics(),
+                # 'cross_validation_metrics': fitted_pipeline2.get_cross_validation_metrics(),
+                'cross_validation_metrics': training_metrics,
                 'test_metrics': training_metrics,
                 'total_runtime': time.time() - start_time,
                 'configuration': configuration,
