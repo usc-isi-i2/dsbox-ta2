@@ -127,10 +127,12 @@ class PrimitivesCache:
         if manager is not None:
             self.storage = manager.dict()
             self.write_lock = manager.Lock()
+            self._dummy_mananger = False
         else:
-            warn("[WARN] dummy Manager")
+            _logger.warn("[WARN] dummy Manager")
             self.storage = {}
             self.write_lock = Lock()
+            self._dummy_mananger = True
 
     def push(self, hash_prefix: int, pipe_step: PrimitiveStep, primitive_arguments: typing.Dict,
              fitting_time: int, model: PrimitiveBase) -> int:
@@ -143,7 +145,10 @@ class PrimitivesCache:
     def push_key(self, prim_hash: int, prim_name: int, model: PrimitiveBase,
                  fitting_time: int) -> int:
 
-        self.write_lock.acquire(blocking=True)
+        if self._dummy_mananger:
+            self.write_lock.acquire()
+        else:
+            self.write_lock.acquire(blocking=True)
 
         try:
             if not self.is_hit_key(prim_name=prim_name, prim_hash=prim_hash):
