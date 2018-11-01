@@ -346,11 +346,14 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
             fitted_pipeline2.set_metric(training_metrics[0])
             ensemble_tuning_result = None
 
+            cv = fitted_pipeline2.get_cross_validation_metrics()
+            if not cv:
+                cv = {}
             data = {
                 'id': fitted_pipeline2.id,
                 'fitted_pipeline': fitted_pipeline2,
                 'training_metrics': training_metrics,
-                # 'cross_validation_metrics': fitted_pipeline2.get_cross_validation_metrics(),
+                'cross_validation_metrics': cv,
                 'cross_validation_metrics': training_metrics,
                 'test_metrics': training_metrics,
                 'total_runtime': time.time() - start_time,
@@ -438,14 +441,14 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
             fitted_pipeline_final.fit(cache=cache, inputs=[self.all_dataset])
             fitted_pipeline_final.produce(inputs=[self.ensemble_tuning_dataset])
             ensemble_tuning_result = fitted_pipeline_final.get_produce_step_output(self.template.get_output_step_number())
-
-
+            cv = fitted_pipeline_final.get_cross_validation_metrics()
+            if not cv:
+                cv = {}
             data = {
                 'id': fitted_pipeline_final.id,
                 'fitted_pipeline': fitted_pipeline_final,
                 'training_metrics': training_metrics,
-                'cross_validation_metrics':training_metrics, 
-                # 'cross_validation_metrics': fitted_pipeline_final.get_cross_validation_metrics(),
+                'cross_validation_metrics': cv,
                 'test_metrics': test_metrics2,
                 'total_runtime': time.time() - start_time,
                 'configuration': configuration,
