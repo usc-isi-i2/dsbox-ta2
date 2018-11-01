@@ -347,6 +347,7 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
             ensemble_tuning_result = None
 
             data = {
+                'id': fitted_pipeline2.id,
                 'fitted_pipeline': fitted_pipeline2,
                 'training_metrics': training_metrics,
                 # 'cross_validation_metrics': fitted_pipeline2.get_cross_validation_metrics(),
@@ -440,6 +441,7 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
 
 
             data = {
+                'id': fitted_pipeline_final.id,
                 'fitted_pipeline': fitted_pipeline_final,
                 'training_metrics': training_metrics,
                 'cross_validation_metrics':training_metrics, 

@@ -12,7 +12,7 @@ import shutil
 from math import sqrt, log
 import traceback
 
-from multiprocessing import Process
+from multiprocessing import Process,Manager
 
 import numpy as np
 import pandas as pd
@@ -114,9 +114,14 @@ class Controller:
         # TODO: check whether "speech" type should be put into this list or not
         self.data_type_cannot_split = ["graph", "edgeList", "audio"]
         self.task_type_can_split = ["CLASSIFICATION", "REGRESSION", "TIME_SERIES_FORECASTING"]
+        
         # !!! hard code here
         # TODO: add if statement to determine it
         self.do_ensemble_tune = True
+        if self.do_ensemble_tune:
+            # creat a special dictionary that can collect the results in each processes
+            m = Manager()
+            self.report_ensemble = m.dict()
 
         # Resource limits
         self.num_cpus: int = 0
@@ -310,7 +315,6 @@ class Controller:
 
     def _log_search_results(self, report: typing.Dict[str, typing.Any]):
         candidate = report['configuration']
-
         print("-" * 20)
         print("[INFO] Final Search Results:")
         pprint.pprint(candidate)
@@ -406,7 +410,7 @@ class Controller:
                 traceback.print_exc()
                 pass
 
-    def _run_SerialBaseSearch(self):
+    def _run_SerialBaseSearch(self, report_ensemble):
         searchMethod = TemplateSpaceBaseSearch(
             template_list=self.template,
             performance_metrics=self.problem['problem']['performance_metrics'],
@@ -421,10 +425,10 @@ class Controller:
             log_dir=self.output_logs_dir,
         )
         report = searchMethod.search(num_iter=50)
-
+        report_ensemble['report'] = report
         self._log_search_results(report=report)
 
-    def _run_ParallelBaseSearch(self):
+    def _run_ParallelBaseSearch(self, report_ensemble):
         searchMethod = TemplateSpaceParallelBaseSearch(
             template_list=self.template,
             performance_metrics=self.problem['problem']['performance_metrics'],
@@ -438,16 +442,15 @@ class Controller:
             output_directory=self.output_directory,
             log_dir=self.output_logs_dir,
             num_proc=self.num_cpus,
-
             timeout=self.TIMEOUT,
         )
         report = searchMethod.search(num_iter=15)
-
+        report_ensemble['report'] = report
         self._log_search_results(report=report)
 
         searchMethod.job_manager.kill_job_mananger()
 
-    def _run_RandomDimSearch(self):
+    def _run_RandomDimSearch(self, report_ensemble):
         searchMethod = RandomDimensionalSearch(
             template_list=self.template,
             performance_metrics=self.problem['problem']['performance_metrics'],
@@ -464,12 +467,12 @@ class Controller:
             timeout=self.TIMEOUT,
         )
         report = searchMethod.search(num_iter=10)
-
+        report_ensemble['report'] = report
         self._log_search_results(report=report)
 
         searchMethod.job_manager.kill_job_mananger()
 
-    def _run_BanditDimSearch(self):
+    def _run_BanditDimSearch(self, report_ensemble):
         searchMethod = BanditDimensionalSearch(
             template_list=self.template,
             performance_metrics=self.problem['problem']['performance_metrics'],
@@ -486,12 +489,12 @@ class Controller:
             timeout=self.TIMEOUT,
         )
         report = searchMethod.search(num_iter=5)
-
+        report_ensemble['report'] = report
         self._log_search_results(report=report)
 
         searchMethod.job_manager.kill_job_mananger()
 
-    def _run_MultiBanditSearch(self):
+    def _run_MultiBanditSearch(self, report_ensemble):
         searchMethod = MultiBanditSearch(
             template_list=self.template,
             performance_metrics=self.problem['problem']['performance_metrics'],
@@ -508,7 +511,7 @@ class Controller:
             timeout=self.TIMEOUT,
         )
         report = searchMethod.search(num_iter=30)
-
+        report_ensemble['report'] = report
         self._log_search_results(report=report)
 
         searchMethod.job_manager.kill_job_mananger()
@@ -623,50 +626,37 @@ class Controller:
             function to do ensemble tuning
             Teporary put in our ta2 system controller part for testing purpose
         '''
-        from dsbox.datapostprocessing.vertical_concat import VerticalConcat,VerticalConcatHyperparams
-
         if not self.ensemble_dataset:
             self._logger.error("No ensemble tuning dataset found!")
             return
         else:
             all_predictions = []
-            d = os.path.expanduser(self.output_directory + '/pipelines')
-            files = os.listdir(d)
 
-            for each_file in files:
-                if each_file[0] == "." or each_file[-4:] != "json":
-                    # skip the files which is not json files or is system files
-                    continue
-                else:
-                    each_file = os.path.join(d, each_file)
-                    read_pipeline_id = each_file.split('/')[-1].split('.')[0]
-                    pipeline_load, each_runtime = FittedPipeline.load(folder_loc=self.output_directory,
-                                                         pipeline_id=read_pipeline_id,
-                                                         log_dir=self.output_logs_dir)
-                    each_runtime.produce(inputs=[self.ensemble_dataset])
-                    step_number_output = 0 # !!!hard code here, need to check corner case
-                    each_prediction = each_runtime.produce_outputs[step_number_output]
-                    each_prediction = self.add_d3m_index_and_prediction_class_name(each_prediction, self.ensemble_dataset)
-                    # if no confidence found
-                    if "confidence" not in each_prediction.columns:
-                        each_prediction['confidence'] = 1.0
-                    each_prediction['pipeline_id'] = read_pipeline_id
-                    '''
-                    each_prediction['inputs'] = None
-                    add inputs to the prediction
-                    # beacuse inputs is also a DataFrame structure, here we transfter each line into a list of attribute, it will cause print the whole dataframe failed but won't influence the using.
-                    for each in each_prediction.index:
-                        each_prediction.at[each, 'inputs'] = self.ensemble_dataset[self.problem_info["res_id"]].loc[each].tolist()
-                    '''
-                    # after the processing, there will be following attributes in each_prediction:
-                    # Index(['d3mIndex', PredictionClassName, 'confidence', 'pipeline_id', 'inputs'], dtype='object')
-                    all_predictions.append(each_prediction)
+            for key, value in self.report_ensemble['report'].items():
+                import pdb
+                pdb.set_trace()
+
+                each_prediction = self.add_d3m_index_and_prediction_class_name(value['ensemble_tuning_result'], self.ensemble_dataset)
+                # if no confidence found
+                if "confidence" not in each_prediction.columns:
+                    each_prediction['confidence'] = 1.0
+                each_prediction['pipeline_id'] = key
+                '''
+                each_prediction['inputs'] = None
+                add inputs to the prediction
+                # beacuse inputs is also a DataFrame structure, here we transfter each line into a list of attribute, it will cause print the whole dataframe failed but won't influence the using.
+                for each in each_prediction.index:
+                    each_prediction.at[each, 'inputs'] = self.ensemble_dataset[self.problem_info["res_id"]].loc[each].tolist()
+                '''
+                # after the processing, there will be following attributes in each_prediction:
+                # Index(['d3mIndex', PredictionClassName, 'confidence', 'pipeline_id', 'inputs'], dtype='object')
+                all_predictions.append(each_prediction)
             
-            # import pdb
-            # pdb.set_trace()
-            h1 = VerticalConcatHyperparams.defaults()
-            concate_primitive = VerticalConcat(hyperparams = h1)
-            predictions_concate = concate_primitive.produce(inputs = all_predictions)
+            # # import pdb
+            # # pdb.set_trace()
+            # h1 = VerticalConcatHyperparams.defaults()
+            # concate_primitive = VerticalConcat(hyperparams = h1)
+            # predictions_concate = concate_primitive.produce(inputs = all_predictions)
 
             # import pdb
             # pdb.set_trace()
@@ -1165,20 +1155,20 @@ class Controller:
 
         # FIXME) come up with a better way to implement this part. The fork does not provide a way
         # FIXME) to catch the errors of the child process
-        
+
         with mplog.open_queue() as log_queue:
             self._logger.info('Starting Search process')
-
+        
             # proc = Process(target=mplog.logged_call,
-                           # args=(log_queue, self._run_BanditDimSearch,))
-            # proc = Process(target=mplog.logged_call,
-                           # args=(log_queue, self._run_MultiBanditSearch,))
-            # proc = Process(target=mplog.logged_call,
-            #                args=(log_queue, self._run_RandomDimSearch,))
-            # proc = Process(target=mplog.logged_call,
-            #                args=(log_queue, self._run_ParallelBaseSearch,))
+                           # args=(log_queue, self._run_BanditDimSearch, self.report_ensemble))
             proc = Process(target=mplog.logged_call,
-                           args=(log_queue, self._run_SerialBaseSearch,))
+                           args=(log_queue, self._run_MultiBanditSearch, self.report_ensemble))
+            # proc = Process(target=mplog.logged_call,
+            #                args=(log_queue, self._run_RandomDimSearch, self.report_ensemble))
+            # proc = Process(target=mplog.logged_call,
+                           # args=(log_queue, self._run_ParallelBaseSearch, self.report_ensemble))
+            # proc = Process(target=mplog.logged_call,
+                           # args=(log_queue, self._run_SerialBaseSearch, self.report_ensemble))
 
             proc.start()
 
@@ -1186,15 +1176,17 @@ class Controller:
             # wait until process is done
             proc.join()
         
-        # if self.do_ensemble_tune:
-        #     self._logger.info("Normal searching finished, now starting ensemble tuning")
-        #     self.ensemble_tuning()
-            import pdb
-            pdb.set_trace()
+        if self.do_ensemble_tune:
+            self._logger.info("Normal searching finished, now starting ensemble tuning")
+            self.ensemble_tuning()
+
 
             status = proc.exitcode
             print("[INFO] Search Status:")
             pprint.pprint(status)
+
+        import pdb
+        pdb.set_trace()
 
         print(f"END OF FORK {proc.exitcode}")
         return Status.OK

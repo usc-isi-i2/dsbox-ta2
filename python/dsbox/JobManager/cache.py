@@ -87,7 +87,7 @@ class CandidateCache:
         for k in comparison_metrics + ['configuration']:
             update[k] = copy.deepcopy(result[k]) if k in result else None
         update['id'] = result['fitted_pipeline'].id if 'fitted_pipeline' in result else None
-
+        
         # check the candidate in cache. If duplicate is found the metric values must match
         if self.is_hit(candidate):
             match = self.storage[key]

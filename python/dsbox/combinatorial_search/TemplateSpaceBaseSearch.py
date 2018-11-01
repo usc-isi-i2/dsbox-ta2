@@ -78,6 +78,7 @@ class TemplateSpaceBaseSearch(typing.Generic[T]):
         # setup the execution history to store the results of each template separately
         self._setup_exec_history(template_list=self.template_list)
 
+        self.ensemble_tuning_result = {}
         # load libraries with a dummy evaluation
         # try:
         #     self.confSpaceBaseSearch[-1].dummy_evaluate()
@@ -115,8 +116,6 @@ class TemplateSpaceBaseSearch(typing.Generic[T]):
                 self._add_report_to_history(kwargs_bundle=kwargs_bundle,
                                             report=report)
 
-        import pdb
-        pdb.set_trace()
         self.cacheManager.cleanup()
         return self.history.get_best_history()
 

@@ -37,21 +37,6 @@ class TemplateSteps:
                 "inputs": ["to_dataframe_step"]
             },
             {
-                "name": target,
-                "primitives": [{
-                    "primitive": "d3m.primitives.data.ExtractColumnsBySemanticTypes",
-                    "hyperparameters":
-                        {
-                            'semantic_types': (
-                                # 'https://metadata.datadrivendiscovery.org/types/PrimaryKey',
-                                'https://metadata.datadrivendiscovery.org/types/SuggestedTarget',),
-                            'use_columns': (),
-                            'exclude_columns': ()
-                        }
-                }],
-                "inputs": ["to_dataframe_step"]
-            },
-            {
                 "name": "profiler_step",
                 "primitives": ["d3m.primitives.dsbox.Profiler"],
                 "inputs": ["extract_attribute_step"]
@@ -59,7 +44,7 @@ class TemplateSteps:
             {
                 "name": "clean_step",
                 "primitives": [
-                    "d3m.primitives.dsbox.CleaningFeaturizer",
+                    # "d3m.primitives.dsbox.CleaningFeaturizer",
                     "d3m.primitives.dsbox.DoNothing",
                 ],
                 "inputs": ["profiler_step"]
@@ -109,55 +94,54 @@ class TemplateSteps:
                 ],
                 "inputs": ["impute_step"]
             },
-            # {
-            #     "name": "cast_1_step",  # turn columns to float
-            #     # "name": data,
-            #     "primitives": [
-            #         {
-            #             "primitive": "d3m.primitives.data.CastToType",
-            #             "hyperparameters": 
-            #                             {
-            #                             "type_to_cast": ["float"],
-            #                             "exclude_columns": (0,),
-            #                             "use_columns": (0,),
-            #                             }
-            #         },
-            #         "d3m.primitives.dsbox.DoNothing",
-            #     ],
-            #     # "inputs": ["scaler_step"]
-            #     "inputs":["extract_attribute_step"]
-            # },
             {
-                "name": "PCA_step",
+                "name": "cast_1_step",  # turn columns to float
                 "primitives": [
-                    # {
-                    #     "primitive": "d3m.primitives.sklearn_wrap.SKPCA",
-                    #     "hyperparameters":
-                    #     { 
-                    #         'use_semantic_types':[True],
-                    #         'return_result':['new'],
-                    #         'add_index_columns':[True],
-                    #         'n_components': [10, 15, 25]
-                    #     }
-                    # },
+                    {
+                        "primitive": "d3m.primitives.data.CastToType",
+                        "hyperparameters": 
+                                        {
+                                        "type_to_cast": ["float"],
+                                        "exclude_columns": (0,),
+                                        "use_columns": (0,),
+                                        }
+                    },
                     "d3m.primitives.dsbox.DoNothing",
                 ],
-                # "inputs": ["cast_1_step"]
-                "inputs":["scaler_step"]
+                "inputs": ["scaler_step"]
             },
             {
                 "name": data,
                 "primitives": [
-                    # {
-                    #     "primitive": "d3m.primitives.data.CastToType",
-                    #     "hyperparameters": {"type_to_cast": ["float"]}
-                    # },
+                    {
+                        "primitive": "d3m.primitives.sklearn_wrap.SKPCA",
+                        "hyperparameters":
+                        { 
+                            'use_semantic_types':[True],
+                            'return_result':['new'],
+                            'add_index_columns':[True],
+                            'n_components': [10, 15, 25]
+                        }
+                    },
                     "d3m.primitives.dsbox.DoNothing",
                 ],
-                # "inputs": ["scaler_step"]
-                "inputs":["PCA_step"]
+                "inputs": ["cast_1_step"]
             },
-
+            {
+                "name": target,
+                "primitives": [{
+                    "primitive": "d3m.primitives.data.ExtractColumnsBySemanticTypes",
+                    "hyperparameters":
+                        {
+                            'semantic_types': (
+                                #'https://metadata.datadrivendiscovery.org/types/PrimaryKey',
+                                'https://metadata.datadrivendiscovery.org/types/TrueTarget',),
+                            'use_columns': (),
+                            'exclude_columns': ()
+                        }
+                }],
+                "inputs": ["to_dataframe_step"]
+            },
         ]
 
     # Returns a list of dicts with the most common steps
