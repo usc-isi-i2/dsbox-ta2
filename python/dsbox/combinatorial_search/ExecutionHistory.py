@@ -79,6 +79,7 @@ class ExecutionHistory:
             temp = {}
             temp['ensemble_tuning_result'] = report['ensemble_tuning_result'] # the ensemble tuning's dataset predictions
             temp['pipeline'] = report['configuration'] # correspond pipeline structure
+            temp['test_metrics_score'] = report['test_metrics']
             self.ensemble_dataset_predictions[report['id']] = temp # save it with pipeline id as the key
 
         if 'sim_count' not in report:
@@ -248,6 +249,8 @@ class ExecutionHistory:
             if ExecutionHistory._is_better(base=best, check=row, key_attribute=self.key_attribute):
                 best = row
         best = best.to_dict()
+        from dsbox.template.runtime import ForkedPdb
+        ForkedPdb().set_trace()
         best["ensemble_dataset_predictions"] = self.ensemble_dataset_predictions
         return best
 

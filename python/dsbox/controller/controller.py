@@ -122,6 +122,7 @@ class Controller:
             # creat a special dictionary that can collect the results in each processes
             m = Manager()
             self.report_ensemble = m.dict()
+            self.ensemble_voting_candidate_choose_method = 'lastStep'
 
         # Resource limits
         self.num_cpus: int = 0
@@ -314,6 +315,9 @@ class Controller:
         self._logger.addHandler(console)
 
     def _log_search_results(self, report: typing.Dict[str, typing.Any]):
+        from dsbox.template.runtime import ForkedPdb
+        ForkedPdb().set_trace()
+        # self.report_ensemble['report'] = report
         candidate = report['configuration']
         print("-" * 20)
         print("[INFO] Final Search Results:")
@@ -326,7 +330,7 @@ class Controller:
             self._logger.info("******************\n[INFO] Writing results")
             metric_list = ['training_metrics', 'cross_validation_metrics', 'test_metrics']
             for m in metric_list:
-                if m in report and report[m]:
+                if m in report and type(report[m]) is list:
                     self._logger.info('{} {} = {}'.format(
                         m, report[m][0]['metric'], report[m][0]['value']))
 
@@ -445,6 +449,7 @@ class Controller:
             timeout=self.TIMEOUT,
         )
         report = searchMethod.search(num_iter=15)
+
         report_ensemble['report'] = report
         self._log_search_results(report=report)
 
@@ -621,47 +626,58 @@ class Controller:
                         {'semantic_types': semantic_types})
             return dataset
 
-    def ensemble_tuning(self):
+    def ensemble_tuning(self, ensemble_tuning_report):
         '''
             function to do ensemble tuning
             Teporary put in our ta2 system controller part for testing purpose
         '''
+        
         if not self.ensemble_dataset:
             self._logger.error("No ensemble tuning dataset found!")
             return
         else:
-            all_predictions = []
+            memo = {}
+            all_predictions = {}
+            all_predictions_id = {}
+            import pdb
+            pdb.set_trace()
 
-            for key, value in self.report_ensemble['report'].items():
-                import pdb
-                pdb.set_trace()
-
+            # TODO: add ability to deal with the condition when there are multiple predicion columns
+            for key, value in ensemble_tuning_report['report']['ensemble_dataset_predictions'].items():
+                pipeline_description = value['pipeline']
                 each_prediction = self.add_d3m_index_and_prediction_class_name(value['ensemble_tuning_result'], self.ensemble_dataset)
-                # if no confidence found
                 if "confidence" not in each_prediction.columns:
                     each_prediction['confidence'] = 1.0
-                each_prediction['pipeline_id'] = key
-                '''
-                each_prediction['inputs'] = None
-                add inputs to the prediction
-                # beacuse inputs is also a DataFrame structure, here we transfter each line into a list of attribute, it will cause print the whole dataframe failed but won't influence the using.
-                for each in each_prediction.index:
-                    each_prediction.at[each, 'inputs'] = self.ensemble_dataset[self.problem_info["res_id"]].loc[each].tolist()
-                '''
-                # after the processing, there will be following attributes in each_prediction:
-                # Index(['d3mIndex', PredictionClassName, 'confidence', 'pipeline_id', 'inputs'], dtype='object')
-                all_predictions.append(each_prediction)
-            
-            # # import pdb
-            # # pdb.set_trace()
-            # h1 = VerticalConcatHyperparams.defaults()
-            # concate_primitive = VerticalConcat(hyperparams = h1)
-            # predictions_concate = concate_primitive.produce(inputs = all_predictions)
+                # way 1: check the model step of pipeline, only choose the pipelines with different model step
+                if self.ensemble_voting_candidate_choose_method == 'lastStep':
+                    if 'model_step' in pipeline_description:
+                        model_step_name = pipeline_description['model_step']['primitive']
+                        # if not first time see,choose the pipelines with higher test matrics scores
+                        if model_step_name in memo:
+                            if larger_is_better(value['test_metrics_score']):
+                                if value['test_metrics_score'][0]['value'] > memo[model_step_name]['value']:
+                                    memo[model_step_name] = value['test_metrics_score'][0]
+                                    all_predictions[model_step_name] = each_prediction
+                                    all_predictions_id[model_step_name] = key
+                            else:
+                                if value['test_metrics_score'][0]['value'] < memo[model_step_name]['value']:
+                                    memo[model_step_name] = value['test_metrics_score'][0]
+                                    all_predictions[model_step_name] = each_prediction
+                                    all_predictions_id[model_step_name] = key
+                        # if first time see, add to memo directly
+                        else:
+                            memo[model_step_name] = value['test_metrics_score'][0]
+                            all_predictions[model_step_name] = each_prediction
+                            all_predictions_id[model_step_name] = key
+                    else:
+                        self._logger.error("No model step found for pipeline" + key)
 
-            # import pdb
-            # pdb.set_trace()
-
-
+                # way 2: check the similarity of each prediction results, only choose the low similarity predictions
+                elif self.ensemble_voting_candidate_choose_method == 'resultSimilarity':
+                    # TODO: add a method to check the similarity of the predictions
+                    pass
+        
+        pdb.set_trace()
 
 # each_prediction.at[1, 'inputs'] = self.ensemble_dataset[self.problem_info["res_id"]].loc[1].tolist()
     # @staticmethod
@@ -1033,142 +1049,24 @@ class Controller:
 
         self.generate_dataset_splits()
 
-
-        '''
-        import sys
-        import os
-        import pprint
-        from d3m.container.dataset import D3MDatasetLoader, Dataset, CSVLoader
-        import pandas as pd 
-        # 1. here you need to modify to load the primitives you want to load, following the format like this one
-        from common_primitives.denormalize import DenormalizePrimitive, Hyperparams as hyper_Den
-        from common_primitives.dataset_to_dataframe import DatasetToDataFramePrimitive, Hyperparams as hyper_DD
-        from common_primitives.extract_columns_semantic_types import ExtractColumnsBySemanticTypesPrimitive, Hyperparams as hyper_EXS
-        from dsbox.datapreprocessing.cleaner.data_profile import Profiler,Hyperparams as hyer_profile
-        from dsbox.datapreprocessing.cleaner.encoder import Encoder, EncHyperparameter as hyper_enc
-        from dsbox.datapreprocessing.cleaner.mean import MeanImputation, MeanHyperparameter as hyper_mean
-        from dsbox.datapreprocessing.cleaner.IQRScaler import IQRScaler, IQRHyperparams as hyper_IQR
-        from corex_text import CorexText, CorexText_Hyperparams as hyper_Core
-        from sklearn_wrap.SKPCA import SKPCA, Hyperparams as hyper_PCA
-        from sklearn_wrap.SKRandomForestClassifier import SKRandomForestClassifier, Hyperparams as hpyer_RF
-        from sklearn_wrap.SKBernoulliNB import SKBernoulliNB, Hyperparams as hyper_BN
-
-        h1 = hyper_Den.defaults()
-        h2 =hyper_DD.defaults()
-        h3_1 = {
-                                    'semantic_types': (
-                                        'https://metadata.datadrivendiscovery.org/types/PrimaryKey',
-                                        'https://metadata.datadrivendiscovery.org/types/Attribute',
-                                        ),
-                                    'use_columns': (),
-                                    'exclude_columns': ()
-                                }
-        h3_2 = {
-                                    'semantic_types': (
-                                        #'https://metadata.datadrivendiscovery.org/types/PrimaryKey',
-                                        'https://metadata.datadrivendiscovery.org/types/SuggestedTarget',),
-                                    'use_columns': (),
-                                    'exclude_columns': ()
-                                }
-        h4 = hyer_profile.defaults()
-        h5 = hyper_enc.defaults()
-        h6 = hyper_mean.defaults()
-        h7 = hyper_IQR.defaults()
-        h8 = hyper_PCA.defaults()
-        h9 = hyper_BN.defaults()
-        h10 = hpyer_RF.defaults()
-        h8 = h8.replace({"use_semantic_types":True, "return_result":"new", "add_index_columns":True})
-        h9 = h9.replace({"use_semantic_types":True, "return_result":"new", "add_index_columns":True,"alpha":0.5})
-        h10 = h10.replace({"use_semantic_types":True, "return_result":"new", "add_index_columns":True})
-        h11 = hyper_Core.defaults()
-
-        a = DenormalizePrimitive(hyperparams = h1)
-        b = DatasetToDataFramePrimitive(hyperparams = h2)
-        c1 = ExtractColumnsBySemanticTypesPrimitive(hyperparams = h3_1)
-        c2 = ExtractColumnsBySemanticTypesPrimitive(hyperparams = h3_2)
-        d = Profiler(hyperparams = h4)
-        e = Encoder(hyperparams = h5)
-        f = MeanImputation(hyperparams = h6)
-        g = IQRScaler(hyperparams = h7)
-        h = SKPCA(hyperparams = h8)
-        i = SKBernoulliNB(hyperparams = h9)
-        jj = SKRandomForestClassifier(hyperparams = h10)
-        kk = CorexText(hyperparams = h11)
-
-        # define the location of the description file of the dataset which should be a json
-        #dataset_file_path = '/Users/minazuki/Desktop/studies/master/2018Summer/data/datasets/seed_datasets_current/22_handgeometry/22_handgeometry_dataset/datasetDoc.json'
-
-        # dataset_train_file_path = '/Users/minazuki/Desktop/studies/master/2018Summer/data/datasets/seed_datasets_current/22_handgeometry/22_handgeometry_dataset/datasetDoc.json'
-
-        #dataset_test_file_path = '/Users/minazuki/Desktop/studies/master/2018Summer/data/datasets/seed_datasets_current/66_chlorineConcentration/TEST/dataset_TEST/datasetDoc.json'
-
-        # dataset_train = dataset.load('file://{dataset_doc_path}'.format(dataset_doc_path=os.path.abspath(dataset_file_path)))
-        #dataset_test =  dataset.load('file://{dataset_doc_path}'.format(dataset_doc_path=os.path.abspath(dataset_test_file_path)))
-        dataset_train = self.all_dataset
-
-        import pdb
-        # pdb.set_trace()
-        # step 1: load the dataset with denormalize primitive
-        train1 = a.produce(inputs = dataset_train)
-        #predict1 = a.produce(inputs = dataset_test)
-
-        # step 2: transform the dataset to dataframe
-        train2 = b.produce(inputs = train1.value) # this should be the input to this primitive
-        #predict2 = b.produce(inputs = predict1.value)
-        # step 3: transform the dataframe to the ndarry
-        train3_A = c1.produce(inputs = train2.value)
-        train3_B = c2.produce(inputs = train2.value)
-
-        train4 = d.produce(inputs = train3_A.value)
-
-        kk.set_training_data(inputs = train4.value)
-        kk.fit()
-        train5_1 = kk.produce(inputs = train4.value)
-
-        e.set_training_data(inputs = train5_1.value)
-        e.fit()
-        train5 = e.produce(inputs = train5_1.value)
-
-        f.set_training_data(inputs = train5.value)
-        f.fit()
-        train6 = f.produce(inputs = train5.value)
-
-        g.set_training_data(inputs = train6.value)
-        g.fit()
-        train7 = g.produce(inputs = train6.value)
-
-
-        h.set_training_data(inputs = train7.value)
-        h.fit()
-        train8 = h.produce(inputs = train7.value)
-
-        jj.set_training_data(inputs = train8.value, outputs = train3_B.value)
-        jj.fit()
-        predict = jj.produce(inputs = train8.value)
-
-
-        print("predict value is:")
-        print(predict.value)
-        
-        pdb.set_trace()
-        '''
-
         # FIXME) come up with a better way to implement this part. The fork does not provide a way
         # FIXME) to catch the errors of the child process
+        m = Manager()
+        temp_res = m.dict()
 
         with mplog.open_queue() as log_queue:
             self._logger.info('Starting Search process')
         
             # proc = Process(target=mplog.logged_call,
                            # args=(log_queue, self._run_BanditDimSearch, self.report_ensemble))
-            proc = Process(target=mplog.logged_call,
-                           args=(log_queue, self._run_MultiBanditSearch, self.report_ensemble))
+            # proc = Process(target=mplog.logged_call,
+                           # args=(log_queue, self._run_MultiBanditSearch, temp_res))
             # proc = Process(target=mplog.logged_call,
             #                args=(log_queue, self._run_RandomDimSearch, self.report_ensemble))
+            proc = Process(target=mplog.logged_call,
+                           args=(log_queue, self._run_ParallelBaseSearch, temp_res))
             # proc = Process(target=mplog.logged_call,
-                           # args=(log_queue, self._run_ParallelBaseSearch, self.report_ensemble))
-            # proc = Process(target=mplog.logged_call,
-                           # args=(log_queue, self._run_SerialBaseSearch, self.report_ensemble))
+                           # args=(log_queue, self._run_SerialBaseSearch, temp_res))
 
             proc.start()
 
@@ -1178,15 +1076,13 @@ class Controller:
         
         if self.do_ensemble_tune:
             self._logger.info("Normal searching finished, now starting ensemble tuning")
-            self.ensemble_tuning()
+            self.ensemble_tuning(temp_res)
 
 
             status = proc.exitcode
             print("[INFO] Search Status:")
             pprint.pprint(status)
 
-        import pdb
-        pdb.set_trace()
 
         print(f"END OF FORK {proc.exitcode}")
         return Status.OK

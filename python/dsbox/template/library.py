@@ -170,12 +170,12 @@ class TemplateLibrary:
         # self.templates.append(DefaultTimeseriesRegressionTemplate)
 
         # default tabular templates, encompassing many of the templates below
-        self.templates.append(DefaultClassificationTemplate)
+        # self.templates.append(DefaultClassificationTemplate)
         self.templates.append(NaiveBayesClassificationTemplate)
         # self.templates.append(DefaultRegressionTemplate)
 
         # new tabular classification
-        self.templates.append(RandomForestClassificationTemplate)
+        # self.templates.append(RandomForestClassificationTemplate)
         # self.templates.append(ExtraTreesClassificationTemplate)
         # self.templates.append(GradientBoostingClassificationTemplate)
 
@@ -316,12 +316,12 @@ class DefaultClassificationTemplate(DSBoxTemplate):
                                             'use_semantic_types':[True],
                                             'return_result':['new'],
                                             'add_index_columns':[True],
-                                             'bootstrap': [True, False],
-                                             'max_depth': [15, 30, None],
-                                             'min_samples_leaf': [1, 2, 4],
-                                             'min_samples_split': [2, 5, 10],
-                                             'max_features': ['auto', 'sqrt'],
-                                             'n_estimators': [10, 50, 100],
+                                            'bootstrap': [True, False],
+                                            'max_depth': [15, 30, None],
+                                            'min_samples_leaf': [1, 2, 4],
+                                            'min_samples_split': [2, 5, 10],
+                                            'max_features': ['auto', 'sqrt'],
+                                            'n_estimators': [10, 50, 100],
                                          }
                                  },
                                  {
@@ -329,15 +329,15 @@ class DefaultClassificationTemplate(DSBoxTemplate):
                                          "d3m.primitives.sklearn_wrap.SKExtraTreesClassifier",
                                      "hyperparameters":
                                          {
-                                         'use_semantic_types':[True],
+                                            'use_semantic_types':[True],
                                             'return_result':['new'],
                                             'add_index_columns':[True],
-                                             'bootstrap': [True, False],
-                                             'max_depth': [15, 30, None],
-                                             'min_samples_leaf': [1, 2, 4],
-                                             'min_samples_split': [2, 5, 10],
-                                             'max_features': ['auto', 'sqrt'],
-                                             'n_estimators': [10, 50, 100],
+                                            'bootstrap': [True, False],
+                                            'max_depth': [15, 30, None],
+                                            'min_samples_leaf': [1, 2, 4],
+                                            'min_samples_split': [2, 5, 10],
+                                            'max_features': ['auto', 'sqrt'],
+                                            'n_estimators': [10, 50, 100],
                                          }
                                  },
                                  {
@@ -345,14 +345,14 @@ class DefaultClassificationTemplate(DSBoxTemplate):
                                          "d3m.primitives.sklearn_wrap.SKGradientBoostingClassifier",
                                      "hyperparameters":
                                          {
-                                         'use_semantic_types':[True],
+                                            'use_semantic_types':[True],
                                             'return_result':['new'],
                                             'add_index_columns':[True],
-                                             'max_depth': [2, 3, 4, 5],
-                                             'n_estimators': [50, 60, 80, 100],
-                                             'learning_rate': [0.1, 0.2, 0.4, 0.5],
-                                             'min_samples_split': [2, 3],
-                                             'min_samples_leaf': [1, 2],
+                                            'max_depth': [2, 3, 4, 5],
+                                            'n_estimators': [50, 60, 80, 100],
+                                            'learning_rate': [0.1, 0.2, 0.4, 0.5],
+                                            'min_samples_split': [2, 3],
+                                            'min_samples_leaf': [1, 2],
                                          }
                                  },
                              ],
@@ -394,8 +394,8 @@ class NaiveBayesClassificationTemplate(DSBoxTemplate):
                             "hyperparameters":
                                 {
                                     'use_semantic_types':[True],
-                                            'return_result':['new'],
-                                            'add_index_columns':[True],
+                                    'return_result':['new'],
+                                    'add_index_columns':[True],
                                     'alpha': [0, .5, 1],
                                 }
                         },
@@ -404,9 +404,9 @@ class NaiveBayesClassificationTemplate(DSBoxTemplate):
                                 "d3m.primitives.sklearn_wrap.SKGaussianNB",
                             "hyperparameters":
                                 {
-                                'use_semantic_types':[True],
-                                            'return_result':['new'],
-                                            'add_index_columns':[True],
+                                    'use_semantic_types':[True],
+                                    'return_result':['new'],
+                                    'add_index_columns':[True],
                                 }
                         },
                         {
@@ -414,9 +414,9 @@ class NaiveBayesClassificationTemplate(DSBoxTemplate):
                                 "d3m.primitives.sklearn_wrap.SKMultinomialNB",
                             "hyperparameters":
                                 {
-                                'use_semantic_types':[True],
-                                            'return_result':['new'],
-                                            'add_index_columns':[True],
+                                    'use_semantic_types':[True],
+                                    'return_result':['new'],
+                                    'add_index_columns':[True],
                                     'alpha': [0, .5, 1]
                                 }
                         },
@@ -457,10 +457,9 @@ class RandomForestClassificationTemplate(DSBoxTemplate):
                                 "d3m.primitives.sklearn_wrap.SKRandomForestClassifier",
                             "hyperparameters":
                                 {
-
-                                'use_semantic_types':[True],
-                                            'return_result':['new'],
-                                            'add_index_columns':[True],
+                                    'use_semantic_types':[True],
+                                    'return_result':['new'],
+                                    'add_index_columns':[True],
                                     'bootstrap': [True, False],
                                     'max_depth': [15, 30, None],
                                     'min_samples_leaf': [1, 2, 4],
@@ -506,6 +505,9 @@ class ExtraTreesClassificationTemplate(DSBoxTemplate):
                                 "d3m.primitives.sklearn_wrap.SKExtraTreesClassifier",
                             "hyperparameters":
                                 {
+                                    'use_semantic_types':[True],
+                                    'return_result':['new'],
+                                    'add_index_columns':[True],
                                     'bootstrap': [True, False],
                                     'max_depth': [15, 30, None],
                                     'min_samples_leaf': [1, 2, 4],
@@ -551,6 +553,9 @@ class GradientBoostingClassificationTemplate(DSBoxTemplate):
                                 "d3m.primitives.sklearn_wrap.SKGradientBoostingClassifier",
                             "hyperparameters":
                                 {
+                                    'use_semantic_types':[True],
+                                    'return_result':['new'],
+                                    'add_index_columns':[True],
                                     'max_depth': [2, 3, 5],
                                     'n_estimators': [50, 75, 100],
                                     'learning_rate': [0.1, 0.3, 0.5],
@@ -595,6 +600,9 @@ class SVCClassificationTemplate(DSBoxTemplate):
                                 "d3m.primitives.sklearn_wrap.SKSVC",
                             "hyperparameters":
                                 {
+                                    'use_semantic_types':[True],
+                                    'return_result':['new'],
+                                    'add_index_columns':[True],
                                     'C': [0.8, 1.0, 1.2],
                                     'kernel': ['rbf', 'poly'],
                                     'degree': [2, 3, 4],
@@ -629,6 +637,9 @@ class ClassificationWithSelection(DSBoxTemplate):
                                  {
                                      "primitive": "d3m.primitives.sklearn_wrap.SKSGDClassifier",
                                      "hyperparameters": {
+                                        'use_semantic_types':[True],
+                                        'return_result':['new'],
+                                        'add_index_columns':[True],
                                          "loss": ['log', 'hinge', 'squared_hinge', 'perceptron'],
                                          "alpha": [float(x) for x in np.logspace(-6, -1.004, 7)],
                                          "l1_ratio": [float(x) for x in np.logspace(-9, -0.004, 7)],
@@ -640,6 +651,9 @@ class ClassificationWithSelection(DSBoxTemplate):
                                          "d3m.primitives.sklearn_wrap.SKGradientBoostingClassifier",
                                      "hyperparameters":
                                          {
+                                            'use_semantic_types':[True],
+                                            'return_result':['new'],
+                                            'add_index_columns':[True],
                                              'max_depth': [2, 5],
                                              'n_estimators': [50, 100],
                                              'learning_rate': [0.1, 0.3],

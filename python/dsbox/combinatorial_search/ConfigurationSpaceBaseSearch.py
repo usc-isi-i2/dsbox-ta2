@@ -202,15 +202,16 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
             training_metrics, test_metrics = self._calculate_score(
                 training_ground_truth, training_prediction, None, None)
 
-            # copy the cross validation score here to test_metrics for return
-            test_metrics = copy.deepcopy(
-                training_metrics)  # fitted_pipeline.get_cross_validation_metrics()
+            # TODO: need to update the test_metrics with avg value of cross vailidation scores!!!!!!
+            test_metrics = copy.deepcopy(training_metrics)  
+
             if larger_is_better(training_metrics):
                 for each in test_metrics:
                     each["value"] = 0
             else:
                 for each in test_metrics:
                     each["value"] = sys.float_info.max
+
             _logger.debug("[INFO] CV finish")
 
         # if in normal testing mode(including default testing mode with train/test one time each)
@@ -354,7 +355,6 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
                 'fitted_pipeline': fitted_pipeline2,
                 'training_metrics': training_metrics,
                 'cross_validation_metrics': cv,
-                'cross_validation_metrics': training_metrics,
                 'test_metrics': training_metrics,
                 'total_runtime': time.time() - start_time,
                 'configuration': configuration,

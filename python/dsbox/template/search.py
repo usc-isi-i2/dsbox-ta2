@@ -581,11 +581,7 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
         # if in cross validation mode
 
         # if self.testing_mode == 1:
-        if self.testing_mode == 10:
-            pass
-        '''
-        # !!! temorary block cross validation function
-        
+        if self.testing_mode == 1:
             repeat_times = int(self.validation_config['cross_validation'])
             print("[INFO] Will use cross validation( n =", repeat_times, ") to choose best primitives.")
             # start training and testing
@@ -609,7 +605,6 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
                 for each in test_metrics:
                     each["value"] = sys.float_info.max
             print("[INFO] Testing finish.!!!")
-        '''
         # if in normal testing mode(including default testing mode with train/test one time each)
         else:
             if self.testing_mode == 2:
