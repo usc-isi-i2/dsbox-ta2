@@ -170,12 +170,12 @@ class TemplateLibrary:
         # self.templates.append(DefaultTimeseriesRegressionTemplate)
 
         # default tabular templates, encompassing many of the templates below
-        # self.templates.append(DefaultClassificationTemplate)
+        self.templates.append(DefaultClassificationTemplate)
         self.templates.append(NaiveBayesClassificationTemplate)
         # self.templates.append(DefaultRegressionTemplate)
 
         # new tabular classification
-        # self.templates.append(RandomForestClassificationTemplate)
+        self.templates.append(RandomForestClassificationTemplate)
         # self.templates.append(ExtraTreesClassificationTemplate)
         # self.templates.append(GradientBoostingClassificationTemplate)
 
@@ -399,27 +399,27 @@ class NaiveBayesClassificationTemplate(DSBoxTemplate):
                                     'alpha': [0, .5, 1],
                                 }
                         },
-                        {
-                            "primitive":
-                                "d3m.primitives.sklearn_wrap.SKGaussianNB",
-                            "hyperparameters":
-                                {
-                                    'use_semantic_types':[True],
-                                    'return_result':['new'],
-                                    'add_index_columns':[True],
-                                }
-                        },
-                        {
-                            "primitive":
-                                "d3m.primitives.sklearn_wrap.SKMultinomialNB",
-                            "hyperparameters":
-                                {
-                                    'use_semantic_types':[True],
-                                    'return_result':['new'],
-                                    'add_index_columns':[True],
-                                    'alpha': [0, .5, 1]
-                                }
-                        },
+                        # {
+                        #     "primitive":
+                        #         "d3m.primitives.sklearn_wrap.SKGaussianNB",
+                        #     "hyperparameters":
+                        #         {
+                        #             'use_semantic_types':[True],
+                        #             'return_result':['new'],
+                        #             'add_index_columns':[True],
+                        #         }
+                        # },
+                        # {
+                        #     "primitive":
+                        #         "d3m.primitives.sklearn_wrap.SKMultinomialNB",
+                        #     "hyperparameters":
+                        #         {
+                        #             'use_semantic_types':[True],
+                        #             'return_result':['new'],
+                        #             'add_index_columns':[True],
+                        #             'alpha': [0, .5, 1]
+                        #         }
+                        # },
                     ],
                     "inputs": ["data", "target"]
                 }

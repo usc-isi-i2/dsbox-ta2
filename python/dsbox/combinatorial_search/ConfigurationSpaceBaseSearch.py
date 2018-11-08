@@ -107,8 +107,14 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
                 self.validation_config = each_step['runtime']
                 if "cross_validation" in each_step['runtime']:
                     self.testing_mode = 1
+                    _logger.debug("Will use cross validation(n ={}) to choose best primitives".format(int(self.validation_config['cross_validation'])))
+                    print("!!!!!@@#### CV mode!!!")
+                    break
                 else:
                     self.testing_mode = 2
+                    _logger.debug("Will use test_dataset to choose best primitives")
+                    print("!!!!!@@#### normal mode!!!")
+                    break
 
         # new searching method: first check whether we should train a second time with
         # dataset_train1
@@ -183,8 +189,6 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
         # if in cross validation mode
         if self.testing_mode == 1:
             repeat_times = int(self.validation_config['cross_validation'])
-            _logger.debug("Will use cross validation(n ={}) to choose best primitives"
-                         .format(repeat_times))
             # start training and testing
             fitted_pipeline = FittedPipeline(
                 pipeline=pipeline,

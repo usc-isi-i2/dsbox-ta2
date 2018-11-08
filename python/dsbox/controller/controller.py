@@ -17,7 +17,8 @@ from multiprocessing import Process,Manager
 import numpy as np
 import pandas as pd
 import frozendict
-
+import copy
+import pprint
 import d3m
 import dsbox.template.runtime as runtime
 
@@ -57,12 +58,8 @@ import dsbox.JobManager.mplog as mplog
 
 __all__ = ['Status', 'Controller']
 
-import copy
-import pprint
-from sklearn.model_selection import StratifiedShuffleSplit, ShuffleSplit
 
-# FIXME: we only need this for testing
-import pandas as pd
+from sklearn.model_selection import StratifiedShuffleSplit, ShuffleSplit
 
 FILE_FORMATTER = "[%(levelname)s] - %(asctime)s - %(name)s - %(message)s"
 FILE_LOGGING_LEVEL = logging.INFO
@@ -639,6 +636,13 @@ class Controller:
             memo = {}
             all_predictions = {}
             all_predictions_id = {}
+            '''
+                These 3 dictionary saves the correspondinng best pipelines of each model method
+                The key is the model step's name, e.g.: "d3m.primitives.sklearn_wrap.SKSGDClassifier"
+                memo: save the test metric scores
+                all_predicionts: save the detail prediction results on ensemble_dataset
+                all_predicionts_id: save the pipeline id of the best pipelines
+            '''
             import pdb
             pdb.set_trace()
 
@@ -648,6 +652,7 @@ class Controller:
                 each_prediction = self.add_d3m_index_and_prediction_class_name(value['ensemble_tuning_result'], self.ensemble_dataset)
                 if "confidence" not in each_prediction.columns:
                     each_prediction['confidence'] = 1.0
+
                 # way 1: check the model step of pipeline, only choose the pipelines with different model step
                 if self.ensemble_voting_candidate_choose_method == 'lastStep':
                     if 'model_step' in pipeline_description:
@@ -1051,33 +1056,28 @@ class Controller:
 
         # FIXME) come up with a better way to implement this part. The fork does not provide a way
         # FIXME) to catch the errors of the child process
-        m = Manager()
-        temp_res = m.dict()
-
         with mplog.open_queue() as log_queue:
             self._logger.info('Starting Search process')
         
             # proc = Process(target=mplog.logged_call,
                            # args=(log_queue, self._run_BanditDimSearch, self.report_ensemble))
             # proc = Process(target=mplog.logged_call,
-                           # args=(log_queue, self._run_MultiBanditSearch, temp_res))
+                           # args=(log_queue, self._run_MultiBanditSearch, self.report_ensemble))
             # proc = Process(target=mplog.logged_call,
             #                args=(log_queue, self._run_RandomDimSearch, self.report_ensemble))
-            proc = Process(target=mplog.logged_call,
-                           args=(log_queue, self._run_ParallelBaseSearch, temp_res))
             # proc = Process(target=mplog.logged_call,
-                           # args=(log_queue, self._run_SerialBaseSearch, temp_res))
+                           # args=(log_queue, self._run_ParallelBaseSearch, self.report_ensemble))
+            proc = Process(target=mplog.logged_call,
+                           args=(log_queue, self._run_SerialBaseSearch, self.report_ensemble))
 
             proc.start()
-
             self._logger.info('Searching is finished')
             # wait until process is done
             proc.join()
         
         if self.do_ensemble_tune:
             self._logger.info("Normal searching finished, now starting ensemble tuning")
-            self.ensemble_tuning(temp_res)
-
+            self.ensemble_tuning(self.report_ensemble)
 
             status = proc.exitcode
             print("[INFO] Search Status:")

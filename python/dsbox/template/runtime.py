@@ -115,9 +115,8 @@ class Runtime(d3m_runtime):
             if not self.skip_fit_phase:
                 # if we need to do cross validation, do it before normal fit() step
                 if 'runtime' in this_step.primitive_description and "cross_validation" in this_step.primitive_description['runtime']:
-                    pass
+
                     primitive: typing.Type[base.PrimitiveBase] = this_step.primitive
-                    # ForkedPdb().set_trace()
                     # TODO: add one more "if" to restrict runtime to run cross validation only for tuning steps
                     primitive_hyperparams = primitive.metadata.query()['primitive_code']['class_type_arguments']['Hyperparams']
                     custom_hyperparams = dict()
@@ -271,6 +270,8 @@ class Runtime(d3m_runtime):
         cv = runtime_instr.get('cross_validation', 10)
         use_stratified = runtime_instr.get('stratified', False)
 
+        ForkedPdb().set_trace()
+
         # Redirect stderr to an error file
         #  Directly assigning stderr to tempfile.TemporaryFile cause printing str to fail
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -299,9 +300,9 @@ class Runtime(d3m_runtime):
                             return results
 
                         trainX = X.take(train, axis=0)
-                        trainY = y.take(train, axis=0).values.ravel()
+                        trainY = y.take(train, axis=0)#.values.ravel()
                         testX = X.take(test, axis=0)
-                        testY = y.take(test, axis=0).values.ravel()
+                        testY = y.take(test, axis=0)#.values.ravel()
 
                         validation_train = dict(training_arguments)
                         validation_train['inputs'] = trainX
