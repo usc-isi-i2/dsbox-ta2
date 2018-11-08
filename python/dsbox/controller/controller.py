@@ -52,7 +52,6 @@ from dsbox.combinatorial_search.MultiBanditSearch import MultiBanditSearch
 from dsbox.combinatorial_search.search_utils import get_target_columns
 from dsbox.combinatorial_search.search_utils import random_choices_without_replacement
 from dsbox.template.template import DSBoxTemplate
-from common_primitives import utils as common_primitives_utils
 
 import dsbox.JobManager.mplog as mplog
 
