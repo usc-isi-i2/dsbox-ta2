@@ -249,8 +249,6 @@ class ExecutionHistory:
             if ExecutionHistory._is_better(base=best, check=row, key_attribute=self.key_attribute):
                 best = row
         best = best.to_dict()
-        from dsbox.template.runtime import ForkedPdb
-        ForkedPdb().set_trace()
         best["ensemble_dataset_predictions"] = self.ensemble_dataset_predictions
         return best
 

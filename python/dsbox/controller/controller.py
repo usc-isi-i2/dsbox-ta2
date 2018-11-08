@@ -312,8 +312,6 @@ class Controller:
         self._logger.addHandler(console)
 
     def _log_search_results(self, report: typing.Dict[str, typing.Any]):
-        from dsbox.template.runtime import ForkedPdb
-        ForkedPdb().set_trace()
         # self.report_ensemble['report'] = report
         candidate = report['configuration']
         print("-" * 20)
@@ -628,10 +626,12 @@ class Controller:
             function to do ensemble tuning
             Teporary put in our ta2 system controller part for testing purpose
         '''
-        
         if not self.ensemble_dataset:
             self._logger.error("No ensemble tuning dataset found!")
-            return
+
+        elif not ensemble_tuning_report or 'report' not in ensemble_tuning_report:
+            self._logger.error("No ensemble tuning inputs found!")
+
         else:
             memo = {}
             all_predictions = {}
@@ -643,8 +643,6 @@ class Controller:
                 all_predicionts: save the detail prediction results on ensemble_dataset
                 all_predicionts_id: save the pipeline id of the best pipelines
             '''
-            import pdb
-            pdb.set_trace()
 
             # TODO: add ability to deal with the condition when there are multiple predicion columns
             for key, value in ensemble_tuning_report['report']['ensemble_dataset_predictions'].items():
@@ -681,7 +679,8 @@ class Controller:
                 elif self.ensemble_voting_candidate_choose_method == 'resultSimilarity':
                     # TODO: add a method to check the similarity of the predictions
                     pass
-        
+
+        print("If you see this message, it means the program was finished. Just give a remind here.")
         pdb.set_trace()
 
 # each_prediction.at[1, 'inputs'] = self.ensemble_dataset[self.problem_info["res_id"]].loc[1].tolist()

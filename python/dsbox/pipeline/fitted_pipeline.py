@@ -248,7 +248,6 @@ class FittedPipeline:
             with open(file_loc, "rb") as f:
                 each_step = pickle.load(f)
                 runtime_loaded.steps_state[i] = each_step
-        # ForkedPdb().set_trace()
         # fitted_pipeline_loaded = cls(pipeline_to_load, run, dataset)
         fitted_pipeline_loaded = cls(pipeline=pipeline_to_load,
                                      dataset_id=dataset_id,

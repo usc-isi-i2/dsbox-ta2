@@ -103,7 +103,6 @@ class Runtime(d3m_runtime):
             And add the cache support
         '''
         time_start = time.time()
-        # ForkedPdb().set_trace()
         if self.phase == Phase.FIT:
             # Same as old codes, use argument as the cache system's key
             primitive_arguments = self._prepare_primitive_arguments(this_step)
@@ -120,7 +119,6 @@ class Runtime(d3m_runtime):
                     # TODO: add one more "if" to restrict runtime to run cross validation only for tuning steps
                     primitive_hyperparams = primitive.metadata.query()['primitive_code']['class_type_arguments']['Hyperparams']
                     custom_hyperparams = dict()
-                    # ForkedPdb().set_trace()
                     # produce_params only have 'inputs'
                     produce_params = dict((k, primitive_arguments[k]) for k in ["inputs"])
                     # training_arguments have ['inputs', 'outputs']
@@ -195,11 +193,8 @@ class Runtime(d3m_runtime):
 
             # if in produce step, always use the d3m's codes
         elif self.phase == Phase.PRODUCE:
-            try:
-                d3m_runtime._run_primitive(self, this_step)
-            except ValueError:
-                print("Error")
-                ForkedPdb().set_trace()
+            d3m_runtime._run_primitive(self, this_step)
+
         else:
             raise exceptions.UnexpectedValueError("Unknown phase: {phase}".format(phase=self.phase))
 
@@ -270,7 +265,7 @@ class Runtime(d3m_runtime):
         cv = runtime_instr.get('cross_validation', 10)
         use_stratified = runtime_instr.get('stratified', False)
 
-        ForkedPdb().set_trace()
+        # !!!! currently cross validation has errors !!!
 
         # Redirect stderr to an error file
         #  Directly assigning stderr to tempfile.TemporaryFile cause printing str to fail
