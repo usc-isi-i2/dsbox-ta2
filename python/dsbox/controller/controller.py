@@ -680,7 +680,6 @@ class Controller:
                     pass
 
         print("If you see this message, it means the program was finished. Just give a remind here.")
-        pdb.set_trace()
 
 # each_prediction.at[1, 'inputs'] = self.ensemble_dataset[self.problem_info["res_id"]].loc[1].tolist()
     # @staticmethod
