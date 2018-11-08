@@ -1060,14 +1060,14 @@ class Controller:
         
             # proc = Process(target=mplog.logged_call,
                            # args=(log_queue, self._run_BanditDimSearch, self.report_ensemble))
-            # proc = Process(target=mplog.logged_call,
-                           # args=(log_queue, self._run_MultiBanditSearch, self.report_ensemble))
+            proc = Process(target=mplog.logged_call,
+                           args=(log_queue, self._run_MultiBanditSearch, self.report_ensemble))
             # proc = Process(target=mplog.logged_call,
             #                args=(log_queue, self._run_RandomDimSearch, self.report_ensemble))
             # proc = Process(target=mplog.logged_call,
                            # args=(log_queue, self._run_ParallelBaseSearch, self.report_ensemble))
-            proc = Process(target=mplog.logged_call,
-                           args=(log_queue, self._run_SerialBaseSearch, self.report_ensemble))
+            # proc = Process(target=mplog.logged_call,
+            #                args=(log_queue, self._run_SerialBaseSearch, self.report_ensemble))
 
             proc.start()
             self._logger.info('Searching is finished')
