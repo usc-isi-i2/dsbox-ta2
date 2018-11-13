@@ -4,6 +4,7 @@ import random
 import time
 import traceback
 import typing
+import signal, os
 
 from pprint import pprint
 
@@ -104,6 +105,7 @@ class TemplateSpaceParallelBaseSearch(TemplateSpaceBaseSearch[T]):
 
         return self.history.get_best_history()
 
+
     def _get_evaluation_results(self, max_num: int=float('inf')) -> None:
         """
         The process is sleeped on jobManager's result queue until a result is ready, then it pops
@@ -114,16 +116,25 @@ class TemplateSpaceParallelBaseSearch(TemplateSpaceBaseSearch[T]):
         Returns:
             None
         """
+        def _timeout_handler(self, signum):
+            print('Signal handler called with signal', signum)
+            # self._add_report_to_history(kwargs_bundle, report)
+            # counter += 1
+
         _logger.debug("Waiting for the results")
         counter = 0
         while (counter < max_num) and (not self.job_manager.is_idle()):
             # print("[INFO] Sleeping,", counter)
+            signal.signal(signal.SIGALRM, _timeout_handler)
+            signal.alarm(3 * 60)
+
             _logger.debug(f"Main Process Sleeping:{counter}")
             (kwargs_bundle, report) = self.job_manager.pop_job(block=True)
             _logger.warning(f"kwargs: {kwargs_bundle}")
 
-            self._add_report_to_history(kwargs_bundle, report)
+            signal.alarm(0)
 
+            self._add_report_to_history(kwargs_bundle, report)
             counter += 1
         _logger.debug("[INFO] No more pending job")
 

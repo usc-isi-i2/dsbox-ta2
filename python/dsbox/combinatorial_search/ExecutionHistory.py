@@ -79,7 +79,7 @@ class ExecutionHistory:
             temp = {}
             temp['ensemble_tuning_result'] = report['ensemble_tuning_result'] # the ensemble tuning's dataset predictions
             temp['pipeline'] = report['configuration'] # correspond pipeline structure
-            temp['test_metrics_score'] = report['test_metrics']
+            temp['ensemble_tuning_matrix'] = report['ensemble_tuning_matrix'] # ensemble tuning dataset's matrix score
             self.ensemble_dataset_predictions[report['id']] = temp # save it with pipeline id as the key
 
         if 'sim_count' not in report:

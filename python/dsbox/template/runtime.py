@@ -131,10 +131,10 @@ class Runtime(d3m_runtime):
                             else:
                                 custom_hyperparams[hyperparam] = value
 
+                    # self.cross_validation_result = None
                     self.cross_validation_result = self._cross_validation(
                         primitive, training_arguments, produce_params, primitive_hyperparams,
                         custom_hyperparams, this_step.primitive_description['runtime'])
-
 
                     print("!@#$$%$$$,cvfinished!!!")
                     print(self.cross_validation_result)
@@ -265,7 +265,7 @@ class Runtime(d3m_runtime):
         cv = runtime_instr.get('cross_validation', 10)
         use_stratified = runtime_instr.get('stratified', False)
 
-        # !!!! currently cross validation has errors !!!
+        # TODO: cross validation need to be update to fit with new requirement with adding indexes!!
 
         # Redirect stderr to an error file
         #  Directly assigning stderr to tempfile.TemporaryFile cause printing str to fail
@@ -280,8 +280,18 @@ class Runtime(d3m_runtime):
 
                     num = 0.0
                     for k, (train, test) in enumerate(kf.split(X, y)):
-
                         try:
+                            # !!! 
+                            # Temporary fix
+                            # Still ignore the use_semantic types hyperparameters
+                            if "use_semantic_types" in custom_hyperparams:
+                                try:
+                                    custom_hyperparams.pop("use_semantic_types")
+                                    custom_hyperparams.pop("return_result")
+                                    custom_hyperparams.pop("add_index_columns")
+                                except:
+                                    pass
+
                             model = primitive(hyperparams=primitive_hyperparams(
                                 primitive_hyperparams.defaults(), **custom_hyperparams))
                         except:

@@ -3,11 +3,13 @@ import logging
 import sys
 import time
 import typing
+import enum
 from multiprocessing import current_process
 from pprint import pprint
 from warnings import warn
 
 from d3m.container.dataset import Dataset
+from d3m.container.pandas import DataFrame
 from d3m.exceptions import NotSupportedError
 from d3m.metadata.base import Metadata
 from d3m.metadata.problem import PerformanceMetric
@@ -30,6 +32,9 @@ PrimitiveDescription = typing.NewType('PrimitiveDescription', dict)
 
 _logger = logging.getLogger(__name__)
 
+class Mode(enum.IntEnum):
+    CROSS_VALIDATION_MODE = 1
+    TRAIN_TEST_MODE = 2
 
 class ConfigurationSpaceBaseSearch(typing.Generic[T]):
     """
@@ -60,6 +65,7 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
                  log_dir: str, ) -> None:
 
         self.template = template
+        self.task_type = self.template.template["taskType"]
 
         self.configuration_space = configuration_space
         # self.dimension_ordering = configuration_space_list.get_dimension_search_ordering()
@@ -154,6 +160,8 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
         Evaluate at configuration point.
         Note: This methods will modify the configuration point, by updating its data field.
         """
+
+
         configuration: ConfigurationPoint[PrimitiveDescription] = dict(args[0])
         cache: PrimitivesCache = args[1]
         dump2disk = args[2] if len(args) == 3 else True
@@ -187,7 +195,7 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
         # Todo: update ResourceManager to run pipeline:  ResourceManager.add_pipeline(pipeline)
 
         # if in cross validation mode
-        if self.testing_mode == 1:
+        if self.testing_mode == Mode.CROSS_VALIDATION_MODE:
             repeat_times = int(self.validation_config['cross_validation'])
             # start training and testing
             fitted_pipeline = FittedPipeline(
@@ -199,33 +207,30 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
 
             fitted_pipeline.fit(cache=cache, inputs=[self.train_dataset1])
 
-
             training_ground_truth = get_target_columns(self.train_dataset1, self.problem)
             training_prediction = fitted_pipeline.get_fit_step_output(
                 self.template.get_output_step_number())
-            training_metrics, test_metrics = self._calculate_score(
-                training_ground_truth, training_prediction, None, None)
+            training_metrics = calculate_score(training_ground_truth, training_prediction, 
+                self.performance_metrics, self.task_type, self.regression_metric)
 
-            # TODO: need to update the test_metrics with avg value of cross vailidation scores!!!!!!
+            cv_metrics = fitted_pipeline.get_cross_validation_metrics()
             test_metrics = copy.deepcopy(training_metrics)  
 
-            if larger_is_better(training_metrics):
-                for each in test_metrics:
-                    each["value"] = 0
-            else:
-                for each in test_metrics:
-                    each["value"] = sys.float_info.max
+            # use cross validation's avg value as the test score
+            for i in range(len(test_metrics)):
+                test_metrics[i]["value"] = cv_metrics[i]["value"]
 
-            _logger.debug("[INFO] CV finish")
+            _logger.info("CV finish")
 
         # if in normal testing mode(including default testing mode with train/test one time each)
         else:
-            if self.testing_mode == 2:
+            if self.testing_mode == Mode.TRAIN_TEST_MODE:
                 repeat_times = int(self.validation_config['test_validation'])
             else:
                 repeat_times = 1
-            # print("[INFO] Will use normal train-test mode ( n =", repeat_times,
-            #       ") to choose best primitives.")
+
+            _logger.info("Will use normal train-test mode ( n ={}) to choose best primitives.".format(repeat_times))
+
             training_metrics = []
             test_metrics = []
 
@@ -244,6 +249,9 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
                                                            self.problem)
                 training_prediction = fitted_pipeline.get_fit_step_output(
                     self.template.get_output_step_number())
+                training_metrics_each = calculate_score(training_ground_truth, training_prediction, 
+                self.performance_metrics, self.task_type, self.regression_metric)
+
                 # only do test if the test_dataset exist
                 if self.test_dataset2[each_repeat] is not None:
                     results = fitted_pipeline.produce(inputs=[self.test_dataset2[each_repeat]])
@@ -252,14 +260,11 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
                     # Note: results == test_prediction
                     test_prediction = fitted_pipeline.get_produce_step_output(
                         self.template.get_output_step_number())
+                    test_metrics_each = calculate_score(test_ground_truth, test_prediction, 
+                        self.performance_metrics, self.task_type, self.regression_metric)
                 else:
                     test_ground_truth = None
                     test_prediction = None
-                training_metrics_each, test_metrics_each = self._calculate_score(
-                    training_ground_truth, training_prediction, test_ground_truth, test_prediction)
-
-                # if no test_dataset exist, we need to give it with a default value
-                if len(test_metrics_each) == 0:
                     test_metrics_each = copy.deepcopy(training_metrics_each)
                     if larger_is_better(training_metrics_each):
                         for each in test_metrics_each:
@@ -270,11 +275,13 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
 
                 training_metrics.append(training_metrics_each)
                 test_metrics.append(test_metrics_each)
+            # END for TRAIN_TEST_MODES
             # sample format of the output
             # [{'metric': 'f1Macro', 'value': 0.48418535913661614, 'values': [0.4841025641025641,
             #  0.4841025641025641, 0.4843509492047203]]
             # modify the test_metrics and training_metrics format to fit the requirements
             # print("[INFO] Testing finish.!!!")
+
             if len(training_metrics) > 1:
                 training_value_dict = {}
                 # convert for training matrics
@@ -350,10 +357,11 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
             # set the metric for calculating the rank
             fitted_pipeline2.set_metric(training_metrics[0])
             ensemble_tuning_result = None
-
+            ensemble_tuning_matrix = None
             cv = fitted_pipeline2.get_cross_validation_metrics()
             if not cv:
                 cv = {}
+
             data = {
                 'id': fitted_pipeline2.id,
                 'fitted_pipeline': fitted_pipeline2,
@@ -363,6 +371,7 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
                 'total_runtime': time.time() - start_time,
                 'configuration': configuration,
                 'ensemble_tuning_result': ensemble_tuning_result,
+                'ensemble_tuning_matrix': ensemble_tuning_matrix,
             }
             fitted_pipeline.auxiliary = dict(data)
 
@@ -422,12 +431,10 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
 
             fitted_pipeline2.produce(inputs=[self.test_dataset1])
             test_ground_truth = get_target_columns(self.test_dataset1, self.problem)
-            # Note: results == test_prediction
             test_prediction = fitted_pipeline2.get_produce_step_output(
                 self.template.get_output_step_number())
-            training_metrics2, test_metrics2 = self._calculate_score(
-                None, None, test_ground_truth, test_prediction)
-
+            test_metrics2 = calculate_score(test_ground_truth, test_prediction, 
+                self.performance_metrics, self.task_type, self.regression_metric)
             # update here: 
             # Now new version of d3m runtime don't allow to run ".fit()" again on a given runtime object second time
             # So here we need to create a new FittedPipeline object to run second time's runtime.fit()
@@ -443,9 +450,14 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
             # finally, fit the model with all data and save it
             _logger.info("[INFO] Now are training the pipeline with all dataset and saving the pipeline.")
             fitted_pipeline_final.fit(cache=cache, inputs=[self.all_dataset])
+
             if self.ensemble_tuning_dataset:
                 fitted_pipeline_final.produce(inputs=[self.ensemble_tuning_dataset])
             ensemble_tuning_result = fitted_pipeline_final.get_produce_step_output(self.template.get_output_step_number())
+            ensemble_tuning_result_ground_truth = get_target_columns(self.ensemble_tuning_dataset, self.problem)
+            ensemble_tuning_matrix = calculate_score(ensemble_tuning_result_ground_truth, ensemble_tuning_result, 
+                self.performance_metrics, self.task_type, self.regression_metric)
+
             cv = fitted_pipeline_final.get_cross_validation_metrics()
             if not cv:
                 cv = {}
@@ -458,6 +470,7 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
                 'total_runtime': time.time() - start_time,
                 'configuration': configuration,
                 'ensemble_tuning_result': ensemble_tuning_result,
+                'ensemble_tuning_matrix': ensemble_tuning_matrix,
             }
             fitted_pipeline.auxiliary = dict(data)
 
@@ -470,8 +483,9 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
                 _ = fitted_pipeline_final.produce(inputs=[self.test_dataset1])
                 test_prediction3 = fitted_pipeline_final.get_produce_step_output(
                     self.template.get_output_step_number())
-                _, test_metrics3 = self._calculate_score(None, None, test_ground_truth,
-                                                         test_prediction3)
+
+                test_metrics3 = calculate_score(test_ground_truth, test_prediction3, 
+                    self.performance_metrics, self.task_type, self.regression_metric)
 
                 _logger.info("Test pickled pipeline. id: {}".format(fitted_pipeline_final.id))
                 self.test_pickled_pipeline(folder_loc=self.output_directory,
@@ -483,166 +497,6 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
         # still return the original fitted_pipeline with relation to train_dataset1
         return data
 
-    def _calculate_score(self, training_ground_truth, training_prediction, test_ground_truth,
-                         test_prediction):
-        '''
-            Ineer function used to calculate the score of the training and testing results based
-            on given matrics
-        '''
-        training_metrics = []
-        test_metrics = []
-        if training_prediction is not None:
-            training_prediction = self.graph_problem_conversion(training_prediction)
-        if test_prediction is not None:
-            test_prediction = self.graph_problem_conversion(test_prediction)
-        target_amount_train = 0
-        target_amount_test = 0
-        for metric_description in self.performance_metrics:
-            metricDesc = PerformanceMetric.parse(metric_description['metric'])
-            metric: typing.Callable = metricDesc.get_function()
-            params: typing.Dict = metric_description['params']
-
-            # special design for objectDetectionAP
-            if metric_description["metric"] == "objectDetectionAP":
-                self.objectDetectionAP_special_design(metric, metric_description, params,
-                                                      test_ground_truth, test_metrics,
-                                                      test_prediction, training_ground_truth,
-                                                      training_metrics, training_prediction)
-                return (training_metrics, test_metrics)
-            # END special design for objectDetectionAP
-            regression_mode = metric_description["metric"] in self.regression_metric
-            try:
-                # generate the metrics for training results
-                if training_ground_truth is not None and training_prediction is not None:  # if
-                    # training data exist
-                    if "d3mIndex" not in training_prediction.columns:
-                        # for the condition that training_ground_truth have index but
-                        # training_prediction don't have
-                        target_amount_train = len(training_prediction.columns)
-                    else:
-                        target_amount_train = len(training_prediction.columns) - 1
-
-                    truth_amount_train = len(training_ground_truth.columns) - 1
-                    assert truth_amount_train == target_amount_train, \
-                        "[ERROR] Truth and prediction does not match"
-
-                    if regression_mode:
-                        for each_column in range(- target_amount_train, 0, 1):
-                            training_metrics.append({
-                                'column_name': training_ground_truth.columns[each_column],
-                                'metric': metric_description['metric'],
-                                'value': metric(
-                                    training_ground_truth.iloc[:, each_column].astype(float),
-                                    training_prediction.iloc[:, each_column].astype(float),
-                                    **params
-                                )
-                            })
-                    else:
-                        if training_ground_truth is not None and training_prediction is not None:
-                            # if training data exist
-                            for each_column in range(- target_amount_train, 0, 1):
-                                training_metrics.append({
-                                    'column_name': training_ground_truth.columns[each_column],
-                                    'metric': metric_description['metric'],
-                                    'value': metric(
-                                        training_ground_truth.iloc[:, each_column].astype(str),
-                                        training_prediction.iloc[:, each_column].astype(str),
-                                        **params
-                                    )
-                                })
-                # generate the metrics for testing results
-                if test_ground_truth is not None and test_prediction is not None:  # if testing
-                    # data exist
-                    if "d3mIndex" not in test_prediction.columns:
-                        # for the condition that training_ground_truth have index but
-                        # training_prediction don't have
-                        target_amount_test = len(test_prediction.columns)
-                    else:
-                        target_amount_test = len(test_prediction.columns) - 1
-
-                    truth_amount_test = len(test_ground_truth.columns) - 1
-                    assert truth_amount_test == target_amount_test, \
-                        "[ERROR] Truth and prediction does not match"
-
-                    # if the test_ground_truth do not have results
-                    if regression_mode:
-                        for each_column in range(- target_amount_test, 0, 1):
-                            if test_ground_truth.iloc[0, -1] == '':
-                                test_ground_truth.iloc[:, -1] = 0
-                            test_metrics.append({
-                                'column_name': test_ground_truth.columns[each_column],
-                                'metric': metric_description['metric'],
-                                'value': metric(
-                                    test_ground_truth.iloc[:, -1].astype(float),
-                                    test_prediction.iloc[:, -1].astype(float),
-                                    **params
-                                )
-                            })
-
-                    else:
-                        for each_column in range(- target_amount_test, 0, 1):
-                            test_metrics.append({
-                                'column_name': test_ground_truth.columns[each_column],
-                                'metric': metric_description['metric'],
-                                'value': metric(
-                                    test_ground_truth.iloc[:, -1].astype(str),
-                                    test_prediction.iloc[:, -1].astype(str),
-                                    **params
-                                )
-                            })
-            except:
-                raise NotSupportedError('[ERROR] metric calculation failed')
-        # END for loop
-
-        if len(training_metrics) > target_amount_train:
-            _logger.warning("[WARN] Training metrics's amount is larger than target amount.")
-        # if len(test_metrics) == 1:
-        #     test_metrics = test_metrics[0]
-        # el
-        if len(test_metrics) > target_amount_test:
-            _logger.warning("[WARN] Test metrics's amount is larger than target amount.")
-
-        # return the training and test metrics
-        return (training_metrics, test_metrics)
-
-    def objectDetectionAP_special_design(self, metric, metric_description, params,
-                                         test_ground_truth, test_metrics, test_prediction,
-                                         training_ground_truth, training_metrics,
-                                         training_prediction):
-        if training_ground_truth is not None and training_prediction is not None:
-            training_image_name_column = training_ground_truth.iloc[:,
-                                         training_ground_truth.shape[1] - 2]
-            training_prediction.insert(loc=0, column='image_name',
-                                       value=training_image_name_column)
-            training_ground_truth_tosend = training_ground_truth.iloc[:,
-                                           training_ground_truth.shape[1] - 2:
-                                           training_ground_truth.shape[1]]
-            training_metrics.append({
-                'column_name': training_ground_truth.columns[-1],
-                'metric': metric_description['metric'],
-                'value': metric(
-                    training_ground_truth_tosend.astype(str).values.tolist(),
-                    training_prediction.astype(str).values.tolist(),
-                    **params
-                )
-            })
-        if test_ground_truth is not None and test_prediction is not None:
-            test_image_name_column = test_ground_truth.iloc[:,
-                                     test_ground_truth.shape[1] - 2]
-            test_prediction.insert(loc=0, column='image_name', value=test_image_name_column)
-            test_ground_truth_tosend = test_ground_truth.iloc[:,
-                                       test_ground_truth.shape[1] - 2:
-                                       test_ground_truth.shape[1]]
-            test_metrics.append({
-                'column_name': test_ground_truth.columns[-1],
-                'metric': metric_description['metric'],
-                'value': metric(
-                    test_ground_truth_tosend.astype(str).values.tolist(),
-                    test_prediction.astype(str).values.tolist(),
-                    **params
-                )
-            })
-
     def test_pickled_pipeline(self, folder_loc: str, pipeline_id: str, test_dataset: Dataset,
                               test_metrics: typing.List, test_ground_truth) -> None:
 
@@ -652,9 +506,11 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
 
         pipeline_prediction = fitted_pipeline.get_produce_step_output(
             self.template.get_output_step_number())
-        pipeline_prediction = self.graph_problem_conversion(pipeline_prediction)
-        _, test_pipeline_metrics2 = self._calculate_score(None, None, test_ground_truth,
-                                                          pipeline_prediction)
+        pipeline_prediction = graph_problem_conversion(self.task_type, pipeline_prediction)
+
+        test_pipeline_metrics2 = calculate_score(test_ground_truth, pipeline_prediction, 
+            self.performance_metrics, self.task_type, self.regression_metric)
+
         test_pipeline_metrics = list()
         for metric_description in self.performance_metrics:
             metricDesc = PerformanceMetric.parse(metric_description['metric'])
@@ -725,14 +581,110 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
         else:
             _logger.debug(("\n" * 5)+"Pickling succeeded"+ ("\n" * 5))
 
-    def graph_problem_conversion(self, prediction):
-        tasktype = self.template.template["taskType"]
-        if isinstance(tasktype, set):
-            for t in tasktype:
-                if t == "GRAPH_MATCHING" or t == "VERTEX_NOMINATION" or t == "LINK_PREDICTION":
-                    prediction.iloc[:, -1] = prediction.iloc[:, -1].astype(int)
-        else:
-            if tasktype == "GRAPH_MATCHING" or tasktype == "VERTEX_NOMINATION" or tasktype == \
-                    "LINK_PREDICTION":
+def graph_problem_conversion(task_type, prediction):
+    """
+        Inner function used to process with graph type tasks
+    """
+    if isinstance(task_type, set):
+        for t in task_type:
+            if t == "GRAPH_MATCHING" or t == "VERTEX_NOMINATION" or t == "LINK_PREDICTION":
                 prediction.iloc[:, -1] = prediction.iloc[:, -1].astype(int)
-        return prediction
+    else:
+        if task_type == "GRAPH_MATCHING" or task_type == "VERTEX_NOMINATION" or task_type == \
+                "LINK_PREDICTION":
+            prediction.iloc[:, -1] = prediction.iloc[:, -1].astype(int)
+    return prediction
+
+def calculate_score(ground_truth:DataFrame, prediction:DataFrame, 
+                    performance_metrics:typing.List[typing.Dict], 
+                    task_type, regression_metric:set()):
+    """
+    static method used to calculate the score based on given predictions and metric tpyes
+    Parameters
+    ---------
+    ground_truth: the ground truth of target
+    prediction: the predicted results of target
+    performance_metrics: the metehod to calculate the score
+    task_type: the task type of the problem
+    """
+    result_metrics = []
+    target_amount = 0
+    if prediction is not None:
+        prediction = graph_problem_conversion(task_type, prediction)
+
+    for metric_description in performance_metrics:
+        metricDesc = PerformanceMetric.parse(metric_description['metric'])
+        metric: typing.Callable = metricDesc.get_function()
+        params: typing.Dict = metric_description['params']
+
+        # special design for objectDetectionAP
+        if metric_description["metric"] == "objectDetectionAP":
+            if ground_truth is not None and prediction is not None:
+                training_image_name_column = ground_truth.iloc[:,
+                                             ground_truth.shape[1] - 2]
+                prediction.insert(loc=0, column='image_name',
+                                           value=training_image_name_column)
+                ground_truth_tosend = ground_truth.iloc[:,
+                                               ground_truth.shape[1] - 2:
+                                               ground_truth.shape[1]]
+                result_metrics.append({
+                    'column_name': ground_truth.columns[-1],
+                    'metric': metric_description['metric'],
+                    'value': metric(
+                        ground_truth_tosend.astype(str).values.tolist(),
+                        prediction.astype(str).values.tolist(),
+                        **params
+                    )
+                })
+            return result_metrics
+        # END special design for objectDetectionAP
+
+        do_regression_mode = metric_description["metric"] in regression_metric
+        try:
+            # generate the metrics for training results
+            if ground_truth is not None and prediction is not None:  # if
+                # training data exist
+                if "d3mIndex" not in prediction.columns:
+                    # for the condition that ground_truth have index but
+                    # prediction don't have
+                    target_amount = len(prediction.columns)
+                else:
+                    target_amount = len(prediction.columns) - 1
+
+                ground_truth_amount = len(ground_truth.columns) - 1
+                assert ground_truth_amount == target_amount, \
+                    "[ERROR] Truth and prediction does not match"
+
+                if do_regression_mode: 
+                    # regression mode require the targets must be float
+                    for each_column in range(-target_amount, 0, 1):
+                        result_metrics.append({
+                            'column_name': ground_truth.columns[each_column],
+                            'metric': metric_description['metric'],
+                            'value': metric(
+                                ground_truth.iloc[:, each_column].astype(float),
+                                prediction.iloc[:, each_column].astype(float),
+                                **params
+                            )
+                        })
+                else:
+                    # for other modes, we can treat the predictions as str
+                    for each_column in range(- target_amount, 0, 1):
+                        result_metrics.append({
+                            'column_name': ground_truth.columns[each_column],
+                            'metric': metric_description['metric'],
+                            'value': metric(
+                                ground_truth.iloc[:, each_column].astype(str),
+                                prediction.iloc[:, each_column].astype(str),
+                                **params
+                            )
+                        })
+        except:
+            raise NotSupportedError('[ERROR] metric calculation failed')
+    # END for loop
+
+    if len(result_metrics) > target_amount:
+        _logger.warning("[WARN] Training metrics's amount is larger than target amount.")
+
+    # return the training and test metrics
+    return result_metrics

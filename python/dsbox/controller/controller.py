@@ -48,10 +48,10 @@ from dsbox.combinatorial_search.TemplateSpaceParallelBaseSearch import \
 from dsbox.combinatorial_search.RandomDimensionalSearch import RandomDimensionalSearch
 from dsbox.combinatorial_search.BanditDimensionalSearch import BanditDimensionalSearch
 from dsbox.combinatorial_search.MultiBanditSearch import MultiBanditSearch
-
 from dsbox.combinatorial_search.search_utils import get_target_columns
 from dsbox.combinatorial_search.search_utils import random_choices_without_replacement
 from dsbox.template.template import DSBoxTemplate
+from dsbox.combinatorial_search.ConfigurationSpaceBaseSearch import calculate_score
 from common_primitives import utils as common_primitives_utils
 
 import dsbox.JobManager.mplog as mplog
@@ -119,7 +119,7 @@ class Controller:
             # creat a special dictionary that can collect the results in each processes
             m = Manager()
             self.report_ensemble = m.dict()
-            self.ensemble_voting_candidate_choose_method = 'lastStep'
+            self.ensemble_voting_candidate_choose_method = 'resultSimilarity'
 
         # Resource limits
         self.num_cpus: int = 0
@@ -657,19 +657,19 @@ class Controller:
                         model_step_name = pipeline_description['model_step']['primitive']
                         # if not first time see,choose the pipelines with higher test matrics scores
                         if model_step_name in memo:
-                            if larger_is_better(value['test_metrics_score']):
-                                if value['test_metrics_score'][0]['value'] > memo[model_step_name]['value']:
-                                    memo[model_step_name] = value['test_metrics_score'][0]
+                            if larger_is_better(value['ensemble_tuning_matrix']):
+                                if value['ensemble_tuning_matrix'][0]['value'] > memo[model_step_name]['value']:
+                                    memo[model_step_name] = value['ensemble_tuning_matrix'][0]
                                     all_predictions[model_step_name] = each_prediction
                                     all_predictions_id[model_step_name] = key
                             else:
-                                if value['test_metrics_score'][0]['value'] < memo[model_step_name]['value']:
-                                    memo[model_step_name] = value['test_metrics_score'][0]
+                                if value['ensemble_tuning_matrix'][0]['value'] < memo[model_step_name]['value']:
+                                    memo[model_step_name] = value['ensemble_tuning_matrix'][0]
                                     all_predictions[model_step_name] = each_prediction
                                     all_predictions_id[model_step_name] = key
                         # if first time see, add to memo directly
                         else:
-                            memo[model_step_name] = value['test_metrics_score'][0]
+                            memo[model_step_name] = value['ensemble_tuning_matrix'][0]
                             all_predictions[model_step_name] = each_prediction
                             all_predictions_id[model_step_name] = key
                     else:
@@ -678,9 +678,19 @@ class Controller:
                 # way 2: check the similarity of each prediction results, only choose the low similarity predictions
                 elif self.ensemble_voting_candidate_choose_method == 'resultSimilarity':
                     # TODO: add a method to check the similarity of the predictions
-                    pass
+                    ensemble_predicts = self.report_ensemble['report']['ensemble_dataset_predictions']
+                    pipeline_ids = list(ensemble_predicts.keys())
+                    pipelines_count = len(ensemble_predicts)
+                    for i in range(pipelines_count):
+                        for j in range(i + 1, pipelines_count):
+                            temp1 = ensemble_predicts[pipeline_ids[i]]['ensemble_tuning_result']
+                            temp2 = ensemble_predicts[pipeline_ids[j]]['ensemble_tuning_result']
+                            import pdb
+                            pdb.set_trace()
+                            calculate_score(temp1, temp2)
 
         print("If you see this message, it means the program was finished. Just give a remind here.")
+        import pdb
         pdb.set_trace()
 
 # each_prediction.at[1, 'inputs'] = self.ensemble_dataset[self.problem_info["res_id"]].loc[1].tolist()
@@ -1064,10 +1074,10 @@ class Controller:
                            # args=(log_queue, self._run_MultiBanditSearch, self.report_ensemble))
             # proc = Process(target=mplog.logged_call,
             #                args=(log_queue, self._run_RandomDimSearch, self.report_ensemble))
-            # proc = Process(target=mplog.logged_call,
-                           # args=(log_queue, self._run_ParallelBaseSearch, self.report_ensemble))
             proc = Process(target=mplog.logged_call,
-                           args=(log_queue, self._run_SerialBaseSearch, self.report_ensemble))
+                           args=(log_queue, self._run_ParallelBaseSearch, self.report_ensemble))
+            # proc = Process(target=mplog.logged_call,
+                           # args=(log_queue, self._run_SerialBaseSearch, self.report_ensemble))
 
             proc.start()
             self._logger.info('Searching is finished')
