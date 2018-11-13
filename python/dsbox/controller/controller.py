@@ -114,6 +114,8 @@ class Controller:
         # !!! hard code here
         # TODO: add if statement to determine it
         self.do_ensemble_tune = True
+        self.do_horizontal_tune = True
+
         if self.do_ensemble_tune:
             # creat a special dictionary that can collect the results in each processes
             m = Manager()
@@ -1058,7 +1060,8 @@ class Controller:
         """
         if not self.template:
             return Status.PROBLEM_NOT_IMPLEMENT
-
+        import pdb
+        pdb.set_trace()
         self._check_and_set_dataset_metadata()
 
         self.generate_dataset_splits()
