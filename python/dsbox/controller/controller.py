@@ -53,7 +53,6 @@ from dsbox.combinatorial_search.search_utils import random_choices_without_repla
 from dsbox.template.template import DSBoxTemplate
 from dsbox.combinatorial_search.ConfigurationSpaceBaseSearch import calculate_score
 from common_primitives import utils as common_primitives_utils
-
 import dsbox.JobManager.mplog as mplog
 
 __all__ = ['Status', 'Controller']
@@ -693,6 +692,7 @@ class Controller:
         import pdb
         pdb.set_trace()
 
+
 # each_prediction.at[1, 'inputs'] = self.ensemble_dataset[self.problem_info["res_id"]].loc[1].tolist()
     # @staticmethod
     # def generate_configuration_space(template_desc: TemplateDescription, problem: typing.Dict,
@@ -1077,7 +1077,7 @@ class Controller:
             proc = Process(target=mplog.logged_call,
                            args=(log_queue, self._run_ParallelBaseSearch, self.report_ensemble))
             # proc = Process(target=mplog.logged_call,
-                           # args=(log_queue, self._run_SerialBaseSearch, self.report_ensemble))
+            #                args=(log_queue, self._run_SerialBaseSearch, self.report_ensemble))
 
             proc.start()
             self._logger.info('Searching is finished')
