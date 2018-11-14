@@ -54,6 +54,6 @@ The search and test configuration file formats are defined here: [JSON Configura
 
 ### Using Exisitng DSBox Docker Image ###
 
-A pre-build DSBox Docker image is here: [DSBox TA2 Image for 2018 Summer Evaluation](https://hub.docker.com/r/uscisii2/dsbox/)
+A pre-built DSBox Docker image on Docker Hub is here: [DSBox TA2 Image for 2018 Summer Evaluation](https://hub.docker.com/r/uscisii2/dsbox/)
 
 Notes on how to run DSBox TA2 on non-D3M datasets is here: [Running DSBox TA2 on Other Datasets](https://github.com/usc-isi-i2/dsbox-ta2-system/blob/master/docker/dsbox_train_test/run_dsbox_with_other_dataset.md)
