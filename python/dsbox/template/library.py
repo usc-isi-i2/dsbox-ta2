@@ -165,8 +165,11 @@ class TemplateLibrary:
         pass
 
     def _load_inline_templates(self):
+        # pass # if no is loading
         # template that gives us the mean baseline as a result
         # self.templates.append(SRIMeanBaselineTemplate)
+        # horzontalTemplate
+        # self.templates.append(HorizontalTemplate)
 
         # self.templates.append(DefaultTimeseriesRegressionTemplate)
 
@@ -3518,13 +3521,13 @@ class UU3TestTemplate(DSBoxTemplate):
 ################################################################################################################
 
 
-def HorizontalTemplate(): #This template only generate processed features
+class HorizontalTemplate(DSBoxTemplate): #This template only generate processed features
     def __init__(self):
         DSBoxTemplate.__init__(self)
         self.template = {
             "name": "Horizontal_Template",
-            "taskSubtype": {TaskSubtype.UNIVARIATE.name, TaskSubtype.MULTIVARIATE.name},
-            "taskType": TaskType.REGRESSION.name,
+            "taskSubtype": {TaskSubtype.UNIVARIATE.name, TaskSubtype.MULTIVARIATE.name, TaskSubtype.BINARY.name, TaskSubtype.MULTICLASS.name},
+            "taskType": {TaskType.CLASSIFICATION.name, TaskType.REGRESSION.name},
             "inputType": "table",
             "output": "scaler_step",  # Name of the final step generating the prediction
             "target": "extract_target_step",  # Name of the step generating the ground truth
@@ -3601,21 +3604,21 @@ def HorizontalTemplate(): #This template only generate processed features
                     ],
                     "inputs": ["impute_step"]
                 },
-                {
-                    "name": "extract_target_step",
-                    "primitives": [{
-                        "primitive": "d3m.primitives.data.ExtractColumnsBySemanticTypes",
-                        "hyperparameters":
-                            {
-                                'semantic_types': (
-                                    #'https://metadata.datadrivendiscovery.org/types/PrimaryKey',
-                                    'https://metadata.datadrivendiscovery.org/types/TrueTarget',),
-                                'use_columns': (),
-                                'exclude_columns': ()
-                            }
-                    }],
-                    "inputs": ["to_dataframe_step"]
-                },
+                # {
+                #     "name": "extract_target_step",
+                #     "primitives": [{
+                #         "primitive": "d3m.primitives.data.ExtractColumnsBySemanticTypes",
+                #         "hyperparameters":
+                #             {
+                #                 'semantic_types': (
+                #                     #'https://metadata.datadrivendiscovery.org/types/PrimaryKey',
+                #                     'https://metadata.datadrivendiscovery.org/types/TrueTarget',),
+                #                 'use_columns': (),
+                #                 'exclude_columns': ()
+                #             }
+                #     }],
+                #     "inputs": ["to_dataframe_step"]
+                # },
             ]
         }
 
