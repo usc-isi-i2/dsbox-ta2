@@ -1,83 +1,53 @@
-# dsbox-ta2
-The DSBox TA2 component
+![travis ci](https://travis-ci.org/usc-isi-i2/dsbox-ta2.svg?branch=master)
 
----------------------------------------------2018.7.4---------------------------------------------
+# DSBox: Automated Machine Learning System #
 
-Fixed ta2-search logic: For those data that don't have system-split "TEST" and "TRAIN" data like "LL0" and “LL1”, you can leave the "test_data_schema"'s value to be blank or remove this key from config.
+## Installation Instructions ##
 
-In such condition, the system will run "controller.initialize_from_config_train_test" that will split the dataset into 2 parts by functions in Controller.py.
+### Installing DSBox using base D3M Image ###
 
-Otherwise, if you speicfic the "test_data_schema" in the system, the system will still load the 2 dataset and run test/train separately.
+Get docker image from:
 
----------------------------------------------2018.7.2---------------------------------------------
+```
+registry.datadrivendiscovery.org/jpl/docker_images/complete:ubuntu-artful-python36-v2018.7.10-20180801-215033
+```
 
-New updates:
-Now no need to replace modified files to d3m module.
-If you used to run 2018.6.26 versions with changed d3m files, please reset and pull the latest version by running
+Start the container, and within the container do the following:
 
-$ git reset --hard
+Create the directories:
 
-$ git pull
+```
+mkdir /output
+mkdir /input
+mkdir /user_opt/dsbox
+```
 
-While the new version of "Denormalize" are still officially unavailable so we still need to modify the file "entry_points.ini" in common-primitives.
-Just remove the "#" mark at the denormalize line and reinstall(pip install -e .)
+Installing DSBox software and install SKLearn and D3M common primitves:
 
----------------------------------------------2018.6.29---------------------------------------------
+```
+cd /user_opt/dsbox
 
-New updates:
-1. Now you can run the controller.test() function after running train and saved pipeline successfully.
-2. To properly save the trained pipeline and run the TRAIN and TEST dataset correctly on the system, some modifications have been made on the config file loaded to ta2-search.
-3. After each run of train(), the system would generate a json file which describe the pipelines you just run with its pipeline id.
-4. After each run of train(), the system would generate an  folder with a folder named with pipeline id in the given directory's "excutatable" folder, these are the pickled primitives files.
-5. After each run of test(), the system would generate a csv file which is the predictions results of the test dataset. For this test() function, the system will trying to find the given
-6. Now the ta2-search will run Controller.train() and Controller.test() one time each, you can block one if you want.
-7. The test function only tested with current template in "library.py" with dataset No.38, 22(this dataset's dataset_schema has some problem, at least for 3.0.0 version), 1491, 66 and 49.
-8. Further addede template may not be able to save(depending on the format of the output of the pipeline), please let me know (may at slack @Jun Liu) if something can't work.
-9. Now the validation Accurancy will always be 0 because we no longer have the true results for test data.
+git clone git@github.com:usc-isi-i2/dsbox-ta2.git --branch eval-2018-summer
+cp d3mStart.sh /user_opt/
+chmod a+x /user_opt/d3mStart.sh
 
-Here is one example new config input file.
+pip3 install -e git+https://gitlab.com/datadrivendiscovery/sklearn-wrap@9346c271559fd221dea4bc99c352ce10e518759c#egg=sklearn-wrap
+pip3 install -e git+https://gitlab.com/datadrivendiscovery/common-primitives@fa865a1babc190055cb2a17cbdcd5b37e6f5e774#egg=common-primitives
+```
 
-{
-"cpus": "10",
-"dataset_schema": "/Users/minazuki/Desktop/studies/master/2018Summer/data/datasets/seed_datasets_current/38_sick/38_sick_dataset/datasetDoc.json",
-"executables_root": "/Users/minazuki/Desktop/studies/master/2018Summer/data/executables",
-"pipeline_logs_root": "/Users/minazuki/Desktop/studies/master/2018Summer/data/logs",
-"problem_root": "/Users/minazuki/Desktop/studies/master/2018Summer/data/datasets/seed_datasets_current/38_sick/TRAIN/problem_TRAIN",
-"problem_schema": "/Users/minazuki/Desktop/studies/master/2018Summer/data/datasets/seed_datasets_current/38_sick/TRAIN/problem_TRAIN/problemDoc.json",
-"ram": "10Gi",
-"temp_storage_root": "/Users/minazuki/Desktop/studies/master/2018Summer/data/datasets/seed_datasets_current/38_sick_new/temp",
-"timeout": 49,
-"train_data_schema": "/Users/minazuki/Desktop/studies/master/2018Summer/data/datasets/seed_datasets_current/38_sick/TRAIN/dataset_TRAIN/datasetDoc.json",
-"test_data_schema": "/Users/minazuki/Desktop/studies/master/2018Summer/data/datasets/seed_datasets_current/38_sick/TEST/dataset_TEST/datasetDoc.json",
-"saving_folder_loc": "/Users/minazuki/Desktop/studies/master/2018Summer/data/saving_part",
-"saved_pipeline_ID": ""
-}
-   
-   new attributes for the config files:
-   1. You should specifiy the "train_data_schema" and "test_data_schema" to the config so that the system can load the train and test dataset separately and make predictions on test dataset.
-   2. An extra value "saving_folder_loc" have been added, this is used to specify where to save the pipeline-related files.
-   3. An extra value "saved_pipeline_ID" have been added, this is used to specify which saved pipeline you want to use for test. If the value is blank like "", the system will try to load the latest modified pipeline for testing.
-   
-   TODO:
-   Add the metadata.yml for the whole system.
-   Example from https://gitlab.datadrivendiscovery.org/nist/submission/blob/master/example_ta2_submission/metadata.yml
+To run the DSBox TA2 search:
 
----------------------------------------------2018.6.26---------------------------------------------
-Plase also check the dsbox-experimentation instructions to do the installations with this new version API.
-Current version for new api:
-1.	Update d3m module to "master" branch version
-2.	Update common-primitives to "master" branch version
-3.	Update sklearn-wrap to "dist" branch version
-4.	Update dsbox-ta2 to "template-2018-june" branch version
-* You may need to run "pip install -e ." for each module after update
+```
+/user_opt/d3mStart.sh
+```
 
-Change to fit running on new api for now 
-(you can find these changed file at our dsbox-ta2/python/d3m_modify folder):
-1.	Replace the "base.py" and "pipeline.py" part at d3m/metadata
-2.	Replace the " entry_points.ini" part at common_primitives
-3.	Replace the "denormalize.py" part at common_primitives/common_primitives
-4.	After replacing these things, go back to common-primitives folder and run "pip install -e ." to reinstall the common-primitive module.
-5.	Then, you can run "$ python -m d3m.index search" to check whether the "denormalize" primitive appeared in the search results.
-6.	Block the "dataset_split" function at dsbox/controller/controller.py for now (I have done this in this branch).
-7.	Depending on the model you will use, you may need to update some of our dsbox modules. (e.g. if you are trying to run the sample template for the timeseries data in the dsbox-ta2 template)
+The above d3mStart.sh script assumes several D3M related shell environment variables are set. See this page for definition of the shell environment variables: [2018 Summer Evaluation - Execution Process](https://datadrivendiscovery.org/wiki/display/gov/2018+Summer+Evaluation+-+Execution+Process)
 
+The search and test configuration file formats are defined here: [JSON Configuration File Format](https://datadrivendiscovery.org/wiki/pages/viewpage.actionpageId=11275766)
+
+
+### Using Exisitng DSBox Docker Image ###
+
+A pre-build DSBox Docker image is here: [DSBox TA2 Image for 2018 Summer Evaluation](https://hub.docker.com/r/uscisii2/dsbox/)
+
+Notes on how to run DSBox TA2 on non-D3M datasets is here: [Running DSBox TA2 on Other Datasets](https://github.com/usc-isi-i2/dsbox-ta2-system/blob/master/docker/dsbox_train_test/run_dsbox_with_other_dataset.md)
