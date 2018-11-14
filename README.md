@@ -25,7 +25,7 @@ Create the directories:
 ```
 mkdir /output
 mkdir /input
-mkdir /user_opt/dsbox
+mkdir -p /user_opt/dsbox
 ```
 
 Installing DSBox software and install SKLearn and D3M common primitves:
