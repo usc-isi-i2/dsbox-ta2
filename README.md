@@ -33,8 +33,8 @@ Installing DSBox software and install SKLearn and D3M common primitves:
 ```
 cd /user_opt/dsbox
 
-git clone git@github.com:usc-isi-i2/dsbox-ta2.git --branch eval-2018-summer
-cp d3mStart.sh /user_opt/
+git clone https://github.com:usc-isi-i2/dsbox-ta2.git --branch eval-2018-summer
+cp dsbox-ta2/d3mStart.sh /user_opt/
 chmod a+x /user_opt/d3mStart.sh
 
 pip3 install -e git+https://gitlab.com/datadrivendiscovery/sklearn-wrap@9346c271559fd221dea4bc99c352ce10e518759c#egg=sklearn-wrap
