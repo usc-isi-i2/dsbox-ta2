@@ -9,10 +9,16 @@
 Get docker image from:
 
 ```
-registry.datadrivendiscovery.org/jpl/docker_images/complete:ubuntu-artful-python36-v2018.7.10-20180801-215033
+docker pull registry.datadrivendiscovery.org/jpl/docker_images/complete:ubuntu-artful-python36-v2018.7.10-20180801-215033
 ```
 
-Start the container, and within the container do the following:
+Start the container: 
+
+```
+docker run -it 48a23667534e /bin/bash
+```
+
+Within the container do the following:
 
 Create the directories:
 
