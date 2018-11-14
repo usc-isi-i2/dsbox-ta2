@@ -97,15 +97,15 @@ class TemplateSteps:
             {
                 "name": "cast_1_step",  # turn columns to float
                 "primitives": [
-                    {
-                        "primitive": "d3m.primitives.data.CastToType",
-                        "hyperparameters": 
-                                        {
-                                        "type_to_cast": ["float"],
-                                        "exclude_columns": (0,),
-                                        "use_columns": (0,),
-                                        }
-                    },
+                    # {
+                    #     "primitive": "d3m.primitives.data.CastToType",
+                    #     "hyperparameters": 
+                    #                     {
+                    #                     "type_to_cast": ["float"],
+                    #                     "exclude_columns": (0,),
+                    #                     "use_columns": (0,),
+                    #                     }
+                    # },
                     "d3m.primitives.dsbox.DoNothing",
                 ],
                 "inputs": ["scaler_step"]
@@ -113,16 +113,16 @@ class TemplateSteps:
             {
                 "name": data,
                 "primitives": [
-                    {
-                        "primitive": "d3m.primitives.sklearn_wrap.SKPCA",
-                        "hyperparameters":
-                        { 
-                            'use_semantic_types':[True],
-                            'return_result':['new'],
-                            'add_index_columns':[True],
-                            'n_components': [10, 15, 25]
-                        }
-                    },
+                    # {
+                    #     "primitive": "d3m.primitives.sklearn_wrap.SKPCA",
+                    #     "hyperparameters":
+                    #     { 
+                    #         'use_semantic_types':[True],
+                    #         'return_result':['new'],
+                    #         'add_index_columns':[True],
+                    #         'n_components': [10, 15, 25]
+                    #     }
+                    # },
                     "d3m.primitives.dsbox.DoNothing",
                 ],
                 "inputs": ["cast_1_step"]

@@ -54,6 +54,7 @@ class TemplateLibrary:
             self._load_library()
 
         self.all_templates = {
+            "Horizontal_Template": HorizontalTemplate,
             "default_classification_template": DefaultClassificationTemplate,
             "default_regression_template": DefaultRegressionTemplate,
             "classification_with_feature_selection": ClassificationWithSelection,
@@ -164,8 +165,11 @@ class TemplateLibrary:
         pass
 
     def _load_inline_templates(self):
+        # pass # if no is loading
         # template that gives us the mean baseline as a result
         # self.templates.append(SRIMeanBaselineTemplate)
+        # horzontalTemplate
+        # self.templates.append(HorizontalTemplate)
 
         # self.templates.append(DefaultTimeseriesRegressionTemplate)
 
@@ -3510,3 +3514,112 @@ class UU3TestTemplate(DSBoxTemplate):
     # @override
     def importance(datset, problem_description):
         return 7
+
+
+################################################################################################################
+#####################################   HorizontalTemplate   ###################################################
+################################################################################################################
+
+
+class HorizontalTemplate(DSBoxTemplate): #This template only generate processed features
+    def __init__(self):
+        DSBoxTemplate.__init__(self)
+        self.template = {
+            "name": "Horizontal_Template",
+            "taskSubtype": {TaskSubtype.UNIVARIATE.name, TaskSubtype.MULTIVARIATE.name, TaskSubtype.BINARY.name, TaskSubtype.MULTICLASS.name},
+            "taskType": {TaskType.CLASSIFICATION.name, TaskType.REGRESSION.name},
+            "inputType": "table",
+            "output": "scaler_step",  # Name of the final step generating the prediction
+            "target": "extract_target_step",  # Name of the step generating the ground truth
+            "steps": [
+                {
+                    "name": "denormalize_step",
+                    "primitives": ["d3m.primitives.dsbox.Denormalize"],
+                    "inputs": ["template_input"]
+                },
+                {
+                    "name": "to_dataframe_step",
+                    "primitives": ["d3m.primitives.datasets.DatasetToDataFrame"],
+                    "inputs": ["denormalize_step"]
+                },
+                {
+                    "name": "extract_attribute_step",
+                    "primitives": [{
+                        "primitive": "d3m.primitives.data.ExtractColumnsBySemanticTypes",
+                        "hyperparameters":
+                            {
+                                'semantic_types': (
+                                    'https://metadata.datadrivendiscovery.org/types/PrimaryKey',
+                                    'https://metadata.datadrivendiscovery.org/types/Attribute',
+                                    ),
+                                'use_columns': (),
+                                'exclude_columns': ()
+                            }
+                    }],
+                    "inputs": ["to_dataframe_step"]
+                },
+                {
+                    "name": "profiler_step",
+                    "primitives": ["d3m.primitives.dsbox.Profiler"],
+                    "inputs": ["extract_attribute_step"]
+                },
+                {
+                    "name": "clean_step",
+                    "primitives": [
+                        "d3m.primitives.dsbox.CleaningFeaturizer",
+                    ],
+                    "inputs": ["profiler_step"]
+                },
+                {
+                    "name": "corex_step",
+                    "primitives": [
+                        {
+                            "primitive": "d3m.primitives.dsbox.CorexText",
+                            "hyperparameters":
+                                {
+                                }
+                        },
+                    ],
+                    "inputs": ["clean_step"]
+                },
+                {
+                    "name": "encoder_step",
+                    "primitives": [
+                        "d3m.primitives.dsbox.Encoder",
+                    ],
+                    "inputs": ["corex_step"]
+                },
+                {
+                    "name": "impute_step",
+                    "primitives": ["d3m.primitives.dsbox.MeanImputation"],
+                    "inputs": ["encoder_step"]
+                },
+                {
+                    "name": "scaler_step",
+                    "primitives": [
+                        {
+                            "primitive": "d3m.primitives.dsbox.IQRScaler",
+                            "hyperparameters": {}
+                        },
+                    ],
+                    "inputs": ["impute_step"]
+                },
+                # {
+                #     "name": "extract_target_step",
+                #     "primitives": [{
+                #         "primitive": "d3m.primitives.data.ExtractColumnsBySemanticTypes",
+                #         "hyperparameters":
+                #             {
+                #                 'semantic_types': (
+                #                     #'https://metadata.datadrivendiscovery.org/types/PrimaryKey',
+                #                     'https://metadata.datadrivendiscovery.org/types/TrueTarget',),
+                #                 'use_columns': (),
+                #                 'exclude_columns': ()
+                #             }
+                #     }],
+                #     "inputs": ["to_dataframe_step"]
+                # },
+            ]
+        }
+
+
