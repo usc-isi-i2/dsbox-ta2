@@ -4,6 +4,8 @@ import sys
 import time
 import typing
 import enum
+import eventlet
+
 from multiprocessing import current_process
 from pprint import pprint
 from warnings import warn
@@ -35,6 +37,23 @@ _logger = logging.getLogger(__name__)
 class Mode(enum.IntEnum):
     CROSS_VALIDATION_MODE = 1
     TRAIN_TEST_MODE = 2
+
+class MetaMetric(type):
+    @property
+    def classification_metric(cls):
+        return cls.classification_metric
+    @property
+    def regression_metric(cls):
+        return cls.regression_metric
+
+class SpecialMetric(object, metaclass=MetaMetric):
+    # TODO These variables have not been used at all
+    classification_metric = ('accuracy', 'precision', 'normalizedMutualInformation',
+                                  'recall', 'f1', 'f1Micro', 'f1Macro', 'rocAuc', 'rocAucMicro',
+                                  'rocAucMacro')
+    regression_metric = ('meanSquaredError', 'rootMeanSquaredError',
+                              'rootMeanSquaredErrorAvg', 'meanAbsoluteError', 'rSquared',
+                              'jaccardSimilarityScore', 'precisionAtTopK')
 
 class ConfigurationSpaceBaseSearch(typing.Generic[T]):
     """
@@ -94,13 +113,6 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
         self.minimize = optimization_type(performance_metrics[0]['metric']) == \
                         OptimizationType.MINIMIZE
 
-        # TODO These variables have not been used at all
-        self.classification_metric = ('accuracy', 'precision', 'normalizedMutualInformation',
-                                      'recall', 'f1', 'f1Micro', 'f1Macro', 'rocAuc', 'rocAucMicro',
-                                      'rocAucMacro')
-        self.regression_metric = ('meanSquaredError', 'rootMeanSquaredError',
-                                  'rootMeanSquaredErrorAvg', 'meanAbsoluteError', 'rSquared',
-                                  'jaccardSimilarityScore', 'precisionAtTopK')
         self.quick_mode = False
         self.testing_mode = 0  # set default to not use cross validation mode
         # testing_mode = 0: normal testing mode with test only 1 time
@@ -160,8 +172,7 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
         Evaluate at configuration point.
         Note: This methods will modify the configuration point, by updating its data field.
         """
-
-
+         
         configuration: ConfigurationPoint[PrimitiveDescription] = dict(args[0])
         cache: PrimitivesCache = args[1]
         dump2disk = args[2] if len(args) == 3 else True
@@ -173,7 +184,8 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
         evaluation_result.pop('fitted_pipeline')
 
         _logger.info(f"END Evaluation of {hash(str(configuration))} in {current_process()}")
-
+        
+        return evaluation_result
         # assert hasattr(evaluation_result['fitted_pipeline'], 'runtime'), \
         #     'Eval does not have runtime'
 
@@ -183,7 +195,7 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
         #     traceback.print_exc()
         #     return None
         # configuration.data.update(new_data)
-        return evaluation_result
+        
 
     def _evaluate(self,
                   configuration: ConfigurationPoint,
@@ -211,7 +223,7 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
             training_prediction = fitted_pipeline.get_fit_step_output(
                 self.template.get_output_step_number())
             training_metrics = calculate_score(training_ground_truth, training_prediction, 
-                self.performance_metrics, self.task_type, self.regression_metric)
+                self.performance_metrics, self.task_type, SpecialMetric().regression_metric)
 
             cv_metrics = fitted_pipeline.get_cross_validation_metrics()
             test_metrics = copy.deepcopy(training_metrics)  
@@ -250,7 +262,7 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
                 training_prediction = fitted_pipeline.get_fit_step_output(
                     self.template.get_output_step_number())
                 training_metrics_each = calculate_score(training_ground_truth, training_prediction, 
-                self.performance_metrics, self.task_type, self.regression_metric)
+                self.performance_metrics, self.task_type, SpecialMetric().regression_metric)
 
                 # only do test if the test_dataset exist
                 if self.test_dataset2[each_repeat] is not None:
@@ -261,7 +273,7 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
                     test_prediction = fitted_pipeline.get_produce_step_output(
                         self.template.get_output_step_number())
                     test_metrics_each = calculate_score(test_ground_truth, test_prediction, 
-                        self.performance_metrics, self.task_type, self.regression_metric)
+                        self.performance_metrics, self.task_type, SpecialMetric().regression_metric)
                 else:
                     test_ground_truth = None
                     test_prediction = None
@@ -434,7 +446,7 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
             test_prediction = fitted_pipeline2.get_produce_step_output(
                 self.template.get_output_step_number())
             test_metrics2 = calculate_score(test_ground_truth, test_prediction, 
-                self.performance_metrics, self.task_type, self.regression_metric)
+                self.performance_metrics, self.task_type, SpecialMetric().regression_metric)
             # update here: 
             # Now new version of d3m runtime don't allow to run ".fit()" again on a given runtime object second time
             # So here we need to create a new FittedPipeline object to run second time's runtime.fit()
@@ -456,7 +468,7 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
             ensemble_tuning_result = fitted_pipeline_final.get_produce_step_output(self.template.get_output_step_number())
             ensemble_tuning_result_ground_truth = get_target_columns(self.ensemble_tuning_dataset, self.problem)
             ensemble_tuning_matrix = calculate_score(ensemble_tuning_result_ground_truth, ensemble_tuning_result, 
-                self.performance_metrics, self.task_type, self.regression_metric)
+                self.performance_metrics, self.task_type, SpecialMetric().regression_metric)
 
             cv = fitted_pipeline_final.get_cross_validation_metrics()
             if not cv:
@@ -485,7 +497,7 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
                     self.template.get_output_step_number())
 
                 test_metrics3 = calculate_score(test_ground_truth, test_prediction3, 
-                    self.performance_metrics, self.task_type, self.regression_metric)
+                    self.performance_metrics, self.task_type, SpecialMetric().regression_metric)
 
                 _logger.info("Test pickled pipeline. id: {}".format(fitted_pipeline_final.id))
                 self.test_pickled_pipeline(folder_loc=self.output_directory,
@@ -509,7 +521,7 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
         pipeline_prediction = graph_problem_conversion(self.task_type, pipeline_prediction)
 
         test_pipeline_metrics2 = calculate_score(test_ground_truth, pipeline_prediction, 
-            self.performance_metrics, self.task_type, self.regression_metric)
+            self.performance_metrics, self.task_type, SpecialMetric().regression_metric)
 
         test_pipeline_metrics = list()
         for metric_description in self.performance_metrics:
@@ -518,7 +530,7 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
             params: typing.Dict = metric_description['params']
 
             try:
-                if metric_description["metric"] in self.regression_metric:
+                if metric_description["metric"] in SpecialMetric().regression_metric:
                     # if the test_ground_truth do not have results
                     if test_ground_truth.iloc[0, -1] == '':
                         test_ground_truth.iloc[:, -1] = 0

@@ -5,9 +5,9 @@ import time
 import traceback
 import typing
 import signal, os
+import eventlet
 
 from pprint import pprint
-
 from d3m.container.dataset import Dataset
 from d3m.metadata.base import Metadata
 from dsbox.JobManager.DistributedJobManager import DistributedJobManager
@@ -88,22 +88,34 @@ class TemplateSpaceParallelBaseSearch(TemplateSpaceBaseSearch[T]):
         # self.job_manager._start_workers(target_method=self._evaluate_template)
         time.sleep(0.1)
 
-        # randomly send the candidates to job manager for evaluation
-        self._push_random_candidates(num_iter)
+        # def _timeout_handler(self, signum):
+        #     print('Signal handler called with signal', signum)
+        with eventlet.Timeout(180, False):
+            # signal.signal(signal.SIGALRM, _timeout_handler)
+            # signal.alarm(3 * 60)
 
-        time.sleep(1)
+            # randomly send the candidates to job manager for evaluation
+            self._push_random_candidates(num_iter)
 
-        # iteratively wait until a result is available and process the result untill there is no
-        # other pending job in the job manager
-        self._get_evaluation_results()
+            time.sleep(1)
 
-        # cleanup the caches and cache manager
-        self.cacheManager.cleanup()
+            # iteratively wait until a result is available and process the result untill there is no
+            # other pending job in the job manager
+            self._get_evaluation_results()
 
-        # cleanup job manager
-        self.job_manager.kill_job_mananger()
+            # cleanup the caches and cache manager
+            self.cacheManager.cleanup()
 
+            # cleanup job manager
+            self.job_manager.kill_job_mananger()
+
+            # signal.alarm(0)
+            print("search finished")
+            return self.history.get_best_history()
+
+        print("search not finished")
         return self.history.get_best_history()
+
 
 
     def _get_evaluation_results(self, max_num: int=float('inf')) -> None:
@@ -116,8 +128,6 @@ class TemplateSpaceParallelBaseSearch(TemplateSpaceBaseSearch[T]):
         Returns:
             None
         """
-        def _timeout_handler(self, signum):
-            print('Signal handler called with signal', signum)
             # self._add_report_to_history(kwargs_bundle, report)
             # counter += 1
 
@@ -125,14 +135,10 @@ class TemplateSpaceParallelBaseSearch(TemplateSpaceBaseSearch[T]):
         counter = 0
         while (counter < max_num) and (not self.job_manager.is_idle()):
             # print("[INFO] Sleeping,", counter)
-            signal.signal(signal.SIGALRM, _timeout_handler)
-            signal.alarm(3 * 60)
 
             _logger.debug(f"Main Process Sleeping:{counter}")
             (kwargs_bundle, report) = self.job_manager.pop_job(block=True)
             _logger.warning(f"kwargs: {kwargs_bundle}")
-
-            signal.alarm(0)
 
             self._add_report_to_history(kwargs_bundle, report)
             counter += 1

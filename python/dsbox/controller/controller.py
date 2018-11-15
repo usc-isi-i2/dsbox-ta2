@@ -6,14 +6,8 @@ import random
 import sys
 import typing
 import uuid
-import json
 import shutil
-
-from math import sqrt, log
 import traceback
-
-from multiprocessing import Process,Manager
-
 import numpy as np
 import pandas as pd
 import frozendict
@@ -22,26 +16,26 @@ import pprint
 import d3m
 import dsbox.template.runtime as runtime
 
+from math import sqrt, log
+from multiprocessing import Process,Manager
+from d3m import runtime as runtime_module
 from d3m.metadata.problem import TaskType
+from d3m.metadata import pipeline as pipeline_module
 from d3m.container.pandas import DataFrame as d3m_DataFrame
-from d3m.container.dataset import Dataset
-from d3m.container.dataset import D3MDatasetLoader
-from d3m.exceptions import NotSupportedError
-from d3m.exceptions import InvalidArgumentValueError
-from d3m.metadata.base import ALL_ELEMENTS
-from d3m.metadata.base import Metadata, DataMetadata
-from d3m.metadata.problem import TaskSubtype
-from d3m.metadata.problem import parse_problem_description
+from d3m.container.dataset import Dataset, D3MDatasetLoader
+from d3m.exceptions import NotSupportedError, InvalidArgumentValueError
+from d3m.metadata.base import Metadata, DataMetadata, ALL_ELEMENTS
+from d3m.metadata.problem import TaskSubtype, parse_problem_description
 
 from dsbox.pipeline.fitted_pipeline import FittedPipeline
 from dsbox.pipeline.utils import larger_is_better
-from dsbox.schema.problem import optimization_type
-from dsbox.schema.problem import OptimizationType
-from dsbox.template.library import TemplateDescription
+# from dsbox.schema.problem import optimization_type
+# from dsbox.schema.problem import OptimizationType
+# from dsbox.template.library import TemplateDescription
 from dsbox.template.library import TemplateLibrary
-from dsbox.template.library import SemanticTypeDict
-from dsbox.template.configuration_space import ConfigurationSpace
-from dsbox.template.configuration_space import SimpleConfigurationSpace
+# from dsbox.template.library import SemanticTypeDict
+# from dsbox.template.configuration_space import ConfigurationSpace
+# from dsbox.template.configuration_space import SimpleConfigurationSpace
 from dsbox.combinatorial_search.TemplateSpaceBaseSearch import TemplateSpaceBaseSearch
 from dsbox.combinatorial_search.TemplateSpaceParallelBaseSearch import \
     TemplateSpaceParallelBaseSearch
@@ -51,14 +45,14 @@ from dsbox.combinatorial_search.MultiBanditSearch import MultiBanditSearch
 from dsbox.combinatorial_search.search_utils import get_target_columns
 from dsbox.combinatorial_search.search_utils import random_choices_without_replacement
 from dsbox.template.template import DSBoxTemplate
-from dsbox.combinatorial_search.ConfigurationSpaceBaseSearch import calculate_score
-from common_primitives import utils as common_primitives_utils
+from dsbox.combinatorial_search.ConfigurationSpaceBaseSearch import calculate_score, SpecialMetric
+from sklearn.model_selection import StratifiedShuffleSplit, ShuffleSplit
+# from common_primitives import utils as common_primitives_utils
 import dsbox.JobManager.mplog as mplog
 
 __all__ = ['Status', 'Controller']
 
 
-from sklearn.model_selection import StratifiedShuffleSplit, ShuffleSplit
 
 FILE_FORMATTER = "[%(levelname)s] - %(asctime)s - %(name)s - %(message)s"
 FILE_LOGGING_LEVEL = logging.INFO
@@ -118,7 +112,8 @@ class Controller:
             # creat a special dictionary that can collect the results in each processes
             m = Manager()
             self.report_ensemble = m.dict()
-            self.ensemble_voting_candidate_choose_method = 'resultSimilarity'
+            # self.ensemble_voting_candidate_choose_method = 'resultSimilarity'
+            self.ensemble_voting_candidate_choose_method = 'lastStep'
 
         # Resource limits
         self.num_cpus: int = 0
@@ -134,7 +129,7 @@ class Controller:
         self.max_split_times = 1
 
         # Primitives
-        self.primitive: typing.Dict = d3m.index.search()
+        # self.primitive: typing.Dict = d3m.index.search()
 
         # set random seed
         random.seed(4676)
@@ -252,9 +247,6 @@ class Controller:
         return Metadata(problem_doc)
 
     def _load_schema(self, config):
-        # Do not use
-        # self.config = config
-
         # Problem
         self.problem = parse_problem_description(config['problem_schema'])
         self.problem_doc_metadata = self._load_problem_doc(os.path.abspath(config['problem_schema']))
@@ -279,13 +271,12 @@ class Controller:
         self.timeout = (config.get('timeout', self.TIMEOUT)) * 60
         self.saved_pipeline_id = config.get('saved_pipeline_ID', "")
 
-        # def _generate_problem_info(self,problem):
         for i in range(len(self.problem['inputs'])):
             if 'targets' in self.problem['inputs'][i]:
                 break
 
-        self.problem_info["task_type"] = self.problem['problem'][
-            'task_type'].name  # 'classification' 'regression'
+        self.problem_info["task_type"] = self.problem['problem']['task_type'].name
+        # example of task_type : 'classification' 'regression'
         self.problem_info["res_id"] = self.problem['inputs'][i]['targets'][0]['resource_id']
         self.problem_info["target_index"] = []
         for each in self.problem['inputs'][i]['targets']:
@@ -557,7 +548,6 @@ class Controller:
                 "[Warning] Can't find the prediction class name, will use default name "
                 "'prediction'.")
             prediction_class_name.append("prediction")
-        
 
         # if the prediction results do not have d3m_index column
         if 'd3mIndex' not in prediction.columns:
@@ -632,29 +622,31 @@ class Controller:
             self._logger.error("No ensemble tuning inputs found!")
 
         else:
-            memo = {}
-            all_predictions = {}
-            all_predictions_id = {}
-            '''
-                These 3 dictionary saves the correspondinng best pipelines of each model method
-                The key is the model step's name, e.g.: "d3m.primitives.sklearn_wrap.SKSGDClassifier"
-                memo: save the test metric scores
-                all_predicionts: save the detail prediction results on ensemble_dataset
-                all_predicionts_id: save the pipeline id of the best pipelines
-            '''
-
+            ensemble_pipeline_pids = []
             # TODO: add ability to deal with the condition when there are multiple predicion columns
-            for key, value in ensemble_tuning_report['report']['ensemble_dataset_predictions'].items():
-                pipeline_description = value['pipeline']
-                each_prediction = self.add_d3m_index_and_prediction_class_name(value['ensemble_tuning_result'], self.ensemble_dataset)
-                if "confidence" not in each_prediction.columns:
-                    each_prediction['confidence'] = 1.0
 
-                # way 1: check the model step of pipeline, only choose the pipelines with different model step
-                if self.ensemble_voting_candidate_choose_method == 'lastStep':
+            # way 1: check the model step of pipeline, only choose the pipelines with different model step
+            if self.ensemble_voting_candidate_choose_method == 'lastStep':
+                memo = {}
+                all_predictions = {}
+                all_predictions_id = {}
+                '''
+                    These 3 dictionary saves the correspondinng best pipelines of each model method
+                    The key is the model step's name, e.g.: "d3m.primitives.sklearn_wrap.SKSGDClassifier"
+                    memo: save the test metric scores
+                    all_predicionts: save the detail prediction results on ensemble_dataset
+                    all_predicionts_id: save the pipeline id of the best pipelines
+                '''
+                for key, value in ensemble_tuning_report['report']['ensemble_dataset_predictions'].items():
+                    pipeline_description = value['pipeline']
+                    each_prediction = self.add_d3m_index_and_prediction_class_name(value['ensemble_tuning_result'], self.ensemble_dataset)
+                    if "confidence" not in each_prediction.columns:
+                        each_prediction['confidence'] = 1.0
+
                     if 'model_step' in pipeline_description:
                         model_step_name = pipeline_description['model_step']['primitive']
-                        # if not first time see,choose the pipelines with higher test matrics scores
+                        print(model_step_name)
+                        # if not first time see,choose the pipelines with better test matrics scores
                         if model_step_name in memo:
                             if larger_is_better(value['ensemble_tuning_matrix']):
                                 if value['ensemble_tuning_matrix'][0]['value'] > memo[model_step_name]['value']:
@@ -666,31 +658,96 @@ class Controller:
                                     memo[model_step_name] = value['ensemble_tuning_matrix'][0]
                                     all_predictions[model_step_name] = each_prediction
                                     all_predictions_id[model_step_name] = key
-                        # if first time see, add to memo directly
-                        else:
+                        else:  # if first time see, add to memo directly
                             memo[model_step_name] = value['ensemble_tuning_matrix'][0]
                             all_predictions[model_step_name] = each_prediction
                             all_predictions_id[model_step_name] = key
                     else:
                         self._logger.error("No model step found for pipeline" + key)
+                # finally get a list of pids for ensemble tuning pipelines
+                ensemble_pipeline_pids = list(all_predictions_id.values())
 
-                # way 2: check the similarity of each prediction results, only choose the low similarity predictions
-                elif self.ensemble_voting_candidate_choose_method == 'resultSimilarity':
-                    # TODO: add a method to check the similarity of the predictions
-                    ensemble_predicts = self.report_ensemble['report']['ensemble_dataset_predictions']
-                    pipeline_ids = list(ensemble_predicts.keys())
-                    pipelines_count = len(ensemble_predicts)
-                    for i in range(pipelines_count):
-                        for j in range(i + 1, pipelines_count):
-                            temp1 = ensemble_predicts[pipeline_ids[i]]['ensemble_tuning_result']
-                            temp2 = ensemble_predicts[pipeline_ids[j]]['ensemble_tuning_result']
-                            import pdb
-                            pdb.set_trace()
-                            calculate_score(temp1, temp2)
+            # way 2: check the similarity of each prediction results, only choose the low similarity predictions
+            elif self.ensemble_voting_candidate_choose_method == 'resultSimilarity':
+                # TODO: add a method to check the similarity of the predictions
+                target_len_ensemble_pipeline_pids = 3
+
+                performance_metrics = list(map(
+                    lambda d: {'metric': d['metric'].unparse(), 'params': d['params']},
+                    self.problem['problem']['performance_metrics']))
+                ensemble_predicts = self.report_ensemble['report']['ensemble_dataset_predictions']
+                pipeline_ids = list(ensemble_predicts.keys())
+                pipelines_count = len(pipeline_ids)
+                len_candidate = len()
+                similarity_matrix = {}
+                # calculate the similarity of each predictions
+                for i in range(pipelines_count):
+                    for j in range(i + 1, pipelines_count):
+                        temp1 = ensemble_predicts[pipeline_ids[i]]['ensemble_tuning_result']
+                        temp2 = ensemble_predicts[pipeline_ids[j]]['ensemble_tuning_result']
+                        temp_score = calculate_score(temp1, temp2, performance_metrics, self.task_type, SpecialMetric().regression_metric)
+                        similarity_matrix[(i,j)] = temp_score[0]['value']
+                similarity_matrix_list = []
+                for k, v in similarity_matrix.items():
+                    similarity_matrix_list.append([v,k])
+                similarity_matrix_list = sorted(similarity_matrix_list,key=lambda x: x[0])
+                similarity_matrix_list.reverse()
+
+                while len(ensemble_pipeline_pids) < target_len_ensemble_pipeline_pids:
+                    temp = similarity_matrix_list.pop()
+                    for each in temp[1]:
+                        pid_each = pipeline_ids[each]
+                        if pid_each not in ensemble_pipeline_pids:
+                            ensemble_pipeline_pids.append(pid_each)
+
+            import pdb
+            pdb.set_trace()
+            # build the ensemble tuninng pipelines
+            step_output = []
+            voting_pipeline = pipeline_module.Pipeline('voting', context=pipeline_module.PipelineContext.TESTING)
+            pipeline_input = voting_pipeline.add_input(name='inputs')
+            for i, each_pid in enumerate(ensemble_pipeline_pids):
+                fp_name = 'fp' + str(i)
+                dsbox_fitted_ensemble, runtime_ensemble_each = FittedPipeline.load(self.output_directory, each_pid, self.output_logs_dir)
+                fitted_each = runtime_module.FittedPipeline(fp_name, runtime_ensemble_each, context=pipeline_module.PipelineContext.TESTING)
+                step_each = pipeline_module.FittedPipelineStep(fitted_each.id, fitted_each)
+                step_each.add_input(pipeline_input)
+                voting_pipeline.add_step(step_each)
+                step_output.append(step_each.add_output('output'))
+
+            concat_step = pipeline_module.PrimitiveStep({
+                "python_path": "d3m.primitives.dsbox.VerticalConcat",
+                "id": "dsbox-vertical-concat",
+                "version": "1.3.0",
+                "name": "DSBox vertically concat"})
+            for i in range(len(ensemble_pipeline_pids)): 
+                inputs_name = 'inputs' + str(i)
+                concat_step.add_argument(name=inputs_name, argument_type=pipeline_module.ArgumentType.CONTAINER, data_reference=step_output[i])
+            voting_pipeline.add_step(concat_step)
+            concat_step_output = concat_step.add_output('produce')
+
+            vote_step = pipeline_module.PrimitiveStep({
+                "python_path": "d3m.primitives.dsbox.EnsembleVoting",
+                "id": "dsbox-ensemble-voting",
+                "version": "1.3.0",
+                "name": "DSBox ensemble voting"})
+            vote_step.add_argument(name='inputs', argument_type=pipeline_module.ArgumentType.CONTAINER, data_reference=concat_step_output)
+            voting_pipeline.add_step(vote_step)
+            voting_output = vote_step.add_output('produce')
+
+            voting_pipeline.add_output(name='Metafeatures', data_reference=voting_output)
+
+
+            import pdb
+            pdb.set_trace()
+            
+            runtime_ensemble = runtime_module.Runtime(voting_pipeline)
+            if self.test_dataset1:
+                runtime.fit([self.test_dataset1])
+                runtime.produce([[self.test_dataset1]])
 
         print("If you see this message, it means the program was finished. Just give a remind here.")
-        import pdb
-        pdb.set_trace()
+
 
 
 # each_prediction.at[1, 'inputs'] = self.ensemble_dataset[self.problem_info["res_id"]].loc[1].tolist()
@@ -1077,7 +1134,7 @@ class Controller:
             proc = Process(target=mplog.logged_call,
                            args=(log_queue, self._run_ParallelBaseSearch, self.report_ensemble))
             # proc = Process(target=mplog.logged_call,
-            #                args=(log_queue, self._run_SerialBaseSearch, self.report_ensemble))
+                           # args=(log_queue, self._run_SerialBaseSearch, self.report_ensemble))
 
             proc.start()
             self._logger.info('Searching is finished')

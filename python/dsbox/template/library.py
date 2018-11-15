@@ -175,7 +175,7 @@ class TemplateLibrary:
         # self.templates.append(DefaultRegressionTemplate)
 
         # new tabular classification
-        # self.templates.append(RandomForestClassificationTemplate)
+        self.templates.append(RandomForestClassificationTemplate)
         # self.templates.append(ExtraTreesClassificationTemplate)
         # self.templates.append(GradientBoostingClassificationTemplate)
 
@@ -460,11 +460,11 @@ class RandomForestClassificationTemplate(DSBoxTemplate):
                                     'use_semantic_types':[True],
                                     'return_result':['new'],
                                     'add_index_columns':[True],
-                                    'bootstrap': [True, False],
-                                    'max_depth': [15, 30, None],
-                                    'min_samples_leaf': [1, 2, 4],
-                                    'min_samples_split': [2, 5, 10],
-                                    'max_features': ['auto', 'sqrt'],
+                                    # 'bootstrap': [True, False],
+                                    # 'max_depth': [15, 30, None],
+                                    # 'min_samples_leaf': [1, 2, 4],
+                                    # 'min_samples_split': [2, 5, 10],
+                                    # 'max_features': ['auto', 'sqrt'],
                                     'n_estimators': [10, 50, 100]
                                 }
                         },
