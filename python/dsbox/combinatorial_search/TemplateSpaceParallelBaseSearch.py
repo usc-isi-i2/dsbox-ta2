@@ -5,7 +5,7 @@ import time
 import traceback
 import typing
 import signal, os
-import eventlet
+# import eventlet
 
 from pprint import pprint
 from d3m.container.dataset import Dataset
@@ -90,32 +90,28 @@ class TemplateSpaceParallelBaseSearch(TemplateSpaceBaseSearch[T]):
 
         # def _timeout_handler(self, signum):
         #     print('Signal handler called with signal', signum)
-        with eventlet.Timeout(180, False):
+        # with eventlet.Timeout(180, False):
             # signal.signal(signal.SIGALRM, _timeout_handler)
             # signal.alarm(3 * 60)
 
-            # randomly send the candidates to job manager for evaluation
-            self._push_random_candidates(num_iter)
+        # randomly send the candidates to job manager for evaluation
+        self._push_random_candidates(num_iter)
 
-            time.sleep(1)
+        time.sleep(1)
 
-            # iteratively wait until a result is available and process the result untill there is no
-            # other pending job in the job manager
-            self._get_evaluation_results()
+        # iteratively wait until a result is available and process the result untill there is no
+        # other pending job in the job manager
+        self._get_evaluation_results()
 
-            # cleanup the caches and cache manager
-            self.cacheManager.cleanup()
+        # cleanup the caches and cache manager
+        self.cacheManager.cleanup()
 
-            # cleanup job manager
-            self.job_manager.kill_job_mananger()
+        # cleanup job manager
+        self.job_manager.kill_job_mananger()
 
-            # signal.alarm(0)
-            print("search finished")
-            return self.history.get_best_history()
-
-        print("search not finished")
+        # signal.alarm(0)
+        print("search finished")
         return self.history.get_best_history()
-
 
 
     def _get_evaluation_results(self, max_num: int=float('inf')) -> None:

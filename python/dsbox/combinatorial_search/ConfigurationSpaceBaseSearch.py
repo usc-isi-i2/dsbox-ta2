@@ -4,7 +4,7 @@ import sys
 import time
 import typing
 import enum
-import eventlet
+# import eventlet
 
 from multiprocessing import current_process
 from pprint import pprint
