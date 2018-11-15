@@ -29,7 +29,7 @@ from d3m.metadata.problem import TaskSubtype, parse_problem_description
 
 from dsbox.pipeline.fitted_pipeline import FittedPipeline
 from dsbox.pipeline.utils import larger_is_better
-from dsbox.template.library import TemplateLibrary
+from dsbox.template.library import TemplateLibrary, HorizontalTemplate
 from dsbox.combinatorial_search.TemplateSpaceBaseSearch import TemplateSpaceBaseSearch
 from dsbox.combinatorial_search.TemplateSpaceParallelBaseSearch import \
     TemplateSpaceParallelBaseSearch
@@ -1119,7 +1119,7 @@ class Controller:
             self.horizontal_template = HorizontalTemplate()
             point = self.horizontal_template.generate_configuration_space()
             pipeline = self.horizontal_template.to_pipeline(point.get_random_assignment())
-            horizontal_runtime = Runtime(pipeline)
+            horizontal_runtime = runtime_module.Runtime(pipeline)
             try:
                 horizontal_runtime.fit(self.test_dataset2)
                 self.horizontal_output = horizontal_runtime.produce(self.test_dataset2)[0] #concate it with what?
