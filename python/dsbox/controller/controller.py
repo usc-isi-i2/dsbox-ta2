@@ -29,13 +29,7 @@ from d3m.metadata.problem import TaskSubtype, parse_problem_description
 
 from dsbox.pipeline.fitted_pipeline import FittedPipeline
 from dsbox.pipeline.utils import larger_is_better
-# from dsbox.schema.problem import optimization_type
-# from dsbox.schema.problem import OptimizationType
-# from dsbox.template.library import TemplateDescription
 from dsbox.template.library import TemplateLibrary
-# from dsbox.template.library import SemanticTypeDict
-# from dsbox.template.configuration_space import ConfigurationSpace
-# from dsbox.template.configuration_space import SimpleConfigurationSpace
 from dsbox.combinatorial_search.TemplateSpaceBaseSearch import TemplateSpaceBaseSearch
 from dsbox.combinatorial_search.TemplateSpaceParallelBaseSearch import \
     TemplateSpaceParallelBaseSearch
@@ -47,7 +41,6 @@ from dsbox.combinatorial_search.search_utils import random_choices_without_repla
 from dsbox.template.template import DSBoxTemplate
 from dsbox.combinatorial_search.ConfigurationSpaceBaseSearch import calculate_score, SpecialMetric
 from sklearn.model_selection import StratifiedShuffleSplit, ShuffleSplit
-# from common_primitives import utils as common_primitives_utils
 import dsbox.JobManager.mplog as mplog
 
 __all__ = ['Status', 'Controller']
@@ -108,6 +101,8 @@ class Controller:
         # !!! hard code here
         # TODO: add if statement to determine it
         self.do_ensemble_tune = True
+        self.do_horizontal_tune = True
+
         if self.do_ensemble_tune:
             # creat a special dictionary that can collect the results in each processes
             m = Manager()
@@ -433,6 +428,7 @@ class Controller:
             num_proc=self.num_cpus,
             timeout=self.TIMEOUT,
         )
+
         report = searchMethod.search(num_iter=15)
 
         report_ensemble['report'] = report
@@ -1115,10 +1111,21 @@ class Controller:
         """
         if not self.template:
             return Status.PROBLEM_NOT_IMPLEMENT
-
+        
         self._check_and_set_dataset_metadata()
-
         self.generate_dataset_splits()
+
+        if self.do_horizontal_tune:
+            self.horizontal_template = HorizontalTemplate()
+            point = self.horizontal_template.generate_configuration_space()
+            pipeline = self.horizontal_template.to_pipeline(point.get_random_assignment())
+            horizontal_runtime = Runtime(pipeline)
+            try:
+                horizontal_runtime.fit(self.test_dataset2)
+                self.horizontal_output = horizontal_runtime.produce(self.test_dataset2)[0] #concate it with what?
+            except:
+                print("cannot generate horizontal features")
+                self.horizontal_output = None
 
         # FIXME) come up with a better way to implement this part. The fork does not provide a way
         # FIXME) to catch the errors of the child process
@@ -1141,6 +1148,7 @@ class Controller:
             # wait until process is done
             proc.join()
         
+
         if self.do_ensemble_tune:
             self._logger.info("Normal searching finished, now starting ensemble tuning")
             self.ensemble_tuning(self.report_ensemble)
