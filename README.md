@@ -33,7 +33,7 @@ Installing DSBox software and install SKLearn and D3M common primitves:
 ```
 cd /user_opt/dsbox
 
-git clone https://github.com:usc-isi-i2/dsbox-ta2.git --branch eval-2018-summer
+git clone https://github.com/usc-isi-i2/dsbox-ta2.git --branch eval-2018-summer
 cp dsbox-ta2/d3mStart.sh /user_opt/
 chmod a+x /user_opt/d3mStart.sh
 
