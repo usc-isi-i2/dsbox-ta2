@@ -52,9 +52,9 @@ Notes on how to run DSBox TA2 on non-D3M datasets is here: [Running DSBox TA2 on
 
 ### Running DSBox search using the D3M submission evaluation script `d3mstart.sh` ###
 
-The script that we provided from evaluation is `/user_opt/d3mStart.sh`. This script expects several shell environmental variables to be set. These shell environmental variables are defined here:  [2018 Summer Evaluation - Execution Process](https://datadrivendiscovery.org/wiki/display/gov/2018+Summer+Evaluation+-+Execution+Process)
+The script that we provided for the Summer 2018 evaluation is `/user_opt/d3mStart.sh`. This script expects several shell environmental variables to be set. These shell environmental variables are defined here:  [2018 Summer Evaluation - Execution Process](https://datadrivendiscovery.org/wiki/display/gov/2018+Summer+Evaluation+-+Execution+Process)
 
-The shell environmental variable `D3MINPUTDIR` defines the directory containing the `search_config.json` file that defines the dataset and problem to be solved. The format of this json configuration file is defined here: [JSON Configuration File Format](https://datadrivendiscovery.org/wiki/pages/viewpage.actionpageId=11275766)
+The shell environmental variable `D3MINPUTDIR` defines the directory containing the `search_config.json` file that defines the dataset and the problem to be solved. The format of this json configuration file is defined here: [JSON Configuration File Format](https://datadrivendiscovery.org/wiki/pages/viewpage.actionpageId=11275766)
 
 Below is a sample `search_config.json` file, see `/user_opt/dsbox/dsbox-ta2/dataset/38_sick/search_config.json`. All the pipelines generated during the search process is stored in the `/output/38_sick/pipelines` directory. The pipeline "executables" are stored in the `/output/38_sick/executables` directory, and the actual pickled primitives of the pipeline executables are stored in the `/output/38_sick/supporting_files` directory.
 ```javascript
@@ -174,11 +174,12 @@ pipeline is a directed acyclic graph where the nodes are machine learning primit
 the edges specify the order of computation and data dependency. A D3M pipeline node is
 bounded to a single primitive, whereas a DSBox template node can be bounded to multiple
 primitives. In addition, DSBox allows a hyperparameter search space to be associated with
-each primitive. Each template defines a configuration space to be search. During the
+each primitive. Each template defines a configuration space to be searched. During the
 search process, the DSBox instantiates multiple concrete D3M pipelines from DSBox
 templates.
 
-Here is an example of a simple template with each step bound to one primitive:
+Below is an example of a simple template with each step bound to one primitive. See the the Python class
+`dsbox.template.library.TemplateLibrary` for more template examples.
 
 ```python
 {
