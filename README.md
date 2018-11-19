@@ -105,7 +105,7 @@ python3 /user_opt/dsbox/dsbox-ta2/python/ta2-search --timeout 10 /user_opt/dsbox
 To search using a single template use the `ta1-run-single-template` shell script. See the next sections for an explanation of DSBox templates.
 
 ```
-python /user_opt/dsbox/dsbox-ta2/python/ta1-run-single-template --template default_classification_template --timeout 10 /user_opt/dsbox/dsbox-ta2/dataset/38_sick
+python3 /user_opt/dsbox/dsbox-ta2/python/ta1-run-single-template --template default_classification_template --timeout 10 /user_opt/dsbox/dsbox-ta2/dataset/38_sick/search_config.json
 ```
 
 ### Running a fitted pipeline on a test dataset ###
