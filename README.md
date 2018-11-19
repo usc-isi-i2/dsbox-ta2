@@ -91,13 +91,13 @@ Also, for convience we provide second script to run DSBox. This script accepts c
 To see the command line options, do:
 
 ```
-python /user_opt/dsbox/dsbox-ta2/python/ta2-search --help
+python3 /user_opt/dsbox/dsbox-ta2/python/ta2-search --help
 ```
 
 For example, to run the sample `38_sick` problem with a 10-minute limit do:
 
 ```
-python /user_opt/dsbox/dsbox-ta2/python/ta2-search --timeout 10 /user_opt/dsbox/dsbox-ta2/dataset/38_sick
+python3 /user_opt/dsbox/dsbox-ta2/python/ta2-search --timeout 10 /user_opt/dsbox/dsbox-ta2/dataset/38_sick/search_config.json
 ```
 
 ### Running a Single DSBox Template ###
