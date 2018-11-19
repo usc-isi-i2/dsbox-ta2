@@ -59,10 +59,10 @@ The shell environmental variable `D3MINPUTDIR` defines the directory containing 
 Below is a sample `search_config.json` file, see `/user_opt/dsbox/dsbox-ta2/dataset/38_sick/search_config.json`. All the pipelines generated during the search process is stored in the `/output/38_sick/pipelines` directory. The pipeline "executables" are stored in the `/output/38_sick/executables` directory, and the actual pickled primitives of the pipeline executables are stored in the `/output/38_sick/supporting_files` directory.
 ```javascript
 {
-    "problem_schema": "/user_opt/dsbox/dsbox-ta2/dataset/38_sick/38_sick_problem_TRAIN/problemDoc.json",
-    "problem_root": "/user_opt/dsbox/dsbox-ta2/dataset/38_sick/38_sick_problem_TRAIN",
-    "dataset_schema": "/user_opt/dsbox/dsbox-ta2/dataset/38_sick/38_sick_dataset_TRAIN/datasetDoc.json",
-    "training_data_root": "/user_opt/dsbox/dsbox-ta2/dataset/38_sick/38_sick_dataset_TRAIN",
+    "problem_schema": "/user_opt/dsbox/dsbox-ta2/dataset/38_sick/TRAIN/problem_TRAIN/problemDoc.json",
+    "problem_root": "/user_opt/dsbox/dsbox-ta2/dataset/38_sick/TRAIN/problem_TRAIN",
+    "dataset_schema": "/user_opt/dsbox/dsbox-ta2/dataset/38_sick/TRAIN/dataset_TRAIN/datasetDoc.json",
+    "training_data_root": "/user_opt/dsbox/dsbox-ta2/dataset/38_sick/TRAIN/dataset_TRAIN",
     "pipeline_logs_root": "/output/38_sick/pipelines",
     "executables_root": "/output/38_sick/executables",
     "user_problems_root": "/output/38_sick/user_problems",
