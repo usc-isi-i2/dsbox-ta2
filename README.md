@@ -74,7 +74,7 @@ Below is a sample `search_config.json` file, see `/user_opt/dsbox/dsbox-ta2/data
 To run the DSBox TA2 search on the provided sample dataset 38_sick in `/user_opt/dsbox/dataset/38_sick/search_config.json`:
 
 ```
-export D3RUN=search
+export D3MRUN=search
 export D3MOUTPUTDIR=/output/38_sick
 export D3MINPUTDIR=/user_opt/dsbox/dsbox-ta2/dataset/38_sick
 export D3MTIMEOUT=60
