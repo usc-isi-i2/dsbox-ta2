@@ -130,7 +130,7 @@ Then run the fitted pipeline `0ecd7d2e-4620-430a-881e-b93ff0cfb692.json`:
 
 
 ```
-export D3RUN=test
+export D3MRUN=test
 export D3MTESTOPT=0ecd7d2e-4620-430a-881e-b93ff0cfb692.json
 export D3MOUTPUTDIR=/output/38_sick
 export D3MINPUTDIR=/user_opt/dsbox/dsbox-ta2/dataset/38_sick
