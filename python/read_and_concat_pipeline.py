@@ -62,7 +62,7 @@ def preprocessing_pipeline():
                                               'https://metadata.datadrivendiscovery.org/types/TrueTarget'
                                               ))
     # preprocessing_pipeline.add_output(name="produce", data_reference=scalar_step_output)
-    return preprocessing_pipeline, scalar_step_output, initial_input, extract_attribute_step_output
+    return preprocessing_pipeline, scalar_step_output, initial_input, extract_target_step_output
 
 
 
@@ -113,6 +113,9 @@ step_0.add_input(pipeline_input)
 big_pipeline.add_step(step_0)
 step_0_output = step_0.add_output('output')
 
+
+
+
 step_1 = pipeline_module.FittedPipelineStep(fitted1.id, fitted1)
 step_1.add_input(pipeline_input)
 big_pipeline.add_step(step_1)
@@ -123,46 +126,121 @@ step_2.add_input(pipeline_input)
 big_pipeline.add_step(step_2)
 step_2_output = step_2.add_output('output')
 
+concat_step = pipeline_module.PrimitiveStep({
+    "python_path": "d3m.primitives.dsbox.HorizontalConcat", 
+    "id": "dsbox-horizontal-concat", 
+    "version": "1.3.0",
+    "name": "DSBox horizontal concat"
+    })
+concat_step.add_argument(name='inputs', argument_type=pipeline_module.ArgumentType.CONTAINER, data_reference=step_0_output)
+concat_step.add_argument(name='inputs1', argument_type=pipeline_module.ArgumentType.CONTAINER, data_reference=step_1_output)
+concat_step.add_argument(name='inputs2', argument_type=pipeline_module.ArgumentType.CONTAINER, data_reference=step_2_output)
+big_pipeline.add_step(concat_step)
+concat_step_output = concat_step.add_output('produce')
 
-concat_step0 = pipeline_module.PrimitiveStep(dict(d3m_index.get_primitive("d3m.primitives.data.HorizontalConcat").metadata.query()))
-concat_step0.add_argument(name="left", argument_type=pipeline_module.ArgumentType.CONTAINER, data_reference=step_0_output)
-concat_step0.add_argument(name="right", argument_type=pipeline_module.ArgumentType.CONTAINER, data_reference=step_1_output)
-concat_step0.add_hyperparameter(name="use_index", argument_type=pipeline_module.ArgumentType.VALUE, data=False)
-big_pipeline.add_step(concat_step0)
-concat_output0 = concat_step0.add_output("produce")
+# concat_step = pipeline_module.PrimitiveStep({
+#     "python_path": "d3m.primitives.dsbox.VerticalConcat",
+#     "id": "dsbox-vertical-concat",
+#     "version": "1.3.0",
+#     "name": "DSBox vertically concat"})
+# concat_step.add_argument(name='inputs', argument_type=pipeline_module.ArgumentType.CONTAINER, data_reference=step_0_output)
+# concat_step.add_argument(name='inputs1', argument_type=pipeline_module.ArgumentType.CONTAINER, data_reference=step_1_output)
+# concat_step.add_argument(name='inputs2', argument_type=pipeline_module.ArgumentType.CONTAINER, data_reference=step_2_output)
+# big_pipeline.add_step(concat_step)
+# concat_step_output = concat_step.add_output('produce')
 
+
+# unfold_step = pipeline_module.PrimitiveStep({
+#     "python_path": "d3m.primitives.dsbox.Unfold",
+#     "version": "1.3.0",
+#     "id": "dsbox-unfold",
+#     "name": "DSBox unfold"})
+# unfold_step.add_argument(name="inputs", argument_type=pipeline_module.ArgumentType.CONTAINER, data_reference=concat_step_output)
+# big_pipeline.add_step(unfold_step)
+# unfold_step_output = unfold_step.add_output("produce")
+# # big_pipeline.add_output(name="unfold", data_reference=big_output)
+
+# replace_semantic_step = pipeline_module.PrimitiveStep(dict(d3m_index.get_primitive("d3m.primitives.data.ReplaceSemanticTypes").metadata.query()))
+# replace_semantic_step.add_argument(name="inputs", argument_type=pipeline_module.ArgumentType.CONTAINER, data_reference=unfold_step_output)
+# big_pipeline.add_step(replace_semantic_step)
+# replace_semantic_step.add_hyperparameter(name="match_logic", argument_type=pipeline_module.ArgumentType.VALUE, data="all")
+# replace_semantic_step.add_hyperparameter(name="from_semantic_types", argument_type=pipeline_module.ArgumentType.VALUE, data=("https://metadata.datadrivendiscovery.org/types/PredictedTarget","https://metadata.datadrivendiscovery.org/types/Target"))
+# replace_semantic_step.add_hyperparameter(name="to_semantic_types", argument_type=pipeline_module.ArgumentType.VALUE, data=("https://metadata.datadrivendiscovery.org/types/CategoricalData","https://metadata.datadrivendiscovery.org/types/Attribute"))
+# replace_semantic_step_output = replace_semantic_step.add_output("produce")
+
+
+encode_res_step = pipeline_module.PrimitiveStep(dict(d3m_index.get_primitive("d3m.primitives.dsbox.Encoder").metadata.query()))
+encode_res_step.add_argument(name="inputs", argument_type=pipeline_module.ArgumentType.CONTAINER, data_reference=concat_step_output)
+big_pipeline.add_step(encode_res_step)
+encode_res_step_output = encode_res_step.add_output("produce")
 
 concat_step1 = pipeline_module.PrimitiveStep(dict(d3m_index.get_primitive("d3m.primitives.data.HorizontalConcat").metadata.query()))
-concat_step1.add_argument(name="left", argument_type=pipeline_module.ArgumentType.CONTAINER, data_reference=concat_output0)
-concat_step1.add_argument(name="right", argument_type=pipeline_module.ArgumentType.CONTAINER, data_reference=step_2_output)
+concat_step1.add_argument(name="left", argument_type=pipeline_module.ArgumentType.CONTAINER, data_reference=encode_res_step_output)
+concat_step1.add_argument(name="right", argument_type=pipeline_module.ArgumentType.CONTAINER, data_reference=pipeline_output)
 concat_step1.add_hyperparameter(name="use_index", argument_type=pipeline_module.ArgumentType.VALUE, data=False)
 big_pipeline.add_step(concat_step1)
 concat_output1 = concat_step1.add_output("produce")
 
 
-concat_step2 = pipeline_module.PrimitiveStep(dict(d3m_index.get_primitive("d3m.primitives.data.HorizontalConcat").metadata.query()))
-concat_step2.add_argument(name="left", argument_type=pipeline_module.ArgumentType.CONTAINER, data_reference=concat_output1)
-concat_step2.add_argument(name="right", argument_type=pipeline_module.ArgumentType.CONTAINER, data_reference=pipeline_output)
-concat_step2.add_hyperparameter(name="use_index", argument_type=pipeline_module.ArgumentType.VALUE, data=False)
-big_pipeline.add_step(concat_step2)
-concat_output2 = concat_step2.add_output("produce")
-
-# testing: Extract target_columns, Randomforest
-
-encode_res_step = pipeline_module.PrimitiveStep(dict(d3m_index.get_primitive("d3m.primitives.dsbox.Encoder").metadata.query()))
-encode_res_step.add_argument(name="inputs", argument_type=pipeline_module.ArgumentType.CONTAINER, data_reference=concat_output2)
-big_pipeline.add_step(encode_res_step)
-encode_res_step_output = encode_res_step.add_output("produce")
 
 
 model_step = pipeline_module.PrimitiveStep(dict(d3m_index.get_primitive("d3m.primitives.sklearn_wrap.SKBernoulliNB").metadata.query()))
-model_step.add_argument(name="inputs", argument_type=pipeline_module.ArgumentType.CONTAINER, data_reference=encode_res_step_output)
+model_step.add_argument(name="inputs", argument_type=pipeline_module.ArgumentType.CONTAINER, data_reference=concat_output1)
 model_step.add_argument(name="outputs", argument_type=pipeline_module.ArgumentType.CONTAINER, data_reference=target)
 big_pipeline.add_step(model_step)
 big_output = model_step.add_output("produce")
-# import pdb
-# pdb.set_trace()
-big_pipeline.add_output(name="final", data_reference=big_output)
+final_output = big_pipeline.add_output(name="final", data_reference=big_output)
+
+
+
+
+
+
+# concat_step0 = pipeline_module.PrimitiveStep(dict(d3m_index.get_primitive("d3m.primitives.data.HorizontalConcat").metadata.query()))
+# concat_step0.add_argument(name="left", argument_type=pipeline_module.ArgumentType.CONTAINER, data_reference=step_0_output)
+# concat_step0.add_argument(name="right", argument_type=pipeline_module.ArgumentType.CONTAINER, data_reference=step_1_output)
+# concat_step0.add_hyperparameter(name="use_index", argument_type=pipeline_module.ArgumentType.VALUE, data=False)
+# big_pipeline.add_step(concat_step0)
+# concat_output0 = concat_step0.add_output("produce")
+
+
+# concat_step1 = pipeline_module.PrimitiveStep(dict(d3m_index.get_primitive("d3m.primitives.data.HorizontalConcat").metadata.query()))
+# concat_step1.add_argument(name="left", argument_type=pipeline_module.ArgumentType.CONTAINER, data_reference=concat_output0)
+# concat_step1.add_argument(name="right", argument_type=pipeline_module.ArgumentType.CONTAINER, data_reference=step_2_output)
+# concat_step1.add_hyperparameter(name="use_index", argument_type=pipeline_module.ArgumentType.VALUE, data=False)
+# big_pipeline.add_step(concat_step1)
+# concat_output1 = concat_step1.add_output("produce")
+
+
+# concat_step2 = pipeline_module.PrimitiveStep(dict(d3m_index.get_primitive("d3m.primitives.data.HorizontalConcat").metadata.query()))
+# concat_step2.add_argument(name="left", argument_type=pipeline_module.ArgumentType.CONTAINER, data_reference=concat_output1)
+# concat_step2.add_argument(name="right", argument_type=pipeline_module.ArgumentType.CONTAINER, data_reference=pipeline_output)
+# concat_step2.add_hyperparameter(name="use_index", argument_type=pipeline_module.ArgumentType.VALUE, data=False)
+# big_pipeline.add_step(concat_step2)
+# concat_output2 = concat_step2.add_output("produce")
+
+# # testing: Extract target_columns, Randomforest
+# replace_semantic_step = pipeline_module.PrimitiveStep(dict(d3m_index.get_primitive("d3m.primitives.data.ReplaceSemanticTypes").metadata.query()))
+# replace_semantic_step.add_argument(name="inputs", argument_type=pipeline_module.ArgumentType.CONTAINER, data_reference=concat_output2)
+# big_pipeline.add_step(replace_semantic_step)
+# replace_semantic_step.add_hyperparameter(name="match_logic", argument_type=pipeline_module.ArgumentType.VALUE, data="all")
+# replace_semantic_step.add_hyperparameter(name="from_semantic_types", argument_type=pipeline_module.ArgumentType.VALUE, data=("https://metadata.datadrivendiscovery.org/types/PredictedTarget","https://metadata.datadrivendiscovery.org/types/Target"))
+# replace_semantic_step.add_hyperparameter(name="to_semantic_types", argument_type=pipeline_module.ArgumentType.VALUE, data=("https://metadata.datadrivendiscovery.org/types/CategoricalData","https://metadata.datadrivendiscovery.org/types/Attribute"))
+# replace_semantic_step_output = replace_semantic_step.add_output("produce")
+
+
+# encode_res_step = pipeline_module.PrimitiveStep(dict(d3m_index.get_primitive("d3m.primitives.dsbox.Encoder").metadata.query()))
+# encode_res_step.add_argument(name="inputs", argument_type=pipeline_module.ArgumentType.CONTAINER, data_reference=replace_semantic_step_output)
+# big_pipeline.add_step(encode_res_step)
+# encode_res_step_output = encode_res_step.add_output("produce")
+
+
+# model_step = pipeline_module.PrimitiveStep(dict(d3m_index.get_primitive("d3m.primitives.sklearn_wrap.SKBernoulliNB").metadata.query()))
+# model_step.add_argument(name="inputs", argument_type=pipeline_module.ArgumentType.CONTAINER, data_reference=encode_res_step_output)
+# model_step.add_argument(name="outputs", argument_type=pipeline_module.ArgumentType.CONTAINER, data_reference=target)
+# big_pipeline.add_step(model_step)
+# big_output = model_step.add_output("produce")
+# big_pipeline.add_output(name="final", data_reference=big_output)
 
 # runtime = runtime_module.Runtime(big_pipeline)
 
@@ -189,17 +267,13 @@ big_pipeline.add_output(name="final", data_reference=big_output)
 # big_pipeline.add_step(unfold_step)
 # big_output = unfold_step.add_output("produce")
 # big_pipeline.add_output(name="unfold", data_reference=big_output)
-import pdb
-pdb.set_trace()
 runtime = runtime_module.Runtime(big_pipeline)
 dataset = container.Dataset.load('file:///Users/muxin/Desktop/ISI/dsbox-env/data/datasets/seed_datasets_current/38_sick/38_sick_dataset/datasetDoc.json')
 set_target_column(dataset)
 runtime.fit([dataset])
 res = runtime.produce([dataset])
-
-
-processing_pip, pip_output = preprocessing_pipeline()
-
+import pdb
+pdb.set_trace()
 
 
 # runtime = runtime_module.Runtime(big_pipeline)
