@@ -92,7 +92,11 @@ class Runtime(d3m_runtime):
         self.pipeline_description = pipeline_description
         self.timing = {}
         self.timing["total_time_used"] = 0.0
+        self.use_cache = True
         # self.timing["total_time_used_without_cache"] = 0.0
+
+    def set_not_use_cache(self) -> None:
+        self.use_cache = False
 
     def set_metric_descriptions(self, metric_descriptions):
         self.metric_descriptions = metric_descriptions
@@ -103,7 +107,11 @@ class Runtime(d3m_runtime):
             And add the cache support
         '''
         time_start = time.time()
-        if self.phase == Phase.FIT:
+        # call d3m's run primitive directly if not use cache
+        if not self.use_cache:
+            d3m_runtime._run_primitive(self, this_step)
+                
+        elif self.phase == Phase.FIT:
             # Same as old codes, use argument as the cache system's key
             primitive_arguments = self._prepare_primitive_arguments(this_step)
             primitive_arguments["produce_methods"] = this_step.outputs
@@ -150,6 +158,7 @@ class Runtime(d3m_runtime):
                     'worker_id': current_process()
                 },
             )
+
             # if this primitive hitted
             if self.cache.is_hit_key(prim_hash=prim_hash, prim_name=prim_name):
                 fitting_time, model = self.cache.lookup_key(prim_name=prim_name, prim_hash=prim_hash)

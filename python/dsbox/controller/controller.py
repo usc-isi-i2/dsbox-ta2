@@ -699,48 +699,62 @@ class Controller:
             import pdb
             pdb.set_trace()
             # build the ensemble tuninng pipelines
-            step_output = []
+
+
+            step_outputs = []
             voting_pipeline = pipeline_module.Pipeline('voting', context=pipeline_module.PipelineContext.TESTING)
             pipeline_input = voting_pipeline.add_input(name='inputs')
-            for i, each_pid in enumerate(ensemble_pipeline_pids):
-                fp_name = 'fp' + str(i)
-                dsbox_fitted_ensemble, runtime_ensemble_each = FittedPipeline.load(self.output_directory, each_pid, self.output_logs_dir)
-                fitted_each = runtime_module.FittedPipeline(fp_name, runtime_ensemble_each, context=pipeline_module.PipelineContext.TESTING)
-                step_each = pipeline_module.FittedPipelineStep(fitted_each.id, fitted_each)
-                step_each.add_input(pipeline_input)
-                voting_pipeline.add_step(step_each)
-                step_output.append(step_each.add_output('output'))
+
+            pids = ensemble_pipeline_pids
+
+            for each_pid in pids:
+                each_dsbox_fitted, each_runtime = FittedPipeline.load(self.output_directory, each_pid, self.output_logs_dir)
+                each_fitted = runtime_module.FittedPipeline(each_pid, each_runtime, context=pipeline_module.PipelineContext.TESTING)
+                each_step = pipeline_module.FittedPipelineStep(each_fitted.id, each_fitted)
+                each_step.add_input(pipeline_input)
+                voting_pipeline.add_step(each_step)
+                step_outputs.append(each_step.add_output('output'))
 
             concat_step = pipeline_module.PrimitiveStep({
                 "python_path": "d3m.primitives.dsbox.VerticalConcat",
                 "id": "dsbox-vertical-concat",
                 "version": "1.3.0",
                 "name": "DSBox vertically concat"})
-            for i in range(len(ensemble_pipeline_pids)): 
-                inputs_name = 'inputs' + str(i)
-                concat_step.add_argument(name=inputs_name, argument_type=pipeline_module.ArgumentType.CONTAINER, data_reference=step_output[i])
-            voting_pipeline.add_step(concat_step)
-            concat_step_output = concat_step.add_output('produce')
+
+            for i in range(len(pids) - 1):
+                each_concact_step = copy.deepcopy(concat_step)
+                if i == 0:
+                    each_concact_step.add_argument(name='inputs1', argument_type=pipeline_module.ArgumentType.CONTAINER, data_reference=step_outputs[i])
+                else:
+                    each_concact_step.add_argument(name='inputs1', argument_type=pipeline_module.ArgumentType.CONTAINER, data_reference=concat_step_output)
+                each_concact_step.add_argument(name='inputs2', argument_type=pipeline_module.ArgumentType.CONTAINER, data_reference=step_outputs[i+1])
+
+                voting_pipeline.add_step(each_concact_step)
+                # update concat_step_output
+                concat_step_output = each_concact_step.add_output('produce')
 
             vote_step = pipeline_module.PrimitiveStep({
                 "python_path": "d3m.primitives.dsbox.EnsembleVoting",
                 "id": "dsbox-ensemble-voting",
                 "version": "1.3.0",
                 "name": "DSBox ensemble voting"})
+
             vote_step.add_argument(name='inputs', argument_type=pipeline_module.ArgumentType.CONTAINER, data_reference=concat_step_output)
             voting_pipeline.add_step(vote_step)
             voting_output = vote_step.add_output('produce')
 
             voting_pipeline.add_output(name='Metafeatures', data_reference=voting_output)
 
+            tpp = FittedPipeline(pipeline = voting_pipeline, dataset_id = '38_sick', log_dir = log_dir, metric_descriptions = "no")
+            # rr = runtime_module.Runtime(voting_pipeline)
 
-            import pdb
-            pdb.set_trace()
-            
-            runtime_ensemble = runtime_module.Runtime(voting_pipeline)
+            dataset = container.Dataset.load('file:///Users/minazuki/Desktop/studies/master/2018Summer/data/datasets/seed_datasets_current/38_sick/38_sick_dataset/datasetDoc.json')
+            set_target_column(dataset)
+
+            tpp.runtime.set_not_use_cache()
             if self.test_dataset1:
-                runtime.fit([self.test_dataset1])
-                runtime.produce([[self.test_dataset1]])
+                tpp.fit(inputs = [self.train_dataset1])
+                tpp.produce(inputs = [self.test_dataset1])
 
         print("If you see this message, it means the program was finished. Just give a remind here.")
 
