@@ -619,17 +619,15 @@ class Controller:
             self._logger.error("No ensemble tuning inputs found!")
 
         else:
-            import pdb
-            pdb.set_trace()
-
-            pp = EnsembleTuningPipeline(pipeline_files_dir = self.output_directory, log_dir = self.output_logs_dir, pids = None,candidate_choose_method = self.ensemble_voting_candidate_choose_method, report = ensemble_tuning_report, problem = self.problem,test_dataset = self.test_dataset1, train_dataset = self.train_dataset1, problem_doc_metadata = self.problem_doc_metadata)
-            pp.generate_candidate_pids()
-            pp.generate_ensemble_pipeline()
-            pp.fit_and_produce()
-            pp.save()
-
-        print("If you see this message, it means the program was finished. Just give a remind here.")
-
+            try:
+                pp = EnsembleTuningPipeline(pipeline_files_dir = self.output_directory, log_dir = self.output_logs_dir, pids = None,candidate_choose_method = self.ensemble_voting_candidate_choose_method, report = ensemble_tuning_report, problem = self.problem,test_dataset = self.test_dataset1, train_dataset = self.train_dataset1, problem_doc_metadata = self.problem_doc_metadata)
+                pp.generate_candidate_pids()
+                pp.generate_ensemble_pipeline()
+                pp.fit_and_produce()
+                pp.save()
+            except:
+                self._logger.error("[ERROR] ensemble tuning pipeline failed.")
+                traceback.print_exc()
 
 
 # each_prediction.at[1, 'inputs'] = self.ensemble_dataset[self.problem_info["res_id"]].loc[1].tolist()
