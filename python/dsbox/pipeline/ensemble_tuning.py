@@ -4,16 +4,14 @@ import copy
 import typing
 import os
 import json
-import d3m
-sys.path.append('/Users/minazuki/Desktop/studies/master/2018Summer/DSBOX_new/dsbox-ta2/python')
 import d3m.primitives
 import d3m.exceptions as exceptions
 
 from dsbox.pipeline.fitted_pipeline import FittedPipeline
+from dsbox.pipeline.utils import larger_is_better
 from dsbox.combinatorial_search.ConfigurationSpaceBaseSearch import calculate_score, SpecialMetric
 from dsbox.combinatorial_search.search_utils import get_target_columns
 from d3m.metadata.problem import parse_problem_description
-# from dsbox.datapostprocessing.vertical_concat import VerticalConcat, EnsembleVoting
 from d3m import runtime as runtime_module, container
 from d3m.metadata import pipeline as pipeline_module
 from d3m.metadata.base import ALL_ELEMENTS, Metadata
@@ -24,21 +22,32 @@ class EnsembleTuningPipeline:
 
     Attributes
     ----------
+    voting_pipeline: Pipeline
+        A D3M Pipeline object for ensemble tuning (including subpipelines)
+    fitted_pipeline: FittedPipeline
+        A DSBOX FittedPipeline object for saving and fitting
+
+    Parameters
+    ----------
     pipeline_files_dir : str
         The path to fitted pipelines
     log_dir: str
         The path to log files
-    dataset_id: str
     pids : typing.List[str]
         The ids of candidate pipelines
+        If it was not given, you should call 'generate_candidate_pids' to generate it
+    train_dataset / test_dataset: Dataset
+        The training dataset and testing dataset
+    candidate_choose_method: str
+        Method to use for choose candidate pids, can be not given
     report: dict
-        The ensemble report for tuning
-
-    Parameters
-    ----------
+        The ensemble report for tuning (from ta2 system), if it is not given, you have to set pids by yourself
+    problem: dict
+        Problem description
+    problem_doc_metadata: Metadata
+        Problem doc in metadata format
     """
     def __init__(self, pipeline_files_dir: str, log_dir: str, 
-                 dataset_id: str, 
                  train_dataset: container.Dataset, 
                  test_dataset: container.Dataset, 
                  pids: typing.List[str] = None,
@@ -48,7 +57,6 @@ class EnsembleTuningPipeline:
 
         self.pipeline_files_dir = pipeline_files_dir
         self.log_dir = log_dir
-        self.dataset_id = dataset_id
         self.pids = pids
         self.candidate_choose_method = candidate_choose_method
         self.report = report
@@ -65,7 +73,9 @@ class EnsembleTuningPipeline:
                 ))
 
             self.task_type = self.problem['problem']['task_type']
-        
+            self.dataset_id = self.problem['problem']['id']
+        else:
+            self.dataset_id = ""
         self._logger = logging.getLogger(__name__)
         # self.ensemble_dataset = ensemble_dataset
 
@@ -73,6 +83,14 @@ class EnsembleTuningPipeline:
         self.fitted_pipeline = None
 
     def generate_ensemble_pipeline(self):
+        """
+            Function used to generate the Pipeline for ensemble tuning
+        """
+        if not self.pids:
+            raise ValueError("No candidate pipeline ids found, unable to generate the ensemble pipeline.")
+        elif len(self.pids) == 1:
+            raise ValueError("Only 1 candidate pipeline id found, unable to generate the ensemble pipeline.")
+
         step_outputs = []
         self.voting_pipeline = pipeline_module.Pipeline('voting', context=pipeline_module.PipelineContext.TESTING)
         pipeline_input = self.voting_pipeline.add_input(name='inputs')
@@ -114,8 +132,13 @@ class EnsembleTuningPipeline:
         voting_output = vote_step.add_output('produce')
 
         self.voting_pipeline.add_output(name='Metafeatures', data_reference=voting_output)
+        self._logger.info("Ensemble pipeline created successfully")
 
     def fit_and_produce(self):
+        """
+            Generate the FittedPipeline object 
+            And run fit and produce steps to get the metric score of this ensemble pipeline
+        """
         if not self.voting_pipeline:
             raise ValueError("No voting pipeline found, please run generate_ensemble_pipeline first")
 
@@ -129,24 +152,28 @@ class EnsembleTuningPipeline:
             if self.test_dataset:
                 self.fitted_pipeline.fit(inputs = [self.train_dataset])
                 self.fitted_pipeline.produce(inputs = [self.test_dataset])
+
             prediction = self.fitted_pipeline.get_produce_step_output(0)
             ground_truth = get_target_columns(self.test_dataset, self.problem_doc_metadata)
             score_metric = calculate_score(ground_truth, prediction, self.performance_metrics, self.task_type, SpecialMetric().regression_metric)
+
             if type(score_metric) is list:
                     score_metric = score_metric[0]
             self.fitted_pipeline.set_metric(score_metric)
 
         if self.problem:
             self.fitted_pipeline.problem = self.problem_doc_metadata
+        self._logger.info("Ensemble pipeline fitted and produced successfully")
 
     def save(self):
         '''
-            use fitted_pipeline to save
+            use fitted_pipeline to save this ensemble voting pipeline
         '''
         if not self.fitted_pipeline:
             raise ValueError("Ensemble voting pipeline must be fitted before saving.")
         else:
             self.fitted_pipeline.save(folder_loc = self.pipeline_files_dir)
+        self._logger.info("Save ensemble pipeline successfully")
 
     def generate_candidate_pids(self) -> None:
         if self.pids:
@@ -232,6 +259,9 @@ class EnsembleTuningPipeline:
 
 
 def set_target_column(dataset):
+    """
+        Function used for unit test
+    """
     for index in range(
             dataset.metadata.query(('0', ALL_ELEMENTS))['dimension']['length'] - 1,
             -1, -1):
@@ -250,6 +280,8 @@ def set_target_column(dataset):
         'At least one column should have semantic type SuggestedTarget')
 
 
+# unit test part
+# sys.path.append('/Users/minazuki/Desktop/studies/master/2018Summer/DSBOX_new/dsbox-ta2/python')
 if __name__ == "__main__":
     data_dir = '/Users/minazuki/Desktop/studies/master/2018Summer/data'
     log_dir = '/Users/minazuki/Desktop/studies/master/2018Summer/data/log'
@@ -262,13 +294,12 @@ if __name__ == "__main__":
     problem_doc_path = os.path.abspath('/Users/minazuki/Desktop/studies/master/2018Summer/data/datasets/seed_datasets_current/38_sick/38_sick_problem/problemDoc.json')
 
     problem = parse_problem_description(problem_doc_path)
-    problem_id = problem['problem']['id']
     choose_method = 'lastStep'
     with open(problem_doc_path) as file:
         problem_doc = json.load(file)
     problem_doc_metadata = Metadata(problem_doc)
 
-    pp = EnsembleTuningPipeline(pipeline_files_dir = data_dir, log_dir = log_dir, dataset_id = problem_id,
+    pp = EnsembleTuningPipeline(pipeline_files_dir = data_dir, log_dir = log_dir,
                  pids = pids, candidate_choose_method = choose_method, report = None, problem = problem, 
                  test_dataset = dataset, train_dataset = dataset, problem_doc_metadata = problem_doc_metadata)
     pp.generate_ensemble_pipeline()
