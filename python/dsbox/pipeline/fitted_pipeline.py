@@ -145,14 +145,14 @@ class FittedPipeline:
             structure['metric'] = metric
             structure['metric_value'] = value
         else:
-            print("[WARN] Metric type of the pipeline is unknown, unable to calculate the rank of the pipeline")
+            _logger("[WARN] Metric type of the pipeline is unknown, unable to calculate the rank of the pipeline")
 
         if self.template:
             structure['template_name'] = self.template.template['name']
             structure['template_taskType'] = str(self.template.template['taskType'])
             structure['template_taskSubtype'] = str(self.template.template['taskSubtype'])
         else:
-            print("[WARN] Template type of the pipeline is unknown, unable to save template name / taskType / taskSubtype")
+            _logger("[WARN] Template type of the pipeline is unknown, unable to save template name / taskType / taskSubtype")
 
         if self.problem:
             problem_meta = self.problem.query(())['about']
@@ -162,7 +162,7 @@ class FittedPipeline:
             except:
                 structure['problem_taskSubType'] = "NONE"
         else:
-            print("[WARN] problem type of the pipeline is unknown, unable to save problem taskType / taskSubtype")
+            _logger("[WARN] problem type of the pipeline is unknown, unable to save problem taskType / taskSubtype")
 
         structure['total_time_used'] = self.runtime.timing["total_time_used"]
 
