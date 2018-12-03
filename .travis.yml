@@ -17,7 +17,7 @@ install:
   - conda info -a
   - conda create --name ta2-env python=3.6
   - source activate ta2-env
-  
+  - sudo apt-get install libgnutls28-dev
   - pip install -e git+https://gitlab.com/kethiayao/d3m@fitted-pipeline#egg=d3m --progress-bar off
   - pip install -e git+https://gitlab.com/datadrivendiscovery/common-primitives@master#egg=common-primitives --progress-bar off
   - pip install -e git+https://gitlab.com/datadrivendiscovery/sklearn-wrap@dist#egg=sklearn-wrap --progress-bar off
