@@ -11,7 +11,7 @@ from dsbox.pipeline.fitted_pipeline import FittedPipeline
 from dsbox.pipeline.utils import larger_is_better
 from dsbox.combinatorial_search.ConfigurationSpaceBaseSearch import calculate_score, SpecialMetric
 from dsbox.combinatorial_search.search_utils import get_target_columns
-from d3m.metadata.problem import parse_problem_description
+from d3m.metadata.problem import parse_problem_description, TaskType
 from d3m import runtime as runtime_module, container
 from d3m.metadata import pipeline as pipeline_module
 from d3m.metadata.base import ALL_ELEMENTS, Metadata
@@ -229,33 +229,49 @@ class EnsembleTuningPipeline:
         # way 2: check the similarity of each prediction results, only choose the low similarity predictions
         elif self.candidate_choose_method == 'resultSimilarity':
             # TODO: add a method to check the similarity of the predictions
-            target_len_ensemble_pipeline_pids = 3
-            ensemble_predicts = self.report_ensemble['report']['ensemble_dataset_predictions']
+            ensemble_predicts = self.report['report']['ensemble_dataset_predictions']
             pipeline_ids = list(ensemble_predicts.keys())
             pipelines_count = len(pipeline_ids)
-            len_candidate = len()
+
+            target_len_ensemble_pipeline_pids = 5
+            if pipelines_count < target_len_ensemble_pipeline_pids:
+                target_len_ensemble_pipeline_pids = pipelines_count
+
             similarity_matrix = {}
             # calculate the similarity of each predictions
+
+
             for i in range(pipelines_count):
                 for j in range(i + 1, pipelines_count):
                     temp1 = ensemble_predicts[pipeline_ids[i]]['ensemble_tuning_result']
                     temp2 = ensemble_predicts[pipeline_ids[j]]['ensemble_tuning_result']
-                    temp_score = calculate_score(temp1, temp2, self.performance_metrics, self.task_type, SpecialMetric().regression_metric)
+
+                    if self.task_type == TaskType.CLASSIFICATION:
+                        # if classification problem, use accuracy instead of f1marco
+                        temp_metric = copy.deepcopy(self.performance_metrics)
+                        temp_metric[0]['metric'] = 'accuracy'
+                        temp_score = calculate_score(temp1, temp2, temp_metric, self.task_type, SpecialMetric().regression_metric)
+                    elif self.task_type == TaskType.REGRESSION:
+                        # if regression problem, use MSE instead of f1marco
+                        temp_metric = copy.deepcopy(self.performance_metrics)
+                        temp_metric[0]['metric'] = 'mean_squared_error'
+                        temp_score = calculate_score(temp1, temp2, temp_metric, self.task_type, SpecialMetric().regression_metric)
+
                     similarity_matrix[(i,j)] = temp_score[0]['value']
+
             similarity_matrix_list = []
             for k, v in similarity_matrix.items():
                 similarity_matrix_list.append([v,k])
             similarity_matrix_list = sorted(similarity_matrix_list,key=lambda x: x[0])
             similarity_matrix_list.reverse()
 
-            while len(ensemble_pipeline_pids) < target_len_ensemble_pipeline_pids:
+            self.pids = []
+            while len(self.pids) < target_len_ensemble_pipeline_pids:
                 temp = similarity_matrix_list.pop()
                 for each in temp[1]:
                     pid_each = pipeline_ids[each]
-                    if pid_each not in ensemble_pipeline_pids:
-                        ensemble_pipeline_pids.append(pid_each)
-                        # UNFINISHED HERE!!!!
-
+                    if pid_each not in self.pids:
+                        self.pids.append(pid_each)
 
 
 def set_target_column(dataset):

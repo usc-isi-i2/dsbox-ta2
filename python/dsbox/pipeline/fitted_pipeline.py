@@ -145,14 +145,14 @@ class FittedPipeline:
             structure['metric'] = metric
             structure['metric_value'] = value
         else:
-            _logger("[WARN] Metric type of the pipeline is unknown, unable to calculate the rank of the pipeline")
+            _logger.warn("[WARN] Metric type of the pipeline is unknown, unable to calculate the rank of the pipeline")
 
         if self.template:
             structure['template_name'] = self.template.template['name']
             structure['template_taskType'] = str(self.template.template['taskType'])
             structure['template_taskSubtype'] = str(self.template.template['taskSubtype'])
         else:
-            _logger("[WARN] Template type of the pipeline is unknown, unable to save template name / taskType / taskSubtype")
+            _logger.warn("[WARN] Template type of the pipeline is unknown, unable to save template name / taskType / taskSubtype")
 
         if self.problem:
             problem_meta = self.problem.query(())['about']
@@ -162,7 +162,7 @@ class FittedPipeline:
             except:
                 structure['problem_taskSubType'] = "NONE"
         else:
-            _logger("[WARN] problem type of the pipeline is unknown, unable to save problem taskType / taskSubtype")
+            _logger.warn("[WARN] problem type of the pipeline is unknown, unable to save problem taskType / taskSubtype")
 
         structure['total_time_used'] = self.runtime.timing["total_time_used"]
 
@@ -186,13 +186,31 @@ class FittedPipeline:
         # save subpipelines if exists
         for each_step in self.pipeline.steps:
             if isinstance(each_step, SubpipelineStep):
+                need_save = True
                 json_loc = os.path.join(pipeline_dir, each_step.pipeline.id + '.json')
                 subpipeline_structure = each_step.pipeline.to_json_structure()
-                with open(json_loc, 'w') as out:
-                    json.dump(subpipeline_structure, out)
+
+                # if pipeline already exist, check it
+                if os.path.exists(json_loc):
+                    with open(json_loc, 'r') as out:
+                        temp_pipeline = json.load(out)
+                        if 'pipeline_rank' not in temp_pipeline:
+                            _logger.warn("The sub-pipeline {} of pipeline {} do not have rank".format(each_step.pipeline.id, self.id))
+                        if 'steps' in temp_pipeline:
+                            if temp_pipeline['steps'] != subpipeline_structure:
+                                _logger.warn("The pipeline structure of {} is not same as new one.".format(each_step.pipeline.id))
+                            else:
+                                need_save = False
+                        else:
+                            _logger.warn("The original pipeline file of {} is not completed.".format(each_step.pipeline.id))
+
+                if need_save:
+                    with open(json_loc, 'w') as out:
+                        json.dump(subpipeline_structure, out)
 
         # save the detail supporting files
         assert len(self.runtime.steps_state) == len(self.pipeline.steps)
+        
         self.save_pickle_files(folder_loc, self.runtime)
 
     def save_pickle_files(self, folder_loc: str, input_runtime: Runtime) -> None:
@@ -210,6 +228,8 @@ class FittedPipeline:
                 file_loc = os.path.join(supporting_files_dir, "step_" + str(i) + ".pkl")
                 with open(file_loc, "wb") as f:
                     pickle.dump(each_step, f)
+
+        _logger.info("Saving pickle files of pipeline {} finished.".format(self.id))
 
     @classmethod
     def load(cls: typing.Type[TP], folder_loc: str,
