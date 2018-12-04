@@ -564,6 +564,12 @@ class Controller:
             for i in range(len(prediction_class_name)):
                 prediction = prediction.rename(
                     columns={prediction_col_name[i]: prediction_class_name[i]})
+        else:
+            prediction_col_name = list(prediction.columns)
+            prediction_col_name.remove('d3mIndex')
+            for i in range(len(prediction_class_name)):
+                prediction = prediction.rename(
+                    columns={prediction_col_name[i]: prediction_class_name[i]})
         return prediction
 
     def auto_regress_convert_and_add_metadata(self, dataset: "Dataset"):
@@ -899,6 +905,7 @@ class Controller:
         if not folder:
             os.makedirs(prediction_folder_loc)
         prediction.to_csv(prediction_folder_loc + "/predictions.csv", index=False)
+
         self._logger.info("[INFO] Finished: prediction results saving finished")
         self._logger.info(
             "[INFO] The prediction results is stored at: {}".format(prediction_folder_loc))
@@ -977,6 +984,8 @@ class Controller:
         folder = os.path.exists(prediction_folder_loc)
         if not folder:
             os.makedirs(prediction_folder_loc)
+
+        prediction = self.add_d3m_index_and_prediction_class_name(prediction)
         prediction.to_csv(prediction_folder_loc + "/predictions.csv", index=False)
         self._logger.info("[INFO] Finished: prediction results saving finished")
         self._logger.info(
