@@ -165,7 +165,7 @@ class FittedPipeline:
         else:
             _logger.warn("[WARN] problem type of the pipeline is unknown, unable to save problem taskType / taskSubtype")
 
-        structure['total_time_used'] = self.runtime.timing["total_time_used"]
+        # structure['total_time_used'] = self.runtime.timing["total_time_used"]
 
         # structure['total_time_used_without_cache'] = self.runtime.timing["total_time_used_without_cache"]
 
