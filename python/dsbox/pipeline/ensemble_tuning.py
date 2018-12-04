@@ -7,7 +7,6 @@ import json
 import d3m.primitives
 import d3m.exceptions as exceptions
 
-sys.path.append('/Users/muxin/Desktop/ISI/dsbox-env/dsbox-ta2/python')
 from dsbox.pipeline.fitted_pipeline import FittedPipeline
 from dsbox.pipeline.utils import larger_is_better
 from dsbox.combinatorial_search.ConfigurationSpaceBaseSearch import calculate_score, SpecialMetric
@@ -347,6 +346,32 @@ class HorizontalTuningPipeline(EnsembleTuningPipeline):
         final_output = self.big_pipeline.add_output(name="final", data_reference=big_output)
         self._logger.info("Ensemble pipeline created successfully")
 
+    def generate_candidate_pids(self) -> None: # select top 3 from the pipeline directory
+        if self.pids:
+            self._logger.warn("There already exist candidate pipeline ids")
+            return
+
+        pipeline_dir = os.path.join(self.pipeline_files_dir, "pipelines")
+        pip_candidate = {}
+        for p_name in os.listdir(pipeline_dir):
+            with open(pipeline_dir+"/"+p_name, "r") as f:
+                valid = True
+                if p_name != ".DS_Store":
+                    data = json.load(f)
+                else:
+                    continue
+                if "pipeline_rank" in data:
+                    for s in data["steps"]:
+                        if s["type"] == "SUBPIPELINE":
+                            valid = False
+                            break
+                    if valid:
+                        pip_candidate[data["id"]] = data["pipeline_rank"]
+        candidate = list(pip_candidate.keys())
+        candidate.sort(key=lambda x: pip_candidate[x])
+        self.pids = candidate[:3]
+        return
+
 
     def fit_and_produce(self):
         self.fitted_pipeline = FittedPipeline(pipeline=self.big_pipeline, dataset_id=self.dataset_id,
@@ -485,11 +510,13 @@ if __name__ == "__main__":
         problem_doc = json.load(file)
     problem_doc_metadata = Metadata(problem_doc)
     qq = HorizontalTuningPipeline(pipeline_files_dir=data_dir, log_dir=log_dir,
-                                  pids=pids, problem=problem, train_dataset=dataset,
+                                  pids=None, problem=problem, train_dataset=dataset,
                                   test_dataset=dataset, problem_doc_metadata=problem_doc_metadata
                                  )
+    qq.generate_candidate_pids()
+    print(qq.pids)
     qq.generate_ensemble_pipeline()
-    qq.fit_and_produce()
+    qq.fit_and_produce() 
     print(qq.fitted_pipeline.get_produce_step_output(0))
     qq.save()
 

@@ -28,7 +28,7 @@ from d3m.metadata.base import Metadata, DataMetadata, ALL_ELEMENTS
 from d3m.metadata.problem import TaskSubtype, parse_problem_description
 
 from dsbox.pipeline.fitted_pipeline import FittedPipeline
-from dsbox.pipeline.ensemble_tuning import EnsembleTuningPipeline
+from dsbox.pipeline.ensemble_tuning import EnsembleTuningPipeline, HorizontalTuningPipeline
 from dsbox.pipeline.utils import larger_is_better
 from dsbox.template.library import TemplateLibrary, HorizontalTemplate
 from dsbox.combinatorial_search.TemplateSpaceBaseSearch import TemplateSpaceBaseSearch
@@ -638,6 +638,20 @@ class Controller:
                 self._logger.error("[ERROR] ensemble tuning pipeline failed.")
                 traceback.print_exc()
 
+    def horizontal_tuning(self, final_step_primitive):
+        if not self.ensemble_dataset:
+            self._logger.error("No ensemble tuning dataset found")
+        else:
+            try:
+                qq = HorizontalTuningPipeline(pipeline_files_dir=self.output_directory, log_dir=self.output_logs_dir, pids=None, problem = self.problem, test_dataset = self.test_dataset1, train_dataset = self.train_dataset1, problem_doc_metadata = self.problem_doc_metadata, 
+                    final_step_primitive=final_step_primitive)
+                qq.generate_candidate_pids()
+                qq.generate_ensemble_pipeline()
+                qq.fit_and_produce()
+                qq.save()
+            except:
+                self._logger.error("[ERROR] horizontal tuning pipeline failed.")
+                traceback.print_exc()
 
 # each_prediction.at[1, 'inputs'] = self.ensemble_dataset[self.problem_info["res_id"]].loc[1].tolist()
     # @staticmethod
@@ -1011,18 +1025,6 @@ class Controller:
         self._check_and_set_dataset_metadata()
         self.generate_dataset_splits()
 
-        if self.do_horizontal_tune:
-            self.horizontal_template = HorizontalTemplate()
-            point = self.horizontal_template.generate_configuration_space()
-            pipeline = self.horizontal_template.to_pipeline(point.get_random_assignment())
-            horizontal_runtime = runtime_module.Runtime(pipeline)
-            try:
-                horizontal_runtime.fit(self.test_dataset2)
-                self.horizontal_output = horizontal_runtime.produce(self.test_dataset2)[0] #concate it with what?
-            except:
-                print("cannot generate horizontal features")
-                self.horizontal_output = None
-
         # FIXME) come up with a better way to implement this part. The fork does not provide a way
         # FIXME) to catch the errors of the child process
         with mplog.open_queue() as log_queue:
@@ -1037,7 +1039,7 @@ class Controller:
             proc = Process(target=mplog.logged_call,
                            args=(log_queue, self._run_ParallelBaseSearch, self.report_ensemble))
             # proc = Process(target=mplog.logged_call,
-                           # args=(log_queue, self._run_SerialBaseSearch, self.report_ensemble))
+            #                args=(log_queue, self._run_SerialBaseSearch, self.report_ensemble))
 
             proc.start()
             self._logger.info('Searching is finished')
@@ -1048,6 +1050,14 @@ class Controller:
         if self.do_ensemble_tune:
             self._logger.info("Normal searching finished, now starting ensemble tuning")
             self.ensemble_tuning(self.report_ensemble)
+
+            status = proc.exitcode
+            print("[INFO] Search Status:")
+            pprint.pprint(status)
+
+        if self.do_horizontal_tune:
+            self._logger.info("Starting horizontal tuning")
+            self.horizontal_tuning("d3m.primitives.sklearn_wrap.SKBernoulliNB")
 
             status = proc.exitcode
             print("[INFO] Search Status:")
@@ -1220,7 +1230,7 @@ class Controller:
             self._logger.info("Random sampling on rows Finished.")
 
         # if we need to do ensemble tune, we split one extra time
-        if self.do_ensemble_tune:
+        if self.do_ensemble_tune or self.do_horizontal_tune:
             self.train_dataset1, self.ensemble_dataset = self.split_dataset(dataset=self.all_dataset, test_size = 0.1)
             self.train_dataset1 = self.train_dataset1[0]
             self.ensemble_dataset = self.ensemble_dataset[0]
