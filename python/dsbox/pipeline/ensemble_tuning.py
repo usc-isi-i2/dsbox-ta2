@@ -198,8 +198,6 @@ class EnsembleTuningPipeline:
                 all_predicionts: save the detail prediction results on ensemble_dataset
                 all_predicionts_id: save the pipeline id of the best pipelines
             '''
-            import pdb
-            pdb.set_trace()
             for key, value in self.report['report']['ensemble_dataset_predictions'].items():
                 pipeline_description = value['pipeline']
                 each_prediction = value['ensemble_tuning_result']
