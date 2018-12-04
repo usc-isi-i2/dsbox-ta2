@@ -7,6 +7,7 @@ import json
 import d3m.primitives
 import d3m.exceptions as exceptions
 
+sys.path.append('/Users/muxin/Desktop/ISI/dsbox-env/dsbox-ta2/python')
 from dsbox.pipeline.fitted_pipeline import FittedPipeline
 from dsbox.pipeline.utils import larger_is_better
 from dsbox.combinatorial_search.ConfigurationSpaceBaseSearch import calculate_score, SpecialMetric
@@ -15,6 +16,9 @@ from d3m.metadata.problem import parse_problem_description, TaskType
 from d3m import runtime as runtime_module, container
 from d3m.metadata import pipeline as pipeline_module
 from d3m.metadata.base import ALL_ELEMENTS, Metadata
+from d3m import index as d3m_index
+
+
 
 class EnsembleTuningPipeline:
     """
@@ -116,6 +120,7 @@ class EnsembleTuningPipeline:
             else:
                 each_concact_step.add_argument(name='inputs1', argument_type=pipeline_module.ArgumentType.CONTAINER, data_reference=concat_step_output)
             each_concact_step.add_argument(name='inputs2', argument_type=pipeline_module.ArgumentType.CONTAINER, data_reference=step_outputs[i+1])
+
 
             self.voting_pipeline.add_step(each_concact_step)
             # update concat_step_output
@@ -273,6 +278,154 @@ class EnsembleTuningPipeline:
                     if pid_each not in self.pids:
                         self.pids.append(pid_each)
 
+class HorizontalTuningPipeline(EnsembleTuningPipeline):
+    def __init__(self, pipeline_files_dir: str, log_dir: str, 
+                 train_dataset: container.Dataset, 
+                 test_dataset: container.Dataset, 
+                 pids: typing.List[str] = None,
+                 candidate_choose_method: str = 'lastStep',
+                 report = None, problem = None, 
+                 problem_doc_metadata = None, 
+                 final_step_primitive: str = "d3m.primitives.sklearn_wrap.SKBernoulliNB"):
+        super().__init__(pipeline_files_dir, log_dir, 
+                 train_dataset, test_dataset, 
+                 pids, candidate_choose_method, report, 
+                 problem, problem_doc_metadata)
+        self.final_step_primitive = final_step_primitive
+
+    def generate_ensemble_pipeline(self):
+        if not self.pids:
+            raise ValueError("No candidate pipeline ids found, unable to generate the ensemble pipeline.")
+        elif len(self.pids) == 1:
+            raise ValueError("Only 1 candidate pipeline id found, unable to generate the ensemble pipeline.")        
+        step_outputs = []
+        self.big_pipeline, pipeline_output, pipeline_input, target = self.preprocessing_pipeline()
+        for each_pid in self.pids:
+            each_dsbox_fitted, each_runtime = FittedPipeline.load(self.pipeline_files_dir, each_pid, self.log_dir)
+            each_fitted = runtime_module.FittedPipeline(each_pid, each_runtime, context=pipeline_module.PipelineContext.TESTING)
+            each_step = pipeline_module.FittedPipelineStep(each_fitted.id, each_fitted)
+            each_step.add_input(pipeline_input)
+            self.big_pipeline.add_step(each_step)
+            step_outputs.append(each_step.add_output('output'))
+
+        concat_step = pipeline_module.PrimitiveStep({
+            "python_path": "d3m.primitives.dsbox.HorizontalConcat", 
+            "id": "dsbox-horizontal-concat", 
+            "version": "1.3.0",
+            "name": "DSBox horizontal concat"
+            })
+        for i in range(len(self.pids) - 1):
+            each_concact_step = copy.deepcopy(concat_step)
+            if i == 0:
+                each_concact_step.add_argument(name='inputs1', argument_type=pipeline_module.ArgumentType.CONTAINER, data_reference=step_outputs[i])
+            else:
+                each_concact_step.add_argument(name='inputs1', argument_type=pipeline_module.ArgumentType.CONTAINER, data_reference=concat_step_output)
+            each_concact_step.add_argument(name='inputs2', argument_type=pipeline_module.ArgumentType.CONTAINER, data_reference=step_outputs[i+1])
+            each_concact_step.add_hyperparameter(name="column_name", argument_type=pipeline_module.ArgumentType.VALUE, data=i)
+
+            self.big_pipeline.add_step(each_concact_step)
+            # update concat_step_output
+            concat_step_output = each_concact_step.add_output('produce')
+
+        encode_res_step = pipeline_module.PrimitiveStep(dict(d3m_index.get_primitive("d3m.primitives.dsbox.Encoder").metadata.query()))
+        encode_res_step.add_argument(name="inputs", argument_type=pipeline_module.ArgumentType.CONTAINER, data_reference=concat_step_output)
+        self.big_pipeline.add_step(encode_res_step)
+        encode_res_step_output = encode_res_step.add_output("produce")
+
+        concat_step1 = pipeline_module.PrimitiveStep(dict(d3m_index.get_primitive("d3m.primitives.data.HorizontalConcat").metadata.query()))
+        concat_step1.add_argument(name="left", argument_type=pipeline_module.ArgumentType.CONTAINER, data_reference=encode_res_step_output)
+        concat_step1.add_argument(name="right", argument_type=pipeline_module.ArgumentType.CONTAINER, data_reference=pipeline_output)
+        concat_step1.add_hyperparameter(name="use_index", argument_type=pipeline_module.ArgumentType.VALUE, data=False)
+        self.big_pipeline.add_step(concat_step1)
+        concat_output1 = concat_step1.add_output("produce")
+
+        model_step = pipeline_module.PrimitiveStep(dict(d3m_index.get_primitive(self.final_step_primitive).metadata.query()))
+        model_step.add_argument(name="inputs", argument_type=pipeline_module.ArgumentType.CONTAINER, data_reference=concat_output1)
+        model_step.add_argument(name="outputs", argument_type=pipeline_module.ArgumentType.CONTAINER, data_reference=target)
+        self.big_pipeline.add_step(model_step)
+        big_output = model_step.add_output("produce")
+        final_output = self.big_pipeline.add_output(name="final", data_reference=big_output)
+        self._logger.info("Ensemble pipeline created successfully")
+
+
+    def fit_and_produce(self):
+        self.fitted_pipeline = FittedPipeline(pipeline=self.big_pipeline, dataset_id=self.dataset_id,
+                                              log_dir=self.log_dir, metric_descriptions="pass")
+        if self.performance_metrics and self.task_type:
+            self._logger.info("Will calculate the metric scores")
+            # In ensemble tuning, we should not use cache
+            self.fitted_pipeline.runtime.set_not_use_cache()
+            if self.test_dataset:
+                self.fitted_pipeline.fit(inputs=[self.train_dataset])
+                self.fitted_pipeline.produce(inputs=[self.test_dataset])
+
+            prediction = self.fitted_pipeline.get_produce_step_output(0)
+            ground_truth = get_target_columns(self.test_dataset, self.problem_doc_metadata)
+            score_metric = calculate_score(ground_truth, prediction, self.performance_metrics, self.task_type, SpecialMetric().regression_metric)
+
+            if type(score_metric) is list:
+                    score_metric = score_metric[0]
+            self.fitted_pipeline.set_metric(score_metric)
+
+        if self.problem:
+            self.fitted_pipeline.problem = self.problem_doc_metadata
+        self._logger.info("Ensemble pipeline fitted and produced successfully")
+
+
+    def preprocessing_pipeline(self):
+        preprocessing_pipeline = pipeline_module.Pipeline('big', context=pipeline_module.PipelineContext.TESTING)
+        initial_input = preprocessing_pipeline.add_input(name="inputs")
+        denormalize_step = pipeline_module.PrimitiveStep(dict(d3m_index.get_primitive("d3m.primitives.dsbox.Denormalize").metadata.query()))
+        denormalize_step.add_argument(name="inputs", argument_type=pipeline_module.ArgumentType.CONTAINER, data_reference=initial_input)
+        preprocessing_pipeline.add_step(denormalize_step)
+        denormalize_step_output = denormalize_step.add_output('produce')
+        to_dataframe_step = pipeline_module.PrimitiveStep(dict(d3m_index.get_primitive("d3m.primitives.datasets.DatasetToDataFrame").metadata.query()))
+        to_dataframe_step.add_argument(name="inputs", argument_type=pipeline_module.ArgumentType.CONTAINER, data_reference=denormalize_step_output)
+        preprocessing_pipeline.add_step(to_dataframe_step)
+        to_dataframe_step_output = to_dataframe_step.add_output("produce")
+        extract_attribute_step = pipeline_module.PrimitiveStep(dict(d3m_index.get_primitive("d3m.primitives.data.ExtractColumnsBySemanticTypes").metadata.query()))
+        extract_attribute_step.add_argument(name="inputs", argument_type=pipeline_module.ArgumentType.CONTAINER, data_reference=to_dataframe_step_output)
+        preprocessing_pipeline.add_step(extract_attribute_step)
+        extract_attribute_step_output = extract_attribute_step.add_output("produce")
+        extract_attribute_step.add_hyperparameter(name='semantic_types',argument_type=pipeline_module.ArgumentType.VALUE, data=(
+                                        'https://metadata.datadrivendiscovery.org/types/PrimaryKey',
+                                        'https://metadata.datadrivendiscovery.org/types/Attribute',
+                                        ))
+        profiler_step = pipeline_module.PrimitiveStep(dict(d3m_index.get_primitive("d3m.primitives.dsbox.Profiler").metadata.query()))
+        profiler_step.add_argument(name="inputs", argument_type=pipeline_module.ArgumentType.CONTAINER, data_reference=extract_attribute_step_output)
+        preprocessing_pipeline.add_step(profiler_step)
+        profiler_step_output = profiler_step.add_output("produce")
+        clean_step = pipeline_module.PrimitiveStep(dict(d3m_index.get_primitive("d3m.primitives.dsbox.CleaningFeaturizer").metadata.query()))
+        clean_step.add_argument(name="inputs", argument_type=pipeline_module.ArgumentType.CONTAINER, data_reference=profiler_step_output)
+        preprocessing_pipeline.add_step(clean_step)
+        clean_step_output = clean_step.add_output("produce")
+        corex_step = pipeline_module.PrimitiveStep(dict(d3m_index.get_primitive("d3m.primitives.dsbox.CorexText").metadata.query()))
+        corex_step.add_argument(name="inputs", argument_type=pipeline_module.ArgumentType.CONTAINER, data_reference=clean_step_output)
+        preprocessing_pipeline.add_step(corex_step)
+        corex_step_output = corex_step.add_output("produce")
+        encoder_step = pipeline_module.PrimitiveStep(dict(d3m_index.get_primitive("d3m.primitives.dsbox.Encoder").metadata.query()))
+        encoder_step.add_argument(name="inputs", argument_type=pipeline_module.ArgumentType.CONTAINER, data_reference=corex_step_output)
+        preprocessing_pipeline.add_step(encoder_step)
+        encoder_step_output = encoder_step.add_output("produce")
+        impute_step = pipeline_module.PrimitiveStep(dict(d3m_index.get_primitive("d3m.primitives.dsbox.MeanImputation").metadata.query()))
+        impute_step.add_argument(name="inputs", argument_type=pipeline_module.ArgumentType.CONTAINER, data_reference=encoder_step_output)
+        preprocessing_pipeline.add_step(impute_step)
+        impute_step_output = impute_step.add_output("produce")
+        scalar_step = pipeline_module.PrimitiveStep(dict(d3m_index.get_primitive("d3m.primitives.dsbox.IQRScaler").metadata.query()))
+        scalar_step.add_argument(name="inputs", argument_type=pipeline_module.ArgumentType.CONTAINER, data_reference=impute_step_output)
+        preprocessing_pipeline.add_step(scalar_step)
+        scalar_step_output = scalar_step.add_output("produce")
+        extract_target_step = pipeline_module.PrimitiveStep(dict(d3m_index.get_primitive("d3m.primitives.data.ExtractColumnsBySemanticTypes").metadata.query()))
+        extract_target_step.add_argument(name="inputs", argument_type=pipeline_module.ArgumentType.CONTAINER, data_reference=to_dataframe_step_output)
+        preprocessing_pipeline.add_step(extract_target_step)
+        extract_target_step_output = extract_target_step.add_output("produce")
+        extract_target_step.add_hyperparameter(name='semantic_types',argument_type=pipeline_module.ArgumentType.VALUE, data=(
+                                                  'https://metadata.datadrivendiscovery.org/types/Target',
+                                                  'https://metadata.datadrivendiscovery.org/types/TrueTarget'
+                                                  ))
+        # preprocessing_pipeline.add_output(name="produce", data_reference=scalar_step_output)
+        return preprocessing_pipeline, scalar_step_output, initial_input, extract_target_step_output
+
 
 def set_target_column(dataset):
     """
@@ -299,27 +452,47 @@ def set_target_column(dataset):
 # unit test part
 # sys.path.append('/Users/minazuki/Desktop/studies/master/2018Summer/DSBOX_new/dsbox-ta2/python')
 if __name__ == "__main__":
-    data_dir = '/Users/minazuki/Desktop/studies/master/2018Summer/data'
-    log_dir = '/Users/minazuki/Desktop/studies/master/2018Summer/data/log'
-    pids = ['3c5f6bfa-4d3b-43b4-a371-af7be9e2a938','bcdab3e5-eb82-438c-83cb-d7f851754536',
-            'c0b4d68e-16ca-4042-9d51-8df706a7ecf1','7370ab30-c7cf-461e-a94b-f7a50ebbaaf0']
+    # data_dir = '/Users/minazuki/Desktop/studies/master/2018Summer/data'
+    # log_dir = '/Users/minazuki/Desktop/studies/master/2018Summer/data/log'
+    # pids = ['3c5f6bfa-4d3b-43b4-a371-af7be9e2a938','bcdab3e5-eb82-438c-83cb-d7f851754536',
+    #         'c0b4d68e-16ca-4042-9d51-8df706a7ecf1','7370ab30-c7cf-461e-a94b-f7a50ebbaaf0']
 
-    dataset = container.Dataset.load('file:///Users/minazuki/Desktop/studies/master/2018Summer/data/datasets/seed_datasets_current/38_sick/38_sick_dataset/datasetDoc.json')
+    # dataset = container.Dataset.load('file:///Users/minazuki/Desktop/studies/master/2018Summer/data/datasets/seed_datasets_current/38_sick/38_sick_dataset/datasetDoc.json')
+    # set_target_column(dataset)
+
+    # problem_doc_path = os.path.abspath('/Users/minazuki/Desktop/studies/master/2018Summer/data/datasets/seed_datasets_current/38_sick/38_sick_problem/problemDoc.json')
+
+    # problem = parse_problem_description(problem_doc_path)
+    # choose_method = 'lastStep'
+    # with open(problem_doc_path) as file:
+    #     problem_doc = json.load(file)
+    # problem_doc_metadata = Metadata(problem_doc)
+
+    # pp = EnsembleTuningPipeline(pipeline_files_dir = data_dir, log_dir = log_dir,
+    #              pids = pids, candidate_choose_method = choose_method, report = None, problem = problem, 
+    #              test_dataset = dataset, train_dataset = dataset, problem_doc_metadata = problem_doc_metadata)
+    # pp.generate_ensemble_pipeline()
+    # pp.fit_and_produce()
+    # pp.save()
+    data_dir = "/Users/muxin/Desktop/ISI/dsbox-env/output/seed/38_sick/"
+    log_dir = '/Users/muxin/Desktop/studies/master/2018Summer/data/log'
+    pids = ['32b24d72-44c6-4956-bc21-835cb42f0f2e', 'a8f4001a-64f4-4ff1-a89d-3548f4dfeb88', '5e1d9723-ec02-46d2-abdf-46389fba8e52']
+    dataset = container.Dataset.load('file:///Users/muxin/Desktop/ISI/dsbox-env/data/datasets/seed_datasets_current/38_sick/38_sick_dataset/datasetDoc.json')
     set_target_column(dataset)
-
-    problem_doc_path = os.path.abspath('/Users/minazuki/Desktop/studies/master/2018Summer/data/datasets/seed_datasets_current/38_sick/38_sick_problem/problemDoc.json')
-
+    problem_doc_path = os.path.abspath("/Users/muxin/Desktop/ISI/dsbox-env/data/datasets/seed_datasets_current/38_sick/38_sick_problem/problemDoc.json")
     problem = parse_problem_description(problem_doc_path)
-    choose_method = 'lastStep'
     with open(problem_doc_path) as file:
         problem_doc = json.load(file)
     problem_doc_metadata = Metadata(problem_doc)
+    qq = HorizontalTuningPipeline(pipeline_files_dir=data_dir, log_dir=log_dir,
+                                  pids=pids, problem=problem, train_dataset=dataset,
+                                  test_dataset=dataset, problem_doc_metadata=problem_doc_metadata
+                                 )
+    qq.generate_ensemble_pipeline()
+    qq.fit_and_produce()
+    print(qq.fitted_pipeline.get_produce_step_output(0))
+    qq.save()
 
-    pp = EnsembleTuningPipeline(pipeline_files_dir = data_dir, log_dir = log_dir,
-                 pids = pids, candidate_choose_method = choose_method, report = None, problem = problem, 
-                 test_dataset = dataset, train_dataset = dataset, problem_doc_metadata = problem_doc_metadata)
-    pp.generate_ensemble_pipeline()
-    pp.fit_and_produce()
-    pp.save()
+
 
 

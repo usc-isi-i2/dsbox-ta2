@@ -97,9 +97,9 @@ dsbox_fitted0, runtime0 = FittedPipeline.load(pipelines_dir, pid0, log_dir)
 dsbox_fitted1, runtime1 = FittedPipeline.load(pipelines_dir, pid1, log_dir)
 dsbox_fitted2, runtime2 = FittedPipeline.load(pipelines_dir, pid2, log_dir)
 
-fitted0 = runtime_module.FittedPipeline('fp0', runtime0, context=pipeline_module.PipelineContext.TESTING)
-fitted1 = runtime_module.FittedPipeline('fp1', runtime1, context=pipeline_module.PipelineContext.TESTING)
-fitted2 = runtime_module.FittedPipeline('fp2', runtime2, context=pipeline_module.PipelineContext.TESTING)
+fitted0 = runtime_module.FittedPipeline(pid0, runtime0, context=pipeline_module.PipelineContext.TESTING)
+fitted1 = runtime_module.FittedPipeline(pid1, runtime1, context=pipeline_module.PipelineContext.TESTING)
+fitted2 = runtime_module.FittedPipeline(pid2, runtime2, context=pipeline_module.PipelineContext.TESTING)
 
 
 # big_pipeline = pipeline_module.Pipeline('voting', context=pipeline_module.PipelineContext.TESTING)
@@ -132,9 +132,9 @@ concat_step = pipeline_module.PrimitiveStep({
     "version": "1.3.0",
     "name": "DSBox horizontal concat"
     })
-concat_step.add_argument(name='inputs', argument_type=pipeline_module.ArgumentType.CONTAINER, data_reference=step_0_output)
-concat_step.add_argument(name='inputs1', argument_type=pipeline_module.ArgumentType.CONTAINER, data_reference=step_1_output)
-concat_step.add_argument(name='inputs2', argument_type=pipeline_module.ArgumentType.CONTAINER, data_reference=step_2_output)
+concat_step.add_argument(name='inputs1', argument_type=pipeline_module.ArgumentType.CONTAINER, data_reference=step_0_output)
+concat_step.add_argument(name='inputs2', argument_type=pipeline_module.ArgumentType.CONTAINER, data_reference=step_1_output)
+# concat_step.add_argument(name='inputs2', argument_type=pipeline_module.ArgumentType.CONTAINER, data_reference=step_2_output)
 big_pipeline.add_step(concat_step)
 concat_step_output = concat_step.add_output('produce')
 
@@ -267,47 +267,27 @@ final_output = big_pipeline.add_output(name="final", data_reference=big_output)
 # big_pipeline.add_step(unfold_step)
 # big_output = unfold_step.add_output("produce")
 # big_pipeline.add_output(name="unfold", data_reference=big_output)
-runtime = runtime_module.Runtime(big_pipeline)
 dataset = container.Dataset.load('file:///Users/muxin/Desktop/ISI/dsbox-env/data/datasets/seed_datasets_current/38_sick/38_sick_dataset/datasetDoc.json')
 set_target_column(dataset)
-runtime.fit([dataset])
-res = runtime.produce([dataset])
-import pdb
-pdb.set_trace()
 
 
-# runtime = runtime_module.Runtime(big_pipeline)
+# # import logging
+# # _logger = logging.getLogger(__name__)
 
-# dataset = container.Dataset.load('file:///Users/muxin/Desktop/ISI/dsbox-env/data/datasets/seed_datasets_current/38_sick/38_sick_dataset/datasetDoc.json')
-# set_target_column(dataset)
-# runtime.fit([dataset])
+test_fitted = FittedPipeline(pipeline=big_pipeline, dataset_id="aaa", log_dir="log")
+test_fitted.runtime.set_not_use_cache()
+test_fitted.fit(inputs=[dataset])
+test_fitted.produce(inputs=[dataset])
+
 # import pdb
 # pdb.set_trace()
-# voting_pipeline.add_output(name='Metafeatures', data_reference=concat_step_output)
-# res=runtime.produce([dataset])
+# test_fitted.save("./")
+# my_pip, my_runtime = FittedPipeline.load(folder_loc="./", pipeline_id="08c69b23-7f63-48a0-8ebe-e90844e8df5a", log_dir="rua")
+# my_pip.runtime.set_not_use_cache()
 
-
-
-# vote_step = pipeline_module.PrimitiveStep({
-#     "python_path": "d3m.primitives.dsbox.EnsembleVoting",
-#     "id": "dsbox-ensemble-voting",
-#     "version": "1.3.0",
-#     "name": "DSBox ensemble voting"})
-# vote_step.add_argument(name='inputs', argument_type=pipeline_module.ArgumentType.CONTAINER, data_reference=concat_step_output)
-# voting_pipeline.add_step(vote_step)
-# voting_output = vote_step.add_output('produce')
-
-# voting_pipeline.add_output(name='Metafeatures', data_reference=voting_output)
-
-
-# runtime = runtime_module.Runtime(voting_pipeline)
-
-# dataset = container.Dataset.load('file:///Users/muxin/Desktop/ISI/dsbox-env/data/datasets/seed_datasets_current/38_sick/38_sick_dataset/datasetDoc.json')
-# set_target_column(dataset)
-
-# runtime.fit([dataset])
+# my_pip.produce(inputs=[dataset])
 # import pdb
 # pdb.set_trace()
-# res=runtime.produce([dataset])
+# my_pip.produce()
 
-print("?")
+print("???")
