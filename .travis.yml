@@ -17,9 +17,10 @@ install:
   - conda info -a
   - conda create --name ta2-env python=3.6
   - source activate ta2-env
-  - pip install -e git+https://gitlab.com/datadrivendiscovery/d3m@devel#egg=d3m --progress-bar off
+  - sudo apt-get install libgnutls28-dev
+  - pip install -e git+https://gitlab.com/kethiayao/d3m@fitted-pipeline#egg=d3m --progress-bar off
   - pip install -e git+https://gitlab.com/datadrivendiscovery/common-primitives@master#egg=common-primitives --progress-bar off
-  - pip install -e git+https://gitlab.com/datadrivendiscovery/sklearn-wrap@dev-dist#egg=sklearn-wrap --progress-bar off
+  - pip install -e git+https://gitlab.com/datadrivendiscovery/sklearn-wrap@dist#egg=sklearn-wrap --progress-bar off
   - pip install -e git+https://github.com/usc-isi-i2/dsbox-cleaning@master#egg=dsbox-datacleaning --progress-bar off
   - pip install -e git+https://github.com/usc-isi-i2/dsbox-featurizer@master#egg=dsbox-featurizer --progress-bar off
   - pip install -e git+https://github.com/brekelma/dsbox_corex@master#egg=dsbox_corex --progress-bar off
