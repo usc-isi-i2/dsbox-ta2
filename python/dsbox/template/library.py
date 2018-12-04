@@ -6,7 +6,6 @@ import numpy as np
 from d3m import index
 from d3m.container.dataset import SEMANTIC_TYPES
 from d3m.metadata.problem import TaskType, TaskSubtype
-from d3m.container.list import List
 from dsbox.template.template import TemplatePipeline, DSBoxTemplate
 from .template_steps import TemplateSteps
 import copy
@@ -174,7 +173,7 @@ class TemplateLibrary:
         # self.templates.append(DefaultTimeseriesRegressionTemplate)
 
         # default tabular templates, encompassing many of the templates below
-        # self.templates.append(DefaultClassificationTemplate)
+        self.templates.append(DefaultClassificationTemplate)
         self.templates.append(NaiveBayesClassificationTemplate)
         # self.templates.append(DefaultRegressionTemplate)
 

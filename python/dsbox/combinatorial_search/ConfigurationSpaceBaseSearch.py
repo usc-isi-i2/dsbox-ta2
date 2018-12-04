@@ -369,7 +369,7 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
             # set the metric for calculating the rank
             fitted_pipeline2.set_metric(training_metrics[0])
             ensemble_tuning_result = None
-            ensemble_tuning_matrix = None
+            ensemble_tuning_metrics = None
             cv = fitted_pipeline2.get_cross_validation_metrics()
             if not cv:
                 cv = {}
@@ -383,7 +383,7 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
                 'total_runtime': time.time() - start_time,
                 'configuration': configuration,
                 'ensemble_tuning_result': ensemble_tuning_result,
-                'ensemble_tuning_matrix': ensemble_tuning_matrix,
+                'ensemble_tuning_metrics': ensemble_tuning_metrics,
             }
             fitted_pipeline.auxiliary = dict(data)
 
@@ -467,7 +467,7 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
                 fitted_pipeline_final.produce(inputs=[self.ensemble_tuning_dataset])
             ensemble_tuning_result = fitted_pipeline_final.get_produce_step_output(self.template.get_output_step_number())
             ensemble_tuning_result_ground_truth = get_target_columns(self.ensemble_tuning_dataset, self.problem)
-            ensemble_tuning_matrix = calculate_score(ensemble_tuning_result_ground_truth, ensemble_tuning_result, 
+            ensemble_tuning_metrics = calculate_score(ensemble_tuning_result_ground_truth, ensemble_tuning_result, 
                 self.performance_metrics, self.task_type, SpecialMetric().regression_metric)
 
             cv = fitted_pipeline_final.get_cross_validation_metrics()
@@ -482,7 +482,7 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
                 'total_runtime': time.time() - start_time,
                 'configuration': configuration,
                 'ensemble_tuning_result': ensemble_tuning_result,
-                'ensemble_tuning_matrix': ensemble_tuning_matrix,
+                'ensemble_tuning_metrics': ensemble_tuning_metrics,
             }
             fitted_pipeline.auxiliary = dict(data)
 

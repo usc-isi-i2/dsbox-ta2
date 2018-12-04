@@ -3,24 +3,18 @@ import json
 import logging
 import os
 import random
-import sys
 import typing
 import uuid
 import shutil
 import traceback
-import numpy as np
 import pandas as pd
 import frozendict
 import copy
 import pprint
-import d3m
-import dsbox.template.runtime as runtime
 
-from math import sqrt, log
 from multiprocessing import Process,Manager
 from d3m import runtime as runtime_module
 from d3m.metadata.problem import TaskType
-from d3m.metadata import pipeline as pipeline_module
 from d3m.container.pandas import DataFrame as d3m_DataFrame
 from d3m.container.dataset import Dataset, D3MDatasetLoader
 from d3m.exceptions import NotSupportedError, InvalidArgumentValueError
@@ -29,23 +23,18 @@ from d3m.metadata.problem import TaskSubtype, parse_problem_description
 
 from dsbox.pipeline.fitted_pipeline import FittedPipeline
 from dsbox.pipeline.ensemble_tuning import EnsembleTuningPipeline
-from dsbox.pipeline.utils import larger_is_better
 from dsbox.template.library import TemplateLibrary, HorizontalTemplate
 from dsbox.combinatorial_search.TemplateSpaceBaseSearch import TemplateSpaceBaseSearch
-from dsbox.combinatorial_search.TemplateSpaceParallelBaseSearch import \
-    TemplateSpaceParallelBaseSearch
+from dsbox.combinatorial_search.TemplateSpaceParallelBaseSearch import TemplateSpaceParallelBaseSearch
 from dsbox.combinatorial_search.RandomDimensionalSearch import RandomDimensionalSearch
 from dsbox.combinatorial_search.BanditDimensionalSearch import BanditDimensionalSearch
 from dsbox.combinatorial_search.MultiBanditSearch import MultiBanditSearch
 from dsbox.combinatorial_search.search_utils import get_target_columns
-from dsbox.combinatorial_search.search_utils import random_choices_without_replacement
 from dsbox.template.template import DSBoxTemplate
-from dsbox.combinatorial_search.ConfigurationSpaceBaseSearch import calculate_score, SpecialMetric
 from sklearn.model_selection import StratifiedShuffleSplit, ShuffleSplit
 import dsbox.JobManager.mplog as mplog
 
 __all__ = ['Status', 'Controller']
-
 
 
 FILE_FORMATTER = "[%(levelname)s] - %(asctime)s - %(name)s - %(message)s"
@@ -108,8 +97,8 @@ class Controller:
             # creat a special dictionary that can collect the results in each processes
             m = Manager()
             self.report_ensemble = m.dict()
+            self.ensemble_voting_candidate_choose_method = 'lastStep'
             # self.ensemble_voting_candidate_choose_method = 'resultSimilarity'
-            self.ensemble_voting_candidate_choose_method = 'resultSimilarity'
 
         # Resource limits
         self.num_cpus: int = 0
@@ -140,7 +129,7 @@ class Controller:
 
         self.main_pid: int = os.getpid()
 
-    '''
+    """
         **********************************************************************
         Private method
         1. _check_and_set_dataset_metadata
@@ -154,7 +143,7 @@ class Controller:
         9. _run_RandomDimSearch
         10.
         **********************************************************************
-    '''
+    """
 
     def _check_and_set_dataset_metadata(self) -> None:
         # Need to make sure the Target and TrueTarget column semantic types are set
@@ -190,11 +179,11 @@ class Controller:
                 'At least one column should have semantic type SuggestedTarget')
 
     def _create_output_directory(self, config):
-        '''
+        """
         Create output sub-directories based on Summer 2018 evaluation layout.
 
         For the Summer 2018 evaluation the top-level output dir is '/output'
-        '''
+        """
         #### Official config entry for Evaluation
         if 'pipeline_logs_root' in config:
             self.output_pipelines_dir = os.path.abspath(config['pipeline_logs_root'])
@@ -506,7 +495,7 @@ class Controller:
 
         searchMethod.job_manager.kill_job_mananger()
 
-    '''
+    """
         **********************************************************************
         Public method (in alphabet)
         1 . auto_regress_convert
@@ -522,13 +511,13 @@ class Controller:
         11. train
         12. write_training_results
         **********************************************************************
-    '''
+    """
     def add_d3m_index_and_prediction_class_name(self, prediction, from_dataset = None):
-        '''
+        """
             The function to process the prediction results
             1. If no prediction column name founnd, add the prediction column name
             2. Add the d3m index into the output predictions
-        '''
+        """
         # setup an initial condition
         if not from_dataset:
             from_dataset = self.all_dataset
@@ -573,7 +562,7 @@ class Controller:
         return prediction
 
     def auto_regress_convert_and_add_metadata(self, dataset: "Dataset"):
-        '''
+        """
         Add metadata to the dataset from problem_doc_metadata
         If the dataset is timeseriesforecasting, do auto convert for timeseriesforecasting prob
         Paramters
@@ -582,7 +571,7 @@ class Controller:
             Dataset
         problem_doc_metadata:
             Metadata about the problemDoc
-        '''
+        """
         problem = self.problem_doc_metadata.query(())
         targets = problem["inputs"]["data"][0]["targets"]
         for each_target in range(len(targets)):
@@ -617,10 +606,10 @@ class Controller:
             return dataset
 
     def ensemble_tuning(self, ensemble_tuning_report):
-        '''
+        """
             function to do ensemble tuning
             Teporary put in our ta2 system controller part for testing purpose
-        '''
+        """
         if not self.ensemble_dataset:
             self._logger.error("No ensemble tuning dataset found!")
 
@@ -662,9 +651,9 @@ class Controller:
     #     return SimpleConfigurationSpace(values)
 
     def initialize_from_config_for_evaluation(self, config: typing.Dict) -> None:
-        '''
+        """
             This function for running ta2_evaluation
-        '''
+        """
         self._load_schema(config)
         self._create_output_directory(config)
 
@@ -678,9 +667,9 @@ class Controller:
         self.load_templates()
 
     def initialize_from_config_train_test(self, config: typing.Dict) -> None:
-        '''
+        """
             This function for running for ta2-search
-        '''
+        """
         self._load_schema(config)
         self._create_output_directory(config)
 
@@ -725,9 +714,9 @@ class Controller:
                         self.max_split_times = split_times
 
     def remove_empty_targets(self, dataset: "Dataset"):
-        '''
+        """
         will automatically remove empty targets in training
-        '''
+        """
         problem = self.problem_doc_metadata.query(())
         targets = problem["inputs"]["data"][0]["targets"]
         resID = targets[0]["resID"]
@@ -749,9 +738,9 @@ class Controller:
         return dataset
 
     def split_dataset(self, dataset, random_state=42, test_size=0.2, n_splits=1, need_test_dataset=True):
-        '''
+        """
             Split dataset into 2 parts for training and test
-        '''
+        """
 
         def _add_meta_data(dataset, res_id, input_part):
             dataset_with_new_meta = copy.copy(dataset)
@@ -884,7 +873,6 @@ class Controller:
         self._logger.info("[INFO] testing data")
 
         self.all_dataset = self.auto_regress_convert_and_add_metadata(self.all_dataset)
-        # runtime.add_target_columns_metadata(self.all_dataset, self.problem_doc_metadata)
         run_test.produce(inputs=[self.all_dataset])
 
         # try:

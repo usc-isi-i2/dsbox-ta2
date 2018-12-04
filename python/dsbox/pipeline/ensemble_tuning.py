@@ -1,10 +1,8 @@
-import sys
 import logging
 import copy
 import typing
 import os
 import json
-import d3m.primitives
 import d3m.exceptions as exceptions
 
 from dsbox.pipeline.fitted_pipeline import FittedPipeline
@@ -15,6 +13,7 @@ from d3m.metadata.problem import parse_problem_description, TaskType
 from d3m import runtime as runtime_module, container
 from d3m.metadata import pipeline as pipeline_module
 from d3m.metadata.base import ALL_ELEMENTS, Metadata
+
 
 class EnsembleTuningPipeline:
     """
@@ -195,6 +194,8 @@ class EnsembleTuningPipeline:
                 all_predicionts: save the detail prediction results on ensemble_dataset
                 all_predicionts_id: save the pipeline id of the best pipelines
             '''
+            import pdb
+            pdb.set_trace()
             for key, value in self.report['report']['ensemble_dataset_predictions'].items():
                 pipeline_description = value['pipeline']
                 each_prediction = value['ensemble_tuning_result']
@@ -207,18 +208,18 @@ class EnsembleTuningPipeline:
                     print(model_step_name)
                     # if not first time see,choose the pipelines with better test matrics scores
                     if model_step_name in memo:
-                        if larger_is_better(value['ensemble_tuning_matrix']):
-                            if value['ensemble_tuning_matrix'][0]['value'] > memo[model_step_name]['value']:
-                                memo[model_step_name] = value['ensemble_tuning_matrix'][0]
+                        if larger_is_better(value['ensemble_tuning_metrics'][0]['metric']):
+                            if value['ensemble_tuning_metrics'][0]['value'] > memo[model_step_name]['value']:
+                                memo[model_step_name] = value['ensemble_tuning_metrics'][0]
                                 all_predictions[model_step_name] = each_prediction
                                 all_predictions_id[model_step_name] = key
                         else:
-                            if value['ensemble_tuning_matrix'][0]['value'] < memo[model_step_name]['value']:
-                                memo[model_step_name] = value['ensemble_tuning_matrix'][0]
+                            if value['ensemble_tuning_metrics'][0]['value'] < memo[model_step_name]['value']:
+                                memo[model_step_name] = value['ensemble_tuning_metrics'][0]
                                 all_predictions[model_step_name] = each_prediction
                                 all_predictions_id[model_step_name] = key
                     else:  # if first time see, add to memo directly
-                        memo[model_step_name] = value['ensemble_tuning_matrix'][0]
+                        memo[model_step_name] = value['ensemble_tuning_metrics'][0]
                         all_predictions[model_step_name] = each_prediction
                         all_predictions_id[model_step_name] = key
                 else:
@@ -240,7 +241,6 @@ class EnsembleTuningPipeline:
             similarity_matrix = {}
             # calculate the similarity of each predictions
 
-
             for i in range(pipelines_count):
                 for j in range(i + 1, pipelines_count):
                     temp1 = ensemble_predicts[pipeline_ids[i]]['ensemble_tuning_result']
@@ -254,7 +254,7 @@ class EnsembleTuningPipeline:
                     elif self.task_type == TaskType.REGRESSION:
                         # if regression problem, use MSE instead of f1marco
                         temp_metric = copy.deepcopy(self.performance_metrics)
-                        temp_metric[0]['metric'] = 'mean_squared_error'
+                        temp_metric[0]['metric'] = 'meanSquaredError'
                         temp_score = calculate_score(temp1, temp2, temp_metric, self.task_type, SpecialMetric().regression_metric)
 
                     similarity_matrix[(i,j)] = temp_score[0]['value']
