@@ -96,8 +96,12 @@ class DistributedJobManager:
                 result = None
 
             # push the results
+            result_simplified = result.copy()
+            if "ensemble_tunning_result" in result:
+                result_simplified.pop("ensemble_tunning_result")
+
             print(f"Pushing Results {current_process()} > "
-                  f"{result}")
+                  f"{result_simplified}")
             pushed = False
             # while not pushed:
             try:
@@ -136,6 +140,8 @@ class DistributedJobManager:
         self.ongoing_jobs += 1
         self.arguments_queue.put(kwargs_bundle)
         self.Qlock.release()
+        self.result_queue_size = None
+
         return hash(str(kwargs_bundle))
 
     def pop_job(self, block: bool = False) -> typing.Tuple[typing.Dict, typing.Any]:
@@ -151,12 +157,23 @@ class DistributedJobManager:
         _logger.info(f"# ongoing_jobs {self.ongoing_jobs}")
         print(f"# ongoing_jobs {self.ongoing_jobs}")
         self.Qlock.acquire()
-        (kwargs, results) = self.result_queue.get(block=block)
-        self.ongoing_jobs -= 1
-        print(f"[PID] pid:{os.getpid()}")
-        self.Qlock.release()
-        # _logger.info(f"[INFO] end of pop # ongoing_jobs {self.ongoing_jobs}")
-        return (kwargs, results)
+        
+        self.result_queue_size = self.result_queue.qsize()
+
+        #!!!! error happened here
+        if self.result_queue_size > 0:
+            _logger.debug("result_queue size is {}".format(str(self.result_queue.qsize())))
+            (kwargs, results) = self.result_queue.get(block=block)
+            self.ongoing_jobs -= 1
+            print(f"[PID] pid:{os.getpid()}")
+            self.Qlock.release()
+            # _logger.info(f"[INFO] end of pop # ongoing_jobs {self.ongoing_jobs}")
+            return (kwargs, results)
+        else:
+            self.ongoing_jobs -= 1
+            print(f"[PID] pid:{os.getpid()}")
+            self.Qlock.release()
+            return (None, None)
 
     def any_pending_job(self):
         return not self.arguments_queue.empty()

@@ -13,7 +13,6 @@ import copy
 import pprint
 
 from multiprocessing import Process,Manager
-from d3m import runtime as runtime_module
 from d3m.metadata.problem import TaskType
 from d3m.container.pandas import DataFrame as d3m_DataFrame
 from d3m.container.dataset import Dataset, D3MDatasetLoader
@@ -23,7 +22,6 @@ from d3m.metadata.problem import TaskSubtype, parse_problem_description
 
 from dsbox.pipeline.fitted_pipeline import FittedPipeline
 from dsbox.pipeline.ensemble_tuning import EnsembleTuningPipeline, HorizontalTuningPipeline
-from dsbox.pipeline.utils import larger_is_better
 from dsbox.template.library import TemplateLibrary, HorizontalTemplate
 from dsbox.combinatorial_search.TemplateSpaceBaseSearch import TemplateSpaceBaseSearch
 from dsbox.combinatorial_search.TemplateSpaceParallelBaseSearch import TemplateSpaceParallelBaseSearch
@@ -147,6 +145,9 @@ class Controller:
     """
 
     def _check_and_set_dataset_metadata(self) -> None:
+        """
+        The function used to change the metadata of the target predictions to be "TRueTarget"
+        """
         # Need to make sure the Target and TrueTarget column semantic types are set
         if self.task_type == TaskType.CLASSIFICATION or self.task_type == TaskType.REGRESSION:
 
@@ -219,23 +220,12 @@ class Controller:
                                        'pipelines_considered')
         self._logger.info('Considered output directory: %s' % considered_root)
 
-    def _load_problem_doc(self, problem_doc_path: str) -> Metadata:
-        """
-        Load problem_doc from problem_doc_path
-
-        Paramters
-        ---------
-        problem_doc_path
-            Path where the problemDoc.json is located
-        """
-        with open(problem_doc_path) as file:
-            problem_doc = json.load(file)
-        return Metadata(problem_doc)
-
     def _load_schema(self, config):
         # Problem
         self.problem = parse_problem_description(config['problem_schema'])
-        self.problem_doc_metadata = self._load_problem_doc(os.path.abspath(config['problem_schema']))
+        with open(os.path.abspath(config['problem_schema'])) as file:
+            problem_doc = json.load(file)
+        self.problem_doc_metadata = Metadata(problem_doc)
         self.task_type = self.problem['problem']['task_type']
         self.task_subtype = self.problem['problem']['task_subtype']
 
@@ -499,7 +489,7 @@ class Controller:
     """
         **********************************************************************
         Public method (in alphabet)
-        1 . auto_regress_convert
+        1 . add_d3m_index_and_prediction_class_name
         2 . generate_configuration_space
         3 . initialize_from_config_for_evaluation
         4 . initialize_from_config_train_test
@@ -530,8 +520,7 @@ class Controller:
                 for each_resource in dataset_description["dataResources"]:
                     if "columns" in each_resource:
                         for each_column in each_resource["columns"]:
-                            if "suggestedTarget" in each_column["role"] or "target" in each_column[
-                                "role"]:
+                            if "suggestedTarget" in each_column["role"] or "target" in each_column["role"]:
                                 prediction_class_name.append(each_column["colName"])
         except:
             self._logger.error(
@@ -562,7 +551,7 @@ class Controller:
                     columns={prediction_col_name[i]: prediction_class_name[i]})
         return prediction
 
-    def auto_regress_convert_and_add_metadata(self, dataset: "Dataset"):
+    def auto_regress_convert_and_add_metadata(self, dataset: Dataset):
         """
         Add metadata to the dataset from problem_doc_metadata
         If the dataset is timeseriesforecasting, do auto convert for timeseriesforecasting prob
@@ -606,10 +595,14 @@ class Controller:
                         {'semantic_types': semantic_types})
             return dataset
 
-    def ensemble_tuning(self, ensemble_tuning_report):
+    def ensemble_tuning(self, ensemble_tuning_report) -> None:
         """
-            function to do ensemble tuning
-            Teporary put in our ta2 system controller part for testing purpose
+        Function to do ensemble tuning
+
+        :param ensemble_tuning_report: the report including the predictions for ensemble part's dataset,
+                                       pipeline structure and metrics score of test datasets
+
+        :return: None
         """
         if not self.ensemble_dataset:
             self._logger.error("No ensemble tuning dataset found!")
@@ -619,7 +612,11 @@ class Controller:
 
         else:
             try:
-                pp = EnsembleTuningPipeline(pipeline_files_dir = self.output_directory, log_dir = self.output_logs_dir, pids = None,candidate_choose_method = self.ensemble_voting_candidate_choose_method, report = ensemble_tuning_report, problem = self.problem,test_dataset = self.test_dataset1, train_dataset = self.train_dataset1, problem_doc_metadata = self.problem_doc_metadata)
+                pp = EnsembleTuningPipeline(pipeline_files_dir=self.output_directory, log_dir=self.output_logs_dir,
+                                            pids=None, candidate_choose_method=self.ensemble_voting_candidate_choose_method,
+                                            report=ensemble_tuning_report, problem=self.problem,
+                                            test_dataset=self.test_dataset1, train_dataset=self.train_dataset1,
+                                            problem_doc_metadata=self.problem_doc_metadata)
                 pp.generate_candidate_pids()
                 pp.generate_ensemble_pipeline()
                 pp.fit_and_produce()
@@ -628,13 +625,16 @@ class Controller:
                 self._logger.error("[ERROR] ensemble tuning pipeline failed.")
                 traceback.print_exc()
 
-    def horizontal_tuning(self, final_step_primitive):
+    def horizontal_tuning(self, final_step_primitive) -> None:
         if not self.ensemble_dataset:
             self._logger.error("No ensemble tuning dataset found")
         else:
             try:
-                qq = HorizontalTuningPipeline(pipeline_files_dir=self.output_directory, log_dir=self.output_logs_dir, pids=None, problem = self.problem, test_dataset = self.test_dataset1, train_dataset = self.train_dataset1, problem_doc_metadata = self.problem_doc_metadata, 
-                    final_step_primitive=final_step_primitive)
+                qq = HorizontalTuningPipeline(pipeline_files_dir=self.output_directory, log_dir=self.output_logs_dir,
+                                              pids=None, problem=self.problem, test_dataset=self.test_dataset1,
+                                              train_dataset=self.train_dataset1,
+                                              problem_doc_metadata=self.problem_doc_metadata,
+                                              final_step_primitive=final_step_primitive)
                 qq.generate_candidate_pids()
                 qq.generate_ensemble_pipeline()
                 qq.fit_and_produce()
@@ -728,7 +728,7 @@ class Controller:
                     if split_times > self.max_split_times:
                         self.max_split_times = split_times
 
-    def remove_empty_targets(self, dataset: "Dataset"):
+    def remove_empty_targets(self, dataset: Dataset) -> Dataset:
         """
         will automatically remove empty targets in training
         """
@@ -827,11 +827,8 @@ class Controller:
                                                              ignore_index=True)
 
                         outdf_train = d3m_DataFrame(outdf_train, generate_metadata=False)
-                        # outdf_train = outdf_train.set_index("d3mIndex", drop=False)
                         train = _add_meta_data(dataset=dataset, res_id=res_id,
                                                input_part=outdf_train)
-                        # train = _add_meta_data(dataset = dataset, res_id = res_id, input_part =
-                        #  dataset[res_id].iloc[train_index, :])
                         train_return.append(train)
 
                         # for special condition that only need get part of the dataset
@@ -841,11 +838,8 @@ class Controller:
                                 outdf_test = outdf_test.append(indf.loc[each_index],
                                                                ignore_index=True)
                             outdf_test = d3m_DataFrame(outdf_test, generate_metadata=False)
-                            # outdf_test = outdf_test.set_index("d3mIndex", drop=False)
                             test = _add_meta_data(dataset=dataset, res_id=res_id,
                                                   input_part=outdf_test)
-                            # test = _add_meta_data(dataset = dataset, res_id = res_id,
-                            # input_part = dataset[res_id].iloc[test_index, :])
                             test_return.append(test)
                         else:
                             test_return.append(None)
@@ -874,7 +868,7 @@ class Controller:
                     else:
                         test_return.append(None)
 
-        return (train_return, test_return)
+        return train_return, test_return
 
     def test(self) -> Status:
         """

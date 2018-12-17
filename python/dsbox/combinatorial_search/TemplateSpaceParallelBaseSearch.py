@@ -86,6 +86,8 @@ class TemplateSpaceParallelBaseSearch(TemplateSpaceBaseSearch[T]):
         """
         # start the worker processes
         # self.job_manager._start_workers(target_method=self._evaluate_template)
+        from dsbox.template.runtime import ForkedPdb
+        ForkedPdb().set_trace()
         time.sleep(0.1)
 
         # def _timeout_handler(self, signum):
@@ -96,7 +98,6 @@ class TemplateSpaceParallelBaseSearch(TemplateSpaceBaseSearch[T]):
 
         # randomly send the candidates to job manager for evaluation
         self._push_random_candidates(num_iter)
-
         time.sleep(1)
 
         # iteratively wait until a result is available and process the result untill there is no
@@ -135,8 +136,8 @@ class TemplateSpaceParallelBaseSearch(TemplateSpaceBaseSearch[T]):
             _logger.debug(f"Main Process Sleeping:{counter}")
             (kwargs_bundle, report) = self.job_manager.pop_job(block=True)
             _logger.warning(f"kwargs: {kwargs_bundle}")
-
-            self._add_report_to_history(kwargs_bundle, report)
+            if report and kwargs_bundle:
+                self._add_report_to_history(kwargs_bundle, report)
             counter += 1
         _logger.debug("[INFO] No more pending job")
 

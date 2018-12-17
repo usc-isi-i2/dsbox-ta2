@@ -16,8 +16,6 @@ from d3m.metadata.base import ALL_ELEMENTS, Metadata
 from d3m import index as d3m_index
 
 
-
-
 class EnsembleTuningPipeline:
     """
     Class specially used to do ensemble tuning.
@@ -180,9 +178,9 @@ class EnsembleTuningPipeline:
 
     def generate_candidate_pids(self) -> None:
         if self.pids:
-            self._logger.warn("There already exist candidate pipeline ids")
+            self._logger.warning("There already exist candidate pipeline ids")
 
-        # TODO: add ability to deal with the condition when there are multiple predicion columns
+        # TODO: add ability to deal with the condition when there are multiple prediction columns
         if not self.report:
             raise ValueError("No ensemble tuning report found, unable to generate candidate pipeline ids")
 
