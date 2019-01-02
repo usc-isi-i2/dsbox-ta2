@@ -1,3 +1,5 @@
+![travis ci](https://travis-ci.org/usc-isi-i2/dsbox-ta2.svg?branch=master)
+
 # dsbox-ta2
 The DSBox TA2 component
 ---------------------------------------------2018.8.29---------------------------------------------

@@ -370,7 +370,7 @@ class DSBoxTemplate():
                 except:
                     if inputs == outputs:
                         check[i][j] = 1
-        self.stepcheck = check
+        self.stepcheck = check                                 
 
     def to_pipeline(self, configuration_point: ConfigurationPoint) -> Pipeline:
         """
