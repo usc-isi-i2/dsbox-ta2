@@ -11,7 +11,7 @@ from d3m.metadata.pipeline import Pipeline
 from d3m.metadata.pipeline import StepBase
 from d3m.metadata.problem import PerformanceMetric
 
-from dsbox.template.runtime import Runtime
+from dsbox.template.runtime import Runtime, ForkedPdb
 
 from .utils import larger_is_better
 
@@ -67,7 +67,7 @@ class FittedPipeline:
         _logger.debug('Creating fitted pipeline %s', self.id)
 
     def _set_fitted(self, fitted_pipe: typing.List[StepBase]) -> None:
-        self.runtime.pipeline = fitted_pipe
+        self.runtime.steps_state = fitted_pipe
 
     # @classmethod
     # def create(cls: typing.Type[TP],
@@ -109,10 +109,13 @@ class FittedPipeline:
         return self.runtime.cross_validation_result
 
     def get_fit_step_output(self, step_number: int):
-        return self.runtime.fit_outputs[step_number]
+        #return self.runtime.fit_outputs[step_number]
+        # Fix it: should here always be 0?
+        return self.runtime.fit_outputs[0] 
 
     def get_produce_step_output(self, step_number: int):
-        return self.runtime.produce_outputs[step_number]
+        # return self.runtime.produce_outputs[step_number]
+        return self.runtime.produce_outputs[0] 
 
     def save(self, folder_loc: str) -> None:
         '''
@@ -134,6 +137,10 @@ class FittedPipeline:
         structure["parent_id"] = self.pipeline.id
         structure['id'] = self.id
         structure['dataset_id'] = self.dataset_id
+        # add timing for each step
+        # for each_step in structure['steps']:
+        #     primitive_name = each_step["primitive"]["python_path"]
+        #     each_step["timing"] = self.runtime.timing[primitive_name]
         # FIXME [TIMING]
         # add timing for each step
         # for each_step in structure['steps']:
@@ -160,9 +167,9 @@ class FittedPipeline:
             structure['problem_taskSubType'] = str(problem_meta['taskSubType'])
         except:
             structure['problem_taskSubType'] = "NONE"
-        structure['total_time_used_with_cache'] = self.runtime.timing["total_time_used_with_cache"]
-        structure['total_time_used_without_cache'] = self.runtime.timing[
-            "total_time_used_without_cache"]
+        structure['total_time_used'] = self.runtime.timing["total_time_used"]
+
+        # structure['total_time_used_without_cache'] = self.runtime.timing["total_time_used_without_cache"]
         structure['pipeline_rank'] = rank
         structure['metric'] = metric
         structure['metric_value'] = value
@@ -183,10 +190,9 @@ class FittedPipeline:
             json.dump({"fitted_pipeline_id": self.id}, out)
 
         # save the pickle files of each primitive step
-        for i in range(0, len(self.runtime.execution_order)):
+        for i in range(0, len(self.runtime.steps_state)):
             # print("Now saving step_", i)
-            # n_step = self.runtime.execution_order[i]
-            each_step = self.runtime.pipeline[i]
+            each_step = self.runtime.steps_state[i]
             file_loc = os.path.join(supporting_files_dir,
                                     "step_" + str(i) + ".pkl")
             with open(file_loc, "wb") as f:
@@ -195,17 +201,19 @@ class FittedPipeline:
     def __str__(self):
         # desc = list(map(lambda s: (s.primitive, s.hyperparams),
         #                 ))
-        return pprint.pformat(self.runtime.pipeline)
+        return pprint.pformat(self.runtime.steps_state)
         # print("Sorted:", dag_order)
         # return str(dag_order)
 
     @classmethod
     def load(cls: typing.Type[TP], folder_loc: str,
-             pipeline_id: str, log_dir: str, dataset_id: str = None, ) -> typing.Tuple[TP, Runtime]:
+             pipeline_id: str, log_dir: str, dataset_id: str = None,) -> typing.Tuple[TP, Runtime]:
+
         '''
         Load the pipeline with given pipeline id and folder location
         '''
         # load pipeline from json
+
         pipeline_dir = os.path.join(folder_loc, 'pipelines')
         executable_dir = os.path.join(folder_loc, 'executables')
 
@@ -231,24 +239,24 @@ class FittedPipeline:
         supporting_files_dir = os.path.join(folder_loc, 'supporting_files',
                                             fitted_pipeline_id)
 
-        run = Runtime(pipeline_to_load, fitted_pipeline_id, log_dir)
+        runtime_loaded = Runtime(pipeline_to_load, fitted_pipeline_id, log_dir)
 
-        for i in range(0, len(run.execution_order)):
+        for i in range(0, len(runtime_loaded.steps_state)):
             # print("Now loading step", i)
             file_loc = os.path.join(supporting_files_dir,
                                     "step_" + str(i) + ".pkl")
             with open(file_loc, "rb") as f:
                 each_step = pickle.load(f)
-                run.pipeline[i] = each_step
-
+                runtime_loaded.steps_state[i] = each_step
+        # ForkedPdb().set_trace()
         # fitted_pipeline_loaded = cls(pipeline_to_load, run, dataset)
         fitted_pipeline_loaded = cls(pipeline=pipeline_to_load,
                                      dataset_id=dataset_id,
                                      id=fitted_pipeline_id,
                                      log_dir=log_dir)
-        fitted_pipeline_loaded._set_fitted(run.pipeline)
+        fitted_pipeline_loaded._set_fitted(runtime_loaded.steps_state)
 
-        return (fitted_pipeline_loaded, run)
+        return (fitted_pipeline_loaded, runtime_loaded)
 
     def __getstate__(self) -> typing.Dict:
         """
@@ -263,7 +271,7 @@ class FittedPipeline:
         state = self.__dict__  # get attribute dictionary
 
         # add the fitted_primitives
-        state['fitted_pipe'] = self.runtime.pipeline
+        state['fitted_pipe'] = self.runtime.steps_state
         state['pipeline'] = self.pipeline.to_json_structure()
         state['log_dir'] = self.log_dir
         state['id'] = self.id
@@ -290,7 +298,7 @@ class FittedPipeline:
         state['pipeline'] = Pipeline.from_json_structure(structure)
 
         run = Runtime(state['pipeline'], state['id'], state['log_dir'])
-        run.pipeline = fitted
+        run.steps_state = fitted
 
         state['runtime'] = run
 

@@ -7,7 +7,7 @@
     "executables_root": "/home/ehsan/MyWork/dsbox/tmp/output-seed/38_sick/executables",
     "temp_storage_root": "/home/ehsan/MyWork/dsbox/tmp/output-seed/output-seed/38_sick/temp",
     "results_root": "/home/ehsan/MyWork/dsbox/tmp/output-seed/output-seed/38_sick/results",
-    "timeout": "20",
+    "timeout": "40",
     "cpus": "4",
     "ram": "10Gi"
 }

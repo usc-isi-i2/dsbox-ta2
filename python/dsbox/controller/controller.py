@@ -46,6 +46,7 @@ from dsbox.combinatorial_search.TemplateSpaceParallelBaseSearch import \
     TemplateSpaceParallelBaseSearch
 from dsbox.combinatorial_search.RandomDimensionalSearch import RandomDimensionalSearch
 from dsbox.combinatorial_search.BanditDimensionalSearch import BanditDimensionalSearch
+from dsbox.combinatorial_search.MultiBanditSearch import MultiBanditSearch
 
 from dsbox.combinatorial_search.search_utils import get_target_columns
 from dsbox.combinatorial_search.search_utils import random_choices_without_replacement
@@ -231,14 +232,26 @@ class Controller:
                                        'pipelines_considered')
         self._logger.info('Considered output directory: %s' % considered_root)
 
+    def _load_problem_doc(self, problem_doc_path: str) -> Metadata:
+        """
+        Load problem_doc from problem_doc_path
+
+        Paramters
+        ---------
+        problem_doc_path
+            Path where the problemDoc.json is located
+        """
+        with open(problem_doc_path) as file:
+            problem_doc = json.load(file)
+        return Metadata(problem_doc)
+
     def _load_schema(self, config):
         # Do not use
         # self.config = config
 
         # Problem
         self.problem = parse_problem_description(config['problem_schema'])
-        self.problem_doc_metadata = runtime.load_problem_doc(
-            os.path.abspath(config['problem_schema']))
+        self.problem_doc_metadata = self._load_problem_doc(os.path.abspath(config['problem_schema']))
         self.task_type = self.problem['problem']['task_type']
         self.task_subtype = self.problem['problem']['task_subtype']
 
@@ -345,6 +358,10 @@ class Controller:
         piplines_name_list = os.listdir(pipelines_root)
         if len(piplines_name_list) < 20:
             return
+        try:
+            piplines_name_list.remove(".DS_Store")
+        except:
+            pass
 
         pipelines_df = pd.DataFrame(0.0, index=piplines_name_list, columns=["rank"])
         for name in piplines_name_list:
@@ -398,7 +415,7 @@ class Controller:
             output_directory=self.output_directory,
             log_dir=self.output_logs_dir,
         )
-        report = searchMethod.search(num_iter=10)
+        report = searchMethod.search(num_iter=50)
 
         self._log_search_results(report=report)
 
@@ -417,9 +434,11 @@ class Controller:
             num_proc=self.num_cpus,
             timeout=self.TIMEOUT,
         )
-        report = searchMethod.search(num_iter=10)
+        report = searchMethod.search(num_iter=15)
 
         self._log_search_results(report=report)
+
+        searchMethod.job_manager.kill_job_mananger()
 
     def _run_RandomDimSearch(self):
         searchMethod = RandomDimensionalSearch(
@@ -436,9 +455,11 @@ class Controller:
             num_proc=self.num_cpus,
             timeout=self.TIMEOUT,
         )
-        report = searchMethod.search(num_iter=2)
+        report = searchMethod.search(num_iter=10)
 
         self._log_search_results(report=report)
+
+        searchMethod.job_manager.kill_job_mananger()
 
     def _run_BanditDimSearch(self):
         searchMethod = BanditDimensionalSearch(
@@ -458,6 +479,30 @@ class Controller:
         report = searchMethod.search(num_iter=5)
 
         self._log_search_results(report=report)
+
+        searchMethod.job_manager.kill_job_mananger()
+
+    def _run_MultiBanditSearch(self):
+        searchMethod = MultiBanditSearch(
+            template_list=self.template,
+            performance_metrics=self.problem['problem']['performance_metrics'],
+            problem=self.problem_doc_metadata,
+            test_dataset1=self.test_dataset1,
+            train_dataset1=self.train_dataset1,
+            test_dataset2=self.test_dataset2,
+            train_dataset2=self.train_dataset2,
+            all_dataset=self.all_dataset,
+            output_directory=self.output_directory,
+            log_dir=self.output_logs_dir,
+            num_proc=self.num_cpus,
+            timeout=self.TIMEOUT,
+        )
+        report = searchMethod.search(num_iter=30)
+
+        self._log_search_results(report=report)
+
+        searchMethod.job_manager.kill_job_mananger()
+
     '''
         **********************************************************************
         Public method (in alphabet)
@@ -476,9 +521,16 @@ class Controller:
         **********************************************************************
     '''
 
-    def auto_regress_convert(self, dataset: "Dataset"):
+    def auto_regress_convert_and_add_metadata(self, dataset: "Dataset"):
         '''
-        do auto convert for timeseriesforecasting prob
+        Add metadata to the dataset from problem_doc_metadata
+        If the dataset is timeseriesforecasting, do auto convert for timeseriesforecasting prob
+        Paramters
+        ---------
+        dataset
+            Dataset
+        problem_doc_metadata:
+            Metadata about the problemDoc
         '''
         problem = self.problem_doc_metadata.query(())
         targets = problem["inputs"]["data"][0]["targets"]
@@ -492,7 +544,26 @@ class Controller:
                 meta = dict(dataset.metadata.query((resID, ALL_ELEMENTS, colIndex)))
                 meta["structural_type"] = float
                 dataset.metadata = dataset.metadata.update((resID, ALL_ELEMENTS, colIndex), meta)
-        return dataset
+
+        for data in self.problem_doc_metadata.query(())['inputs']['data']:
+            targets = data['targets']
+            for target in targets:
+                semantic_types = list(dataset.metadata.query(
+                    (target['resID'], ALL_ELEMENTS, target['colIndex'])).get(
+                    'semantic_types', []))
+
+                if 'https://metadata.datadrivendiscovery.org/types/Target' not in semantic_types:
+                    semantic_types.append('https://metadata.datadrivendiscovery.org/types/Target')
+                    dataset.metadata = dataset.metadata.update(
+                        (target['resID'], ALL_ELEMENTS, target['colIndex']),
+                        {'semantic_types': semantic_types})
+
+                if 'https://metadata.datadrivendiscovery.org/types/TrueTarget' not in semantic_types:
+                    semantic_types.append('https://metadata.datadrivendiscovery.org/types/TrueTarget')
+                    dataset.metadata = dataset.metadata.update(
+                        (target['resID'], ALL_ELEMENTS, target['colIndex']),
+                        {'semantic_types': semantic_types})
+            return dataset
 
     @staticmethod
     def generate_configuration_space(template_desc: TemplateDescription, problem: typing.Dict,
@@ -678,7 +749,7 @@ class Controller:
                                                              ignore_index=True)
 
                         outdf_train = d3m_DataFrame(outdf_train, generate_metadata=False)
-                        outdf_train = outdf_train.set_index("d3mIndex", drop=False)
+                        # outdf_train = outdf_train.set_index("d3mIndex", drop=False)
                         train = _add_meta_data(dataset=dataset, res_id=res_id,
                                                input_part=outdf_train)
                         # train = _add_meta_data(dataset = dataset, res_id = res_id, input_part =
@@ -692,7 +763,7 @@ class Controller:
                                 outdf_test = outdf_test.append(indf.loc[each_index],
                                                                ignore_index=True)
                             outdf_test = d3m_DataFrame(outdf_test, generate_metadata=False)
-                            outdf_test = outdf_test.set_index("d3mIndex", drop=False)
+                            # outdf_test = outdf_test.set_index("d3mIndex", drop=False)
                             test = _add_meta_data(dataset=dataset, res_id=res_id,
                                                   input_part=outdf_test)
                             # test = _add_meta_data(dataset = dataset, res_id = res_id,
@@ -731,6 +802,8 @@ class Controller:
         """
             First read the fitted pipeline and then run trained pipeline on test data.
         """
+        import pdb
+        pdb.set_trace()
         self._logger.info("[INFO] Start test function")
         outputs_loc, pipeline_load, read_pipeline_id, run_test = self.load_pipe_runtime()
 
@@ -738,18 +811,21 @@ class Controller:
 
         self._logger.info("[INFO] testing data")
 
-        self.all_dataset = self.auto_regress_convert(self.all_dataset)
-        runtime.add_target_columns_metadata(self.all_dataset, self.problem_doc_metadata)
+        self.all_dataset = self.auto_regress_convert_and_add_metadata(self.all_dataset)
+        # runtime.add_target_columns_metadata(self.all_dataset, self.problem_doc_metadata)
         run_test.produce(inputs=[self.all_dataset])
 
-        try:
-            step_number_output = int(pipeline_load.pipeline.outputs[0]['data'].split('.')[1])
-        except:
-            self._logger.error("Warning: searching the output step number failed! "
-                               "Will use the last step's output of the pipeline.")
-            # step_number_output = len(pipeline_load.runtime.produce_outputs) - 1
-            step_number_output = len(run_test.produce_outputs) - 1
+        # try:
+        #     step_number_output = int(pipeline_load.pipeline.outputs[0]['data'].split('.')[1])
+        # except:
+        #     self._logger.error("Warning: searching the output step number failed! "
+        #                        "Will use the last step's output of the pipeline.")
+        #     # step_number_output = len(pipeline_load.runtime.produce_outputs) - 1
+            # step_number_output = len(run_test.produce_outputs) - 1
 
+        # update: it seems now prediction on new runtime will only have last output
+        # TODO: check whether it fit all dataset
+        step_number_output = 0
         # get the target column name
         prediction_class_name = []
         try:
@@ -766,7 +842,7 @@ class Controller:
                 "[Warning] Can't find the prediction class name, will use default name "
                 "'prediction'.")
             prediction_class_name.append("prediction")
-
+        pdb.set_trace()
         prediction = run_test.produce_outputs[step_number_output]
 
         # if the prediction results do not have d3m_index column
@@ -818,18 +894,18 @@ class Controller:
         # pprint(self.test_dataset.head())
 
         # pipeline_load.runtime.produce(inputs=[self.test_dataset])
-        self.all_dataset = self.auto_regress_convert(self.all_dataset)
-        runtime.add_target_columns_metadata(self.all_dataset, self.problem_doc_metadata)
+        self.all_dataset = self.auto_regress_convert_and_add_metadata(self.all_dataset)
+        # runtime.add_target_columns_metadata(self.all_dataset, self.problem_doc_metadata)
         run_test.produce(inputs=[self.all_dataset])
 
-        try:
-            step_number_output = int(pipeline_load.pipeline.outputs[0]['data'].split('.')[1])
-        except:
-            self._logger.error("Warning: searching the output step number failed! "
-                               "Will use the last step's output of the pipeline.")
-            # step_number_output = len(pipeline_load.runtime.produce_outputs) - 1
-            step_number_output = len(run_test.produce_outputs) - 1
-
+        # try:
+        #     step_number_output = int(pipeline_load.pipeline.outputs[0]['data'].split('.')[1])
+        # except:
+        #     self._logger.error("Warning: searching the output step number failed! "
+        #                        "Will use the last step's output of the pipeline.")
+        #     # step_number_output = len(pipeline_load.runtime.produce_outputs) - 1
+        #     step_number_output = len(run_test.produce_outputs) - 1
+        step_number_output = 0
         # get the target column name
         prediction_class_name = []
         try:
@@ -892,44 +968,39 @@ class Controller:
         # self._check_and_set_dataset_metadata()
 
         self.generate_dataset_splits()
-
         # FIXME) come up with a better way to implement this part. The fork does not provide a way
         # FIXME) to catch the errors of the child process
-        # pid: int = os.fork()
-        # if pid == 0:  # run the search in the child process
-        #     # self._run_SerialBaseSearch()
-        #     # self._run_ParallelBaseSearch()
-        #     self._run_RandomDimSearch()
-        #     # self._run_BanditDimSearch()
-        #
-        #     print("[INFO] End of Search")
-        #     os._exit(0)
-        # else:
-        #     status = os.wait()
-        #     print("[INFO] Search Status:")
-        #     pprint.pprint(status)
         with mplog.open_queue() as log_queue:
             self._logger.info('Starting Search process')
 
-            # proc = multiprocessing.Process(target=self._run_RandomDimSearch)
+            # proc = Process(target=mplog.logged_call,
+            #                args=(log_queue, self._run_BanditDimSearch,))
             proc = Process(target=mplog.logged_call,
-                                           args=(log_queue, self._run_RandomDimSearch,))
+                           args=(log_queue, self._run_MultiBanditSearch,))
+            # proc = Process(target=mplog.logged_call,
+            #                args=(log_queue, self._run_RandomDimSearch,))
+            # proc = Process(target=mplog.logged_call,
+            #                args=(log_queue, self._run_ParallelBaseSearch,))
+            # proc = Process(target=mplog.logged_call,
+            #                args=(log_queue, self._run_SerialBaseSearch,))
+
             proc.start()
 
-            self._logger.info('At the end.')
+            self._logger.info('Searching is finished')
             # wait until process is done
             proc.join()
 
             status = proc.exitcode
             print("[INFO] Search Status:")
             pprint.pprint(status)
-            print("END OF FORK")
 
+        print(f"END OF FORK {proc.exitcode}")
+        return Status.OK
 
     def generate_dataset_splits(self):
         self.all_dataset = self.remove_empty_targets(self.all_dataset)
-        self.all_dataset = self.auto_regress_convert(self.all_dataset)
-        runtime.add_target_columns_metadata(self.all_dataset, self.problem_doc_metadata)
+        self.all_dataset = self.auto_regress_convert_and_add_metadata(self.all_dataset)
+        # runtime.add_target_columns_metadata(self.all_dataset, self.problem_doc_metadata)
         res_id = self.problem_info['res_id']
         # check the shape of the dataset
         main_res_shape = self.all_dataset[res_id].shape

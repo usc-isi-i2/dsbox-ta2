@@ -1,0 +1,32 @@
+sudo: required
+language: python
+cache: false
+python:
+- 3.6.6
+install:
+  - sudo apt-get update
+  # version is the same.
+  - wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh
+  - bash miniconda.sh -b -p $HOME/miniconda
+  - export PATH="$HOME/miniconda/bin:$PATH"
+  - hash -r
+  - conda config --set always_yes yes --set changeps1 no
+  - conda update -q conda
+  # Useful for debugging any issues with conda
+  - conda info -a
+  - conda create --name ta2-env python=3.6
+  - source activate ta2-env
+  - pip install -e git+https://gitlab.com/datadrivendiscovery/d3m@devel#egg=d3m --progress-bar off
+  - pip install -e git+https://gitlab.com/datadrivendiscovery/common-primitives@devel#egg=common-primitives --progress-bar off
+  - pip install -e git+https://gitlab.com/datadrivendiscovery/sklearn-wrap@dev-dist#egg=sklearn-wrap --progress-bar off
+  - pip install -e git+https://github.com/usc-isi-i2/dsbox-cleaning@master#egg=dsbox-datacleaning --progress-bar off
+  - pip install -e git+https://github.com/usc-isi-i2/dsbox-featurizer@master#egg=dsbox-featurizer --progress-bar off
+  - pip install -e git+https://github.com/brekelma/dsbox_corex@master#egg=dsbox_corex --progress-bar off
+  - pip install psutil==5.4.7
+
+before_script:
+  - python unit_tests/resources/construct_config.py 38_sick
+  - python python/ta2-search unit_tests/resources/38_sick/search_config.json --timeout 5 --cpus 3 --test unit_tests/resources/38_sick/test_config.json
+
+script:
+  - python -W ignore -m unittest discover unit_tests/

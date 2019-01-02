@@ -1,0 +1,9 @@
+{
+  "problem_schema": "TEST/problem_TEST/problemDoc.json",
+  "problem_root": "TEST/problem_TEST",
+  "dataset_schema": "TEST/dataset_TEST/datasetDoc.json",
+  "test_data_root": "TEST/dataset_TEST",
+  "results_root": "predictions",
+  "executables_root": "executables",
+  "temp_storage_root": "supporting_files"
+}
