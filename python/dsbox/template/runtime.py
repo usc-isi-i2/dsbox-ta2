@@ -200,8 +200,8 @@ class Runtime:
                 self.pipeline[n_step] = model
 
                 cache_reading_time = (time.time() - time_start)
-                print(f"[INFO] cache reading took {cache_reading_time} s and "
-                      f"fitting time took {fitting_time} s")
+                # print(f"[INFO] cache reading took {cache_reading_time} s and "
+                #       f"fitting time took {fitting_time} s")
                 cache_hit = True
             else:
 
