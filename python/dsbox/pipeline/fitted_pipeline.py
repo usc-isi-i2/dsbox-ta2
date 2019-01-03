@@ -111,11 +111,17 @@ class FittedPipeline:
     def get_fit_step_output(self, step_number: int):
         #return self.runtime.fit_outputs[step_number]
         # Fix it: should here always be 0?
-        return self.runtime.fit_outputs[0] 
+        # print(f"fit_outputs_{step_number}: ", self.runtime.fit_outputs.values.keys())
+        return self.runtime.fit_outputs.values['outputs.0']
+        # print(type(self.runtime.fit_outputs[0]))
+        # return self.runtime.fit_outputs[0]
 
     def get_produce_step_output(self, step_number: int):
         # return self.runtime.produce_outputs[step_number]
-        return self.runtime.produce_outputs[0] 
+        # print(f"produce_outputs_{step_number}: ", self.runtime.produce_outputs.values.keys())
+        return self.runtime.produce_outputs.values['outputs.0']
+        # print(type(self.runtime.produce_outputs[0]))
+        # return self.runtime.produce_outputs[0]
 
     def save(self, folder_loc: str) -> None:
         '''

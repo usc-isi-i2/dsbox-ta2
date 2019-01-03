@@ -54,8 +54,8 @@ class CacheManager:
 
 class CandidateCache:
     comparison_metrics = ['cross_validation_metrics', 'test_metrics', 'training_metrics']
-    S_INVALID = "INVALID"
-    S_VALID = "VALID"
+    S_INVALID = "DUMMY"
+    S_VALID = "FULL"
 
     def __init__(self, manager: Manager=None):
         if manager is not None:
@@ -96,7 +96,7 @@ class CandidateCache:
 
         # push the candidate and its value into the cache
         _logger.info("[INFO] push@Candidate: ({},{})".format(key, update))
-        print("[INFO] push@Candidate: ({},{})".format(key, update))
+        print("[INFO] push@Candidate_{}: ({},{})".format(update['status'], key, update))
         assert 'status' in update
         self.storage[key] = update
 

@@ -90,12 +90,14 @@ class ExecutionHistory:
 
         # these fields will be updated only if the new report is better than the previous ones
         if ExecutionHistory._is_better(base=row, check=report, key_attribute=self.key_attribute):
+            print(f"updating history for: {hash(str(report['configuration']))}")
             for k in ['configuration', 'training_metrics', 'cross_validation_metrics',
                       'test_metrics']:
-                assert isinstance(report[k], list) or \
+                assert report[k] is None or \
+                       isinstance(report[k], list) or \
                        isinstance(report[k], dict), \
-                    f"report of {k} must be a list or dict {type(report[k])}"
-                if len(report[k]) == 0:
+                       f"report of {k} must be a list or dict {type(report[k])}, {report}"
+                if report[k] is None or len(report[k]) == 0:
                     update[k] = np.NaN
                 else:
                     update[k] = report[k]
