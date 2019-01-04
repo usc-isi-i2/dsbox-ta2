@@ -225,11 +225,12 @@ class ExecutionHistory:
 
             comparison_results[s] = opr(check[s][0]['value'], base[s][0]['value'])
 
+        # check if different metrics are inconsistent
         if len(set(comparison_results.values())) != 1:
+            # FIXME a better policy for this part
             _logger.warning("[WARN] cross_validation_metrics and test_metrics are not compatible")
-            print(("[WARN]" + "{}:{}" * len(comparison_results) + "are not compatible").format(
-                *[item for tup in zip(base_comparison_metrics, comparison_results) for item in
-                  tup]))
+            print(("[WARN]" + " {}:{} " * len(comparison_results) + "are not compatible").format(
+                *[item for m in base_comparison_metrics for item in [m, comparison_results[m]]]))
 
         # return operator.and_(comparison_results[0], comparison_results[1])
         if key_attribute in comparison_results:

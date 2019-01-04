@@ -436,7 +436,7 @@ class Controller:
             num_proc=self.num_cpus,
             timeout=self.TIMEOUT,
         )
-        report = searchMethod.search(num_iter=15)
+        report = searchMethod.search(num_iter=100)
 
         self._log_search_results(report=report)
 
@@ -978,7 +978,7 @@ class Controller:
             # proc = Process(target=mplog.logged_call,
             #                args=(log_queue, self._run_BanditDimSearch,))
             proc = Process(target=mplog.logged_call,
-                           args=(log_queue, self._run_RandomDimSearch,))
+                           args=(log_queue, self._run_SerialBaseSearch,))
             proc.start()
 
             self._logger.info('Searching is finished')
