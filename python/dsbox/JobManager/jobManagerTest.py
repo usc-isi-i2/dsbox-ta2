@@ -3,22 +3,21 @@ import random
 from DistributedJobManager import DistributedJobManager
 
 
-class bar():
+class bar:
     def __init__(self, a: int):
         self.a = a
 
     def work(self, work_arg=20):
-        sl = random.randint(0, 5)
+        sl = random.randint(0, 10)
         print(f"[INFO] sleeping for {sl} with args {work_arg}")
         time.sleep(sl)
         print(f"[INFO] I am working on {self.a}")
         return self.a
 
 
-
-class foo():
+class foo:
     def __init__(self):
-        self.m = DistributedJobManager(proc_num=4, timeout=10)
+        self.m = DistributedJobManager(proc_num=20, timeout=10)
         self.b_list = [bar(random.random()) for _ in range(6)]
 
         # self.m._start_workers(foo.job_process)
@@ -33,11 +32,13 @@ class foo():
     #     return result
 
     def run(self):
-        for i in range(10):
+        for i in range(100):
             num = random.choice(self.b_list)
-            jid = self.m.push_job(kwargs_bundle={'target_obj': num,
-                                          'target_method': 'work',
-                                          'kwargs': {'work_arg': 10}})
+            jid = self.m.push_job(
+                kwargs_bundle={'target_obj': num,
+                               'target_method': 'work',
+                               'kwargs': {'work_arg': 10}}
+            )
             print("[INFO] Job pushed ", (jid, num))
 
         time.sleep(2)
@@ -53,8 +54,7 @@ class foo():
         self.m.kill_timer()
 
 
-
-o=foo()
+o = foo()
 o.run()
 # import multiprocessing, time
 #

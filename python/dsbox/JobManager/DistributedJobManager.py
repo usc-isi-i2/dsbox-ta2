@@ -77,10 +77,12 @@ class DistributedJobManager:
 
         # _logger.debug("worker process started {}".format(current_process()))
         print(f"[INFO] {current_process()} > worker process started")
+        _logger.info(f"{current_process()} > worker process started")
         counter: int = 0
         while True:
             # wait until a new job is available
             print(f"[INFO] {current_process()} > waiting on new jobs")
+            _logger.info(f"{current_process()} > waiting on new jobs")
             kwargs = arguments_queue.get(block=True)
 
             # execute the job
@@ -91,8 +93,8 @@ class DistributedJobManager:
                 # assert hasattr(result['fitted_pipeline'], 'runtime'), \
                 #     '[DJM] Eval does not have runtime'
             except:
-                _logger.exception(f'Target evaluation {hash(str(kwargs))}, '
-                                  f'failed in {current_process()}')
+                _logger.exception(
+                    f'{current_process()} > Target evaluation failed {hash(str(kwargs))}')
                 print(f'[INFO] {current_process()} > Target evaluation failed {hash(str(kwargs))}')
                 traceback.print_exc()
                 # _logger.error(traceback.format_exc())
@@ -100,6 +102,7 @@ class DistributedJobManager:
 
             # push the results
             print(f"[INFO] {current_process()} Pushing Results > {result}")
+            _logger.info(f"{current_process()} Pushing Results > {result}")
             pushed = False
             # while not pushed:
             try:
@@ -107,11 +110,25 @@ class DistributedJobManager:
                 pushed = True
             except:
                 traceback.print_exc()
+                _logger.exception(f"{current_process()} > {traceback.format_exc()}")
                 print(f"[INFO] {current_process()} > time out or "
                       f"result_queue is full {result_queue.full()}")
-                exit(1)
+                _logger.info(f"{current_process()} > time out or "
+                             f"result_queue is full {result_queue.full()}")
+
+                try:
+                    result_queue.put((kwargs, None))
+                except:
+                    traceback.print_exc()
+                    _logger.exception(f"{current_process()} > {traceback.format_exc()}")
+                    print(f"[INFO] {current_process()} > cannot even push None")
+                    _logger.info(f"{current_process()} >  > cannot even push None")
+                    exit(1)
+
+                # exit(1)
             counter += 1
             print(f"[INFO] {current_process()} > is Idle, done {counter} jobs")
+            _logger.info(f"{current_process()} > is Idle, done {counter} jobs")
 
     def push_job(self, kwargs_bundle: typing.Dict = {}) -> int:
         """
