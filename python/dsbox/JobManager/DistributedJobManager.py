@@ -8,6 +8,7 @@ from math import ceil
 import traceback
 from multiprocessing import Pool, Queue, Manager, Process, current_process, Lock
 from multiprocessing import get_logger
+
 # import dsbox.JobManager.mplog as mplog
 
 _logger = logging.getLogger(__name__)
@@ -15,7 +16,7 @@ _logger.setLevel(logging.DEBUG)
 
 
 class DistributedJobManager:
-    def __init__(self, proc_num: int=4, timeout: int=55):
+    def __init__(self, proc_num: int = 4, timeout: int = 55):
 
         self.start_time = time.perf_counter()
         self.proc_num = proc_num
@@ -97,7 +98,7 @@ class DistributedJobManager:
                 result = None
 
             # push the results
-            print(f"[INFO] Pushing Results {current_process()} > {result}")
+            print(f"[INFO] {current_process()} Pushing Results > {result}")
             pushed = False
             # while not pushed:
             try:
@@ -105,11 +106,11 @@ class DistributedJobManager:
                 pushed = True
             except:
                 traceback.print_exc()
-                print(f"[INFO] time out or result_queue is full {result_queue.full()}")
+                print(f"[INFO] {current_process()} > time out or "
+                      f"result_queue is full {result_queue.full()}")
                 exit(1)
             counter += 1
-            print(f"[INFO] Worker is Idle {current_process()}, done {counter} jobs")
-
+            print(f"[INFO] {current_process()} > is Idle, done {counter} jobs")
 
     def push_job(self, kwargs_bundle: typing.Dict = {}) -> int:
         """
@@ -128,9 +129,9 @@ class DistributedJobManager:
                        "\'target_method\': ..., " \
                        "\'kwargs\': {[arg_name]: ...,}}"
         assert isinstance(kwargs_bundle, dict), hint_message
-        assert all(l in kwargs_bundle for l in ['target_obj', 'target_method', 'kwargs']), hint_message
+        assert all(
+            l in kwargs_bundle for l in ['target_obj', 'target_method', 'kwargs']), hint_message
         assert isinstance(kwargs_bundle['kwargs'], dict), hint_message
-
 
         self.Qlock.acquire()
         self.ongoing_jobs += 1
@@ -211,7 +212,7 @@ class DistributedJobManager:
         self.timer.cancel()
 
     def _setup_timeout_timer(self):
-        self.timer = Timer(self.timeout*60, self._kill_me)
+        self.timer = Timer(self.timeout * 60, self._kill_me)
         self.timer.start()
         _logger.warning(f"timer started: {self.timeout} min")
 
