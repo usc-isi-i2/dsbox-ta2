@@ -93,6 +93,7 @@ class DistributedJobManager:
             except:
                 _logger.exception(f'Target evaluation {hash(str(kwargs))}, '
                                   f'failed in {current_process()}')
+                print(f'[INFO] {current_process()} > Target evaluation failed {hash(str(kwargs))}')
                 traceback.print_exc()
                 # _logger.error(traceback.format_exc())
                 result = None
