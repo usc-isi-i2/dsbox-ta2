@@ -57,7 +57,6 @@ class DistributedJobManager:
         # print("[INFO] I am job ")
         method_to_call = getattr(target_obj, target_method)
         # time.sleep(input)
-        # print(method_to_call)
         result = method_to_call(**kwargs)
         return result
 
@@ -76,15 +75,17 @@ class DistributedJobManager:
         target: typing.Callable = args[2]
 
         # _logger.debug("worker process started {}".format(current_process()))
-        print("worker process started {}".format(current_process()))
+        print(f"[INFO] {current_process()} > worker process started")
         counter: int = 0
         while True:
             # wait until a new job is available
+            print(f"[INFO] {current_process()} > waiting on new jobs")
             kwargs = arguments_queue.get(block=True)
 
             # execute the job
             try:
                 # TODO add timelimit to single work in the worker
+                print(f"[INFO] {current_process()} > executing job")
                 result = target(**kwargs)
                 # assert hasattr(result['fitted_pipeline'], 'runtime'), \
                 #     '[DJM] Eval does not have runtime'
@@ -96,8 +97,7 @@ class DistributedJobManager:
                 result = None
 
             # push the results
-            print(f"Pushing Results {current_process()} > "
-                  f"{result}")
+            print(f"[INFO] Pushing Results {current_process()} > {result}")
             pushed = False
             # while not pushed:
             try:
@@ -105,10 +105,10 @@ class DistributedJobManager:
                 pushed = True
             except:
                 traceback.print_exc()
-                print(f"time out or result_queue is full {result_queue.full()}")
+                print(f"[INFO] time out or result_queue is full {result_queue.full()}")
                 exit(1)
             counter += 1
-            print(f"Worker is Idle {current_process()}, done {counter} jobs")
+            print(f"[INFO] Worker is Idle {current_process()}, done {counter} jobs")
 
 
     def push_job(self, kwargs_bundle: typing.Dict = {}) -> int:
