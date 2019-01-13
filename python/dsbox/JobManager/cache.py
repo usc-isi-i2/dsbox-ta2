@@ -54,6 +54,8 @@ class CacheManager:
 
 class CandidateCache:
     comparison_metrics = ['cross_validation_metrics', 'test_metrics', 'training_metrics']
+    S_INVALID = "DUMMY"
+    S_VALID = "FULL"
 
     def __init__(self, manager: Manager=None):
         if manager is not None:
@@ -73,32 +75,77 @@ class CandidateCache:
     def push_None(self, candidate: ConfigurationPoint[T]) -> None:
         result = {
             "configuration": candidate,
+            "status": CandidateCache.S_INVALID,
         }
         self.push(result=result)
 
     def push(self, result: typing.Dict) -> None:
-        assert result is not None and 'configuration' in result, \
-            'invalid push in candidate_cache: {}'.format(result)
+        assert (result is not None and
+                'configuration' in result), 'invalid push in candidate_cache: {}'.format(result)
 
         candidate = result['configuration']
         key = CandidateCache._get_hash(candidate)
 
         update = {}
-        for k in comparison_metrics + ['configuration']:
+        for k in comparison_metrics + ['configuration', 'status']:
             update[k] = copy.deepcopy(result[k]) if k in result else None
         update['id'] = result['fitted_pipeline'].id if 'fitted_pipeline' in result else None
         
         # check the candidate in cache. If duplicate is found the metric values must match
-        if self.is_hit(candidate):
-            match = self.storage[key]
-            for k in comparison_metrics:
-                assert match[k] is None or match[k]['value'] is None or\
-                       update[k]['value'] == match[k]['value'], \
-                       "New value for candidate:" + str(candidate)
+        self._check_update_format(candidate, key, update)
 
         # push the candidate and its value into the cache
         _logger.info("[INFO] push@Candidate: ({},{})".format(key, update))
+        print("[INFO] push@Candidate_{}: ({},{})".format(update['status'], key, update))
+        assert 'status' in update
         self.storage[key] = update
+
+    def _check_update_format(self, candidate, key, update):
+        """
+        checks the format of the update dict. If the candidate is already pushed into the cache
+        we need to check the consistency of cache in two cases: 1) if the version that is in
+        cache is the dummy push (push_none) then we need to make sure the format is correct and
+        the status is set to valid. 2) if the candidate is in cache in valid format the results
+        need to be equal (this case should not happen based on current implementation of the
+        search methods as they do not submit pipelines to multiple workers but may happen in
+        future)
+        Args:
+            candidate:
+            key:
+            update:
+
+        Returns:
+
+        """
+        if self.is_hit(candidate):
+            match = self.storage[key]
+            assert match is not None
+            assert match['status'] is not None
+            assert match['configuration'] is not None
+            for k in comparison_metrics:
+                if match['status'] == CandidateCache.S_INVALID:
+                    update['status'] = CandidateCache.S_VALID
+                assert k in match
+                assert k in update
+
+                assert update[k] is None or isinstance(update[k], list)
+                assert match[k] is None or isinstance(match[k], list)
+
+                assert match[k] is None or all('value' in m for m in match[k]), f"{match}"
+                assert update[k] is None or all('value' in u for u in update[k]), f"{update}"
+
+                assert (match[k] is None or
+                        all(
+                            m['value'] is None or
+                            u['value'] == m['value'] for (m, u) in zip(match[k], update[k])
+                            )
+                        ), "New value for candidate:" + str(candidate)
+        else:
+            # FIXME I am not sure whether to have this part or not. For now I just throw
+            # exception to be able to catch this situation.
+            if 'status' not in update:
+                assert False
+                update['status'] = CandidateCache.S_VALID
 
     def is_hit(self, candidate: ConfigurationPoint[T]) -> bool:
         return CandidateCache._get_hash(candidate) in self.storage

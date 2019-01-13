@@ -98,12 +98,14 @@ class ExecutionHistory:
 
         # these fields will be updated only if the new report is better than the previous ones
         if ExecutionHistory._is_better(base=row, check=report, key_attribute=self.key_attribute):
+            print(f"updating history for: {hash(str(report['configuration']))}")
             for k in ['configuration', 'training_metrics', 'cross_validation_metrics',
                       'test_metrics']:
-                assert isinstance(report[k], list) or \
+                assert report[k] is None or \
+                       isinstance(report[k], list) or \
                        isinstance(report[k], dict), \
-                    f"report of {k} must be a list or dict {type(report[k])}"
-                if len(report[k]) == 0:
+                       f"report of {k} must be a list or dict {type(report[k])}, {report}"
+                if report[k] is None or len(report[k]) == 0:
                     update[k] = np.NaN
                 else:
                     update[k] = report[k]
@@ -231,11 +233,12 @@ class ExecutionHistory:
 
             comparison_results[s] = opr(check[s][0]['value'], base[s][0]['value'])
 
+        # check if different metrics are inconsistent
         if len(set(comparison_results.values())) != 1:
+            # FIXME a better policy for this part
             _logger.warning("[WARN] cross_validation_metrics and test_metrics are not compatible")
-            print(("[WARN]" + "{}:{}" * len(comparison_results) + "are not compatible").format(
-                *[item for tup in zip(base_comparison_metrics, comparison_results) for item in
-                  tup]))
+            print(("[WARN]" + " {}:{} " * len(comparison_results) + "are not compatible").format(
+                *[item for m in base_comparison_metrics for item in [m, comparison_results[m]]]))
 
         # return operator.and_(comparison_results[0], comparison_results[1])
         if key_attribute in comparison_results:

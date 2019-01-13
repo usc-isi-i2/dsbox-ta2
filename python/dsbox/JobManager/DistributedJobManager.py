@@ -8,6 +8,7 @@ from math import ceil
 import traceback
 from multiprocessing import Pool, Queue, Manager, Process, current_process, Lock
 from multiprocessing import get_logger
+import copy
 # import dsbox.JobManager.mplog as mplog
 
 _logger = logging.getLogger(__name__)
@@ -15,7 +16,7 @@ _logger.setLevel(logging.DEBUG)
 
 
 class DistributedJobManager:
-    def __init__(self, proc_num: int=4, timeout: int=55):
+    def __init__(self, proc_num: int = 4, timeout: int = 55):
 
         self.start_time = time.perf_counter()
         self.proc_num = proc_num
@@ -57,7 +58,6 @@ class DistributedJobManager:
         # print("[INFO] I am job ")
         method_to_call = getattr(target_obj, target_method)
         # time.sleep(input)
-        # print(method_to_call)
         result = method_to_call(**kwargs)
         return result
 
@@ -76,21 +76,27 @@ class DistributedJobManager:
         target: typing.Callable = args[2]
 
         # _logger.debug("worker process started {}".format(current_process()))
-        print("worker process started {}".format(current_process()))
+        # print(f"[INFO] {current_process()} > worker process started")
+        _logger.info(f"{current_process()} > worker process started")
         counter: int = 0
         while True:
             # wait until a new job is available
+            # print(f"[INFO] {current_process()} > waiting on new jobs")
+            _logger.info(f"{current_process()} > waiting on new jobs")
             kwargs = arguments_queue.get(block=True)
-
+            _logger.info(f"{current_process()} > copying")
+            kwargs_copy = copy.copy(kwargs)
             # execute the job
             try:
                 # TODO add timelimit to single work in the worker
+                # print(f"[INFO] {current_process()} > executing job")
                 result = target(**kwargs)
                 # assert hasattr(result['fitted_pipeline'], 'runtime'), \
                 #     '[DJM] Eval does not have runtime'
             except:
-                _logger.exception(f'Target evaluation {hash(str(kwargs))}, '
-                                  f'failed in {current_process()}')
+                _logger.exception(
+                    f'{current_process()} > Target evaluation failed {hash(str(kwargs))}')
+                # print(f'[INFO] {current_process()} > Target evaluation failed {hash(str(kwargs))}')
                 traceback.print_exc()
                 # _logger.error(traceback.format_exc())
                 result = None
@@ -109,11 +115,26 @@ class DistributedJobManager:
                 pushed = True
             except:
                 traceback.print_exc()
-                print(f"time out or result_queue is full {result_queue.full()}")
-                exit(1)
-            counter += 1
-            print(f"Worker is Idle {current_process()}, done {counter} jobs")
+                _logger.exception(f"{current_process()} > {traceback.format_exc()}")
+                # print(f"[INFO] {current_process()} > time out or "
+                #       f"result_queue is full {result_queue.full()}")
+                _logger.info(f"{current_process()} > time out or "
+                             f"result_queue is full {result_queue.full()}")
 
+                try:
+                    _logger.info(f"{current_process()} > Pushing None due to pickling failure")
+                    result_queue.put((kwargs_copy, None))
+                except:
+                    traceback.print_exc()
+                    _logger.exception(f"{current_process()} > {traceback.format_exc()}")
+                    # print(f"[INFO] {current_process()} > cannot even push None")
+                    _logger.info(f"{current_process()} >  > cannot even push None")
+                    exit(1)
+
+                # exit(1)
+            counter += 1
+            # print(f"[INFO] {current_process()} > is Idle, done {counter} jobs")
+            _logger.info(f"{current_process()} > is Idle, done {counter} jobs")
 
     def push_job(self, kwargs_bundle: typing.Dict = {}) -> int:
         """
@@ -132,9 +153,9 @@ class DistributedJobManager:
                        "\'target_method\': ..., " \
                        "\'kwargs\': {[arg_name]: ...,}}"
         assert isinstance(kwargs_bundle, dict), hint_message
-        assert all(l in kwargs_bundle for l in ['target_obj', 'target_method', 'kwargs']), hint_message
+        assert all(
+            l in kwargs_bundle for l in ['target_obj', 'target_method', 'kwargs']), hint_message
         assert isinstance(kwargs_bundle['kwargs'], dict), hint_message
-
 
         self.Qlock.acquire()
         self.ongoing_jobs += 1
@@ -228,7 +249,7 @@ class DistributedJobManager:
         self.timer.cancel()
 
     def _setup_timeout_timer(self):
-        self.timer = Timer(self.timeout*60, self._kill_me)
+        self.timer = Timer(self.timeout * 60, self._kill_me)
         self.timer.start()
         _logger.warning(f"timer started: {self.timeout} min")
 

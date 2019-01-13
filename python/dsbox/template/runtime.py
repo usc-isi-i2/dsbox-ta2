@@ -16,6 +16,7 @@ from d3m.metadata.hyperparams import Hyperparams
 from d3m.metadata.pipeline import Pipeline, PrimitiveStep
 from d3m.primitive_interfaces import base
 from d3m.runtime import Runtime as d3m_runtime
+from d3m.runtime import Result as d3m_result
 from d3m.runtime import Phase
 from d3m import exceptions
 from multiprocessing import current_process
@@ -25,11 +26,13 @@ _logger = logging.getLogger(__name__)
 
 MAX_DUMP_SIZE = 50  # 1000
 
+
 class ForkedPdb(pdb.Pdb):
     """
     A Pdb subclass that may be used
     from a forked multiprocessing child
     """
+
     def interaction(self, *args, **kwargs):
         _stdin = sys.stdin
         try:
@@ -38,17 +41,21 @@ class ForkedPdb(pdb.Pdb):
         finally:
             sys.stdin = _stdin
 
+
 logging.getLogger("urllib3").setLevel(logging.WARNING)
 logging.getLogger("theano").setLevel(logging.WARNING)
 logging.getLogger("dill").setLevel(logging.WARNING)
+
 
 class Runtime(d3m_runtime):
     """
     Class to run the build and run a Pipeline.
 
     Caution:
-    Some method adapted from d3m's runtime, so if you find that our system can't run after updated the new d3m,
-    It is extremely possible that d3m changed some of their codes on runtime and we copied part of their codes
+    Some method adapted from d3m's runtime, so if you find that our system can't run after
+    updated the new d3m,
+    It is extremely possible that d3m changed some of their codes on runtime and we copied part
+    of their codes
     here in _run_primitive() function.
 
     Attributes
@@ -80,7 +87,7 @@ class Runtime(d3m_runtime):
 
     def __init__(self, pipeline_description: Pipeline, fitted_pipeline_id: str, log_dir) -> None:
 
-        super().__init__(pipeline = pipeline_description, hyperparams = None, problem_description = None)
+        super().__init__(pipeline=pipeline_description, hyperparams=None, problem_description=None)
 
         self.cache = PrimitivesCache()
         self.cross_validation_result = None
@@ -116,8 +123,8 @@ class Runtime(d3m_runtime):
             primitive_arguments = self._prepare_primitive_arguments(this_step)
             primitive_arguments["produce_methods"] = this_step.outputs
             prim_name, prim_hash = self.cache._get_hash(
-                    hash_prefix=None, pipe_step=self.pipeline_description.steps[self.current_step],
-                    primitive_arguments=primitive_arguments)
+                hash_prefix=None, pipe_step=self.pipeline_description.steps[self.current_step],
+                primitive_arguments=primitive_arguments)
 
             if not self.skip_fit_phase:
                 # if we need to do cross validation, do it before normal fit() step
@@ -150,9 +157,12 @@ class Runtime(d3m_runtime):
 
             cache_hit = False
             _logger.debug(
-                "Primitive Fit. 'id': '%(primitive_id)s', '(name, hash)': ('%(name)s', '%(hash)s'), 'worker_id': '%(worker_id)s'.",
+                "Primitive Fit. 'id': '%(primitive_id)s', '(name, hash)': ('%(name)s', "
+                "'%(hash)s'), 'worker_id': '%(worker_id)s'.",
                 {
-                    'primitive_id': self.pipeline_description.steps[self.current_step].primitive_description['id'],
+                    'primitive_id':
+                        self.pipeline_description.steps[self.current_step].primitive_description[
+                            'id'],
                     'name': prim_name,
                     'hash': prim_hash,
                     'worker_id': current_process()
@@ -171,17 +181,24 @@ class Runtime(d3m_runtime):
                 cache_hit = True
                 # print("!!!!Fit step with hitted finished!!!!")
 
-                # HERE the code adapted from d3m's runtime!!! If new version of runtime changd, remember to change here
-                # this part use the primitive adapted from cache to regenerate the prediction of training dataset
-                # and output the results to self.environment which is used to store the intermediate results of each steps
-                multi_produce_arguments = self._filter_arguments(this_step.primitive, 'multi_produce', dict(primitive_arguments, produce_methods=this_step.outputs))
+                # HERE the code adapted from d3m's runtime!!! If new version of runtime changd,
+                # remember to change here
+                # this part use the primitive adapted from cache to regenerate the prediction of
+                # training dataset
+                # and output the results to self.environment which is used to store the
+                # intermediate results of each steps
+                multi_produce_arguments = self._filter_arguments(this_step.primitive,
+                                                                 'multi_produce',
+                                                                 dict(primitive_arguments,
+                                                                      produce_methods=this_step.outputs))
                 while True:
                     multi_call_result = model.multi_produce(**multi_produce_arguments)
                     if multi_call_result.has_finished:
                         outputs = multi_call_result.values
                         break
                 for output_id in this_step.outputs:
-                    output_data_reference = 'steps.{i}.{output_id}'.format(i=this_step.index, output_id=output_id)
+                    output_data_reference = 'steps.{i}.{output_id}'.format(i=this_step.index,
+                                                                           output_id=output_id)
                     self.environment[output_data_reference] = outputs[output_id]
 
             # if we did not find the cache, run the primitive with d3m's inner function
@@ -193,7 +210,7 @@ class Runtime(d3m_runtime):
                 model = self.steps_state[self.current_step]
                 # push the model to cache
                 self.cache.push_key(prim_name=prim_name, prim_hash=prim_hash, model=model,
-                                   fitting_time=fitting_time)
+                                    fitting_time=fitting_time)
                 # log fitting results
                 for output_id in this_step.outputs:
                     output_data_reference = 'steps.{i}.{output_id}'.format(i=this_step.index, output_id=output_id)
@@ -212,12 +229,14 @@ class Runtime(d3m_runtime):
 
     def _log_fitted_step(self, cache, output_data_reference, primitive_step, primitives_outputs):
         '''
-            The function use to record the intermediate output of each primitive and save into the logs
+            The function use to record the intermediate output of each primitive and save into
+            the logs
 
             Parameters
             ---------
             cache: indicate the cache object
-            output_data_reference: a str use to indicate the dict key of the step output stored in self.environment
+            output_data_reference: a str use to indicate the dict key of the step output stored
+            in self.environment
             primitive_step: indicate the primitive for logging
             primitives_outputs: the dict used to store outputs
         '''
@@ -384,7 +403,8 @@ class Runtime(d3m_runtime):
             _logger.debug("[INFO] using local cache")
             self.cache = PrimitivesCache()
 
-        self.fit_outputs = d3m_runtime.fit(self, inputs = arguments['inputs'])
+        self.fit_outputs = d3m_runtime.fit(self, inputs=arguments['inputs'])
+        self.check_results(self.fit_outputs)
 
     def produce(self, **arguments: typing.Any) -> typing.List:
         """
@@ -395,4 +415,13 @@ class Runtime(d3m_runtime):
         arguments
             Arguments required to execute the Pipeline
         """
-        self.produce_outputs = d3m_runtime.produce(self, inputs = arguments['inputs'])
+
+        self.produce_outputs = d3m_runtime.produce(self, inputs=arguments['inputs'])
+        self.check_results(self.produce_outputs)
+
+    def check_results(self, res: d3m_result):
+        if res.error is None:
+            assert len(res.values) > 0
+        else:
+            raise res.error
+                # raise e

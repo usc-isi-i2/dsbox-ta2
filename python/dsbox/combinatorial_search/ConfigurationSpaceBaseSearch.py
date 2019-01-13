@@ -25,7 +25,6 @@ from dsbox.template.configuration_space import ConfigurationPoint
 from dsbox.template.configuration_space import ConfigurationSpace
 from dsbox.template.template import DSBoxTemplate
 
-
 T = typing.TypeVar("T")
 # python path of primitive, i.e. 'd3m.primitives.common_primitives.RandomForestClassifier'
 PythonPath = typing.NewType('PythonPath', str)
@@ -448,19 +447,22 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
             test_metrics2 = calculate_score(test_ground_truth, test_prediction, 
                 self.performance_metrics, self.task_type, SpecialMetric().regression_metric)
             # update here: 
-            # Now new version of d3m runtime don't allow to run ".fit()" again on a given runtime object second time
-            # So here we need to create a new FittedPipeline object to run second time's runtime.fit()
+            # Now new version of d3m runtime don't allow to run ".fit()" again on a given runtime
+            #  object second time
+            # So here we need to create a new FittedPipeline object to run second time's
+            # runtime.fit()
             fitted_pipeline_final = FittedPipeline(
-                    pipeline=pipeline,
-                    dataset_id=self.all_dataset.metadata.query(())['id'],
-                    log_dir=self.log_dir,
-                    metric_descriptions=self.performance_metrics,
-                    template=self.template, problem=self.problem)
+                pipeline=pipeline,
+                dataset_id=self.all_dataset.metadata.query(())['id'],
+                log_dir=self.log_dir,
+                metric_descriptions=self.performance_metrics,
+                template=self.template, problem=self.problem)
             # set the metric for calculating the rank
             fitted_pipeline_final.set_metric(test_metrics2[0])
 
             # finally, fit the model with all data and save it
-            _logger.info("[INFO] Now are training the pipeline with all dataset and saving the pipeline.")
+            _logger.info(
+                "[INFO] Now are training the pipeline with all dataset and saving the pipeline.")
             fitted_pipeline_final.fit(cache=cache, inputs=[self.all_dataset])
 
             if self.ensemble_tuning_dataset:
@@ -591,7 +593,7 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
             )
             print("\n" * 5)
         else:
-            _logger.debug(("\n" * 5)+"Pickling succeeded"+ ("\n" * 5))
+            _logger.debug(("\n" * 5) + "Pickling succeeded" + ("\n" * 5))
 
 def graph_problem_conversion(task_type, prediction):
     """

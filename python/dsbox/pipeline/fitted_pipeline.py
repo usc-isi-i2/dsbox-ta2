@@ -95,11 +95,13 @@ class FittedPipeline:
         #return self.runtime.fit_outputs[step_number]
         # TODO: should here always be 0?
         return self.runtime.fit_outputs[0] 
+#        return self.runtime.fit_outputs.values['outputs.0']      
 
     def get_produce_step_output(self, step_number: int):
         # return self.runtime.produce_outputs[step_number]
         # TODO: should here always be 0?
         return self.runtime.produce_outputs[0] 
+#        return self.runtime.produce_outputs.values['outputs.0']
 
     def save(self, folder_loc: str) -> None:
         '''

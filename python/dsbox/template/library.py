@@ -79,7 +79,7 @@ class TemplateLibrary:
             "dsbox_classification_template": dsboxClassificationTemplate,
             "dsbox_regression_template": dsboxRegressionTemplate,
             "CMU_Clustering_Template": CMUClusteringTemplate,
-            "Default_timeseries_collection_template": DefaultTimeseriesCollectionTemplate,
+            #"Default_timeseries_collection_template": DefaultTimeseriesCollectionTemplate,
             "Default_image_processing_regression_template":
                 DefaultImageProcessingRegressionTemplate,
             "TA1DefaultImageProcessingRegressionTemplate":
@@ -232,6 +232,7 @@ class TemplateLibrary:
         # # move dsboxClassificationTemplate to last execution because sometimes this template have bugs
         # self.templates.append(dsboxClassificationTemplate)
         # self.templates.append(dsboxRegressionTemplate)
+
 
     def _load_single_inline_templates(self, template_name):
         if template_name in self.all_templates:

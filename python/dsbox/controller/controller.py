@@ -45,6 +45,7 @@ CONSOLE_FORMATTER = "[%(levelname)s] - %(name)s - %(message)s"
 
 pd.set_option("display.max_rows", 100)
 
+
 class Status(enum.Enum):
     OK = 0
     PROBLEM_NOT_IMPLEMENT = 148
@@ -300,7 +301,8 @@ class Controller:
         # # save_location = os.path.join(self.output_logs_dir, dataset_name + ".txt")
         # save_location = self.output_directory + ".txt"
         #
-        # self._logger.info("******************\n[INFO] Saving training results in %s", save_location)
+        # self._logger.info("******************\n[INFO] Saving training results in %s",
+        # save_location)
         # metrics = self.problem['problem']['performance_metrics']
         # candidate = report['configuration']
         # try:
@@ -412,8 +414,7 @@ class Controller:
             num_proc=self.num_cpus,
             timeout=self.TIMEOUT,
         )
-
-        report = searchMethod.search(num_iter=15)
+        report = searchMethod.search(num_iter=50)
 
         report_ensemble['report'] = report
         self._log_search_results(report=report)
@@ -1014,16 +1015,9 @@ class Controller:
             self._logger.info('Starting Search process')
         
             # proc = Process(target=mplog.logged_call,
-                           # args=(log_queue, self._run_BanditDimSearch, self.report_ensemble))
-            # proc = Process(target=mplog.logged_call,
-                           # args=(log_queue, self._run_MultiBanditSearch, self.report_ensemble))
-            # proc = Process(target=mplog.logged_call,
-            #                args=(log_queue, self._run_RandomDimSearch, self.report_ensemble))
+            #                args=(log_queue, self._run_BanditDimSearch,))
             proc = Process(target=mplog.logged_call,
-                           args=(log_queue, self._run_ParallelBaseSearch, self.report_ensemble))
-            # proc = Process(target=mplog.logged_call,
-            #                args=(log_queue, self._run_SerialBaseSearch, self.report_ensemble))
-
+                           args=(log_queue, self._run_ParallelBaseSearch,))
             proc.start()
             self._logger.info('Searching is finished')
             # wait until process is done
@@ -1046,7 +1040,6 @@ class Controller:
             print("[INFO] Search Status:")
             pprint.pprint(status)
 
-
         print(f"END OF FORK {proc.exitcode}")
         return Status.OK
 
@@ -1057,7 +1050,8 @@ class Controller:
         res_id = self.problem_info['res_id']
         # check the shape of the dataset
         main_res_shape = self.all_dataset[res_id].shape
-        # if the column length is larger than the threshold, it may failed in the given time, so we need to sample part of the dataset
+        # if the column length is larger than the threshold, it may failed in the given time,
+        # so we need to sample part of the dataset
 
         if main_res_shape[1] > self.threshold_column_length:
             self._logger.info(
@@ -1066,7 +1060,8 @@ class Controller:
             # first check the target column amount
             target_column_list = []
             all_column_length = \
-            self.all_dataset.metadata.query((res_id, ALL_ELEMENTS))['dimension']['length']
+                self.all_dataset.metadata.query((res_id, ALL_ELEMENTS))['dimension']['length']
+
             targets_from_problem = self.problem_doc_metadata.query(())["inputs"]["data"][0][
                 "targets"]
             for t in targets_from_problem:
@@ -1084,17 +1079,21 @@ class Controller:
                 is_all_numerical = True
                 # check whether all inputs are categorical or not
                 # for each_column in range(1, attribute_column_length + 1):
-                #     each_metadata = self.all_dataset.metadata.query((res_id,ALL_ELEMENTS,each_column))
-                #     if 'http://schema.org/Float' not in each_metadata['semantic_types'] or 'http://schema.org/Integer' not in each_metadata['semantic_types']:
+                #     each_metadata = self.all_dataset.metadata.query((res_id,ALL_ELEMENTS,
+                # each_column))
+                #     if 'http://schema.org/Float' not in each_metadata['semantic_types'] or
+                # 'http://schema.org/Integer' not in each_metadata['semantic_types']:
                 #         is_all_numerical = False
                 #         break
                 # two ways to do sampling (random projection or random choice)
                 if is_all_numerical:
                     # TODO:
                     # add special template that use random projection directly
-                    # add one special source type for the template special process such kind of dataset
+                    # add one special source type for the template special process such kind of
+                    # dataset
                     self._logger.info(
-                        "Special type of dataset: large column number with all categorical columns.")
+                        "Special type of dataset: large column number with all categorical "
+                        "columns.")
                     self._logger.info("Will reload the template with new task source type.")
                     self.taskSourceType.add("large_column_number")
                     # aadd new template specially for large column numbers at the first priority
@@ -1197,11 +1196,13 @@ class Controller:
 
         if main_res_shape[0] > self.threshold_index_length:
             self._logger.info(
-                "The row number of the input dataset is very large, will send only part of them to search.")
+                "The row number of the input dataset is very large, will send only part of them "
+                "to search.")
             if main_res_shape[1] > 20:
                 self.threshold_index_length = int(self.threshold_index_length * 0.3)
                 self._logger.info(
-                    "The column number is also very large, will reduce the sampling amount on row number.")
+                    "The column number is also very large, will reduce the sampling amount on row "
+                    "number.")
             # too many indexs, we can run another split dataset
             index_removed_percent = 1 - float(self.threshold_index_length) / float(
                 main_res_shape[0])
@@ -1244,7 +1245,8 @@ class Controller:
                 dataset=self.train_dataset1, test_size=0.1, n_splits=self.max_split_times)
             if len(self.train_dataset2) < 1:
                 self._logger.error(
-                    "Some error happend with train_dataset1 split: The length of splitted dataset is less than 1")
+                    "Some error happend with train_dataset1 split: The length of splitted dataset "
+                    "is less than 1")
             if len(self.test_dataset2) < 1:
                 self._logger.error("Split failed on train_dataset1.")
                 self.test_dataset2 = None
