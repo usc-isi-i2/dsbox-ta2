@@ -4,9 +4,10 @@ import random
 import time
 import traceback
 import typing
+import signal, os
+# import eventlet
 
 from pprint import pprint
-
 from d3m.container.dataset import Dataset
 from d3m.metadata.base import Metadata
 from dsbox.JobManager.DistributedJobManager import DistributedJobManager
@@ -49,6 +50,7 @@ class TemplateSpaceParallelBaseSearch(TemplateSpaceBaseSearch[T]):
                  problem: Metadata, train_dataset1: Dataset,
                  train_dataset2: typing.List[Dataset], test_dataset1: Dataset,
                  test_dataset2: typing.List[Dataset], all_dataset: Dataset,
+                 ensemble_tuning_dataset: Dataset,
                  output_directory: str, log_dir: str, timeout: int=55, num_proc: int=4) -> None:
 
         self.job_manager = DistributedJobManager(proc_num=num_proc, timeout=timeout)
@@ -58,6 +60,7 @@ class TemplateSpaceParallelBaseSearch(TemplateSpaceBaseSearch[T]):
             template_list=template_list, performance_metrics=performance_metrics,
             problem=problem, train_dataset1=train_dataset1, train_dataset2=train_dataset2,
             test_dataset1=test_dataset1, test_dataset2=test_dataset2, all_dataset=all_dataset,
+            ensemble_tuning_dataset = ensemble_tuning_dataset,
             output_directory=output_directory, log_dir=log_dir
         )
 
@@ -83,11 +86,18 @@ class TemplateSpaceParallelBaseSearch(TemplateSpaceBaseSearch[T]):
         """
         # start the worker processes
         # self.job_manager._start_workers(target_method=self._evaluate_template)
+        from dsbox.template.runtime import ForkedPdb
+        ForkedPdb().set_trace()
         time.sleep(0.1)
+
+        # def _timeout_handler(self, signum):
+        #     print('Signal handler called with signal', signum)
+        # with eventlet.Timeout(180, False):
+            # signal.signal(signal.SIGALRM, _timeout_handler)
+            # signal.alarm(3 * 60)
 
         # randomly send the candidates to job manager for evaluation
         self._push_random_candidates(num_iter)
-
         time.sleep(1)
 
         # iteratively wait until a result is available and process the result untill there is no
@@ -100,7 +110,10 @@ class TemplateSpaceParallelBaseSearch(TemplateSpaceBaseSearch[T]):
         # cleanup job manager
         self.job_manager.kill_job_mananger()
 
+        # signal.alarm(0)
+        print("search finished")
         return self.history.get_best_history()
+
 
     def _get_evaluation_results(self, max_num: int=float('inf')) -> None:
         """
@@ -112,16 +125,19 @@ class TemplateSpaceParallelBaseSearch(TemplateSpaceBaseSearch[T]):
         Returns:
             None
         """
+            # self._add_report_to_history(kwargs_bundle, report)
+            # counter += 1
+
         _logger.debug("Waiting for the results")
         counter = 0
         while (counter < max_num) and (not self.job_manager.is_idle()):
             # print("[INFO] Sleeping,", counter)
+
             _logger.debug(f"Main Process Sleeping:{counter}")
             (kwargs_bundle, report) = self.job_manager.pop_job(block=True)
             _logger.warning(f"kwargs: {kwargs_bundle}")
-
-            self._add_report_to_history(kwargs_bundle, report)
-
+            if report and kwargs_bundle:
+                self._add_report_to_history(kwargs_bundle, report)
             counter += 1
         _logger.debug("[INFO] No more pending job")
 

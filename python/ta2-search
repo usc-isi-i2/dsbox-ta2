@@ -4,27 +4,22 @@
 Command Line Interface for running the DSBox TA2 Search
 """
 import time
-from dsbox_dev_setup import path_setup
 import argparse
 import json
 import os
 import signal
-import subprocess
 import sys
 import traceback
-from pprint import pprint
+import psutil
 
+from pprint import pprint
 from importlib import reload
 import dsbox.controller.controller
 
 reload(dsbox.controller.controller)
 from dsbox.controller.controller import Controller
-from dsbox.controller.controller import Status
-import os
-import psutil
-# controller = Controller(development_mode=True)
 
-import getpass
+# controller = Controller(development_mode=True)
 
 start_time = time.time()
 
