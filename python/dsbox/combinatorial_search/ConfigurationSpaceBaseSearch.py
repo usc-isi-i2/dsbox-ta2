@@ -21,7 +21,6 @@ from dsbox.template.configuration_space import ConfigurationPoint
 from dsbox.template.configuration_space import ConfigurationSpace
 from dsbox.template.template import DSBoxTemplate
 
-
 T = typing.TypeVar("T")
 # python path of primitive, i.e. 'd3m.primitives.common_primitives.RandomForestClassifier'
 PythonPath = typing.NewType('PythonPath', str)
@@ -177,7 +176,7 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
         if self.testing_mode == 1:
             repeat_times = int(self.validation_config['cross_validation'])
             _logger.debug("Will use cross validation(n ={}) to choose best primitives"
-                         .format(repeat_times))
+                          .format(repeat_times))
             # start training and testing
             fitted_pipeline = FittedPipeline(
                 pipeline=pipeline,
@@ -410,25 +409,28 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
                 None, None, test_ground_truth, test_prediction)
 
             # update here: 
-            # Now new version of d3m runtime don't allow to run ".fit()" again on a given runtime object second time
-            # So here we need to create a new FittedPipeline object to run second time's runtime.fit()
+            # Now new version of d3m runtime don't allow to run ".fit()" again on a given runtime
+            #  object second time
+            # So here we need to create a new FittedPipeline object to run second time's
+            # runtime.fit()
             fitted_pipeline_final = FittedPipeline(
-                    pipeline=pipeline,
-                    dataset_id=self.all_dataset.metadata.query(())['id'],
-                    log_dir=self.log_dir,
-                    metric_descriptions=self.performance_metrics,
-                    template=self.template, problem=self.problem)
+                pipeline=pipeline,
+                dataset_id=self.all_dataset.metadata.query(())['id'],
+                log_dir=self.log_dir,
+                metric_descriptions=self.performance_metrics,
+                template=self.template, problem=self.problem)
             # set the metric for calculating the rank
             fitted_pipeline_final.set_metric(test_metrics2[0])
 
             # finally, fit the model with all data and save it
-            _logger.info("[INFO] Now are training the pipeline with all dataset and saving the pipeline.")
+            _logger.info(
+                "[INFO] Now are training the pipeline with all dataset and saving the pipeline.")
             fitted_pipeline_final.fit(cache=cache, inputs=[self.all_dataset])
 
             data = {
                 'fitted_pipeline': fitted_pipeline_final,
                 'training_metrics': training_metrics,
-                'cross_validation_metrics':training_metrics, 
+                'cross_validation_metrics': training_metrics,
                 'cross_validation_metrics': fitted_pipeline_final.get_cross_validation_metrics(),
                 'test_metrics': test_metrics2,
                 'total_runtime': time.time() - start_time,
@@ -460,10 +462,18 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
 
     def _calculate_score(self, training_ground_truth, training_prediction, test_ground_truth,
                          test_prediction):
-        '''
-            Ineer function used to calculate the score of the training and testing results based
+        """
+        Ineer function used to calculate the score of the training and testing results based
             on given matrics
-        '''
+        Args:
+            training_ground_truth:
+            training_prediction:
+            test_ground_truth:
+            test_prediction:
+
+        Returns:
+
+        """
         training_metrics = []
         test_metrics = []
         if training_prediction is not None:
@@ -698,7 +708,7 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
             )
             print("\n" * 5)
         else:
-            _logger.debug(("\n" * 5)+"Pickling succeeded"+ ("\n" * 5))
+            _logger.debug(("\n" * 5) + "Pickling succeeded" + ("\n" * 5))
 
     def graph_problem_conversion(self, prediction):
         tasktype = self.template.template["taskType"]

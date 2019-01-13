@@ -79,7 +79,7 @@ class TemplateLibrary:
             "dsbox_classification_template": dsboxClassificationTemplate,
             "dsbox_regression_template": dsboxRegressionTemplate,
             "CMU_Clustering_Template": CMUClusteringTemplate,
-            "Default_timeseries_collection_template": DefaultTimeseriesCollectionTemplate,
+            #"Default_timeseries_collection_template": DefaultTimeseriesCollectionTemplate,
             "Default_image_processing_regression_template":
                 DefaultImageProcessingRegressionTemplate,
             "TA1DefaultImageProcessingRegressionTemplate":
@@ -200,7 +200,7 @@ class TemplateLibrary:
         self.templates.append(DefaultImageProcessingRegressionTemplate)
 
         # Others
-        self.templates.append(DefaultTimeseriesCollectionTemplate)
+        #self.templates.append(DefaultTimeseriesCollectionTemplate)
         self.templates.append(TimeSeriesForcastingTestingTemplate)
 
         self.templates.append(DefaultLinkPredictionTemplate)

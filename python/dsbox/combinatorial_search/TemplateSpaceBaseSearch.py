@@ -130,15 +130,12 @@ class TemplateSpaceBaseSearch(typing.Generic[T]):
         """
         candidate = kwargs_bundle['kwargs']['args'][0]
         template_name = kwargs_bundle['target_obj'].template.template['name']
-        try:
-            if report is None:
-                raise ValueError("Search Failed on candidate")
+        if report is not None:
             report['template_name'] = template_name
             _logger.info("new report: {}".format(report))
             self.history.update(report, template_name=template_name)
             self.cacheManager.candidate_cache.push(report)
-        except ValueError:
-            traceback.print_exc()
+        else:
             _logger.warning(traceback.format_exc())
             print("[INFO] Search Failed on candidate ", hash(str(candidate)))
             self.history.update_none(fail_report=None, template_name=template_name)
