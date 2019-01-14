@@ -79,63 +79,70 @@ class DistributedJobManager:
         # print(f"[INFO] {current_process()} > worker process started")
         _logger.info(f"{current_process()} > worker process started")
         counter: int = 0
+        error_count: int = 0
         while True:
-            # wait until a new job is available
-            # print(f"[INFO] {current_process()} > waiting on new jobs")
-            _logger.info(f"{current_process()} > waiting on new jobs")
-            kwargs = arguments_queue.get(block=True)
-            _logger.info(f"{current_process()} > copying")
-            kwargs_copy = copy.copy(kwargs)
-            # execute the job
             try:
-                # TODO add timelimit to single work in the worker
-                # print(f"[INFO] {current_process()} > executing job")
-                result = target(**kwargs)
-                # assert hasattr(result['fitted_pipeline'], 'runtime'), \
-                #     '[DJM] Eval does not have runtime'
-            except:
-                _logger.exception(
-                    f'{current_process()} > Target evaluation failed {hash(str(kwargs))}')
-                # print(f'[INFO] {current_process()} > Target evaluation failed {hash(str(kwargs))}')
-                traceback.print_exc()
-                # _logger.error(traceback.format_exc())
-                result = None
-
-            # push the results
-            result_simplified = result.copy()
-            if "ensemble_tunning_result" in result:
-                result_simplified.pop("ensemble_tunning_result")
-
-            print(f"Pushing Results {current_process()} > {result_simplified}")
-            _logger.info(f"{current_process()} Pushing Results > {result}")
-
-            pushed = False
-            # while not pushed:
-            try:
-                result_queue.put((kwargs, result))
-                pushed = True
-            except:
-                traceback.print_exc()
-                _logger.exception(f"{current_process()} > {traceback.format_exc()}")
-                # print(f"[INFO] {current_process()} > time out or "
-                #       f"result_queue is full {result_queue.full()}")
-                _logger.info(f"{current_process()} > time out or "
-                             f"result_queue is full {result_queue.full()}")
-
+                # wait until a new job is available
+                # print(f"[INFO] {current_process()} > waiting on new jobs")
+                _logger.info(f"{current_process()} > waiting on new jobs")
+                kwargs = arguments_queue.get(block=True)
+                _logger.info(f"{current_process()} > copying")
+                kwargs_copy = copy.copy(kwargs)
+                # execute the job
                 try:
-                    _logger.info(f"{current_process()} > Pushing None due to pickling failure")
-                    result_queue.put((kwargs_copy, None))
+                    # TODO add timelimit to single work in the worker
+                    # print(f"[INFO] {current_process()} > executing job")
+                    result = target(**kwargs)
+                    # assert hasattr(result['fitted_pipeline'], 'runtime'), \
+                    #     '[DJM] Eval does not have runtime'
+                except:
+                    _logger.exception(
+                        f'{current_process()} > Target evaluation failed {hash(str(kwargs))}')
+                    # print(f'[INFO] {current_process()} > Target evaluation failed {hash(str(kwargs))}')
+                    traceback.print_exc()
+                    # _logger.error(traceback.format_exc())
+                    result = None
+
+                # push the results
+                if result is not None:
+                    result_simplified = result.copy()
+                    if "ensemble_tunning_result" in result:
+                        result_simplified.pop("ensemble_tunning_result")
+
+                print(f"Pushing Results {current_process()} > {result}")
+                _logger.info(f"{current_process()} Pushing Results > {result}")
+
+                pushed = False
+                # while not pushed:
+                try:
+                    result_queue.put((kwargs, result))
+                    pushed = True
                 except:
                     traceback.print_exc()
                     _logger.exception(f"{current_process()} > {traceback.format_exc()}")
-                    # print(f"[INFO] {current_process()} > cannot even push None")
-                    _logger.info(f"{current_process()} >  > cannot even push None")
-                    exit(1)
+                    # print(f"[INFO] {current_process()} > time out or "
+                    #       f"result_queue is full {result_queue.full()}")
+                    _logger.info(f"{current_process()} > time out or "
+                                 f"result_queue is full {result_queue.full()}")
 
-                # exit(1)
-            counter += 1
-            # print(f"[INFO] {current_process()} > is Idle, done {counter} jobs")
-            _logger.info(f"{current_process()} > is Idle, done {counter} jobs")
+                    try:
+                        _logger.info(f"{current_process()} > Pushing None due to pickling failure")
+                        result_queue.put((kwargs_copy, None))
+                    except:
+                        traceback.print_exc()
+                        _logger.exception(f"{current_process()} > {traceback.format_exc()}")
+                        # print(f"[INFO] {current_process()} > cannot even push None")
+                        _logger.info(f"{current_process()} >  > cannot even push None")
+                        exit(1)
+
+                    # exit(1)
+                counter += 1
+                # print(f"[INFO] {current_process()} > is Idle, done {counter} jobs")
+                _logger.info(f"{current_process()} > is Idle, done {counter} jobs")
+            except Exception:
+                error_count += 1
+                _logger.warning(f"{current_process()} > Unexpected Exception count={error_count}")
+                _logger.exception(f"{current_process()} > {traceback.format_exc()}")
 
     def push_job(self, kwargs_bundle: typing.Dict = {}) -> int:
         """
