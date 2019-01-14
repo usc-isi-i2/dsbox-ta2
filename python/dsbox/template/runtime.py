@@ -102,6 +102,9 @@ class Runtime(d3m_runtime):
         self.use_cache = True
         # self.timing["total_time_used_without_cache"] = 0.0
 
+        # !
+        self.skip_fit_phase = False
+
     def set_not_use_cache(self) -> None:
         self.use_cache = False
 
@@ -117,7 +120,7 @@ class Runtime(d3m_runtime):
         # call d3m's run primitive directly if not use cache
         if not self.use_cache:
             d3m_runtime._run_primitive(self, this_step)
-                
+
         elif self.phase == Phase.FIT:
             # Same as old codes, use argument as the cache system's key
             primitive_arguments = self._prepare_primitive_arguments(this_step)
@@ -309,7 +312,7 @@ class Runtime(d3m_runtime):
                     num = 0.0
                     for k, (train, test) in enumerate(kf.split(X, y)):
                         try:
-                            # !!! 
+                            # !!!
                             # Temporary fix
                             # Still ignore the use_semantic types hyperparameters
                             if "use_semantic_types" in custom_hyperparams:

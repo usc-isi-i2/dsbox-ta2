@@ -35,7 +35,7 @@ def main(args):
 
     # Time to write results (in minutes)
     write_results_time = 2
-    if args.timeout:
+    if args.timeout > write_results_time:
         timeout = args.timeout - write_results_time
     else:
         if 'timeout' in config:
@@ -161,7 +161,7 @@ def main(args):
 
     if args.test_generated_pipelines:
         run_generated_pipelines(best_pipeline_id)
-        
+
     time_used = (time.time() - start_time) / 60.0
     print("[INFO] The time used for running program is {:0.2f} minutes.".format(time_used))
 

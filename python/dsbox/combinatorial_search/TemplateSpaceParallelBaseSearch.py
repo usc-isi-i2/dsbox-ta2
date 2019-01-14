@@ -4,10 +4,9 @@ import random
 import time
 import traceback
 import typing
-import signal, os
-# import eventlet
 
 from pprint import pprint
+
 from d3m.container.dataset import Dataset
 from d3m.metadata.base import Metadata
 from dsbox.JobManager.DistributedJobManager import DistributedJobManager
@@ -86,8 +85,8 @@ class TemplateSpaceParallelBaseSearch(TemplateSpaceBaseSearch[T]):
         """
         # start the worker processes
         # self.job_manager._start_workers(target_method=self._evaluate_template)
-        from dsbox.template.runtime import ForkedPdb
-        ForkedPdb().set_trace()
+        # from dsbox.template.runtime import ForkedPdb
+        # ForkedPdb().set_trace()
         time.sleep(0.1)
 
         # def _timeout_handler(self, signum):
@@ -110,8 +109,6 @@ class TemplateSpaceParallelBaseSearch(TemplateSpaceBaseSearch[T]):
         # cleanup job manager
         self.job_manager.kill_job_mananger()
 
-        # signal.alarm(0)
-        print("search finished")
         return self.history.get_best_history()
 
 
@@ -125,19 +122,16 @@ class TemplateSpaceParallelBaseSearch(TemplateSpaceBaseSearch[T]):
         Returns:
             None
         """
-            # self._add_report_to_history(kwargs_bundle, report)
-            # counter += 1
-
         _logger.debug("Waiting for the results")
         counter = 0
         while (counter < max_num) and (not self.job_manager.is_idle()):
             # print("[INFO] Sleeping,", counter)
-
             _logger.debug(f"Main Process Sleeping:{counter}")
             (kwargs_bundle, report) = self.job_manager.pop_job(block=True)
             _logger.warning(f"kwargs: {kwargs_bundle}")
-            if report and kwargs_bundle:
-                self._add_report_to_history(kwargs_bundle, report)
+
+            self._add_report_to_history(kwargs_bundle, report)
+
             counter += 1
         _logger.debug("[INFO] No more pending job")
 

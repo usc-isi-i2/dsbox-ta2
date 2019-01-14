@@ -87,7 +87,7 @@ class Controller:
         # TODO: check whether "speech" type should be put into this list or not
         self.data_type_cannot_split = ["graph", "edgeList", "audio"]
         self.task_type_can_split = ["CLASSIFICATION", "REGRESSION", "TIME_SERIES_FORECASTING"]
-        
+
         # !!! hard code here
         # TODO: add if statement to determine it
         self.do_ensemble_tune = True
@@ -243,7 +243,7 @@ class Controller:
         self.problem_info["data_type"] = self.taskSourceType
 
         # Resource limits
-        self.num_cpus = int(config.get('cpus', 0))
+        self.num_cpus = int(config.get('cpus', 5))
         self.ram = config.get('ram', 0)
         self.timeout = (config.get('timeout', self.TIMEOUT)) * 60
         self.saved_pipeline_id = config.get('saved_pipeline_ID', "")
@@ -1005,7 +1005,7 @@ class Controller:
         """
         if not self.template:
             return Status.PROBLEM_NOT_IMPLEMENT
-        
+
         self._check_and_set_dataset_metadata()
         self.generate_dataset_splits()
 
@@ -1013,16 +1013,16 @@ class Controller:
         # FIXME) to catch the errors of the child process
         with mplog.open_queue() as log_queue:
             self._logger.info('Starting Search process')
-        
+
             # proc = Process(target=mplog.logged_call,
             #                args=(log_queue, self._run_BanditDimSearch,))
             proc = Process(target=mplog.logged_call,
-                           args=(log_queue, self._run_ParallelBaseSearch,))
+                           args=(log_queue, self._run_ParallelBaseSearch, self.report_ensemble))
             proc.start()
             self._logger.info('Searching is finished')
             # wait until process is done
             proc.join()
-        
+
 
         if self.do_ensemble_tune:
             self._logger.info("Normal searching finished, now starting ensemble tuning")

@@ -171,7 +171,7 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
         Evaluate at configuration point.
         Note: This methods will modify the configuration point, by updating its data field.
         """
-         
+
         configuration: ConfigurationPoint[PrimitiveDescription] = dict(args[0])
         cache: PrimitivesCache = args[1]
         dump2disk = args[2] if len(args) == 3 else True
@@ -183,7 +183,7 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
         evaluation_result.pop('fitted_pipeline')
 
         _logger.info(f"END Evaluation of {hash(str(configuration))} in {current_process()}")
-        
+
         return evaluation_result
         # assert hasattr(evaluation_result['fitted_pipeline'], 'runtime'), \
         #     'Eval does not have runtime'
@@ -194,7 +194,7 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
         #     traceback.print_exc()
         #     return None
         # configuration.data.update(new_data)
-        
+
 
     def _evaluate(self,
                   configuration: ConfigurationPoint,
@@ -221,11 +221,11 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
             training_ground_truth = get_target_columns(self.train_dataset1, self.problem)
             training_prediction = fitted_pipeline.get_fit_step_output(
                 self.template.get_output_step_number())
-            training_metrics = calculate_score(training_ground_truth, training_prediction, 
+            training_metrics = calculate_score(training_ground_truth, training_prediction,
                 self.performance_metrics, self.task_type, SpecialMetric().regression_metric)
 
             cv_metrics = fitted_pipeline.get_cross_validation_metrics()
-            test_metrics = copy.deepcopy(training_metrics)  
+            test_metrics = copy.deepcopy(training_metrics)
 
             # use cross validation's avg value as the test score
             for i in range(len(test_metrics)):
@@ -260,7 +260,7 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
                                                            self.problem)
                 training_prediction = fitted_pipeline.get_fit_step_output(
                     self.template.get_output_step_number())
-                training_metrics_each = calculate_score(training_ground_truth, training_prediction, 
+                training_metrics_each = calculate_score(training_ground_truth, training_prediction,
                 self.performance_metrics, self.task_type, SpecialMetric().regression_metric)
 
                 # only do test if the test_dataset exist
@@ -271,7 +271,7 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
                     # Note: results == test_prediction
                     test_prediction = fitted_pipeline.get_produce_step_output(
                         self.template.get_output_step_number())
-                    test_metrics_each = calculate_score(test_ground_truth, test_prediction, 
+                    test_metrics_each = calculate_score(test_ground_truth, test_prediction,
                         self.performance_metrics, self.task_type, SpecialMetric().regression_metric)
                 else:
                     test_ground_truth = None
@@ -444,9 +444,9 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
             test_ground_truth = get_target_columns(self.test_dataset1, self.problem)
             test_prediction = fitted_pipeline2.get_produce_step_output(
                 self.template.get_output_step_number())
-            test_metrics2 = calculate_score(test_ground_truth, test_prediction, 
+            test_metrics2 = calculate_score(test_ground_truth, test_prediction,
                 self.performance_metrics, self.task_type, SpecialMetric().regression_metric)
-            # update here: 
+            # update here:
             # Now new version of d3m runtime don't allow to run ".fit()" again on a given runtime
             #  object second time
             # So here we need to create a new FittedPipeline object to run second time's
@@ -469,7 +469,7 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
                 fitted_pipeline_final.produce(inputs=[self.ensemble_tuning_dataset])
             ensemble_tuning_result = fitted_pipeline_final.get_produce_step_output(self.template.get_output_step_number())
             ensemble_tuning_result_ground_truth = get_target_columns(self.ensemble_tuning_dataset, self.problem)
-            ensemble_tuning_metrics = calculate_score(ensemble_tuning_result_ground_truth, ensemble_tuning_result, 
+            ensemble_tuning_metrics = calculate_score(ensemble_tuning_result_ground_truth, ensemble_tuning_result,
                 self.performance_metrics, self.task_type, SpecialMetric().regression_metric)
 
             cv = fitted_pipeline_final.get_cross_validation_metrics()
@@ -498,7 +498,7 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
                 test_prediction3 = fitted_pipeline_final.get_produce_step_output(
                     self.template.get_output_step_number())
 
-                test_metrics3 = calculate_score(test_ground_truth, test_prediction3, 
+                test_metrics3 = calculate_score(test_ground_truth, test_prediction3,
                     self.performance_metrics, self.task_type, SpecialMetric().regression_metric)
 
                 _logger.info("Test pickled pipeline. id: {}".format(fitted_pipeline_final.id))
@@ -522,7 +522,7 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
             self.template.get_output_step_number())
         pipeline_prediction = graph_problem_conversion(self.task_type, pipeline_prediction)
 
-        test_pipeline_metrics2 = calculate_score(test_ground_truth, pipeline_prediction, 
+        test_pipeline_metrics2 = calculate_score(test_ground_truth, pipeline_prediction,
             self.performance_metrics, self.task_type, SpecialMetric().regression_metric)
 
         test_pipeline_metrics = list()
@@ -609,8 +609,8 @@ def graph_problem_conversion(task_type, prediction):
             prediction.iloc[:, -1] = prediction.iloc[:, -1].astype(int)
     return prediction
 
-def calculate_score(ground_truth:DataFrame, prediction:DataFrame, 
-                    performance_metrics:typing.List[typing.Dict], 
+def calculate_score(ground_truth:DataFrame, prediction:DataFrame,
+                    performance_metrics:typing.List[typing.Dict],
                     task_type, regression_metric:set()):
     """
     static method used to calculate the score based on given predictions and metric tpyes
@@ -666,10 +666,15 @@ def calculate_score(ground_truth:DataFrame, prediction:DataFrame,
                     target_amount = len(prediction.columns) - 1
 
                 ground_truth_amount = len(ground_truth.columns) - 1
+
+                # if not (ground_truth_amount == target_amount):
+                #     from runtime import ForkedPdb
+                #     ForkedPdb().set_trace()
+
                 assert ground_truth_amount == target_amount, \
                     "[ERROR] Truth and prediction does not match"
 
-                if do_regression_mode: 
+                if do_regression_mode:
                     # regression mode require the targets must be float
                     for each_column in range(-target_amount, 0, 1):
                         result_metrics.append({
