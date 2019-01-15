@@ -667,7 +667,9 @@ def calculate_score(ground_truth:DataFrame, prediction:DataFrame,
 
                 ground_truth_amount = len(ground_truth.columns) - 1
 
-                # if not (ground_truth_amount == target_amount):
+                if not (ground_truth_amount == target_amount):
+                    print('predicition columns :', prediction.columns)
+                    print('Ground truth columns:', ground_truth.columns)
                 #     from runtime import ForkedPdb
                 #     ForkedPdb().set_trace()
 
