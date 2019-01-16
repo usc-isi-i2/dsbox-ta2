@@ -196,15 +196,8 @@ class Controller:
             self.output_supporting_files_dir = os.path.abspath(config['temp_storage_root'])
         #### End: Official config entry for Evaluation
 
-        if 'D3MOUTPUTDIR' in os.environ:
-            self.output_directory = os.path.abspath(os.environ['D3MOUTPUTDIR'])
-        else:
-            self.output_directory = os.path.split(self.output_executables_dir)[0]
-
-        if 'logs_root' in config:
-            self.output_logs_dir = os.path.abspath(config['logs_root'])
-        else:
-            self.output_logs_dir = os.path.join(self.output_supporting_files_dir, 'logs')
+        self.output_directory = os.path.abspath(config['output_root'])
+        self.output_logs_dir = os.path.abspath(config['logs_root'])
 
         # Make directories if they do not exist
         if not os.path.exists(self.output_directory):
