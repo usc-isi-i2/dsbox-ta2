@@ -253,7 +253,7 @@ class Controller:
             self.problem_info["target_index"].append(each["column_index"])
 
     def _log_init(self) -> None:
-        logging.basicConfig(level=min(FILE_LOGGING_LEVEL, CONSOLE_LOGGING_LEVEL))
+        logging.getLogger('').setLevel(min(FILE_LOGGING_LEVEL, CONSOLE_LOGGING_LEVEL))
 
         file_handler = logging.FileHandler(
             filename=os.path.join(self.output_logs_dir, LOG_FILENAME),
