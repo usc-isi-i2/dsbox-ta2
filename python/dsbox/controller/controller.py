@@ -253,23 +253,24 @@ class Controller:
             self.problem_info["target_index"].append(each["column_index"])
 
     def _log_init(self) -> None:
-        logging.basicConfig(
-            level=FILE_LOGGING_LEVEL,
-            format=FILE_FORMATTER,
-            datefmt='%m-%d %H:%M:%S',
+        logging.basicConfig(level=min(FILE_LOGGING_LEVEL, CONSOLE_LOGGING_LEVEL))
+
+        file_handler = logging.FileHandler(
             filename=os.path.join(self.output_logs_dir, LOG_FILENAME),
-            filemode='w'
-        )
+            mode='w')
+        file_handler.setLevel(FILE_LOGGING_LEVEL)
+        file_handler.setFormatter(logging.Formatter(fmt=FILE_FORMATTER, datefmt='%m-%d %H:%M:%S'))
+        logging.getLogger('').addHandler(file_handler)
+
+        console = logging.StreamHandler()
+        console.setFormatter(logging.Formatter(CONSOLE_FORMATTER))
+        console.setLevel(CONSOLE_LOGGING_LEVEL)
+        logging.getLogger('').addHandler(console)
 
         self._logger = logging.getLogger(__name__)
 
         if self._logger.getEffectiveLevel() <= 10:
             os.makedirs(os.path.join(self.output_logs_dir, "dfs"), exist_ok=True)
-
-        console = logging.StreamHandler()
-        console.setFormatter(logging.Formatter(CONSOLE_FORMATTER))
-        console.setLevel(CONSOLE_LOGGING_LEVEL)
-        self._logger.addHandler(console)
 
     def _log_search_results(self, report: typing.Dict[str, typing.Any]):
         # self.report_ensemble['report'] = report
