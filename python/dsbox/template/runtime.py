@@ -4,7 +4,6 @@ import contextlib
 import logging
 import sys
 import tempfile
-import multiprocessing.managers
 import time
 import pdb
 
@@ -89,7 +88,7 @@ class Runtime(d3m_runtime):
 
         super().__init__(pipeline=pipeline_description, hyperparams=None, problem_description=None)
 
-        self.cache = PrimitivesCache()
+        self.cache = None
         self.cross_validation_result = None
         self.fitted_pipeline_id = fitted_pipeline_id
         self.fit_outputs = None
@@ -154,8 +153,8 @@ class Runtime(d3m_runtime):
                         primitive, training_arguments, produce_params, primitive_hyperparams,
                         custom_hyperparams, this_step.primitive_description['runtime'])
 
-                    print("!@#$$%$$$,cvfinished!!!")
-                    print(self.cross_validation_result)
+                    # print("!@#$$%$$$,cvfinished!!!")
+                    # print(self.cross_validation_result)
                 # END for cross-validation process
 
             cache_hit = False
@@ -245,9 +244,10 @@ class Runtime(d3m_runtime):
         '''
         if _logger.getEffectiveLevel() <= 10:
 
-            _logger.debug('cache keys')
-            for key in sorted(cache.storage.keys()):
-                _logger.debug('   {}'.format(key))
+            # _logger.debug('cache keys')
+            # for key in sorted(cache.storage.keys()):
+            #     _logger.debug('   {}'.format(key))
+
             n_step = int(output_data_reference.split('.')[1])
             debug_file = os.path.join(
                 self.log_dir, 'dfs',
@@ -400,10 +400,10 @@ class Runtime(d3m_runtime):
             Arguments required to train the Pipeline
         """
         if 'cache' in arguments:
-            _logger.debug("[INFO] using global cache")
+            _logger.debug("Using global cache")
             self.cache: PrimitivesCache = arguments['cache']
         else:
-            _logger.debug("[INFO] using local cache")
+            _logger.debug("Using local cache")
             self.cache = PrimitivesCache()
 
         self.fit_outputs = d3m_runtime.fit(self, inputs=arguments['inputs'])
@@ -427,4 +427,3 @@ class Runtime(d3m_runtime):
             assert len(res.values) > 0
         else:
             raise res.error
-                # raise e

@@ -125,12 +125,14 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
                 if "cross_validation" in each_step['runtime']:
                     self.testing_mode = 1
                     _logger.debug("Will use cross validation(n ={}) to choose best primitives".format(int(self.validation_config['cross_validation'])))
-                    print("!!!!!@@#### CV mode!!!")
+                    _logger.info("Validation mode: Cross Validation")
+                    # print("!!!!!@@#### CV mode!!!")
                     break
                 else:
                     self.testing_mode = 2
                     _logger.debug("Will use test_dataset to choose best primitives")
-                    print("!!!!!@@#### normal mode!!!")
+                    _logger.info("Validation mode: normal")
+                    # print("!!!!!@@#### normal mode!!!")
                     break
 
         # new searching method: first check whether we should train a second time with
@@ -362,13 +364,13 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
         # END evaluation part
 
         # Save results
+        ensemble_tuning_result = None
+        ensemble_tuning_metrics = None
         if self.test_dataset1 is None:
             # print("The dataset no need to split of split failed, will not train again.")
             fitted_pipeline2 = fitted_pipeline
             # set the metric for calculating the rank
             fitted_pipeline2.set_metric(training_metrics[0])
-            ensemble_tuning_result = None
-            ensemble_tuning_metrics = None
             cv = fitted_pipeline2.get_cross_validation_metrics()
             if not cv:
                 cv = {}
@@ -467,10 +469,10 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
 
             if self.ensemble_tuning_dataset:
                 fitted_pipeline_final.produce(inputs=[self.ensemble_tuning_dataset])
-            ensemble_tuning_result = fitted_pipeline_final.get_produce_step_output(self.template.get_output_step_number())
-            ensemble_tuning_result_ground_truth = get_target_columns(self.ensemble_tuning_dataset, self.problem)
-            ensemble_tuning_metrics = calculate_score(ensemble_tuning_result_ground_truth, ensemble_tuning_result,
-                self.performance_metrics, self.task_type, SpecialMetric().regression_metric)
+                ensemble_tuning_result = fitted_pipeline_final.get_produce_step_output(self.template.get_output_step_number())
+                ensemble_tuning_result_ground_truth = get_target_columns(self.ensemble_tuning_dataset, self.problem)
+                ensemble_tuning_metrics = calculate_score(ensemble_tuning_result_ground_truth, ensemble_tuning_result,
+                                                          self.performance_metrics, self.task_type, SpecialMetric().regression_metric)
 
             cv = fitted_pipeline_final.get_cross_validation_metrics()
             if not cv:

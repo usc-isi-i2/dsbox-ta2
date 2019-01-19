@@ -12,17 +12,17 @@ import frozendict
 import copy
 import pprint
 
-from multiprocessing import Process,Manager
 from d3m.metadata.problem import TaskType
 from d3m.container.pandas import DataFrame as d3m_DataFrame
 from d3m.container.dataset import Dataset, D3MDatasetLoader
-from d3m.exceptions import NotSupportedError, InvalidArgumentValueError
+from d3m.exceptions import InvalidArgumentValueError
 from d3m.metadata.base import Metadata, DataMetadata, ALL_ELEMENTS
 from d3m.metadata.problem import TaskSubtype, parse_problem_description
 
 from dsbox.pipeline.fitted_pipeline import FittedPipeline
 from dsbox.pipeline.ensemble_tuning import EnsembleTuningPipeline, HorizontalTuningPipeline
-from dsbox.template.library import TemplateLibrary, HorizontalTemplate
+from dsbox.template.library import TemplateLibrary
+from dsbox.controller.config import DsboxConfig
 from dsbox.combinatorial_search.TemplateSpaceBaseSearch import TemplateSpaceBaseSearch
 from dsbox.combinatorial_search.TemplateSpaceParallelBaseSearch import TemplateSpaceParallelBaseSearch
 from dsbox.combinatorial_search.RandomDimensionalSearch import RandomDimensionalSearch
@@ -37,7 +37,8 @@ __all__ = ['Status', 'Controller']
 
 
 FILE_FORMATTER = "[%(levelname)s] - %(asctime)s - %(name)s - %(message)s"
-FILE_LOGGING_LEVEL = logging.INFO
+# FILE_LOGGING_LEVEL = logging.INFO
+FILE_LOGGING_LEVEL = logging.DEBUG
 LOG_FILENAME = 'dsbox.log'
 CONSOLE_LOGGING_LEVEL = logging.INFO
 # CONSOLE_LOGGING_LEVEL = logging.DEBUG
@@ -54,14 +55,21 @@ class Status(enum.Enum):
 class Controller:
     TIMEOUT = 59  # in minutes
 
-    def __init__(self, development_mode: bool = False, run_single_template_name: str = "") -> None:
+    def __init__(self, development_mode: bool = False, run_single_template_name: str = "", is_ta3=True) -> None:
         self.development_mode: bool = development_mode
+        self.is_ta3 = is_ta3
+
+        self.use_multiprocessing = True
+        if is_ta3:
+            self.use_multiprocessing = False
 
         self.run_single_template_name = run_single_template_name
 
         # Do not use, should use parsed results from key/value pairs of config
         # TA3 API may not provid the same information
         # self.config: typing.Dict = {}
+
+        self.config: DsboxConfig = None
 
         # Problem
         self.problem: typing.Dict = {}
@@ -90,13 +98,17 @@ class Controller:
 
         # !!! hard code here
         # TODO: add if statement to determine it
-        self.do_ensemble_tune = True
-        self.do_horizontal_tune = True
+        # Turn off for now
+        self.do_ensemble_tune = False
+        self.do_horizontal_tune = False
 
+        self.report_ensemble = dict()
         if self.do_ensemble_tune:
             # creat a special dictionary that can collect the results in each processes
-            m = Manager()
-            self.report_ensemble = m.dict()
+            if self.use_multiprocessing:
+                from multiprocessing import Manager
+                m = Manager()
+                self.report_ensemble = m.dict()
             self.ensemble_voting_candidate_choose_method = 'lastStep'
             # self.ensemble_voting_candidate_choose_method = 'resultSimilarity'
 
@@ -116,8 +128,9 @@ class Controller:
         # Primitives
         # self.primitive: typing.Dict = d3m.index.search()
 
-        # set random seed
-        random.seed(4676)
+        # set random seed, but do not set in TA3 mode (based on request from TA3 developer)
+        if not is_ta3:
+            random.seed(4676)
 
         # Output directories
         self.output_directory: str = '/output/'
@@ -128,6 +141,9 @@ class Controller:
         self._logger = None
 
         self.main_pid: int = os.getpid()
+
+        # Template search method
+        self._search_method = None
 
     """
         **********************************************************************
@@ -212,19 +228,28 @@ class Controller:
         self._logger.info('Top level output directory: %s' % self.output_directory)
         considered_root = os.path.join(os.path.dirname(self.output_pipelines_dir),
                                        'pipelines_considered')
-        self._logger.info('Considered output directory: %s' % considered_root)
+        self._logger.info('Pipelines Considered output directory: %s' % considered_root)
 
-    def _load_schema(self, config):
+    def _load_schema(self, config, *, is_ta3=False):
         # Problem
-        self.problem = parse_problem_description(config['problem_schema'])
-        with open(os.path.abspath(config['problem_schema'])) as file:
-            problem_doc = json.load(file)
-        self.problem_doc_metadata = Metadata(problem_doc)
+        if is_ta3:
+            # TA3 init
+            self.problem: typing.Dict = config['problem_parsed']
+            self.problem_doc_metadata = Metadata(config['problem_json'])
+        else:
+            # TA2 init
+            self.problem = parse_problem_description(config['problem_schema'])
+            with open(os.path.abspath(config['problem_schema'])) as file:
+                problem_doc = json.load(file)
+                self.problem_doc_metadata = Metadata(problem_doc)
+
         self.task_type = self.problem['problem']['task_type']
         self.task_subtype = self.problem['problem']['task_subtype']
 
         # Dataset
         self.dataset_schema_file = config['dataset_schema']
+        if self.dataset_schema_file.startswith('file://'):
+            self.dataset_schema_file = self.dataset_schema_file[7:]
 
         # find the data resources type
         self.taskSourceType = set()  # set the type to be set so that we can ignore the repeat
@@ -238,7 +263,12 @@ class Controller:
         # Resource limits
         self.num_cpus = int(config.get('cpus', 5))
         self.ram = config.get('ram', 0)
-        self.timeout = (config.get('timeout', self.TIMEOUT)) * 60
+
+        if 'timeout' in config and config.get('timeout') > 0 and config.get('timeout') <= 2:
+            self.timeout = 2 * 60
+        else:
+            self.timeout = (config.get('timeout', self.TIMEOUT)-2) * 60
+
         self.saved_pipeline_id = config.get('saved_pipeline_ID', "")
 
         for i in range(len(self.problem['inputs'])):
@@ -253,23 +283,26 @@ class Controller:
             self.problem_info["target_index"].append(each["column_index"])
 
     def _log_init(self) -> None:
-        logging.basicConfig(
-            level=FILE_LOGGING_LEVEL,
-            format=FILE_FORMATTER,
-            datefmt='%m-%d %H:%M:%S',
+        logging.getLogger('').setLevel(min(logging.getLogger('').level, FILE_LOGGING_LEVEL, CONSOLE_LOGGING_LEVEL))
+
+        file_handler = logging.FileHandler(
             filename=os.path.join(self.output_logs_dir, LOG_FILENAME),
-            filemode='w'
-        )
+            mode='w')
+        file_handler.setLevel(FILE_LOGGING_LEVEL)
+        file_handler.setFormatter(logging.Formatter(fmt=FILE_FORMATTER, datefmt='%m-%d %H:%M:%S'))
+        logging.getLogger('').addHandler(file_handler)
+
+        # Do not add another console handler
+        if logging.StreamHandler not in [type(x) for x in logging.getLogger('').handlers]:
+            console = logging.StreamHandler()
+            console.setFormatter(logging.Formatter(CONSOLE_FORMATTER))
+            console.setLevel(CONSOLE_LOGGING_LEVEL)
+            logging.getLogger('').addHandler(console)
 
         self._logger = logging.getLogger(__name__)
 
         if self._logger.getEffectiveLevel() <= 10:
             os.makedirs(os.path.join(self.output_logs_dir, "dfs"), exist_ok=True)
-
-        console = logging.StreamHandler()
-        console.setFormatter(logging.Formatter(CONSOLE_FORMATTER))
-        console.setLevel(CONSOLE_LOGGING_LEVEL)
-        self._logger.addHandler(console)
 
     def _log_search_results(self, report: typing.Dict[str, typing.Any]):
         # self.report_ensemble['report'] = report
@@ -374,7 +407,7 @@ class Controller:
                 pass
 
     def _run_SerialBaseSearch(self, report_ensemble):
-        searchMethod = TemplateSpaceBaseSearch(
+        self._search_method = TemplateSpaceBaseSearch(
             template_list=self.template,
             performance_metrics=self.problem['problem']['performance_metrics'],
             problem=self.problem_doc_metadata,
@@ -383,16 +416,20 @@ class Controller:
             test_dataset2=self.test_dataset2,
             train_dataset2=self.train_dataset2,
             all_dataset=self.all_dataset,
-            ensemble_tuning_dataset = self.ensemble_dataset,
+            ensemble_tuning_dataset=self.ensemble_dataset,
             output_directory=self.output_directory,
             log_dir=self.output_logs_dir,
+            is_multiprocessing=False,
+            timeout=self.timeout
         )
-        report = searchMethod.search(num_iter=50)
-        report_ensemble['report'] = report
+        # report = self._search_method.search(num_iter=50)
+        report = self._search_method.search(num_iter=10)
+        if report_ensemble:
+            report_ensemble['report'] = report
         self._log_search_results(report=report)
 
     def _run_ParallelBaseSearch(self, report_ensemble):
-        searchMethod = TemplateSpaceParallelBaseSearch(
+        self._search_method = TemplateSpaceParallelBaseSearch(
             template_list=self.template,
             performance_metrics=self.problem['problem']['performance_metrics'],
             problem=self.problem_doc_metadata,
@@ -401,21 +438,22 @@ class Controller:
             test_dataset2=self.test_dataset2,
             train_dataset2=self.train_dataset2,
             all_dataset=self.all_dataset,
-            ensemble_tuning_dataset = self.ensemble_dataset,
+            ensemble_tuning_dataset=self.ensemble_dataset,
             output_directory=self.output_directory,
             log_dir=self.output_logs_dir,
             num_proc=self.num_cpus,
-            timeout=self.TIMEOUT,
+            timeout=self.timeout,
         )
-        report = searchMethod.search(num_iter=50)
+        report = self._search_method.search(num_iter=50)
 
-        report_ensemble['report'] = report
+        if report_ensemble:
+            report_ensemble['report'] = report
         self._log_search_results(report=report)
 
-        searchMethod.job_manager.kill_job_mananger()
+        self._search_method.job_manager.kill_job_mananger()
 
     def _run_RandomDimSearch(self, report_ensemble):
-        searchMethod = RandomDimensionalSearch(
+        self._search_method = RandomDimensionalSearch(
             template_list=self.template,
             performance_metrics=self.problem['problem']['performance_metrics'],
             problem=self.problem_doc_metadata,
@@ -424,20 +462,21 @@ class Controller:
             test_dataset2=self.test_dataset2,
             train_dataset2=self.train_dataset2,
             all_dataset=self.all_dataset,
-            ensemble_tuning_dataset = self.ensemble_dataset,
+            ensemble_tuning_dataset=self.ensemble_dataset,
             output_directory=self.output_directory,
             log_dir=self.output_logs_dir,
             num_proc=self.num_cpus,
-            timeout=self.TIMEOUT,
+            timeout=self.timeout,
         )
-        report = searchMethod.search(num_iter=10)
-        report_ensemble['report'] = report
+        report = self._search_method.search(num_iter=10)
+        if report_ensemble:
+            report_ensemble['report'] = report
         self._log_search_results(report=report)
 
-        searchMethod.job_manager.kill_job_mananger()
+        self._search_method.job_manager.kill_job_mananger()
 
     def _run_BanditDimSearch(self, report_ensemble):
-        searchMethod = BanditDimensionalSearch(
+        self._search_method = BanditDimensionalSearch(
             template_list=self.template,
             performance_metrics=self.problem['problem']['performance_metrics'],
             problem=self.problem_doc_metadata,
@@ -450,16 +489,17 @@ class Controller:
             output_directory=self.output_directory,
             log_dir=self.output_logs_dir,
             num_proc=self.num_cpus,
-            timeout=self.TIMEOUT,
+            timeout=self.timeout,
         )
-        report = searchMethod.search(num_iter=5)
-        report_ensemble['report'] = report
+        report = self._search_method.search(num_iter=5)
+        if report_ensemble:
+            report_ensemble['report'] = report
         self._log_search_results(report=report)
 
-        searchMethod.job_manager.kill_job_mananger()
+        self._search_method.job_manager.kill_job_mananger()
 
     def _run_MultiBanditSearch(self, report_ensemble):
-        searchMethod = MultiBanditSearch(
+        self._search_method = MultiBanditSearch(
             template_list=self.template,
             performance_metrics=self.problem['problem']['performance_metrics'],
             problem=self.problem_doc_metadata,
@@ -472,13 +512,14 @@ class Controller:
             output_directory=self.output_directory,
             log_dir=self.output_logs_dir,
             num_proc=self.num_cpus,
-            timeout=self.TIMEOUT,
+            timeout=self.timeout,
         )
-        report = searchMethod.search(num_iter=30)
-        report_ensemble['report'] = report
+        report = self._search_method.search(num_iter=30)
+        if report_ensemble:
+            report_ensemble['report'] = report
         self._log_search_results(report=report)
 
-        searchMethod.job_manager.kill_job_mananger()
+        self._search_method.job_manager.kill_job_mananger()
 
     """
         **********************************************************************
@@ -495,6 +536,11 @@ class Controller:
         10. test_fitted_pipeline
         11. train
         12. write_training_results
+
+        Used by TA3
+        1. get_candidates
+        2. get_problem
+        3. load_fitted_pipeline
         **********************************************************************
     """
     def add_d3m_index_and_prediction_class_name(self, prediction, from_dataset = None):
@@ -659,10 +705,11 @@ class Controller:
     #     # values: typing.Dict[DimensionName, typing.List] = {}
     #     return SimpleConfigurationSpace(values)
 
-    def initialize_from_config_for_evaluation(self, config: typing.Dict) -> None:
+    def initialize_from_config_for_evaluation(self, config: DsboxConfig) -> None:
         """
             This function for running ta2_evaluation
         """
+        self.config = config
         self._load_schema(config)
         self._create_output_directory(config)
 
@@ -675,11 +722,27 @@ class Controller:
         # load templates
         self.load_templates()
 
-    def initialize_from_config_train_test(self, config: typing.Dict) -> None:
+    def initialize_from_config_train_test(self, config: DsboxConfig) -> None:
         """
             This function for running for ta2-search
         """
+        self.config = config
         self._load_schema(config)
+        self._create_output_directory(config)
+
+        # Dataset
+        loader = D3MDatasetLoader()
+
+        json_file = os.path.abspath(self.dataset_schema_file)
+        all_dataset_uri = 'file://{}'.format(json_file)
+        self.all_dataset = loader.load(dataset_uri=all_dataset_uri)
+
+        # Templates
+        self.load_templates()
+
+    def initialize_from_ta3(self, config: DsboxConfig):
+        self.config = config
+        self._load_schema(config, is_ta3=True)
         self._create_output_directory(config)
 
         # Dataset
@@ -1004,36 +1067,42 @@ class Controller:
 
         # FIXME) come up with a better way to implement this part. The fork does not provide a way
         # FIXME) to catch the errors of the child process
-        with mplog.open_queue() as log_queue:
-            self._logger.info('Starting Search process')
 
-            # proc = Process(target=mplog.logged_call,
-            #                args=(log_queue, self._run_BanditDimSearch,))
-            proc = Process(target=mplog.logged_call,
-                           args=(log_queue, self._run_ParallelBaseSearch, self.report_ensemble))
-            proc.start()
-            self._logger.info('Searching is finished')
-            # wait until process is done
-            proc.join()
+        if self.use_multiprocessing or self.config['search_method'] == 'serial':
+            self._run_SerialBaseSearch(self.report_ensemble)
+        else:
+            from multiprocessing import Process
+            with mplog.open_queue() as log_queue:
+                self._logger.info('Starting Search process')
 
+                if self.config['search_method'] == 'parallel':
+                    proc = Process(target=mplog.logged_call,
+                                   args=(log_queue, self._run_ParallelBaseSearch, self.report_ensemble))
+                elif self.config['search_method'] == 'bandit':
+                    proc = Process(target=mplog.logged_call,
+                                   args=(log_queue, self._run_BanditDimSearch,))
+                else:
+                    proc = Process(target=mplog.logged_call,
+                                   args=(log_queue, self._run_ParallelBaseSearch, self.report_ensemble))
+
+                proc.start()
+                self._logger.info('Searching is finished')
+
+                # wait until process is done
+                proc.join()
+                print(f"END OF FORK {proc.exitcode}")
+                status = proc.exitcode
+                print("[INFO] Search Status:")
+                pprint.pprint(status)
 
         if self.do_ensemble_tune:
             self._logger.info("Normal searching finished, now starting ensemble tuning")
             self.ensemble_tuning(self.report_ensemble)
 
-            status = proc.exitcode
-            print("[INFO] Search Status:")
-            pprint.pprint(status)
-
         if self.do_horizontal_tune:
             self._logger.info("Starting horizontal tuning")
             self.horizontal_tuning("d3m.primitives.sklearn_wrap.SKBernoulliNB")
 
-            status = proc.exitcode
-            print("[INFO] Search Status:")
-            pprint.pprint(status)
-
-        print(f"END OF FORK {proc.exitcode}")
         return Status.OK
 
     def generate_dataset_splits(self):
@@ -1246,3 +1315,17 @@ class Controller:
         else:
             self.train_dataset2 = None
             self.test_dataset2 = None
+
+    # Methods used by TA3
+
+    def get_candidates(self) -> typing.Dict:
+        return self._search_method.history.all_reports
+
+    def get_problem(self) -> typing.Dict:
+        return self.problem
+
+    def load_fitted_pipeline(self, fitted_pipeline_id) -> FittedPipeline:
+        fitted_pipeline_load, run = FittedPipeline.load(folder_loc=self.output_directory,
+                                                        pipeline_id=fitted_pipeline_id,
+                                                        log_dir=self.output_logs_dir)
+        return fitted_pipeline_load
