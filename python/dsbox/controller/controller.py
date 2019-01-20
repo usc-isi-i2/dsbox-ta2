@@ -36,14 +36,6 @@ import dsbox.JobManager.mplog as mplog
 __all__ = ['Status', 'Controller']
 
 
-FILE_FORMATTER = "[%(levelname)s] - %(asctime)s - %(name)s - %(message)s"
-# FILE_LOGGING_LEVEL = logging.INFO
-FILE_LOGGING_LEVEL = logging.DEBUG
-LOG_FILENAME = 'dsbox.log'
-CONSOLE_LOGGING_LEVEL = logging.INFO
-# CONSOLE_LOGGING_LEVEL = logging.DEBUG
-CONSOLE_FORMATTER = "[%(levelname)s] - %(name)s - %(message)s"
-
 pd.set_option("display.max_rows", 100)
 
 
@@ -224,7 +216,7 @@ class Controller:
             if not os.path.exists(path) and path != '':
                 os.makedirs(path)
 
-        self._log_init()
+        self._log_init(config)
         self._logger.info('Top level output directory: %s' % self.output_directory)
         considered_root = os.path.join(os.path.dirname(self.output_pipelines_dir),
                                        'pipelines_considered')
@@ -282,24 +274,26 @@ class Controller:
         for each in self.problem['inputs'][i]['targets']:
             self.problem_info["target_index"].append(each["column_index"])
 
-    def _log_init(self) -> None:
-        logging.getLogger('').setLevel(min(logging.getLogger('').level, FILE_LOGGING_LEVEL, CONSOLE_LOGGING_LEVEL))
+    def _log_init(self, config) -> None:
+        logging.getLogger('').setLevel(min(logging.getLogger('').level, config['root_logger_level']))
 
         file_handler = logging.FileHandler(
-            filename=os.path.join(self.output_logs_dir, LOG_FILENAME),
+            filename=os.path.join(self.output_logs_dir, config['log_filename']),
             mode='w')
-        file_handler.setLevel(FILE_LOGGING_LEVEL)
-        file_handler.setFormatter(logging.Formatter(fmt=FILE_FORMATTER, datefmt='%m-%d %H:%M:%S'))
+        file_handler.setLevel(config['file_logging_level'])
+        file_handler.setFormatter(logging.Formatter(fmt=config['file_formatter'], datefmt='%m-%d %H:%M:%S'))
         logging.getLogger('').addHandler(file_handler)
 
         # Do not add another console handler
         if logging.StreamHandler not in [type(x) for x in logging.getLogger('').handlers]:
             console = logging.StreamHandler()
-            console.setFormatter(logging.Formatter(CONSOLE_FORMATTER))
-            console.setLevel(CONSOLE_LOGGING_LEVEL)
+            console.setFormatter(logging.Formatter(config['console_formatter']))
+            console.setLevel(config['console_logging_level'])
             logging.getLogger('').addHandler(console)
 
         self._logger = logging.getLogger(__name__)
+        import pdb
+        pdb.set_trace()
 
         if self._logger.getEffectiveLevel() <= 10:
             os.makedirs(os.path.join(self.output_logs_dir, "dfs"), exist_ok=True)

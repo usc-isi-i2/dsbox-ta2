@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 
 
@@ -110,9 +111,57 @@ class DsboxConfig(dict):
             self['timeout'] = os.environ['D3MTIMEOUT']
 
     def load_dsbox(self):
+        self.load_logging()
         if 'search_method' not in self:
             self['search_method'] = 'parallel'
             # self['search_method'] = 'serial'
+
+    def load_logging(self):
+        '''
+        Config logging level.
+
+        Example:
+            export DSBOX_LOGGING_LEVEL="dsbox=WARNING:dsbox.controller=DEBUG:console_logging_level=WARNING:file_logging_level=DEBUG"
+
+            All classes under 'dsbox*' hierarchy log at WARNING level, except 'dsbox.controller*' log at DEBUG level.
+            Console log at WARNING level. File log at DEBUG level
+        '''
+
+        self['file_formatter'] = "[%(levelname)s] - %(asctime)s - %(name)s - %(message)s"
+        self['file_logging_level'] = logging.INFO
+        self['log_filename'] = 'dsbox.log'
+        self['console_formatter'] = "[%(levelname)s] - %(name)s - %(message)s"
+        self['console_logging_level'] = logging.INFO
+
+        LEVELS = ('DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL')
+        min_level = logging.WARNING
+        if 'DSBOX_LOGGING_LEVEL' in os.environ:
+            for assignment in os.environ['DSBOX_LOGGING_LEVEL'].split(':'):
+                try:
+                    strings = assignment.split('=')
+                    name = strings[0]
+                    level = strings[1]
+                    if level in LEVELS:
+                        level = eval('logging.'+level)
+                    else:
+                        level = int(level)
+
+                    if name in ('file_logging_level', 'console_logging_level'):
+                        self[name] = level
+                        print(f'Set logging handler {name} to {level}')
+                    else:
+                        print(f'Set logger "{name}" level to {level}')
+                        logging.getLogger(name).setLevel(level)
+
+                    if level < min_level:
+                        min_level = level
+
+                except ValueError:
+                    print(f'[ERROR] Skipping logging assignment: {assignment}')
+
+        min_level = min(min_level, self['file_logging_level'], self['console_logging_level'])
+        self['root_logger_level'] = min_level
+        print(f'Root logger level {min_level}')
 
     def _fill_variables(self):
         if 'output_root' not in self:
