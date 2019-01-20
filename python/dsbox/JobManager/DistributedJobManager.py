@@ -6,13 +6,10 @@ import psutil
 from threading import Timer
 from math import ceil
 import traceback
-from multiprocessing import Pool, Queue, Manager, Process, current_process, Lock
-from multiprocessing import get_logger
+from multiprocessing import Pool, Queue, Manager, current_process
 import copy
-# import dsbox.JobManager.mplog as mplog
 
 _logger = logging.getLogger(__name__)
-_logger.setLevel(logging.DEBUG)
 
 
 class DistributedJobManager:
@@ -45,9 +42,9 @@ class DistributedJobManager:
         self.job_pool = Pool(processes=self.proc_num)
         self.job_pool.map_async(
             func=DistributedJobManager._internal_worker_process,
-            iterable=
-            [(self.arguments_queue, self.result_queue, target_method,)
-             for a in range(self.proc_num)]
+            iterable=[
+                (self.arguments_queue, self.result_queue, target_method,)
+                for a in range(self.proc_num)]
         )
         self.job_pool.close()  # prevents any additional worker to be added to the pool
 

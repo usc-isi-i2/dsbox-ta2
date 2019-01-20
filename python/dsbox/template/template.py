@@ -354,6 +354,13 @@ class DSBoxTemplate():
         # Need to be set by subclass inheriting DSBoxTemplate
         # self.template = ""
 
+    def __str__(self):
+        if hasattr(self, 'template') and 'name' in getattr(self, 'template'):
+            return f"DSBoxTemplate:{self.template['name']}"
+
+    def __repr__(self):
+        return self.__str__()
+
     def add_stepcheck(self):
         check = np.zeros(shape=(len(self.primitive), len(self.primitive))).astype(int)
         for i, v in enumerate(self.primitive.keys()):
@@ -370,7 +377,7 @@ class DSBoxTemplate():
                 except:
                     if inputs == outputs:
                         check[i][j] = 1
-        self.stepcheck = check                                 
+        self.stepcheck = check
 
     def to_pipeline(self, configuration_point: ConfigurationPoint) -> Pipeline:
         """

@@ -13,12 +13,12 @@ class DsboxConfig(dict):
     * user_problems_root: Directory for saving user generated problems
     * temp_storage_root: Directory for saving scratch data
     * training_data_root: top-level directory containing the training data
-    * test_data_root: top-level directory containing the training data
+    * test_data_root: top-level directory containing the test data
 
     An official D3M configuration file can only either have training_data_root or
     test_data_root, not both.
 
-    The following variables are defined in OS environment
+    The following variables are defined in D3M OS environment
     * d3m_run: Run either in 'ta2' for 'ta2ta3' mode (os.environ['D3MRun'])
     * input_root: Top-level directory for all inputs (os.environ['D3MINPUTDIR'])
     * problem_schema: File path to problemDoc.json (os.environ['D3MPROBLEMPATH'])
@@ -30,6 +30,8 @@ class DsboxConfig(dict):
     * timeout: Time limit in seconds, for example 3600.
 
     DSBox variables
+    * search_method: pipeline search methods, possible values 'serial', 'parallel', 'random-dimensional', 'bandit', 'multi-bandit'
+    * is_multiprocess: if False, then should not spawn subprocesses. Needed for TA3 mode.
     * logs_root: Directory to store logs
 
     Older unsed varaiables:
@@ -42,6 +44,7 @@ class DsboxConfig(dict):
         'executables_root',
         'user_problems_root',
         'temp_storage_root',
+        'logs_root',
         'output_root'
     ]
 
@@ -50,12 +53,35 @@ class DsboxConfig(dict):
         'training_data_root',
         'test_data_root',
         'problem_schema'
-        ]
+    ]
+
+    RESOURCE_VARIABLES = [
+        'cpu',
+        'ram',
+        'timeout'
+    ]
 
     def load(self, filepath):
         self.load_config_json(filepath)
         self.load_d3m_environment()
+        self.load_dsbox()
         self._fill_variables()
+        print(self)
+
+    def load_ta3(self, *, output_root=''):
+        self.load_d3m_environment()
+        if output_root is not '':
+            self['output_root'] = output_root
+        self['pipeline_logs_root'] = os.path.join(self['output_root'], 'pipelines')
+        self['executables_root'] = os.path.join(self['output_root'], 'executables')
+        self['user_problems_root'] = os.path.join(self['output_root'], 'user_problems')
+        self['temp_storage_root'] = os.path.join(self['output_root'], 'supporting_files')
+        self.load_dsbox()
+        self._fill_variables()
+
+        # TA2TA3 grpc does not work with multi-process
+        self['search_method'] = 'serial'
+
         print(self)
 
     def load_config_json(self, filepath):
@@ -82,6 +108,11 @@ class DsboxConfig(dict):
             self['ram'] = os.environ['D3MRAM']
         if 'D3MTIMEOUT' in os.environ:
             self['timeout'] = os.environ['D3MTIMEOUT']
+
+    def load_dsbox(self):
+        if 'search_method' not in self:
+            self['search_method'] = 'parallel'
+            # self['search_method'] = 'serial'
 
     def _fill_variables(self):
         if 'output_root' not in self:

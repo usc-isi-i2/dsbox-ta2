@@ -49,6 +49,9 @@ class ExecutionHistory:
         self.ensemble_dataset_predictions = {}
         self.key_attribute = key_attribute
 
+        # Needed by TA3
+        self.all_reports = {}
+
     def update(self, report: typing.Dict, template_name: str = 'generic') -> None:
         """
         updates the execution history based on the report input. The report dict should be of the
@@ -74,6 +77,10 @@ class ExecutionHistory:
         Returns:
             None
         """
+        # TA3 save all reports
+        if report and 'id' in report:
+            self.all_reports[report['id']] = report
+
         # add new things in history records for ensemble tuning
         if 'ensemble_tuning_result' in report:
             temp = {}
