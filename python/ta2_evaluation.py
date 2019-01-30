@@ -1,14 +1,12 @@
 import time
-import json
 import os
-import signal
-import subprocess
-import traceback
-import sys
-from pprint import pprint
 import psutil
+import signal
+import sys
+import traceback
+
 from dsbox.controller.controller import Controller
-from dsbox.controller.controller import Status
+from dsbox.controller.config import DsboxConfig
 
 start_time = time.time()
 
@@ -39,21 +37,7 @@ class StderrLogger(object):
         self.log.flush()
 
 
-def main():
-    timeout = 0
-    if os.environ["D3MRUN"] == "search":
-        config = json.load(open(os.path.join(os.environ["D3MINPUTDIR"], "search_config.json"), 'r'))
-    else:
-        config = json.load(open(os.path.join(os.environ["D3MINPUTDIR"], "test_config.json"), 'r'))
-
-    config["cpus"] = os.environ["D3MCPU"]
-    config["ram"] = os.environ["D3MRAM"]
-
-    # Time to write results (in minutes)
-    write_results_time = 2
-    timeout = int(os.environ["D3MTIMEOUT"]) - write_results_time
-    config["timeout"] = timeout
-
+def main(config: DsboxConfig):
     controller = Controller(development_mode=False)
 
     def kill_child_processes():
@@ -93,30 +77,19 @@ def main():
             # print('SIGNAL exiting {}'.format(configuration_file), flush=True)
             os._exit(0)
 
+    write_results_time = 60  # seconds
+    timeout = config.timeout - write_results_time
+
     if timeout > 0:
         signal.signal(signal.SIGALRM, write_results_and_exit)
-        signal.alarm(60 * timeout)
+        signal.alarm(timeout)
     else:
         raise Exception('Negative timeout {}'.format(timeout))
 
-    print('Using configuation:')
-    pprint(config)
-
-    if 'training_data_root' in config:
-        print("[INFO] Now in training process")
-        controller.initialize_from_config_for_evaluation(config)
-        status = controller.train()
-        print("[INFO] Training Done")
-        # print("*+"*10)
-    elif 'test_data_root' in config:
-        print("[INFO] Now in testing process")
-        controller.initialize_from_config_for_evaluation(config)
-        fitted_pipeline_id = json.load(open(os.environ["D3MTESTOPT"], 'r'))["fitted_pipeline_id"]
-        status = controller.test_fitted_pipeline(fitted_pipeline_id=fitted_pipeline_id)
-        print("[INFO] Testing Done")
-    else:
-        status = Status.PROBLEM_NOT_IMPLEMENT
-        print("[ERROR] Neither train or test root was given, the program will exit.")
+    print("[INFO] Now in training process")
+    controller.initialize_from_config_for_evaluation(config)
+    status = controller.train()
+    print("[INFO] Training Done")
 
     time_used = (time.time() - start_time) / 60.0
     print("[INFO] The time used for running program is {:0.2f} minutes.".format(time_used))
@@ -126,26 +99,17 @@ def main():
 
 if __name__ == "__main__":
 
-    if os.environ["D3MRUN"] == "search":
-        config = json.load(open(os.path.join(os.environ["D3MINPUTDIR"], "search_config.json"), 'r'))
-    else:
-        config = json.load(open(os.path.join(os.environ["D3MINPUTDIR"], "test_config.json"), 'r'))
-
-    if 'logs_root' in config:
-        std_dir = os.path.abspath(config['logs_root'])
-    else:
-        std_dir = os.path.join(config['temp_storage_root'], 'logs')
-
-    os.makedirs(std_dir, exist_ok=True)
+    config = DsboxConfig()
+    config.load()
 
     orig_stdout = sys.stdout
     orig_stderr = sys.stderr
-    f = open(os.path.join(std_dir, 'out.txt'), 'w')
+    f = open(os.path.join(config.log_dir, 'out.txt'), 'w')
 
     sys.stdout = StdoutLogger(f)
     sys.stderr = StderrLogger(f)
 
-    result = main()
+    result = main(config)
     sys.stdout = orig_stdout
     sys.stderr = orig_stderr
 

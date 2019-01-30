@@ -60,7 +60,7 @@ class FittedPipeline:
 
         self.log_dir = log_dir
 
-        self.runtime = Runtime(pipeline, self.id, self.log_dir)
+        self.runtime = Runtime(pipeline, fitted_pipeline_id=self.id, log_dir=self.log_dir)
 
         self.metric_descriptions = list(metric_descriptions)
         self.runtime.set_metric_descriptions(self.metric_descriptions)
@@ -279,7 +279,8 @@ class FittedPipeline:
         '''
             create a Runtime instance from given pipelines and supporting files
         '''
-        runtime_loaded = Runtime(pipeline_to_load, pipeline_to_load.id, log_dir)
+
+        runtime_loaded = Runtime(pipeline_to_load, fitted_pipeline_id=pipeline_to_load.id, log_dir=log_dir)
         supporting_files_dir = os.path.join(folder_loc, 'supporting_files', pipeline_to_load.id)
         for i, each_step in enumerate(pipeline_to_load.steps):
             # if it is a primitive, load directly
@@ -344,7 +345,7 @@ class FittedPipeline:
         structure = state['pipeline']
         state['pipeline'] = Pipeline.from_json_structure(structure)
 
-        run = Runtime(state['pipeline'], state['id'], state['log_dir'])
+        run = Runtime(state['pipeline'], fitted_pipeline_id=state['id'], log_dir=state['log_dir'])
         run.steps_state = fitted
 
         state['runtime'] = run

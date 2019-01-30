@@ -50,7 +50,7 @@ classifier_conf = {
         "hyperparameters": {},
     },
     "to_dataframe_step": {
-        "primitive": "d3m.primitives.datasets.DatasetToDataFrame",
+        "primitive": "d3m.primitives.data_transformation.dataset_to_dataframe.Common",
         "hyperparameters": {}
     },
     "column_parser_step": {
@@ -66,7 +66,7 @@ classifier_conf = {
         "hyperparameters": {}
     },
     "impute_step": {
-        "primitive": "d3m.primitives.sklearn_wrap.SKImputer",
+        "primitive": "d3m.primitives.data_cleaning.imputer.SKlearn",
         "hyperparameters": {}
     },
     "extract_target_step": {
@@ -88,7 +88,7 @@ regressor_conf = {
         "hyperparameters": {},
     },
     "to_dataframe_step": {
-        "primitive": "d3m.primitives.datasets.DatasetToDataFrame",
+        "primitive": "d3m.primitives.data_transformation.dataset_to_dataframe.Common",
         "hyperparameters": {}
     },
     "column_parser_step": {
@@ -104,7 +104,7 @@ regressor_conf = {
         "hyperparameters": {}
     },
     "impute_step": {
-        "primitive": "d3m.primitives.sklearn_wrap.SKImputer",
+        "primitive": "d3m.primitives.data_cleaning.imputer.SKlearn",
         "hyperparameters": {}
     },
     "extract_target_step": {
@@ -112,7 +112,7 @@ regressor_conf = {
         "hyperparameters": {}
     },
     "model_step": {
-        "primitive": "d3m.primitives.sklearn_wrap.SKSGDRegressor",
+        "primitive": "d3m.primitives.regression.sgd.SKlearn",
         "hyperparameters": {}
     }
 }

@@ -20,14 +20,14 @@ def generate_example():
     template = Pipeline(context='PRETRAINING')
 
     denormalize_step = PrimitiveStep(primitive['d3m.primitives.datasets.Denormalize'].metadata.query())
-    to_DataFrame_step = PrimitiveStep(primitive['d3m.primitives.datasets.DatasetToDataFrame'].metadata.query())
+    to_DataFrame_step = PrimitiveStep(primitive['d3m.primitives.data_transformation.dataset_to_dataframe.Common'].metadata.query())
     column_parser_step = PrimitiveStep(primitive['d3m.primitives.data.ColumnParser'].metadata.query())
     extract_attribute_step = PrimitiveStep(primitive['d3m.primitives.data.ExtractAttributes'].metadata.query())
     cast_1_step = PrimitiveStep(primitive['d3m.primitives.data.CastToType'].metadata.query())
-    impute_step = PrimitiveStep(primitive['d3m.primitives.sklearn_wrap.SKImputer'].metadata.query())
+    impute_step = PrimitiveStep(primitive['d3m.primitives.data_cleaning.imputer.SKlearn'].metadata.query())
     extract_target_step = PrimitiveStep(primitive['d3m.primitives.data.ExtractTargets'].metadata.query())
     cast_2_step = PrimitiveStep(primitive['d3m.primitives.data.CastToType'].metadata.query())
-    model_step = PrimitiveStep(primitive['d3m.primitives.sklearn_wrap.SKRandomForestClassifier'].metadata.query())
+    model_step = PrimitiveStep(primitive['d3m.primitives.classification.random_forest.SKlearn'].metadata.query())
     # prediction_step = PrimitiveStep(primitive['d3m.primitives.data.ConstructPredictions'].metadata.query())
 
 
@@ -85,14 +85,14 @@ def generate_template():
     template = TemplatePipeline(context='PRETRAINING')
 
     denormalize_step = PrimitiveStep(primitive['d3m.primitives.datasets.Denormalize'].metadata.query())
-    to_DataFrame_step = PrimitiveStep(primitive['d3m.primitives.datasets.DatasetToDataFrame'].metadata.query())
+    to_DataFrame_step = PrimitiveStep(primitive['d3m.primitives.data_transformation.dataset_to_dataframe.Common'].metadata.query())
     column_parser_step = PrimitiveStep(primitive['d3m.primitives.data.ColumnParser'].metadata.query())
     extract_attribute_step = PrimitiveStep(primitive['d3m.primitives.data.ExtractAttributes'].metadata.query())
     cast_1_step = PrimitiveStep(primitive['d3m.primitives.data.CastToType'].metadata.query())
-    impute_step = PrimitiveStep(primitive['d3m.primitives.sklearn_wrap.SKImputer'].metadata.query())
+    impute_step = PrimitiveStep(primitive['d3m.primitives.data_cleaning.imputer.SKlearn'].metadata.query())
     extract_target_step = PrimitiveStep(primitive['d3m.primitives.data.ExtractTargets'].metadata.query())
     cast_2_step = PrimitiveStep(primitive['d3m.primitives.data.CastToType'].metadata.query())
-    # model_step = PrimitiveStep(primitive['d3m.primitives.sklearn_wrap.SKRandomForestClassifier'].metadata.query())
+    # model_step = PrimitiveStep(primitive['d3m.primitives.classification.random_forest.SKlearn'].metadata.query())
     # model_step = PlaceholderStep()
     model_step = TemplateStep('modeller', SemanticType.CLASSIFIER)
 
@@ -148,13 +148,13 @@ ex = generate_example()
 
 tp = generate_template()
 values0 = {
-    'modeller': PrimitiveStep(primitive['d3m.primitives.sklearn_wrap.SKRandomForestClassifier'].metadata.query())
+    'modeller': PrimitiveStep(primitive['d3m.primitives.classification.random_forest.SKlearn'].metadata.query())
 }
 tp1 = tp.get_pipeline(values0, None, context='PRETRAINING')
 
 
 values = {
-    'modeller': PrimitiveStep(primitive['d3m.primitives.datasets.DatasetToDataFrame'].metadata.query())
+    'modeller': PrimitiveStep(primitive['d3m.primitives.data_transformation.dataset_to_dataframe.Common'].metadata.query())
 }
 # Error
 try:
