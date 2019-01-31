@@ -1158,7 +1158,7 @@ class Large_column_number_with_numerical_only_classification(DSBoxTemplate):
             "steps": [
                 {
                     "name": "denormalize_step",
-                    "primitives": ["d3m.primitives.dsbox.Denormalize"],
+                    "primitives": ["d3m.primitives.normalization.Denormalize.DSBOX"],
                     "inputs": ["template_input"]
                 },
                 {
@@ -1194,24 +1194,24 @@ class Large_column_number_with_numerical_only_classification(DSBoxTemplate):
                 },
                 # {
                 #     "name": "encode1_step",
-                #     # "primitives": ["d3m.primitives.dsbox.UnaryEncoder","d3m.primitives.dsbox.DoNothing"],
-                #     "primitives": ["d3m.primitives.dsbox.UnaryEncoder"],
+                #     # "primitives": ["d3m.primitives.data_preprocessing.UnaryEncoder.DSBOX","d3m.primitives.data_preprocessing.DoNothing.DSBOX"],
+                #     "primitives": ["d3m.primitives.data_preprocessing.UnaryEncoder.DSBOX"],
                 #     "inputs": ["extract_attribute_step"]
                 # },
                 {
                     "name": "encode2_step",
-                    "primitives": ["d3m.primitives.dsbox.Labler"],
+                    "primitives": ["d3m.primitives.data_cleaning.Labler.DSBOX"],
                     "inputs": ["extract_attribute_step"]
                 },
                 # {
                 #     "name": "impute_step",
-                #     "primitives": ["d3m.primitives.dsbox.MeanImputation"],
+                #     "primitives": ["d3m.primitives.data_preprocessing.MeanImputation.DSBOX"],
                 #     "inputs": ["encode2_step"]
                 # },
                 {
                     "name": "cast_1_step",
                     "primitives": [
-                        "d3m.primitives.dsbox.DoNothing",
+                        "d3m.primitives.data_preprocessing.DoNothing.DSBOX",
                         {
                             "primitive": "d3m.primitives.data.CastToType",
                             "hyperparameters": {"type_to_cast": ["float"]}
@@ -1246,7 +1246,7 @@ class Large_column_number_with_numerical_only_regression(DSBoxTemplate):
             "steps": [
                 {
                     "name": "denormalize_step",
-                    "primitives": ["d3m.primitives.dsbox.Denormalize"],
+                    "primitives": ["d3m.primitives.normalization.Denormalize.DSBOX"],
                     "inputs": ["template_input"]
                 },
                 {
@@ -1282,24 +1282,24 @@ class Large_column_number_with_numerical_only_regression(DSBoxTemplate):
                 },
                 # {
                 #     "name": "encode1_step",
-                #     # "primitives": ["d3m.primitives.dsbox.UnaryEncoder","d3m.primitives.dsbox.DoNothing"],
-                #     "primitives": ["d3m.primitives.dsbox.UnaryEncoder"],
+                #     # "primitives": ["d3m.primitives.data_preprocessing.UnaryEncoder.DSBOX","d3m.primitives.data_preprocessing.DoNothing.DSBOX"],
+                #     "primitives": ["d3m.primitives.data_preprocessing.UnaryEncoder.DSBOX"],
                 #     "inputs": ["extract_attribute_step"]
                 # },
                 {
                     "name": "encode2_step",
-                    "primitives": ["d3m.primitives.dsbox.Labler"],
+                    "primitives": ["d3m.primitives.data_cleaning.Labler.DSBOX"],
                     "inputs": ["extract_attribute_step"]
                 },
                 # {
                 #     "name": "impute_step",
-                #     "primitives": ["d3m.primitives.dsbox.MeanImputation"],
+                #     "primitives": ["d3m.primitives.data_preprocessing.MeanImputation.DSBOX"],
                 #     "inputs": ["encode2_step"]
                 # },
                 {
                     "name": "cast_1_step",
                     "primitives": [
-                        "d3m.primitives.dsbox.DoNothing",
+                        "d3m.primitives.data_preprocessing.DoNothing.DSBOX",
                         {
                             "primitive": "d3m.primitives.data.CastToType",
                             "hyperparameters": {"type_to_cast": ["float"]}
@@ -1343,7 +1343,7 @@ class DefaultTimeSeriesForcastingTemplate(DSBoxTemplate):
 
                 {
                     "name": "denormalize_step",
-                    "primitives": ["d3m.primitives.dsbox.Denormalize"],
+                    "primitives": ["d3m.primitives.normalization.Denormalize.DSBOX"],
                     "inputs": ["template_input"]
                 },
                 {
@@ -1383,26 +1383,26 @@ class DefaultTimeSeriesForcastingTemplate(DSBoxTemplate):
                 },
                 {
                     "name": "profile_step",
-                    "primitives": ["d3m.primitives.dsbox.Profiler"],
+                    "primitives": ["d3m.primitives.schema_discovery.Profiler.DSBOX"],
                     "inputs": ["extract_attribute_step"]
                 },
                 {
                     "name": "clean_step",
                     "primitives": [
-                        "d3m.primitives.dsbox.CleaningFeaturizer",
-                        "d3m.primitives.dsbox.DoNothing",
+                        "d3m.primitives.data_cleaning.CleaningFeaturizer.DSBOX",
+                        "d3m.primitives.data_preprocessing.DoNothing.DSBOX",
                     ],
                     "inputs": ["profile_step"]
                 },
                 {
                     "name": "timeseries_to_list_step",
-                    "primitives": ["d3m.primitives.dsbox.TimeseriesToList"],
+                    "primitives": ["d3m.primitives.data_preprocessing.TimeseriesToList.DSBOX"],
                     "inputs": ["clean_step"]
                 },
 
                 {
                     "name": "random_projection_step",
-                    "primitives": ["d3m.primitives.dsbox.RandomProjectionTimeSeriesFeaturization"],
+                    "primitives": ["d3m.primitives.feature_extraction.RandomProjectionTimeSeriesFeaturization.DSBOX"],
                     "inputs": ["timeseries_to_list_step"]
                 },
                 {
@@ -1413,7 +1413,7 @@ class DefaultTimeSeriesForcastingTemplate(DSBoxTemplate):
                             "hyperparameters": {"type_to_cast": ["float"]}
                         },
                         {
-                            "primitive": "d3m.primitives.dsbox.DoNothing",
+                            "primitive": "d3m.primitives.data_preprocessing.DoNothing.DSBOX",
                             "hyperparameters": {}
                         }
                     ],
@@ -1448,7 +1448,7 @@ class TimeSeriesForcastingTestingTemplate(DSBoxTemplate):
             "steps": [
                 {
                     "name": "denormalize_step",
-                    "primitives": ["d3m.primitives.dsbox.Denormalize"],
+                    "primitives": ["d3m.primitives.normalization.Denormalize.DSBOX"],
                     "inputs": ["template_input"]
                 },
                 {
@@ -1472,17 +1472,17 @@ class TimeSeriesForcastingTestingTemplate(DSBoxTemplate):
                 },
                 {
                     "name": "profiler_step",
-                    "primitives": ["d3m.primitives.dsbox.Profiler"],
+                    "primitives": ["d3m.primitives.schema_discovery.Profiler.DSBOX"],
                     "inputs": ["extract_attribute_step"]
                 },
                 {
                     "name": "data_clean_step",
-                    "primitives": ["d3m.primitives.dsbox.CleaningFeaturizer"],
+                    "primitives": ["d3m.primitives.data_cleaning.CleaningFeaturizer.DSBOX"],
                     "inputs": ["profiler_step"]
                 },
                 {
                     "name": "encoder_step",
-                    "primitives": ["d3m.primitives.dsbox.Encoder"],
+                    "primitives": ["d3m.primitives.data_preprocessing.Encoder.DSBOX"],
                     "inputs": ["data_clean_step"]
                 },
                 # read Y value
@@ -1534,7 +1534,7 @@ class TimeSeriesForcastingTestingTemplate2(DSBoxTemplate):
             "steps": [
                 {
                     "name": "denormalize_step",
-                    "primitives": ["d3m.primitives.dsbox.Denormalize"],
+                    "primitives": ["d3m.primitives.normalization.Denormalize.DSBOX"],
                     "inputs": ["template_input"]
                 },
                 {
@@ -1572,28 +1572,28 @@ class TimeSeriesForcastingTestingTemplate2(DSBoxTemplate):
                 },
                 {
                     "name": "timeseries_to_list_step",
-                    "primitives": ["d3m.primitives.dsbox.TimeseriesToList"],
+                    "primitives": ["d3m.primitives.data_preprocessing.TimeseriesToList.DSBOX"],
                     "inputs": ["extract_time_series_file_step"]
                 },
 
                 {
                     "name": "random_projection_step",
-                    "primitives": ["d3m.primitives.dsbox.RandomProjectionTimeSeriesFeaturization"],
+                    "primitives": ["d3m.primitives.feature_extraction.RandomProjectionTimeSeriesFeaturization.DSBOX"],
                     "inputs": ["timeseries_to_list_step"]
                 },
                 {
                     "name": "profiler_step",
-                    "primitives": ["d3m.primitives.dsbox.Profiler"],
+                    "primitives": ["d3m.primitives.schema_discovery.Profiler.DSBOX"],
                     "inputs": ["extract_attribute_step"]
                 },
                 {
                     "name": "data_clean_step",
-                    "primitives": ["d3m.primitives.dsbox.CleaningFeaturizer"],
+                    "primitives": ["d3m.primitives.data_cleaning.CleaningFeaturizer.DSBOX"],
                     "inputs": ["profiler_step"]
                 },
                 {
                     "name": "encoder_step",
-                    "primitives": ["d3m.primitives.dsbox.Encoder"],
+                    "primitives": ["d3m.primitives.data_preprocessing.Encoder.DSBOX"],
                     "inputs": ["data_clean_step"]
                 },
                 {
@@ -1650,7 +1650,7 @@ class TemporaryObjectDetectionTemplate(DSBoxTemplate):
             "steps": [
                 {
                     "name": "denormalize_step",
-                    "primitives": ["d3m.primitives.dsbox.Denormalize"],
+                    "primitives": ["d3m.primitives.normalization.Denormalize.DSBOX"],
                     "inputs": ["template_input"]
                 },
                 {
@@ -1675,12 +1675,12 @@ class TemporaryObjectDetectionTemplate(DSBoxTemplate):
                 },
                 {
                     "name": "to_tensor_step",
-                    "primitives": ["d3m.primitives.dsbox.DataFrameToTensor"],
+                    "primitives": ["d3m.primitives.data_preprocessing.DataFrameToTensor.DSBOX"],
                     "inputs": ["extract_file_step"]
                 },
                 {
                     "name": "image_processing_step",
-                    "primitives": ["d3m.primitives.dsbox.ResNet50ImageFeature"],
+                    "primitives": ["d3m.primitives.feature_extraction.ResNet50ImageFeature.DSBOX"],
                     "inputs": ["to_tensor_step"]
                 },
                 # read Y value
@@ -1701,7 +1701,7 @@ class TemporaryObjectDetectionTemplate(DSBoxTemplate):
 
                 {
                     "name": "data_clean_step",
-                    "primitives": ["d3m.primitives.dsbox.CleaningFeaturizer"],
+                    "primitives": ["d3m.primitives.data_cleaning.CleaningFeaturizer.DSBOX"],
                     "inputs": ["extract_target_step"]
                 },
 
@@ -1740,7 +1740,7 @@ class DefaultTimeseriesCollectionTemplate(DSBoxTemplate):
 
                 {
                     "name": "denormalize_step",
-                    "primitives": ["d3m.primitives.dsbox.Denormalize"],
+                    "primitives": ["d3m.primitives.normalization.Denormalize.DSBOX"],
                     "inputs": ["template_input"]
                 },
                 {
@@ -1771,13 +1771,13 @@ class DefaultTimeseriesCollectionTemplate(DSBoxTemplate):
                 # read X value
                 {
                     "name": "timeseries_to_list_step",
-                    "primitives": ["d3m.primitives.dsbox.TimeseriesToList"],
+                    "primitives": ["d3m.primitives.data_preprocessing.TimeseriesToList.DSBOX"],
                     "inputs": ["to_dataframe_step"]
                 },
 
                 {
                     "name": "random_projection_step",
-                    "primitives": ["d3m.primitives.dsbox.RandomProjectionTimeSeriesFeaturization"],
+                    "primitives": ["d3m.primitives.feature_extraction.RandomProjectionTimeSeriesFeaturization.DSBOX"],
                     "inputs": ["timeseries_to_list_step"]
                 },
 
@@ -1808,7 +1808,7 @@ class DefaultTimeseriesRegressionTemplate(DSBoxTemplate):
 
                 {
                     "name": "denormalize_step",
-                    "primitives": ["d3m.primitives.dsbox.Denormalize"],
+                    "primitives": ["d3m.primitives.normalization.Denormalize.DSBOX"],
                     "inputs": ["template_input"]
                 },
                 {
@@ -1848,13 +1848,13 @@ class DefaultTimeseriesRegressionTemplate(DSBoxTemplate):
                 },
                 {
                     "name": "timeseries_to_list_step",
-                    "primitives": ["d3m.primitives.dsbox.TimeseriesToList"],
+                    "primitives": ["d3m.primitives.data_preprocessing.TimeseriesToList.DSBOX"],
                     "inputs": ["extract_attribute_step"]
                 },
 
                 {
                     "name": "random_projection_step",
-                    "primitives": ["d3m.primitives.dsbox.RandomProjectionTimeSeriesFeaturization"],
+                    "primitives": ["d3m.primitives.feature_extraction.RandomProjectionTimeSeriesFeaturization.DSBOX"],
                     "inputs": ["timeseries_to_list_step"]
                 },
                 {
@@ -1865,7 +1865,7 @@ class DefaultTimeseriesRegressionTemplate(DSBoxTemplate):
                             "hyperparameters": {"type_to_cast": ["float"]}
                         },
                         {
-                            "primitive": "d3m.primitives.dsbox.DoNothing",
+                            "primitive": "d3m.primitives.data_preprocessing.DoNothing.DSBOX",
                             "hyperparameters": {}
                         }
                     ],
@@ -1905,7 +1905,7 @@ class UCHITimeSeriesClassificationTemplate(DSBoxTemplate):
             "steps": [
                 # {
                 #     "name": "denormalize_step",
-                #     "primitives": ["d3m.primitives.dsbox.Denormalize"],
+                #     "primitives": ["d3m.primitives.normalization.Denormalize.DSBOX"],
                 #     "inputs": ["template_input"]
                 # },
                 # {
@@ -1962,7 +1962,7 @@ class TA1VggImageProcessingRegressionTemplate(DSBoxTemplate):
             "steps": [
                 {
                     "name": "denormalize_step",
-                    "primitives": ["d3m.primitives.dsbox.Denormalize"],
+                    "primitives": ["d3m.primitives.normalization.Denormalize.DSBOX"],
                     "inputs": ["template_input"]
                 },
                 {
@@ -1992,13 +1992,13 @@ class TA1VggImageProcessingRegressionTemplate(DSBoxTemplate):
                 # read X value
                 {
                     "name": "dataframe_to_tensor",
-                    "primitives": ["d3m.primitives.dsbox.DataFrameToTensor"],
+                    "primitives": ["d3m.primitives.data_preprocessing.DataFrameToTensor.DSBOX"],
                     "inputs": ["to_dataframe_step"]
                 },
                 {
                     "name": "feature_extraction",
-                    "primitives": ["d3m.primitives.dsbox.ResNet50ImageFeature"],
-                    # or "primitives": ["d3m.primitives.dsbox.Vgg16ImageFeature"],
+                    "primitives": ["d3m.primitives.feature_extraction.ResNet50ImageFeature.DSBOX"],
+                    # or "primitives": ["d3m.primitives.feature_extraction.Vgg16ImageFeature.DSBOX"],
                     "inputs": ["dataframe_to_tensor"]
                 },
                 {
@@ -2036,7 +2036,7 @@ class TA1DefaultImageProcessingRegressionTemplate(DSBoxTemplate):
 
                 {
                     "name": "denormalize_step",
-                    "primitives": ["d3m.primitives.dsbox.Denormalize"],
+                    "primitives": ["d3m.primitives.normalization.Denormalize.DSBOX"],
                     "inputs": ["template_input"]
                 },
                 {
@@ -2066,13 +2066,13 @@ class TA1DefaultImageProcessingRegressionTemplate(DSBoxTemplate):
                 # read X value
                 {
                     "name": "dataframe_to_tensor",
-                    "primitives": ["d3m.primitives.dsbox.DataFrameToTensor"],
+                    "primitives": ["d3m.primitives.data_preprocessing.DataFrameToTensor.DSBOX"],
                     "inputs": ["to_dataframe_step"]
                 },
                 {
                     "name": "feature_extraction",
-                    "primitives": ["d3m.primitives.dsbox.ResNet50ImageFeature"],
-                    # "primitives": ["d3m.primitives.dsbox.Vgg16ImageFeature"],
+                    "primitives": ["d3m.primitives.feature_extraction.ResNet50ImageFeature.DSBOX"],
+                    # "primitives": ["d3m.primitives.feature_extraction.Vgg16ImageFeature.DSBOX"],
                     "inputs": ["dataframe_to_tensor"]
                 },
                 {
@@ -2108,7 +2108,7 @@ class DefaultImageProcessingRegressionTemplate(DSBoxTemplate):
 
                 {
                     "name": "denormalize_step",
-                    "primitives": ["d3m.primitives.dsbox.Denormalize"],
+                    "primitives": ["d3m.primitives.normalization.Denormalize.DSBOX"],
                     "inputs": ["template_input"]
                 },
                 {
@@ -2138,12 +2138,12 @@ class DefaultImageProcessingRegressionTemplate(DSBoxTemplate):
                 # read X value
                 {
                     "name": "dataframe_to_tensor",
-                    "primitives": ["d3m.primitives.dsbox.DataFrameToTensor"],
+                    "primitives": ["d3m.primitives.data_preprocessing.DataFrameToTensor.DSBOX"],
                     "inputs": ["to_dataframe_step"]
                 },
                 {
                     "name": "feature_extraction",
-                    "primitives": ["d3m.primitives.dsbox.ResNet50ImageFeature"],
+                    "primitives": ["d3m.primitives.feature_extraction.ResNet50ImageFeature.DSBOX"],
                     "inputs": ["dataframe_to_tensor"]
                 },
                 {
@@ -2549,7 +2549,7 @@ class BBNAudioClassificationTemplate(DSBoxTemplate):
             "steps": [
                 {
                     "name": "denormalize_step",
-                    "primitives": ["d3m.primitives.dsbox.Denormalize"],
+                    "primitives": ["d3m.primitives.normalization.Denormalize.DSBOX"],
                     "inputs": ["template_input"]
                 },
                 {
@@ -2719,7 +2719,7 @@ class CMUClusteringTemplate(DSBoxTemplate):
             "steps": [
                 {
                     "name": "denormalize_step",
-                    "primitives": ["d3m.primitives.dsbox.Denormalize"],
+                    "primitives": ["d3m.primitives.normalization.Denormalize.DSBOX"],
                     "inputs": ["template_input"]
                 },
                 {
@@ -2786,7 +2786,7 @@ class MichiganVideoClassificationTemplate(DSBoxTemplate):
             "steps": [
                 {
                     "name": "denormalize_step",
-                    "primitives": ["d3m.primitives.dsbox.Denormalize"],
+                    "primitives": ["d3m.primitives.normalization.Denormalize.DSBOX"],
                     "inputs": ["template_input"]
                 },
                 {
@@ -2855,7 +2855,7 @@ class TA1ClassificationTemplate1(DSBoxTemplate):
             "steps": [
                 {
                     "name": "denormalize_step",
-                    "primitives": ["d3m.primitives.dsbox.Denormalize"],
+                    "primitives": ["d3m.primitives.normalization.Denormalize.DSBOX"],
                     "inputs": ["template_input"]
                 },
                 {
@@ -2892,12 +2892,12 @@ class TA1ClassificationTemplate1(DSBoxTemplate):
                 },
                 {
                     "name": "encode_step",
-                    "primitives": ["d3m.primitives.dsbox.Encoder"],
+                    "primitives": ["d3m.primitives.data_preprocessing.Encoder.DSBOX"],
                     "inputs": ["extract_attribute_step"]
                 },
                 {
                     "name": "impute_step",
-                    "primitives": ["d3m.primitives.dsbox.MeanImputation"],
+                    "primitives": ["d3m.primitives.data_preprocessing.MeanImputation.DSBOX"],
                     "inputs": ["encode_step"]
                 },
                 {
@@ -2907,7 +2907,7 @@ class TA1ClassificationTemplate1(DSBoxTemplate):
                             "primitive": "d3m.primitives.data.CastToType",
                             "hyperparameters": {"type_to_cast": ["float"]}
                         },
-                        "d3m.primitives.dsbox.DoNothing",
+                        "d3m.primitives.data_preprocessing.DoNothing.DSBOX",
                     ],
                     "inputs": ["impute_step"]
                 },
@@ -2960,22 +2960,22 @@ class TA1Classification_2(DSBoxTemplate):
                 },
                 {
                     "name": "encoder_step",
-                    "primitives": ["d3m.primitives.dsbox.Labler"],
+                    "primitives": ["d3m.primitives.data_cleaning.Labler.DSBOX"],
                     "inputs": ["corex_step"]
                 },
                 {
                     "name": "impute_step",
-                    "primitives": ["d3m.primitives.dsbox.MeanImputation"],
+                    "primitives": ["d3m.primitives.data_preprocessing.MeanImputation.DSBOX"],
                     "inputs": ["encoder_step"]
                 },
                 {
                     "name": "nothing_step",
-                    "primitives": ["d3m.primitives.dsbox.DoNothing"],
+                    "primitives": ["d3m.primitives.data_preprocessing.DoNothing.DSBOX"],
                     "inputs": ["impute_step"]
                 },
                 {
                     "name": "scaler_step",
-                    "primitives": ["d3m.primitives.dsbox.IQRScaler"],
+                    "primitives": ["d3m.primitives.normalization.IQRScaler.DSBOX"],
                     "inputs": ["nothing_step"]
                 },
                 {
@@ -3011,7 +3011,7 @@ class TA1Classification_3(DSBoxTemplate):
             "steps": [
                 {
                     "name": "denormalize_step",
-                    "primitives": ["d3m.primitives.dsbox.Denormalize"],
+                    "primitives": ["d3m.primitives.normalization.Denormalize.DSBOX"],
                     "inputs": ["template_input"]
                 },
                 {
@@ -3047,25 +3047,25 @@ class TA1Classification_3(DSBoxTemplate):
                 },
                 {
                     "name": "profile_step",
-                    "primitives": ["d3m.primitives.dsbox.Profiler"],
+                    "primitives": ["d3m.primitives.schema_discovery.Profiler.DSBOX"],
                     "inputs": ["extract_attribute_step"]
                 },
                 {
                     "name": "clean_step",
                     "primitives": [
-                        "d3m.primitives.dsbox.CleaningFeaturizer",
-                        "d3m.primitives.dsbox.DoNothing",
+                        "d3m.primitives.data_cleaning.CleaningFeaturizer.DSBOX",
+                        "d3m.primitives.data_preprocessing.DoNothing.DSBOX",
                     ],
                     "inputs": ["profile_step"]
                 },
                 {
                     "name": "impute_step",
-                    "primitives": ["d3m.primitives.dsbox.MeanImputation"],
+                    "primitives": ["d3m.primitives.data_preprocessing.MeanImputation.DSBOX"],
                     "inputs": ["clean_step"]
                 },
                 {
                     "name": "label_step",
-                    "primitives": ["d3m.primitives.dsbox.Labler"],
+                    "primitives": ["d3m.primitives.data_cleaning.Labler.DSBOX"],
                     "inputs": ["impute_step"]
                 },
                 {
@@ -3110,7 +3110,7 @@ class MuxinTA1ClassificationTemplate1(DSBoxTemplate):
             "steps": [
                 {
                     "name": "denormalize_step",
-                    "primitives": ["d3m.primitives.dsbox.Denormalize"],
+                    "primitives": ["d3m.primitives.normalization.Denormalize.DSBOX"],
                     "inputs": ["template_input"]
                 },
                 {
@@ -3146,19 +3146,19 @@ class MuxinTA1ClassificationTemplate1(DSBoxTemplate):
                 },
                 {
                     "name": "encode1_step",
-                    # "primitives": ["d3m.primitives.dsbox.UnaryEncoder","d3m.primitives.dsbox.DoNothing"],
-                    "primitives": ["d3m.primitives.dsbox.UnaryEncoder"],
+                    # "primitives": ["d3m.primitives.data_preprocessing.UnaryEncoder.DSBOX","d3m.primitives.data_preprocessing.DoNothing.DSBOX"],
+                    "primitives": ["d3m.primitives.data_preprocessing.UnaryEncoder.DSBOX"],
                     "inputs": ["extract_attribute_step"]
                 },
                 {
                     "name": "encode2_step",
-                    "primitives": ["d3m.primitives.dsbox.Encoder", "d3m.primitives.dsbox.DoNothing"],
-                    # "primitives": ["d3m.primitives.dsbox.Encoder"],
+                    "primitives": ["d3m.primitives.data_preprocessing.Encoder.DSBOX", "d3m.primitives.data_preprocessing.DoNothing.DSBOX"],
+                    # "primitives": ["d3m.primitives.data_preprocessing.Encoder.DSBOX"],
                     "inputs": ["encode1_step"]
                 },
                 {
                     "name": "impute_step",
-                    "primitives": ["d3m.primitives.dsbox.MeanImputation"],
+                    "primitives": ["d3m.primitives.data_preprocessing.MeanImputation.DSBOX"],
                     "inputs": ["encode2_step"]
                 },
                 {
@@ -3168,7 +3168,7 @@ class MuxinTA1ClassificationTemplate1(DSBoxTemplate):
                             "primitive": "d3m.primitives.data.CastToType",
                             "hyperparameters": {"type_to_cast": ["float"]}
                         },
-                        "d3m.primitives.dsbox.DoNothing",
+                        "d3m.primitives.data_preprocessing.DoNothing.DSBOX",
                     ],
                     "inputs": ["impute_step"]
                 },
@@ -3230,7 +3230,7 @@ class MuxinTA1ClassificationTemplate2(DSBoxTemplate):
             "steps": [
                 {
                     "name": "denormalize_step",
-                    "primitives": ["d3m.primitives.dsbox.Denormalize"],
+                    "primitives": ["d3m.primitives.normalization.Denormalize.DSBOX"],
                     "inputs": ["template_input"]
                 },
                 {
@@ -3253,7 +3253,7 @@ class MuxinTA1ClassificationTemplate2(DSBoxTemplate):
                 },
                 {
                     "name": "no_op_step",
-                    "primitives": ["d3m.primitives.dsbox.DoNothing"],
+                    "primitives": ["d3m.primitives.data_preprocessing.DoNothing.DSBOX"],
                     "inputs": ["to_dataframe_step"]
                 },
                 {
@@ -3271,12 +3271,12 @@ class MuxinTA1ClassificationTemplate2(DSBoxTemplate):
                 },
                 {
                     "name": "encode_step",
-                    "primitives": ["d3m.primitives.dsbox.Encoder"],
+                    "primitives": ["d3m.primitives.data_preprocessing.Encoder.DSBOX"],
                     "inputs": ["extract_attribute_step"]
                 },
                 {
                     "name": "impute_step",
-                    "primitives": ["d3m.primitives.dsbox.GreedyImputation"],
+                    "primitives": ["d3m.primitives.data_preprocessing.GreedyImputation.DSBOX"],
                     "inputs": ["encode_step", "extract_target_step"]
                 },
                 # {
@@ -3292,7 +3292,7 @@ class MuxinTA1ClassificationTemplate2(DSBoxTemplate):
                             "hyperparameters": {"type_to_cast": ["float"]}
                         },
                         {
-                            "primitive": "d3m.primitives.dsbox.DoNothing",
+                            "primitive": "d3m.primitives.data_preprocessing.DoNothing.DSBOX",
                             "hyperparameters": {}
                         }
                     ],
@@ -3329,7 +3329,7 @@ class MuxinTA1ClassificationTemplate3(DSBoxTemplate):
             "steps": [
                 {
                     "name": "denormalize_step",
-                    "primitives": ["d3m.primitives.dsbox.Denormalize"],
+                    "primitives": ["d3m.primitives.normalization.Denormalize.DSBOX"],
                     "inputs": ["template_input"]
                 },
                 {
@@ -3352,7 +3352,7 @@ class MuxinTA1ClassificationTemplate3(DSBoxTemplate):
                 },
                 {
                     "name": "no_op_step",
-                    "primitives": ["d3m.primitives.dsbox.DoNothing"],
+                    "primitives": ["d3m.primitives.data_preprocessing.DoNothing.DSBOX"],
                     "inputs": ["to_dataframe_step"]
                 },
                 {
@@ -3370,12 +3370,12 @@ class MuxinTA1ClassificationTemplate3(DSBoxTemplate):
                 },
                 {
                     "name": "encode_step",
-                    "primitives": ["d3m.primitives.dsbox.Encoder"],
+                    "primitives": ["d3m.primitives.data_preprocessing.Encoder.DSBOX"],
                     "inputs": ["extract_attribute_step"]
                 },
                 {
                     "name": "impute_step",
-                    "primitives": ["d3m.primitives.dsbox.IterativeRegressionImputation"],
+                    "primitives": ["d3m.primitives.data_preprocessing.IterativeRegressionImputation.DSBOX"],
                     "inputs": ["encode_step"]
                 },
                 # {
@@ -3391,7 +3391,7 @@ class MuxinTA1ClassificationTemplate3(DSBoxTemplate):
                             "hyperparameters": {"type_to_cast": ["float"]}
                         },
                         {
-                            "primitive": "d3m.primitives.dsbox.DoNothing",
+                            "primitive": "d3m.primitives.data_preprocessing.DoNothing.DSBOX",
                             "hyperparameters": {}
                         }
                     ],
@@ -3428,7 +3428,7 @@ class MuxinTA1ClassificationTemplate4(DSBoxTemplate):
             "steps": [
                 {
                     "name": "denormalize_step",
-                    "primitives": ["d3m.primitives.dsbox.Denormalize"],
+                    "primitives": ["d3m.primitives.normalization.Denormalize.DSBOX"],
                     "inputs": ["template_input"]
                 },
                 {
@@ -3464,17 +3464,17 @@ class MuxinTA1ClassificationTemplate4(DSBoxTemplate):
                 },
                 {
                     "name": "encode1_step",
-                    "primitives": ["d3m.primitives.dsbox.UnaryEncoder"],
+                    "primitives": ["d3m.primitives.data_preprocessing.UnaryEncoder.DSBOX"],
                     "inputs": ["extract_attribute_step"]
                 },
                 {
                     "name": "encode2_step",
-                    "primitives": ["d3m.primitives.dsbox.Encoder"],
+                    "primitives": ["d3m.primitives.data_preprocessing.Encoder.DSBOX"],
                     "inputs": ["encode1_step"]
                 },
                 {
                     "name": "impute_step",
-                    "primitives": ["d3m.primitives.dsbox.MeanImputation"],
+                    "primitives": ["d3m.primitives.data_preprocessing.MeanImputation.DSBOX"],
                     "inputs": ["encode2_step"]
                 },
                 {
@@ -3484,7 +3484,7 @@ class MuxinTA1ClassificationTemplate4(DSBoxTemplate):
                             "primitive": "d3m.primitives.data.CastToType",
                             "hyperparameters": {"type_to_cast": ["float"]}
                         },
-                        "d3m.primitives.dsbox.DoNothing",
+                        "d3m.primitives.data_preprocessing.DoNothing.DSBOX",
                     ],
                     "inputs": ["impute_step"]
                 },
@@ -3520,7 +3520,7 @@ class UU3TestTemplate(DSBoxTemplate):
             "steps": [
                 {
                     "name": "multi_table_processing_step",
-                    "primitives": ["d3m.primitives.dsbox.MultiTableFeaturization"],
+                    "primitives": ["d3m.primitives.feature_extraction.MultiTableFeaturization.DSBOX"],
                     "inputs": ["template_input"]
                 },
                 {
@@ -3551,17 +3551,17 @@ class UU3TestTemplate(DSBoxTemplate):
                 },
                 {
                     "name": "encode1_step",
-                    "primitives": ["d3m.primitives.dsbox.UnaryEncoder"],
+                    "primitives": ["d3m.primitives.data_preprocessing.UnaryEncoder.DSBOX"],
                     "inputs": ["extract_attribute_step"]
                 },
                 {
                     "name": "encode2_step",
-                    "primitives": ["d3m.primitives.dsbox.Encoder"],
+                    "primitives": ["d3m.primitives.data_preprocessing.Encoder.DSBOX"],
                     "inputs": ["encode1_step"]
                 },
                 {
                     "name": "impute_step",
-                    "primitives": ["d3m.primitives.dsbox.MeanImputation"],
+                    "primitives": ["d3m.primitives.data_preprocessing.MeanImputation.DSBOX"],
                     "inputs": ["encode2_step"]
                 },
                 {
@@ -3572,7 +3572,7 @@ class UU3TestTemplate(DSBoxTemplate):
                             "hyperparameters": {"type_to_cast": ["float"]}
                         },
                         {
-                            "primitive": "d3m.primitives.dsbox.DoNothing",
+                            "primitive": "d3m.primitives.data_preprocessing.DoNothing.DSBOX",
                             "hyperparameters": {}
                         }
                     ],
@@ -3621,7 +3621,7 @@ class HorizontalTemplate(DSBoxTemplate): #This template only generate processed 
             "steps": [
                 {
                     "name": "denormalize_step",
-                    "primitives": ["d3m.primitives.dsbox.Denormalize"],
+                    "primitives": ["d3m.primitives.normalization.Denormalize.DSBOX"],
                     "inputs": ["template_input"]
                 },
                 {
@@ -3647,13 +3647,13 @@ class HorizontalTemplate(DSBoxTemplate): #This template only generate processed 
                 },
                 {
                     "name": "profiler_step",
-                    "primitives": ["d3m.primitives.dsbox.Profiler"],
+                    "primitives": ["d3m.primitives.schema_discovery.Profiler.DSBOX"],
                     "inputs": ["extract_attribute_step"]
                 },
                 {
                     "name": "clean_step",
                     "primitives": [
-                        "d3m.primitives.dsbox.CleaningFeaturizer",
+                        "d3m.primitives.data_cleaning.CleaningFeaturizer.DSBOX",
                     ],
                     "inputs": ["profiler_step"]
                 },
@@ -3672,20 +3672,20 @@ class HorizontalTemplate(DSBoxTemplate): #This template only generate processed 
                 {
                     "name": "encoder_step",
                     "primitives": [
-                        "d3m.primitives.dsbox.Encoder",
+                        "d3m.primitives.data_preprocessing.Encoder.DSBOX",
                     ],
                     "inputs": ["corex_step"]
                 },
                 {
                     "name": "impute_step",
-                    "primitives": ["d3m.primitives.dsbox.MeanImputation"],
+                    "primitives": ["d3m.primitives.data_preprocessing.MeanImputation.DSBOX"],
                     "inputs": ["encoder_step"]
                 },
                 {
                     "name": "scaler_step",
                     "primitives": [
                         {
-                            "primitive": "d3m.primitives.dsbox.IQRScaler",
+                            "primitive": "d3m.primitives.normalization.IQRScaler.DSBOX",
                             "hyperparameters": {}
                         },
                     ],
