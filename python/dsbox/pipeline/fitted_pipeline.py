@@ -7,10 +7,9 @@ import sys
 import typing
 import uuid
 
-from d3m.metadata.pipeline import Pipeline
-from d3m.metadata.pipeline import StepBase
+from d3m.metadata.pipeline import Pipeline, Resolver, StepBase, PrimitiveStep, SubpipelineStep
 from d3m.metadata.problem import PerformanceMetric
-
+from d3m import exceptions
 from dsbox.template.runtime import Runtime, ForkedPdb
 
 from .utils import larger_is_better
@@ -25,16 +24,22 @@ class FittedPipeline:
     Fitted pipeline
     Attributes
     ----------
+    dataset_id: str
+        The string type mark to define the dataset of this pipeline used
     pipeline: Pipeline
         a pipeline
-    dataset: Dataset
-        identifier for a dataset
+    template/problem:
+        Used to add extra explanation, not necessary to be given
     runtime: Runtime
         runtime object for the pipeline
+    log_dir: str
+        the direction to store the log files
     id: str
         the id of the pipeline
-    folder_loc: str
-        the location of the files of pipeline
+    metric_descriptions: List[str]
+        describe the type of the metrics, needed for calculating the score of the predictions
+    auxiliary: dict
+        detail processes of fitted pipeline, not necessaary to be added
     """
 
     def __init__(self, pipeline: Pipeline, dataset_id: str, log_dir: str, *, id: str = None,
@@ -69,32 +74,10 @@ class FittedPipeline:
     def _set_fitted(self, fitted_pipe: typing.List[StepBase]) -> None:
         self.runtime.steps_state = fitted_pipe
 
-    # @classmethod
-    # def create(cls: typing.Type[TP],
-    #            configuration:ConfigurationPoint,
-    #            dataset: Dataset) -> TP:
-    #     '''
-    #     Initialize the FittedPipeline with the configurations
-    #     '''
-    #
-    #     assert False, "This method is deprecated!"
-    #
-    #     # pipeline_to_load = template.to_pipeline(configuration)
-    #     # run = []#configuration.data['runtime']
-    #     fitted_pipe = configuration.data['fitted_pipe']
-    #     pipeline = configuration.data['pipeline']
-    #     exec_order = configuration.data['exec_plan']
-    #
-    #
-    #     fitted_pipeline_loaded = cls(
-    #         fitted_pipe=fitted_pipe,
-    #         pipeline=pipeline,
-    #         exec_order=exec_order,
-    #         dataset_id=dataset.metadata.query(())['id']
-    #     )
-    #     return fitted_pipeline_loaded
-
     def set_metric(self, metric: typing.Dict):
+        """
+            Set the metric type for this fitted pipeline
+        """
         self.metric = metric
 
     def fit(self, **arguments):
@@ -108,35 +91,32 @@ class FittedPipeline:
     def get_cross_validation_metrics(self) -> typing.List:
         return self.runtime.cross_validation_result
 
-    def get_fit_step_output(self, step_number: int):
+    def get_fit_step_output(self, step_number: int = 0):
         #return self.runtime.fit_outputs[step_number]
-        # Fix it: should here always be 0?
-        # print(f"fit_outputs_{step_number}: ", self.runtime.fit_outputs.values.keys())
-        return self.runtime.fit_outputs.values['outputs.0']
-        # print(type(self.runtime.fit_outputs[0]))
+        # TODO: should here always be 0?
         # return self.runtime.fit_outputs[0]
+        return self.runtime.fit_outputs.values['outputs.0']
 
     def get_produce_step_output(self, step_number: int):
         # return self.runtime.produce_outputs[step_number]
-        # print(f"produce_outputs_{step_number}: ", self.runtime.produce_outputs.values.keys())
-        return self.runtime.produce_outputs.values['outputs.0']
-        # print(type(self.runtime.produce_outputs[0]))
+        # TODO: should here always be 0?
         # return self.runtime.produce_outputs[0]
+        return self.runtime.produce_outputs.values['outputs.0']
 
     def save(self, folder_loc: str) -> None:
         '''
         Save the given fitted pipeline from TemplateDimensionalSearch
+        inputs:
+        folder_loc: str
+            the location of the files of pipeline
         '''
         _logger.debug('Saving fitted pipeline %s', self.id)
         pipeline_dir = os.path.join(folder_loc, 'pipelines')
         executable_dir = os.path.join(folder_loc, 'executables')
-        supporting_files_dir = os.path.join(folder_loc, 'supporting_files',
-                                            self.id)
+        supporting_files_dir = os.path.join(folder_loc, 'supporting_files')
         os.makedirs(pipeline_dir, exist_ok=True)
         os.makedirs(executable_dir, exist_ok=True)
         os.makedirs(supporting_files_dir, exist_ok=True)
-
-        # print("Writing:",self)
 
         # store fitted_pipeline id
         structure = self.pipeline.to_json_structure()
@@ -152,6 +132,7 @@ class FittedPipeline:
         # for each_step in structure['steps']:
         #     primitive_name = each_step["primitive"]["python_path"]
         #     each_step["timing"] = self.runtime.timing[primitive_name]
+
         # Save pipeline rank
         if self.metric:
             metric: str = self.metric['metric']
@@ -163,22 +144,33 @@ class FittedPipeline:
                     rank = 1 / value
             else:
                 rank = value
+            structure['pipeline_rank'] = rank
+            structure['metric'] = metric
+            structure['metric_value'] = value
+        else:
+            _logger.warn("[WARN] Metric type of the pipeline is unknown, unable to calculate the rank of the pipeline")
 
-        structure['template_name'] = self.template.template['name']
-        structure['template_taskType'] = str(self.template.template['taskType'])
-        structure['template_taskSubtype'] = str(self.template.template['taskSubtype'])
-        problem_meta = self.problem.query(())['about']
-        structure['problem_taskType'] = str(problem_meta['taskType'])
-        try:
-            structure['problem_taskSubType'] = str(problem_meta['taskSubType'])
-        except:
-            structure['problem_taskSubType'] = "NONE"
-        structure['total_time_used'] = self.runtime.timing["total_time_used"]
+        if self.template:
+            structure['template_name'] = self.template.template['name']
+            structure['template_taskType'] = str(self.template.template['taskType'])
+            structure['template_taskSubtype'] = str(self.template.template['taskSubtype'])
+        else:
+            _logger.warn("[WARN] Template type of the pipeline is unknown, unable to save template name / taskType / taskSubtype")
+
+        if self.problem:
+            problem_meta = self.problem.query(())['about']
+            structure['problem_taskType'] = str(problem_meta['taskType'])
+            try:
+                structure['problem_taskSubType'] = str(problem_meta['taskSubType'])
+            except:
+                structure['problem_taskSubType'] = "NONE"
+        else:
+            _logger.warn("[WARN] problem type of the pipeline is unknown, unable to save problem taskType / taskSubtype")
+
+        # structure['total_time_used'] = self.runtime.timing["total_time_used"]
 
         # structure['total_time_used_without_cache'] = self.runtime.timing["total_time_used_without_cache"]
-        structure['pipeline_rank'] = rank
-        structure['metric'] = metric
-        structure['metric_value'] = value
+
         # structure['template'] = runtime.
 
         # FIXME: this is here for testing purposes
@@ -189,27 +181,58 @@ class FittedPipeline:
         with open(json_loc, 'w') as out:
             json.dump(structure, out)
 
-        # save the pipeline spec under executables to be a json file simply specifies the
-        # pipeline id.
+        # save the pipeline spec under executables to be a json file simply specifies the pipeline id
         json_loc = os.path.join(executable_dir, self.id + '.json')
         with open(json_loc, 'w') as out:
             json.dump({"fitted_pipeline_id": self.id}, out)
 
-        # save the pickle files of each primitive step
-        for i in range(0, len(self.runtime.steps_state)):
-            # print("Now saving step_", i)
-            each_step = self.runtime.steps_state[i]
-            file_loc = os.path.join(supporting_files_dir,
-                                    "step_" + str(i) + ".pkl")
-            with open(file_loc, "wb") as f:
-                pickle.dump(each_step, f)
+        # save subpipelines if exists
+        for each_step in self.pipeline.steps:
+            if isinstance(each_step, SubpipelineStep):
+                need_save = True
+                json_loc = os.path.join(pipeline_dir, each_step.pipeline.id + '.json')
+                subpipeline_structure = each_step.pipeline.to_json_structure()
 
-    def __str__(self):
-        # desc = list(map(lambda s: (s.primitive, s.hyperparams),
-        #                 ))
-        return pprint.pformat(self.runtime.steps_state)
-        # print("Sorted:", dag_order)
-        # return str(dag_order)
+                # if pipeline already exist, check it
+                if os.path.exists(json_loc):
+                    with open(json_loc, 'r') as out:
+                        temp_pipeline = json.load(out)
+                        if 'pipeline_rank' not in temp_pipeline:
+                            _logger.warn("The sub-pipeline {} of pipeline {} do not have rank".format(each_step.pipeline.id, self.id))
+                        if 'steps' in temp_pipeline:
+                            if temp_pipeline['steps'] != subpipeline_structure:
+                                _logger.warn("The pipeline structure of {} is not same as new one.".format(each_step.pipeline.id))
+                            else:
+                                need_save = False
+                        else:
+                            _logger.warn("The original pipeline file of {} is not completed.".format(each_step.pipeline.id))
+
+                if need_save:
+                    with open(json_loc, 'w') as out:
+                        json.dump(subpipeline_structure, out)
+
+        # save the detail supporting files
+        assert len(self.runtime.steps_state) == len(self.pipeline.steps)
+
+        self.save_pickle_files(folder_loc, self.runtime)
+
+    def save_pickle_files(self, folder_loc: str, input_runtime: Runtime) -> None:
+        supporting_files_dir = os.path.join(folder_loc, 'supporting_files', input_runtime.fitted_pipeline_id)
+        os.makedirs(supporting_files_dir, exist_ok=True)
+        # save the pickle files of each primitive step
+        for i in range(len(input_runtime.steps_state)):
+            # print("Now saving step_", i)
+            each_step = input_runtime.steps_state[i]
+            if isinstance(each_step, Runtime):
+                # if it is a subpipeline recursively call pickling functions
+                self.save_pickle_files(folder_loc, each_step)
+            else:
+                # else if it is a primitive step, pickle directly
+                file_loc = os.path.join(supporting_files_dir, "step_" + str(i) + ".pkl")
+                with open(file_loc, "wb") as f:
+                    pickle.dump(each_step, f)
+
+        _logger.info("Saving pickle files of pipeline {} finished.".format(self.id))
 
     @classmethod
     def load(cls: typing.Type[TP], folder_loc: str,
@@ -219,7 +242,6 @@ class FittedPipeline:
         Load the pipeline with given pipeline id and folder location
         '''
         # load pipeline from json
-
         pipeline_dir = os.path.join(folder_loc, 'pipelines')
         executable_dir = os.path.join(folder_loc, 'executables')
 
@@ -235,27 +257,15 @@ class FittedPipeline:
         with open(pipeline_definition_loc, 'r') as f:
             structure = json.load(f)
 
-        structure["id"] = structure["parent_id"]
         dataset_id = structure.get('dataset_id')
 
-        pipeline_to_load = Pipeline.from_json_structure(structure)
-
+        resolver = Resolver(pipeline_search_paths = [pipeline_dir])
+        pipeline_to_load = Pipeline.from_json_structure(pipeline_description = structure, resolver = resolver)
+        structure["id"] = pipeline_to_load.id
         # load detail fitted parameters from pkl files in
         # supporting_files/<fitted_pipeline_id>
-        supporting_files_dir = os.path.join(folder_loc, 'supporting_files',
-                                            fitted_pipeline_id)
+        runtime_loaded = FittedPipeline.load_pickle_files(pipeline_to_load, log_dir, folder_loc)
 
-        runtime_loaded = Runtime(pipeline_to_load, fitted_pipeline_id, log_dir)
-
-        for i in range(0, len(runtime_loaded.steps_state)):
-            # print("Now loading step", i)
-            file_loc = os.path.join(supporting_files_dir,
-                                    "step_" + str(i) + ".pkl")
-            with open(file_loc, "rb") as f:
-                each_step = pickle.load(f)
-                runtime_loaded.steps_state[i] = each_step
-        # ForkedPdb().set_trace()
-        # fitted_pipeline_loaded = cls(pipeline_to_load, run, dataset)
         fitted_pipeline_loaded = cls(pipeline=pipeline_to_load,
                                      dataset_id=dataset_id,
                                      id=fitted_pipeline_id,
@@ -263,6 +273,37 @@ class FittedPipeline:
         fitted_pipeline_loaded._set_fitted(runtime_loaded.steps_state)
 
         return (fitted_pipeline_loaded, runtime_loaded)
+
+    @classmethod
+    def load_pickle_files(cls, pipeline_to_load: Pipeline, log_dir: str, folder_loc: str):
+        '''
+            create a Runtime instance from given pipelines and supporting files
+        '''
+        runtime_loaded = Runtime(pipeline_to_load, pipeline_to_load.id, log_dir)
+        supporting_files_dir = os.path.join(folder_loc, 'supporting_files', pipeline_to_load.id)
+        for i, each_step in enumerate(pipeline_to_load.steps):
+            # if it is a primitive, load directly
+            if isinstance(each_step, PrimitiveStep):
+                file_loc = os.path.join(supporting_files_dir, "step_" + str(i) + ".pkl")
+                with open(file_loc, "rb") as f:
+                    each_step = pickle.load(f)
+                    runtime_loaded.steps_state[i] = each_step
+
+            # if it is a subpipeline, recursively creat a new runtime
+            elif isinstance(each_step, SubpipelineStep):
+                runtime_loaded.steps_state[i] = FittedPipeline.load_pickle_files(each_step.pipeline, log_dir, folder_loc)
+
+            else:
+                raise exceptions.UnexpectedValueError("Unknown types for step " + str(i) + "as" + str(type(each_step)))
+
+        return runtime_loaded
+
+    def __str__(self):
+        # desc = list(map(lambda s: (s.primitive, s.hyperparams),
+        #                 ))
+        return pprint.pformat(self.runtime.steps_state)
+        # print("Sorted:", dag_order)
+        # return str(dag_order)
 
     def __getstate__(self) -> typing.Dict:
         """

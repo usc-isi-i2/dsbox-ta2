@@ -4,7 +4,6 @@ import contextlib
 import logging
 import sys
 import tempfile
-import multiprocessing.managers
 import time
 import pdb
 
@@ -50,7 +49,7 @@ logging.getLogger("dill").setLevel(logging.WARNING)
 class Runtime(d3m_runtime):
     """
     Class to run the build and run a Pipeline.
-    
+
     Caution:
     Some method adapted from d3m's runtime, so if you find that our system can't run after
     updated the new d3m,
@@ -99,7 +98,14 @@ class Runtime(d3m_runtime):
         self.pipeline_description = pipeline_description
         self.timing = {}
         self.timing["total_time_used"] = 0.0
+        self.use_cache = True
         # self.timing["total_time_used_without_cache"] = 0.0
+
+        # !
+        self.skip_fit_phase = False
+
+    def set_not_use_cache(self) -> None:
+        self.use_cache = False
 
     def set_metric_descriptions(self, metric_descriptions):
         self.metric_descriptions = metric_descriptions
@@ -110,8 +116,11 @@ class Runtime(d3m_runtime):
             And add the cache support
         '''
         time_start = time.time()
+        # call d3m's run primitive directly if not use cache
+        if not self.use_cache:
+            d3m_runtime._run_primitive(self, this_step)
 
-        if self.phase == Phase.FIT:
+        elif self.phase == Phase.FIT:
             # Same as old codes, use argument as the cache system's key
             primitive_arguments = self._prepare_primitive_arguments(this_step)
             primitive_arguments["produce_methods"] = this_step.outputs
@@ -119,33 +128,34 @@ class Runtime(d3m_runtime):
                 hash_prefix=None, pipe_step=self.pipeline_description.steps[self.current_step],
                 primitive_arguments=primitive_arguments)
 
-            # if we need to do cross validation, do it before normal fit() step
-            if 'runtime' in this_step.primitive_description and "cross_validation" in \
-                    this_step.primitive_description['runtime']:
-                primitive: typing.Type[base.PrimitiveBase] = this_step.primitive
-                # TODO: add one more "if" to restrict runtime to run cross validation only for
-                # tuning steps
-                primitive_hyperparams = \
-                primitive.metadata.query()['primitive_code']['class_type_arguments']['Hyperparams']
-                custom_hyperparams = dict()
-                # ForkedPdb().set_trace()
-                # produce_params only have 'inputs'
-                produce_params = dict((k, primitive_arguments[k]) for k in ["inputs"])
-                # training_arguments have ['inputs', 'outputs']
-                training_arguments = dict(
-                    (k, primitive_arguments[k]) for k in ["inputs", "outputs"])
+            if not self.skip_fit_phase:
+                # if we need to do cross validation, do it before normal fit() step
+                if 'runtime' in this_step.primitive_description and "cross_validation" in this_step.primitive_description['runtime']:
 
-                if bool(this_step.hyperparams):
-                    for hyperparam, value in this_step.hyperparams.items():
-                        if isinstance(value, dict):
-                            custom_hyperparams[hyperparam] = value['data']
-                        else:
-                            custom_hyperparams[hyperparam] = value
+                    primitive: typing.Type[base.PrimitiveBase] = this_step.primitive
+                    # TODO: add one more "if" to restrict runtime to run cross validation only for tuning steps
+                    primitive_hyperparams = primitive.metadata.query()['primitive_code']['class_type_arguments']['Hyperparams']
+                    custom_hyperparams = dict()
+                    # produce_params only have 'inputs'
+                    produce_params = dict((k, primitive_arguments[k]) for k in ["inputs"])
+                    # training_arguments have ['inputs', 'outputs']
+                    training_arguments = dict((k, primitive_arguments[k]) for k in ["inputs","outputs"])
 
-                self.cross_validation_result = self._cross_validation(
-                    primitive, training_arguments, produce_params, primitive_hyperparams,
-                    custom_hyperparams, this_step.primitive_description['runtime'])
-            # END for cross-validation process
+                    if bool(this_step.hyperparams):
+                        for hyperparam, value in this_step.hyperparams.items():
+                            if isinstance(value, dict):
+                                custom_hyperparams[hyperparam] = value['data']
+                            else:
+                                custom_hyperparams[hyperparam] = value
+
+                    # self.cross_validation_result = None
+                    self.cross_validation_result = self._cross_validation(
+                        primitive, training_arguments, produce_params, primitive_hyperparams,
+                        custom_hyperparams, this_step.primitive_description['runtime'])
+
+                    # print("!@#$$%$$$,cvfinished!!!")
+                    # print(self.cross_validation_result)
+                # END for cross-validation process
 
             cache_hit = False
             _logger.debug(
@@ -160,10 +170,10 @@ class Runtime(d3m_runtime):
                     'worker_id': current_process()
                 },
             )
+
             # if this primitive hitted
             if self.cache.is_hit_key(prim_hash=prim_hash, prim_name=prim_name):
-                fitting_time, model = self.cache.lookup_key(prim_name=prim_name,
-                                                            prim_hash=prim_hash)
+                fitting_time, model = self.cache.lookup_key(prim_name=prim_name, prim_hash=prim_hash)
                 self.steps_state[self.current_step] = model
 
                 # print cache reading time
@@ -205,13 +215,11 @@ class Runtime(d3m_runtime):
                                     fitting_time=fitting_time)
                 # log fitting results
                 for output_id in this_step.outputs:
-                    output_data_reference = 'steps.{i}.{output_id}'.format(i=this_step.index,
-                                                                           output_id=output_id)
-                self._log_fitted_step(self.cache, output_data_reference, this_step,
-                                      self.environment)
-        # END processing part for FIT Phase
+                    output_data_reference = 'steps.{i}.{output_id}'.format(i=this_step.index, output_id=output_id)
+                self._log_fitted_step(self.cache, output_data_reference, this_step, self.environment)
+            # END processing part for FIT Phase
 
-        # if in produce step, always use the d3m's codes
+            # if in produce step, always use the d3m's codes
         elif self.phase == Phase.PRODUCE:
             d3m_runtime._run_primitive(self, this_step)
 
@@ -236,9 +244,10 @@ class Runtime(d3m_runtime):
         '''
         if _logger.getEffectiveLevel() <= 10:
 
-            _logger.debug('cache keys')
-            for key in sorted(cache.storage.keys()):
-                _logger.debug('   {}'.format(key))
+            # _logger.debug('cache keys')
+            # for key in sorted(cache.storage.keys()):
+            #     _logger.debug('   {}'.format(key))
+
             n_step = int(output_data_reference.split('.')[1])
             debug_file = os.path.join(
                 self.log_dir, 'dfs',
@@ -287,6 +296,8 @@ class Runtime(d3m_runtime):
         cv = runtime_instr.get('cross_validation', 10)
         use_stratified = runtime_instr.get('stratified', False)
 
+        # TODO: cross validation need to be update to fit with new requirement with adding indexes!!
+
         # Redirect stderr to an error file
         #  Directly assigning stderr to tempfile.TemporaryFile cause printing str to fail
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -300,8 +311,18 @@ class Runtime(d3m_runtime):
 
                     num = 0.0
                     for k, (train, test) in enumerate(kf.split(X, y)):
-
                         try:
+                            # !!!
+                            # Temporary fix
+                            # Still ignore the use_semantic types hyperparameters
+                            if "use_semantic_types" in custom_hyperparams:
+                                try:
+                                    custom_hyperparams.pop("use_semantic_types")
+                                    custom_hyperparams.pop("return_result")
+                                    custom_hyperparams.pop("add_index_columns")
+                                except:
+                                    pass
+
                             model = primitive(hyperparams=primitive_hyperparams(
                                 primitive_hyperparams.defaults(), **custom_hyperparams))
                         except:
@@ -315,9 +336,9 @@ class Runtime(d3m_runtime):
                             return results
 
                         trainX = X.take(train, axis=0)
-                        trainY = y.take(train, axis=0).values.ravel()
+                        trainY = y.take(train, axis=0)#.values.ravel()
                         testX = X.take(test, axis=0)
-                        testY = y.take(test, axis=0).values.ravel()
+                        testY = y.take(test, axis=0)#.values.ravel()
 
                         validation_train = dict(training_arguments)
                         validation_train['inputs'] = trainX
@@ -379,10 +400,10 @@ class Runtime(d3m_runtime):
             Arguments required to train the Pipeline
         """
         if 'cache' in arguments:
-            _logger.debug("[INFO] using global cache")
+            _logger.debug("Using global cache")
             self.cache: PrimitivesCache = arguments['cache']
         else:
-            _logger.debug("[INFO] using local cache")
+            _logger.debug("Using local cache")
             self.cache = PrimitivesCache()
 
         self.fit_outputs = d3m_runtime.fit(self, inputs=arguments['inputs'])
@@ -397,6 +418,7 @@ class Runtime(d3m_runtime):
         arguments
             Arguments required to execute the Pipeline
         """
+
         self.produce_outputs = d3m_runtime.produce(self, inputs=arguments['inputs'])
         self.check_results(self.produce_outputs)
 
@@ -405,4 +427,3 @@ class Runtime(d3m_runtime):
             assert len(res.values) > 0
         else:
             raise res.error
-                # raise e

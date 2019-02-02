@@ -1,18 +1,14 @@
-import importlib
 import logging
-import operator
-import os
 import random
+import time
 import traceback
 import typing
-from pprint import pprint
 
 from d3m.container.dataset import Dataset
 from d3m.metadata.base import Metadata
 from dsbox.combinatorial_search.ConfigurationSpaceBaseSearch import ConfigurationSpaceBaseSearch
 from dsbox.template.configuration_space import ConfigurationPoint
 from dsbox.combinatorial_search.ExecutionHistory import ExecutionHistory
-from dsbox.JobManager.cache import CacheManager
 from dsbox.JobManager.cache import CacheManager
 from dsbox.template.template import DSBoxTemplate
 
@@ -49,7 +45,10 @@ class TemplateSpaceBaseSearch(typing.Generic[T]):
                  problem: Metadata, train_dataset1: Dataset,
                  train_dataset2: typing.List[Dataset], test_dataset1: Dataset,
                  test_dataset2: typing.List[Dataset], all_dataset: Dataset,
-                 output_directory: str, log_dir: str,) -> None:
+                 ensemble_tuning_dataset: Dataset,
+                 output_directory: str, log_dir: str,
+                 timeout: int = -1,  # in seconds
+                 is_multiprocessing: bool = True) -> None:
 
         self.template_list = template_list
 
@@ -64,18 +63,24 @@ class TemplateSpaceBaseSearch(typing.Generic[T]):
                     problem=problem, train_dataset1=train_dataset1, train_dataset2=train_dataset2,
                     test_dataset1=test_dataset1, test_dataset2=test_dataset2,
                     all_dataset=all_dataset, performance_metrics=performance_metrics,
+                    ensemble_tuning_dataset = ensemble_tuning_dataset,
                     output_directory=output_directory, log_dir=log_dir
                 ),
                 zip(template_list, self.configuration_space_list)
             )
         )
 
-        self.cacheManager = CacheManager()
+        self.is_multiprocessing = is_multiprocessing
+        self.cacheManager = CacheManager(is_multiprocessing=is_multiprocessing)
 
         self.history: ExecutionHistory = None
         # setup the execution history to store the results of each template separately
         self._setup_exec_history(template_list=self.template_list)
 
+        self.ensemble_tuning_result = {}
+
+        self.timeout = timeout
+        self.start_time = time.time()
         # load libraries with a dummy evaluation
         # try:
         #     self.confSpaceBaseSearch[-1].dummy_evaluate()
@@ -96,16 +101,26 @@ class TemplateSpaceBaseSearch(typing.Generic[T]):
         Returns:
 
         """
+
+        success_count = 0
         for search in self._select_next_template(num_iter=num_iter):
+            if self._done(success_count):
+                break
+            _logger.info(f'Search template {search.template}')
             for candidate in self._sample_random_pipeline(search=search, num_iter=1):
+                if self._done(success_count):
+                    break
                 try:
                     report = search.evaluate_pipeline(
                         args=(candidate, self.cacheManager.primitive_cache, True))
+                    success_count += 1
+                    _logger.info(f'Search template pipeline {search.template}')
+                    _logger.info(f'report {report}')
                 except:
                     traceback.print_exc()
+                    _logger.error(f'Search template pipeline failed {search.template}')
                     _logger.error(traceback.format_exc())
-                    print("[INFO] Search Failed on candidate")
-                    pprint(candidate)
+                    _logger.debug("Failed candidate: {candidate}")
                     report = None
 
                 kwargs_bundle = self._prepare_job_posting(candidate=candidate,
@@ -115,6 +130,10 @@ class TemplateSpaceBaseSearch(typing.Generic[T]):
 
         self.cacheManager.cleanup()
         return self.history.get_best_history()
+
+    def _done(self, success_count):
+        _logger.info(f'Test Done: {time.time() > self.start_time + self.timeout}: {time.time()} > {self.start_time} + {self.timeout}')
+        return (self.timeout > 0 and time.time() > self.start_time + self.timeout)
 
     def _add_report_to_history(self, kwargs_bundle: typing.Dict[str, typing.Any],
                                report: typing.Dict[str, typing.Any]) -> None:
@@ -132,15 +151,15 @@ class TemplateSpaceBaseSearch(typing.Generic[T]):
         template_name = kwargs_bundle['target_obj'].template.template['name']
         if report is not None:
             report['template_name'] = template_name
-            _logger.info("new report: {}".format(report))
+            _logger.info(f"New report: id={report['id']}")
+            _logger.debug(f"Report details: {report}")
             self.history.update(report, template_name=template_name)
             self.cacheManager.candidate_cache.push(report)
         else:
+            _logger.info(f"Search Failed on candidate {hash(str(candidate))}")
             _logger.warning(traceback.format_exc())
-            print("[INFO] Search Failed on candidate ", hash(str(candidate)))
             self.history.update_none(fail_report=None, template_name=template_name)
             self.cacheManager.candidate_cache.push_None(candidate=candidate)
-        print("[INFO] _add_report_to_history Done!")
 
     def _prepare_job_posting(self,
                              candidate: typing.Dict[str, typing.Any],
@@ -166,7 +185,7 @@ class TemplateSpaceBaseSearch(typing.Generic[T]):
             -> typing.Iterable[ConfigurationSpaceBaseSearch]:
         """
         Selects a confSpace (template) randomly from the list of available ones
-        Args: 
+        Args:
             num_iter: number of samples to draw
 
         Returns:
@@ -185,7 +204,7 @@ class TemplateSpaceBaseSearch(typing.Generic[T]):
             candidate = search.configuration_space.get_random_assignment()
 
             if self._prepare_candidate_4_eval(candidate=candidate):
-                print("[INFO] Selecting Candidate: ", hash(str(candidate)))
+                _logger.info(f"Selecting Candidate: {hash(str(candidate))}")
                 yield candidate
             else:
                 continue

@@ -6,13 +6,10 @@ import psutil
 from threading import Timer
 from math import ceil
 import traceback
-from multiprocessing import Pool, Queue, Manager, Process, current_process, Lock
-from multiprocessing import get_logger
+from multiprocessing import Pool, Queue, Manager, current_process
 import copy
-# import dsbox.JobManager.mplog as mplog
 
 _logger = logging.getLogger(__name__)
-_logger.setLevel(logging.DEBUG)
 
 
 class DistributedJobManager:
@@ -45,9 +42,9 @@ class DistributedJobManager:
         self.job_pool = Pool(processes=self.proc_num)
         self.job_pool.map_async(
             func=DistributedJobManager._internal_worker_process,
-            iterable=
-            [(self.arguments_queue, self.result_queue, target_method,)
-             for a in range(self.proc_num)]
+            iterable=[
+                (self.arguments_queue, self.result_queue, target_method,)
+                for a in range(self.proc_num)]
         )
         self.job_pool.close()  # prevents any additional worker to be added to the pool
 
@@ -79,58 +76,70 @@ class DistributedJobManager:
         # print(f"[INFO] {current_process()} > worker process started")
         _logger.info(f"{current_process()} > worker process started")
         counter: int = 0
+        error_count: int = 0
         while True:
-            # wait until a new job is available
-            # print(f"[INFO] {current_process()} > waiting on new jobs")
-            _logger.info(f"{current_process()} > waiting on new jobs")
-            kwargs = arguments_queue.get(block=True)
-            _logger.info(f"{current_process()} > copying")
-            kwargs_copy = copy.copy(kwargs)
-            # execute the job
             try:
-                # TODO add timelimit to single work in the worker
-                # print(f"[INFO] {current_process()} > executing job")
-                result = target(**kwargs)
-                # assert hasattr(result['fitted_pipeline'], 'runtime'), \
-                #     '[DJM] Eval does not have runtime'
-            except:
-                _logger.exception(
-                    f'{current_process()} > Target evaluation failed {hash(str(kwargs))}')
-                # print(f'[INFO] {current_process()} > Target evaluation failed {hash(str(kwargs))}')
-                traceback.print_exc()
-                # _logger.error(traceback.format_exc())
-                result = None
-
-            # push the results
-            # print(f"[INFO] {current_process()} Pushing Results > {result}")
-            _logger.info(f"{current_process()} Pushing Results > {result}")
-            pushed = False
-            # while not pushed:
-            try:
-                result_queue.put((kwargs, result))
-                pushed = True
-            except:
-                traceback.print_exc()
-                _logger.exception(f"{current_process()} > {traceback.format_exc()}")
-                # print(f"[INFO] {current_process()} > time out or "
-                #       f"result_queue is full {result_queue.full()}")
-                _logger.info(f"{current_process()} > time out or "
-                             f"result_queue is full {result_queue.full()}")
-
+                # wait until a new job is available
+                # print(f"[INFO] {current_process()} > waiting on new jobs")
+                _logger.info(f"{current_process()} > waiting on new jobs")
+                kwargs = arguments_queue.get(block=True)
+                _logger.info(f"{current_process()} > copying")
+                kwargs_copy = copy.copy(kwargs)
+                # execute the job
                 try:
-                    _logger.info(f"{current_process()} > Pushing None due to pickling failure")
-                    result_queue.put((kwargs_copy, None))
+                    # TODO add timelimit to single work in the worker
+                    # print(f"[INFO] {current_process()} > executing job")
+                    result = target(**kwargs)
+                    # assert hasattr(result['fitted_pipeline'], 'runtime'), \
+                    #     '[DJM] Eval does not have runtime'
+                except:
+                    _logger.exception(
+                        f'{current_process()} > Target evaluation failed {hash(str(kwargs))}')
+                    # print(f'[INFO] {current_process()} > Target evaluation failed {hash(str(kwargs))}')
+                    traceback.print_exc()
+                    # _logger.error(traceback.format_exc())
+                    result = None
+
+                # push the results
+                if result is not None:
+                    result_simplified = result.copy()
+                    if "ensemble_tunning_result" in result:
+                        result_simplified.pop("ensemble_tunning_result")
+
+                print(f"Pushing Results {current_process()} > {result}")
+                _logger.info(f"{current_process()} Pushing Results > {result}")
+
+                pushed = False
+                # while not pushed:
+                try:
+                    result_queue.put((kwargs, result))
+                    pushed = True
                 except:
                     traceback.print_exc()
                     _logger.exception(f"{current_process()} > {traceback.format_exc()}")
-                    # print(f"[INFO] {current_process()} > cannot even push None")
-                    _logger.info(f"{current_process()} >  > cannot even push None")
-                    exit(1)
+                    # print(f"[INFO] {current_process()} > time out or "
+                    #       f"result_queue is full {result_queue.full()}")
+                    _logger.info(f"{current_process()} > time out or "
+                                 f"result_queue is full {result_queue.full()}")
 
-                # exit(1)
-            counter += 1
-            # print(f"[INFO] {current_process()} > is Idle, done {counter} jobs")
-            _logger.info(f"{current_process()} > is Idle, done {counter} jobs")
+                    try:
+                        _logger.info(f"{current_process()} > Pushing None due to pickling failure")
+                        result_queue.put((kwargs_copy, None))
+                    except:
+                        traceback.print_exc()
+                        _logger.exception(f"{current_process()} > {traceback.format_exc()}")
+                        # print(f"[INFO] {current_process()} > cannot even push None")
+                        _logger.info(f"{current_process()} >  > cannot even push None")
+                        exit(1)
+
+                    # exit(1)
+                counter += 1
+                # print(f"[INFO] {current_process()} > is Idle, done {counter} jobs")
+                _logger.info(f"{current_process()} > is Idle, done {counter} jobs")
+            except Exception:
+                error_count += 1
+                _logger.warning(f"{current_process()} > Unexpected Exception count={error_count}")
+                _logger.exception(f"{current_process()} > {traceback.format_exc()}")
 
     def push_job(self, kwargs_bundle: typing.Dict = {}) -> int:
         """
@@ -157,6 +166,8 @@ class DistributedJobManager:
         self.ongoing_jobs += 1
         self.arguments_queue.put(kwargs_bundle)
         self.Qlock.release()
+        # self.result_queue_size = None
+
         return hash(str(kwargs_bundle))
 
     def pop_job(self, block: bool = False) -> typing.Tuple[typing.Dict, typing.Any]:
@@ -172,12 +183,30 @@ class DistributedJobManager:
         _logger.info(f"# ongoing_jobs {self.ongoing_jobs}")
         print(f"# ongoing_jobs {self.ongoing_jobs}")
         self.Qlock.acquire()
+
         (kwargs, results) = self.result_queue.get(block=block)
         self.ongoing_jobs -= 1
         print(f"[PID] pid:{os.getpid()}")
         self.Qlock.release()
         # _logger.info(f"[INFO] end of pop # ongoing_jobs {self.ongoing_jobs}")
         return (kwargs, results)
+
+        # self.result_queue_size = self.result_queue.qsize()
+
+        # #!!!! error happened here
+        # if self.result_queue_size > 0:
+        #     _logger.debug("result_queue size is {}".format(str(self.result_queue.qsize())))
+        #     (kwargs, results) = self.result_queue.get(block=block)
+        #     self.ongoing_jobs -= 1
+        #     print(f"[PID] pid:{os.getpid()}")
+        #     self.Qlock.release()
+        #     # _logger.info(f"[INFO] end of pop # ongoing_jobs {self.ongoing_jobs}")
+        #     return (kwargs, results)
+        # else:
+        #     self.ongoing_jobs -= 1
+        #     print(f"[PID] pid:{os.getpid()}")
+        #     self.Qlock.release()
+        #     return (None, None)
 
     def any_pending_job(self):
         return not self.arguments_queue.empty()

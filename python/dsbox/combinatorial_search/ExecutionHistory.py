@@ -46,8 +46,11 @@ class ExecutionHistory:
         # setup configuration field
         self.storage['configuration'] = self.storage['configuration'].astype(object)
         self.storage['configuration'] = None
-
+        self.ensemble_dataset_predictions = {}
         self.key_attribute = key_attribute
+
+        # Needed by TA3
+        self.all_reports = {}
 
     def update(self, report: typing.Dict, template_name: str = 'generic') -> None:
         """
@@ -74,6 +77,18 @@ class ExecutionHistory:
         Returns:
             None
         """
+        # TA3 save all reports
+        if report and 'id' in report:
+            self.all_reports[report['id']] = report
+
+        # add new things in history records for ensemble tuning
+        if 'ensemble_tuning_result' in report:
+            temp = {}
+            temp['ensemble_tuning_result'] = report['ensemble_tuning_result'] # the ensemble tuning's dataset predictions
+            temp['pipeline'] = report['configuration'] # correspond pipeline structure
+            temp['ensemble_tuning_metrics'] = report['ensemble_tuning_metrics'] # ensemble tuning dataset's matrix score
+            self.ensemble_dataset_predictions[report['id']] = temp # save it with pipeline id as the key
+
         if 'sim_count' not in report:
             report['sim_count'] = 1
         # update the global statistics
@@ -243,7 +258,9 @@ class ExecutionHistory:
         for t_name, row in self.storage.iterrows():
             if ExecutionHistory._is_better(base=best, check=row, key_attribute=self.key_attribute):
                 best = row
-        return best.to_dict()
+        best = best.to_dict()
+        best["ensemble_dataset_predictions"] = self.ensemble_dataset_predictions
+        return best
 
     def get_best_candidate(self, template_name: str) -> ConfigurationPoint:
         return self.storage.loc[template_name]['configuration']

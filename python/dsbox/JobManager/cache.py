@@ -1,22 +1,36 @@
-import sys
-import time
-from math import sqrt, log
 import traceback
-import importlib
 import typing
 import copy
 import logging
-from multiprocessing import Pool, current_process, Manager, Lock
+from multiprocessing import Manager, Lock
 from dsbox.template.configuration_space import ConfigurationPoint
 from d3m.metadata.pipeline import PrimitiveStep
 from d3m.container.dataset import Dataset
 from d3m.container.pandas import DataFrame
 from d3m.primitive_interfaces.base import PrimitiveBase
 from dsbox.combinatorial_search.search_utils import comparison_metrics
-from multiprocessing import current_process
 
 T = typing.TypeVar("T")
 _logger = logging.getLogger(__name__)
+
+
+class DummyLock:
+    def acquire(self, blocking=True, timeout=-1):
+        pass
+
+    def release(self):
+        pass
+
+
+class DummyManager:
+    def dict(self):
+        return dict()
+
+    def Lock(self):
+        return DummyLock()
+
+    def shutdown(self):
+        pass
 
 
 class CacheManager:
@@ -27,14 +41,17 @@ class CacheManager:
     used in later iterations of search to
     """
 
-    def __init__(self):
+    def __init__(self, is_multiprocessing=False):
         """
         Initializes the manager, and the two cache objects - candidates and primitives - that
         will be used to prevent recalculation and increase performance
         Args:
 
         """
-        self.manager = [Manager()]*2
+        if is_multiprocessing:
+            self.manager = [Manager()]*2
+        else:
+            self.manager = [DummyManager()]*2
 
         self.candidate_cache = CandidateCache(self.manager[0])
 
@@ -57,11 +74,8 @@ class CandidateCache:
     S_INVALID = "DUMMY"
     S_VALID = "FULL"
 
-    def __init__(self, manager: Manager=None):
-        if manager is not None:
-            self.storage = manager.dict()
-        else:
-            self.storage = {}
+    def __init__(self, manager):
+        self.storage = manager.dict()
 
     def lookup(self, candidate: ConfigurationPoint[T]) -> typing.Dict:
 
@@ -95,8 +109,8 @@ class CandidateCache:
         self._check_update_format(candidate, key, update)
 
         # push the candidate and its value into the cache
-        _logger.info("[INFO] push@Candidate: ({},{})".format(key, update))
-        print("[INFO] push@Candidate_{}: ({},{})".format(update['status'], key, update))
+        _logger.info(f"push@Candidate_{update['status']}: ({key})")
+        _logger.debug(f"push@Candidate_{update['status']}: ({key}, {update})")
         assert 'status' in update
         self.storage[key] = update
 
@@ -170,16 +184,9 @@ class PrimitivesCache:
 
 
     """
-    def __init__(self, manager: Manager=None):
-        if manager is not None:
-            self.storage = manager.dict()
-            self.write_lock = manager.Lock()
-            self._dummy_mananger = False
-        else:
-            _logger.warn("[WARN] dummy Manager")
-            self.storage = {}
-            self.write_lock = Lock()
-            self._dummy_mananger = True
+    def __init__(self, manager: Manager = DummyManager()):
+        self.storage = manager.dict()
+        self.write_lock = manager.Lock()
 
     def push(self, hash_prefix: int, pipe_step: PrimitiveStep, primitive_arguments: typing.Dict,
              fitting_time: int, model: PrimitiveBase) -> int:
@@ -192,10 +199,7 @@ class PrimitivesCache:
     def push_key(self, prim_hash: int, prim_name: int, model: PrimitiveBase,
                  fitting_time: int) -> int:
 
-        if self._dummy_mananger:
-            self.write_lock.acquire()
-        else:
-            self.write_lock.acquire(blocking=True)
+        self.write_lock.acquire(blocking=True)
 
         try:
             if not self.is_hit_key(prim_name=prim_name, prim_hash=prim_hash):
