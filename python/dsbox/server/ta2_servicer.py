@@ -3,7 +3,6 @@ import os
 import pickle
 import random
 import string
-import sys
 import typing
 import uuid
 
@@ -12,11 +11,11 @@ import numpy as np
 from keras import backend as keras_backend
 from pprint import pprint
 
-CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
-ta3ta2_api = os.path.abspath(os.path.join(
-    CURRENT_DIR, '..', '..', '..', '..', 'ta3ta2-api'))
-print(ta3ta2_api)
-sys.path.append(ta3ta2_api)
+# CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+# ta3ta2_api = os.path.abspath(os.path.join(
+#     CURRENT_DIR, '..', '..', '..', '..', 'ta3ta2-api'))
+# print(ta3ta2_api)
+# sys.path.append(ta3ta2_api)
 
 
 import d3m
@@ -154,8 +153,8 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
         self._search_cache = {}
 
         if fitted_pipeline_id:
-            fitted_pipeline, _ = FittedPipeline.load(
-                self.output_dir, fitted_pipeline_id, log_dir=self.log_dir)
+            fitted_pipeline = FittedPipeline.load(
+                fitted_pipeline_id=fitted_pipeline_id, folder_loc=self.output_dir, log_dir=self.log_dir)
             self.fit_solution[fitted_pipeline_id] = fitted_pipeline
 
     def Hello(self, request, context):
@@ -387,7 +386,7 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
         add_true_target(dataset)
 
         print('Load fitted pipeline', self.output_dir, fitted_pipeline_id)
-        fitted_pipeline, _ = FittedPipeline.load(self.output_dir, fitted_pipeline_id, log_dir=self.log_dir)
+        fitted_pipeline = FittedPipeline.load(fitted_pipeline_id=fitted_pipeline_id, folder_loc=self.output_dir, log_dir=self.log_dir)
         fitted_pipeline.produce(inputs=[dataset])
 
         timestamp = Timestamp()
@@ -480,7 +479,7 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
         # hack
         add_true_target(dataset)
 
-        old_fitted_pipeline, _ = FittedPipeline.load(self.output_dir, fitted_pipeline_id, log_dir=self.log_dir)
+        old_fitted_pipeline = FittedPipeline.load(fitted_pipeline_id=fitted_pipeline_id, folder_loc=self.output_dir, log_dir=self.log_dir)
         fitted_pipeline = FittedPipeline(old_fitted_pipeline.pipeline,
                                          dataset.metadata.query(())['id'],
                                          log_dir=self.log_dir,

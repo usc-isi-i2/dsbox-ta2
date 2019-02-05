@@ -15,11 +15,11 @@ from dsbox.server.ta2_servicer import TA2Servicer
 from dsbox.controller.config import DsboxConfig
 
 # Setup Paths
-PARENTDIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.append(PARENTDIR)
+# PARENTDIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+# sys.path.append(PARENTDIR)
 
-from dsbox_dev_setup import path_setup
-path_setup()
+# from dsbox_dev_setup import path_setup
+# path_setup()
 
 numpy.set_printoptions(threshold=numpy.nan)
 

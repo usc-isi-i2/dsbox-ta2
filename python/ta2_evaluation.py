@@ -102,6 +102,9 @@ if __name__ == "__main__":
     config = DsboxConfig()
     config.load()
 
+    print("Configuration:")
+    print(config)
+
     orig_stdout = sys.stdout
     orig_stderr = sys.stderr
     f = open(os.path.join(config.log_dir, 'out.txt'), 'w')

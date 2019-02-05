@@ -34,9 +34,12 @@ pid0 = '0ecd7d2e-4620-430a-881e-b93ff0cfb692'
 pid1 = '468d36d6-29d3-4cbc-8b0a-48bbebe50f68'
 pid2 = '677ed24c-0e09-476f-a299-b71a7a5afdfc'
 
-dsbox_fitted0, runtime0 = FittedPipeline.load(pipelines_dir, pid0, log_dir)
-dsbox_fitted1, runtime1 = FittedPipeline.load(pipelines_dir, pid1, log_dir)
-dsbox_fitted2, runtime2 = FittedPipeline.load(pipelines_dir, pid2, log_dir)
+dsbox_fitted0 = FittedPipeline.load(folder_loc=pipelines_dir, fitted_pipeline_id=pid0, log_dir=log_dir)
+runtime0 = dsbox_fitted0.runtime
+dsbox_fitted1 = FittedPipeline.load(folder_loc=pipelines_dir, fitted_pipeline_id=pid1, log_dir=log_dir)
+runtime1 = dsbox_fitted1.runtime
+dsbox_fitted2 = FittedPipeline.load(folder_loc=pipelines_dir, fitted_pipeline_id=pid2, log_dir=log_dir)
+runtime2 = dsbox_fitted2.runtime
 
 fitted0 = runtime_module.FittedPipeline('fp0', runtime0, context=pipeline_module.PipelineContext.TESTING)
 fitted1 = runtime_module.FittedPipeline('fp1', runtime1, context=pipeline_module.PipelineContext.TESTING)

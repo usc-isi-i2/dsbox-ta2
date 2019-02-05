@@ -516,8 +516,8 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
     def test_pickled_pipeline(self, folder_loc: str, pipeline_id: str, test_dataset: Dataset,
                               test_metrics: typing.List, test_ground_truth) -> None:
 
-        fitted_pipeline, run = FittedPipeline.load(folder_loc=folder_loc, pipeline_id=pipeline_id,
-                                                   log_dir=self.log_dir)
+        fitted_pipeline = FittedPipeline.load(folder_loc=folder_loc, fitted_pipeline_id=pipeline_id,
+                                              log_dir=self.log_dir)
         results = fitted_pipeline.produce(inputs=[test_dataset])
 
         pipeline_prediction = fitted_pipeline.get_produce_step_output(

@@ -1,3 +1,4 @@
+import io
 import json
 import logging
 import os
@@ -13,82 +14,80 @@ class DsboxConfig:
 
     The following variables are defined in D3M OS environment
     * d3m_run: Run either in 'ta2' for 'ta2ta3' mode (os.environ['D3MRun'])
-    * input_root: Top-level directory for all inputs (os.environ['D3MINPUTDIR'])
+    * input_dir: Top-level directory for all inputs (os.environ['D3MINPUTDIR'])
     * problem_schema: File path to problemDoc.json (os.environ['D3MPROBLEMPATH'])
-    * output_root: Top-level directory for all outputs (os.environ['D3MOUTPUTDIR'])
-    * local_root: A local-to-host directory used for memory sharing (os.environ['D3MLOCALDIR'])
-    * static_root: Directory containing primitives' static fiels (os.environ['D3MSTATICDIR'])
+    * output_dir: Top-level directory for all outputs (os.environ['D3MOUTPUTDIR'])
+    * local_dir: A local-to-host directory used for memory sharing (os.environ['D3MLOCALDIR'])
+    * static_dir: Directory containing primitives' static fiels (os.environ['D3MSTATICDIR'])
     * cpu: Available CPU units, for example 56.
     * ram: Available memory in GB, for example 15.
     * timeout: Time limit in seconds, for example 3600.
 
     D3M output directory structure:
-    * pipelines_ranked (pipelines_ranked_dir) - a directory with ranked pipelines to be evaluated, named <pipeline id>.json; these files should have additional field pipeline_rank
-    * pipelines_scored (pipelines_scored_dir) - a directory with successfully scored pipelines during the search, named <pipeline id>.json
-    * pipelines_searched (pipelines_searched_dir) - a directory of full pipelines which have not been scored or ranked for any reason, named <pipeline id>.json
-    * subpipelines (subpipelines_dir) - a directory with any subpipelines referenced from pipelines in pipelines_* directories, named <pipeline id>.json
-    * pipeline_runs (pipeline_runs_dir) - a directory with pipeline run records in YAML format, multiple can be stored in the same file, named <pipeline run id>.yml
-    * additional_inputs (additional_inputs_dir) - a directory where TA2 system can store any additional datasets to be provided during training and testing to their pipelines; each dataset should be provided in a sub-directory in a D3M dataset format; all datasets here should have a unique ID; in the case that additional datasets are provided, TA2 should output also pipeline run documents for their ranked pipelines because those pipeline run documents contain information how to map these additional inputs to pipeline inputs
+    * pipelines_ranked (pipelines_ranked_dir) - a directory with ranked pipelines to be
+      evaluated, named <pipeline id>.json; these files should have additional field
+      pipeline_rank
+    * pipelines_scored (pipelines_scored_dir) - a directory with successfully scored
+      pipelines during the search, named <pipeline id>.json
+    * pipelines_searched (pipelines_searched_dir) - a directory of full pipelines which
+      have not been scored or ranked for any reason, named <pipeline id>.json
+    * subpipelines (subpipelines_dir) - a directory with any subpipelines referenced from
+      pipelines in pipelines_* directories, named <pipeline id>.json
+    * pipeline_runs (pipeline_runs_dir) - a directory with pipeline run records in YAML
+      format, multiple can be stored in the same file, named <pipeline run id>.yml
+    * additional_inputs (additional_inputs_dir) - a directory where TA2 system can store
+      any additional datasets to be provided during training and testing to their
+      pipelines; each dataset should be provided in a sub-directory in a D3M dataset
+      format; all datasets here should have a unique ID; in the case that additional
+      datasets are provided, TA2 should output also pipeline run documents for their
+      ranked pipelines because those pipeline run documents contain information how to map
+      these additional inputs to pipeline inputs
 
     DSBox output directory root is
-    * dsbox_output_root: os.path.join(os.environ['D3MINPUTDIR'], 'dsbox').
+    * dsbox_output_dir: os.environ['D3MINPUTDIR']
 
-    DSBox output directgory structure under dsbox_output_root:
+    DSBox output directory structure under dsbox_output_dir:
+    * pipelines_fitted: directory for storing fitted pipelines
     * logs (log_dir): directory for logging files
     * logs/dfs (dfs_log_dir): directory for detailed dataframe logging
-
-    The following variables are defined in D3M configuration files:
-    * dataset_schema: File path to datasetDoc.json
-    * pipeline_logs_root: Directory for saving pipeline json descriptions
-    * executables_root: Directory for saving executables. Note: Probably will not be needed.
-    * user_problems_root: Directory for saving user generated problems
-    * temp_storage_root: Directory for saving scratch data
-    * training_data_root: top-level directory containing the training data
-    * test_data_root: top-level directory containing the test data
-
-    An official D3M configuration file can only either have training_data_root or
-    test_data_root, not both.
 
     DSBox variables
     * search_method: pipeline search methods, possible values 'serial', 'parallel', 'random-dimensional', 'bandit', 'multi-bandit'
     * is_multiprocess: if False, then should not spawn subprocesses. Needed for TA3 mode.
-    * logs_root: Directory to store logs
-    * timeout_search: Timeout for search part. Typically equal to timeout less 2 minutes
-
-    Older unsed varaiables:
-    * problem_root: Directory containing problem schema file.
+    * logs_dir: Directory to store logs
+    * timeout_search: Timeout for search part. Typically equal to timeout less 120 seconds
 
     '''
 
     def __init__(self):
         # D3M environment variables
-        self.d3m_run = None
-        self.input_root = None
-        self.problem_schema = None
-        self.output_root = None
-        self.local_root = None
-        self.static_root = None
-        self.cpu = None
-        self.ram = None
-        self.timeout: int = None
+        self.d3m_run: str = ''
+        self.input_dir: str = ''
+        self.problem_schema: str = ''
+        self.output_dir: str = ''
+        self.local_dir: str = ''
+        self.static_dir: str = ''
+        self.cpu: int = 0
+        self.ram: str = ''
+        self._timeout: int = 0
 
         # D3M output directories
-        self.pipelines_ranked_dir = None
-        self.pipelines_scored_dir = None
-        self.pipelines_searched_dir = None
-        self.subpipelines_dir = None
-        self.pipeline_runs_dir = None
-        self.additional_inputs_dir = None
+        self.pipelines_ranked_dir: str = ''
+        self.pipelines_scored_dir: str = ''
+        self.pipelines_searched_dir: str = ''
+        self.subpipelines_dir: str = ''
+        self.pipeline_runs_dir: str = ''
+        self.additional_inputs_dir: str = ''
 
         # DSBox output directories
-        self.dsbox_output_root = None
-        self.log_dir = None
-        self.dfs_log_dir = None
+        self.dsbox_output_dir: str = ''
+        self.log_dir: str = ''
+        self.dfs_log_dir: str = ''
 
         # DSBox search
-        self.search_method = None
-        self.is_multiprocess = None
-        self.timeout_search: int = None
+        self.search_method = 'serial'
+        self.is_multiprocess = False
+        self.timeout_search: int = 0
 
         # DSBox logging
         self.file_formatter = "[%(levelname)s] - %(asctime)s - %(name)s - %(message)s"
@@ -99,81 +98,84 @@ class DsboxConfig:
         self.root_logger_level = min(self.file_logging_level, self.console_logging_level)
 
         # ==== Derived variables
-        # json dict
+        # problem spec in json dict
         self.problem_doc: typing.Dict = {}
-        # parsed problem
+        # parsed problem spec (e.g.. string value for task converted to d3m.metadata.problem.TaskType enum)
         self.problem: typing.Dict = {}
         # Should use self.problem_doc
         self.problem_metadata = None
 
-        # File path to datasetDoc.json file
-        self.dataset_schema_file: str = ''
+        # List of file path to datasetDoc.json files
+        self.dataset_schema_files: typing.List[str] = []
         # json dict
-        self.dataset_doc: typing.Dict = {}
+        self.dataset_docs: typing.List[typing.Dict] = []
 
-        # All datasets under the self.input_root directory
+        # All datasets under the self.input_dir directory
         self._all_datasets: typing.Dict = {}
+
+    @property
+    def timeout(self) -> int:
+        return self._timeout
+
+    @timeout.setter
+    def timeout(self, value: int):
+        self._timeout = value
+        self.timeout_search = max(self.timeout - 120, int(self.timeout * 0.95))
 
     def load(self):
         self._load_d3m_environment()
         self._load_dsbox()
         self._setup()
 
-    # def load_ta3(self, *, output_root=''):
-    #     self.load_d3m_environment()
-    #     if output_root is not '':
-    #         self.output_root = output_root
-    #     self['pipeline_logs_root'] = os.path.join(self.output_root, 'pipelines')
-    #     self['executables_root'] = os.path.join(self.output_root, 'executables')
-    #     self['user_problems_root'] = os.path.join(self.output_root, 'user_problems')
-    #     self['temp_storage_root'] = os.path.join(self.output_root, 'supporting_files')
-    #     self.load_dsbox()
-
-    #     # TA2TA3 grpc does not work with multi-process
-    #     self['search_method'] = 'serial'
-
-    #     print(self)
-
-    # def load_config_json(self, filepath):
-    #     with open(filepath) as data:
-    #         config = json.load(data)
-    #         self.update(config)
+    def set_problem(self, problem_doc, problem):
+        self.problem_doc = problem_doc
+        self.problem = problem
+        self.problem_metadata = metadata_base.Metadata(self.problem_doc)
+        self._load_problem_rest()
 
     def _load_d3m_environment(self):
+        '''
+        Get D3M environmental variable values.
+        '''
         self.d3m_run = os.environ['D3MRUN']
-        self.input_root = os.environ['D3MINPUTDIR']
-        self.output_root = os.environ['D3MOUTPUTDIR']
-        self.local_root = os.environ['D3MLOCALDIR']
-        self.static_root = os.environ['D3MSTATICDIR']
+        self.input_dir = os.environ['D3MINPUTDIR']
+        self.output_dir = os.environ['D3MOUTPUTDIR']
+        self.local_dir = os.environ['D3MLOCALDIR']
+        self.static_dir = os.environ['D3MSTATICDIR']
         self.problem_schema = os.environ['D3MPROBLEMPATH']
         self.cpu = int(os.environ['D3MCPU'])
         self.ram = os.environ['D3MRAM']
         self.timeout = int(os.environ['D3MTIMEOUT'])
 
+    def _load_dsbox(self):
+        self._load_logging()
+        self.search_method = 'serial'
+
     def _setup(self):
         self._define_create_output_dirs()
         self._logger = logging.getLogger(__name__)
-        self._all_datasets = self._find_dataset_docs(self.input_root)
+        self._all_datasets = self._find_dataset_docs(self.input_dir)
         self._load_problem()
-
-        self.timeout_search = self.timeout - 120
 
     def _load_problem(self):
         with open(os.path.abspath(self.problem_schema)) as file:
             self.problem_doc = json.load(file)
         self.problem = parse_problem_description(os.path.abspath(self.problem_schema))
         self.problem_metadata = metadata_base.Metadata(self.problem_doc)
+        self._load_problem_rest()
 
+    def _load_problem_rest(self) -> None:
         self.task_type = self.problem['problem']['task_type']
         self.task_subtype = self.problem['problem']['task_subtype']
 
         dataset_ids = [obj['datasetID'] for obj in self.problem_doc['inputs']['data']]
         if len(dataset_ids) > 1:
             self._logger.warning(f"ProblemDoc specifies more than one dataset id: {dataset_ids}")
-        self.dataset_schema_file = self._all_datasets[dataset_ids[0]]
-        with open(self.dataset_schema_file, 'r') as dataset_description_file:
-            self.dataset_doc = json.load(dataset_description_file)
+        self.dataset_schema_files = [self._all_datasets[id] for id in dataset_ids]
 
+        for dataset_doc in self.dataset_schema_files:
+            with open(dataset_doc, 'r') as dataset_description_file:
+                self.dataset_docs.append(json.load(dataset_description_file))
 
     def _find_dataset_docs(self, datasets_dir):
         '''
@@ -218,31 +220,32 @@ class DsboxConfig:
         return datasets
 
     def _define_create_output_dirs(self):
+        '''
+        Create output directory structure.
+        '''
+
         # D3M output directories
-        self.pipelines_ranked_dir = os.path.join(self.output_root, 'pipelines_ranked')
-        self.pipelines_scored_dir = os.path.join(self.output_root, 'pipelines_scored')
-        self.pipelines_searched_dir = os.path.join(self.output_root, 'pipelines_searched')
-        self.subpipelines_dir = os.path.join(self.output_root, 'subpipelines')
-        self.pipeline_runs_dir = os.path.join(self.output_root, 'pipeline_runs')
-        self.additional_inputs_dir = os.path.join(self.output_root, 'additional_inputs')
+        self.pipelines_ranked_dir = os.path.join(self.output_dir, 'pipelines_ranked')
+        self.pipelines_scored_dir = os.path.join(self.output_dir, 'pipelines_scored')
+        self.pipelines_searched_dir = os.path.join(self.output_dir, 'pipelines_searched')
+        self.subpipelines_dir = os.path.join(self.output_dir, 'subpipelines')
+        self.pipeline_runs_dir = os.path.join(self.output_dir, 'pipeline_runs')
+        self.additional_inputs_dir = os.path.join(self.output_dir, 'additional_inputs')
 
         # DSBox directories
-        self.dsbox_output_root = os.path.join(self.output_root, 'dsbox')
-        self.log_dir = os.path.join(self.dsbox_output_root, 'logs')
+        self.dsbox_output_dir = self.output_dir
+        self.pipelines_fitted = os.path.join(self.dsbox_output_dir, 'pipelines_fitted')
+        self.log_dir = os.path.join(self.dsbox_output_dir, 'logs')
         self.dfs_log_dir = os.path.join(self.log_dir, 'dfs')
 
-        os.makedirs(self.output_root, exist_ok=True)
+        os.makedirs(self.output_dir, exist_ok=True)
         for directory in [
                 self.pipelines_ranked_dir, self.pipelines_scored_dir,
                 self.pipelines_searched_dir, self.subpipelines_dir, self.pipeline_runs_dir,
                 self.additional_inputs_dir,
-                self.dsbox_output_root, self.log_dir, self.dfs_log_dir]:
+                self.dsbox_output_dir, self.pipelines_fitted, self.log_dir, self.dfs_log_dir]:
             if not os.path.exists(directory):
                 os.mkdir(directory)
-
-    def _load_dsbox(self):
-        self._load_logging()
-        self.search_method = 'serial'
 
     def _load_logging(self):
         '''
@@ -287,6 +290,21 @@ class DsboxConfig:
         min_level = min(min_level, self.file_logging_level, self.console_logging_level)
         self.root_logger_level = min_level
         print(f'Root logger level {min_level}')
+
+    def __str__(self):
+        out = io.StringIO('DSBox configuration:')
+        print(f'  d3m_run: {self.d3m_run}', file=out)
+        print(f'  input_dir: {self.input_dir}', file=out)
+        print(f'  problem_schema: {self.problem_schema}', file=out)
+        print(f'  output_dir: {self.output_dir}', file=out)
+        print(f'  local_dir: {self.local_dir}', file=out)
+        print(f'  static_dir: {self.static_dir}', file=out)
+        print(f'  cpu: {self.cpu}', file=out)
+        print(f'  ram: {self.ram}', file=out)
+        print(f'  timeout: {self.timeout}', file=out)
+        content = out.getvalue()
+        out.close()
+        return content
 
     # def map_output_variables(self, output_prefix, org_output_prefix='/output/'):
     #     '''

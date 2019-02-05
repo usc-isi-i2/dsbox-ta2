@@ -93,9 +93,12 @@ pid0 = '32b24d72-44c6-4956-bc21-835cb42f0f2e'
 pid1 = 'a8f4001a-64f4-4ff1-a89d-3548f4dfeb88'
 pid2 = '5e1d9723-ec02-46d2-abdf-46389fba8e52'
 
-dsbox_fitted0, runtime0 = FittedPipeline.load(pipelines_dir, pid0, log_dir)
-dsbox_fitted1, runtime1 = FittedPipeline.load(pipelines_dir, pid1, log_dir)
-dsbox_fitted2, runtime2 = FittedPipeline.load(pipelines_dir, pid2, log_dir)
+dsbox_fitted0 = FittedPipeline.load(folder_loc=pipelines_dir, fitted_pipeline_id=pid0, log_dir=log_dir)
+runtime0 = dsbox_fitted0.runtime
+dsbox_fitted1 = FittedPipeline.load(folder_loc=pipelines_dir, fitted_pipeline_id=pid1, log_dir=log_dir)
+runtime1 = dsbox_fitted1.runtime
+dsbox_fitted2 = FittedPipeline.load(folder_loc=pipelines_dir, fitted_pipeline_id=pid2, log_dir=log_dir)
+runtime2 = dsbox_fitted2.runtime
 
 fitted0 = runtime_module.FittedPipeline(pid0, runtime0, context=pipeline_module.PipelineContext.TESTING)
 fitted1 = runtime_module.FittedPipeline(pid1, runtime1, context=pipeline_module.PipelineContext.TESTING)
@@ -127,8 +130,8 @@ big_pipeline.add_step(step_2)
 step_2_output = step_2.add_output('output')
 
 concat_step = pipeline_module.PrimitiveStep({
-    "python_path": "d3m.primitives.dsbox.HorizontalConcat", 
-    "id": "dsbox-horizontal-concat", 
+    "python_path": "d3m.primitives.dsbox.HorizontalConcat",
+    "id": "dsbox-horizontal-concat",
     "version": "1.3.0",
     "name": "DSBox horizontal concat"
     })
@@ -282,7 +285,7 @@ test_fitted.produce(inputs=[dataset])
 # import pdb
 # pdb.set_trace()
 # test_fitted.save("./")
-# my_pip, my_runtime = FittedPipeline.load(folder_loc="./", pipeline_id="08c69b23-7f63-48a0-8ebe-e90844e8df5a", log_dir="rua")
+# my_pip = FittedPipeline.load(folder_loc="./", pipeline_id="08c69b23-7f63-48a0-8ebe-e90844e8df5a", log_dir="rua")
 # my_pip.runtime.set_not_use_cache()
 
 # my_pip.produce(inputs=[dataset])

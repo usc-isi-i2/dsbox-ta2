@@ -47,12 +47,12 @@ class EnsembleTuningPipeline:
     problem_doc_metadata: Metadata
         Problem doc in metadata format
     """
-    def __init__(self, pipeline_files_dir: str, log_dir: str, 
-                 train_dataset: container.Dataset, 
-                 test_dataset: container.Dataset, 
+    def __init__(self, pipeline_files_dir: str, log_dir: str,
+                 train_dataset: container.Dataset,
+                 test_dataset: container.Dataset,
                  pids: typing.List[str] = None,
                  candidate_choose_method: str = 'lastStep',
-                 report = None, problem = None, 
+                 report = None, problem = None,
                  problem_doc_metadata = None):
 
         self.pipeline_files_dir = pipeline_files_dir
@@ -96,7 +96,8 @@ class EnsembleTuningPipeline:
         pipeline_input = self.voting_pipeline.add_input(name='inputs')
 
         for each_pid in self.pids:
-            each_dsbox_fitted, each_runtime = FittedPipeline.load(self.pipeline_files_dir, each_pid, self.log_dir)
+            each_dsbox_fitted  = FittedPipeline.load(self.pipeline_files_dir, each_pid, self.log_dir)
+            each_runtime = each_dsbox_fitted.runtime
             each_fitted = runtime_module.FittedPipeline(each_pid, each_runtime, context=pipeline_module.PipelineContext.TESTING)
             each_step = pipeline_module.FittedPipelineStep(each_fitted.id, each_fitted)
             each_step.add_input(pipeline_input)
@@ -137,7 +138,7 @@ class EnsembleTuningPipeline:
 
     def fit_and_produce(self):
         """
-            Generate the FittedPipeline object 
+            Generate the FittedPipeline object
             And run fit and produce steps to get the metric score of this ensemble pipeline
         """
         if not self.voting_pipeline:
@@ -274,17 +275,17 @@ class EnsembleTuningPipeline:
                         self.pids.append(pid_each)
 
 class HorizontalTuningPipeline(EnsembleTuningPipeline):
-    def __init__(self, pipeline_files_dir: str, log_dir: str, 
-                 train_dataset: container.Dataset, 
-                 test_dataset: container.Dataset, 
+    def __init__(self, pipeline_files_dir: str, log_dir: str,
+                 train_dataset: container.Dataset,
+                 test_dataset: container.Dataset,
                  pids: typing.List[str] = None,
                  candidate_choose_method: str = 'lastStep',
-                 report = None, problem = None, 
-                 problem_doc_metadata = None, 
+                 report = None, problem = None,
+                 problem_doc_metadata = None,
                  final_step_primitive: str = "d3m.primitives.sklearn_wrap.SKBernoulliNB"):
-        super().__init__(pipeline_files_dir, log_dir, 
-                 train_dataset, test_dataset, 
-                 pids, candidate_choose_method, report, 
+        super().__init__(pipeline_files_dir, log_dir,
+                 train_dataset, test_dataset,
+                 pids, candidate_choose_method, report,
                  problem, problem_doc_metadata)
         self.final_step_primitive = final_step_primitive
 
@@ -292,11 +293,12 @@ class HorizontalTuningPipeline(EnsembleTuningPipeline):
         if not self.pids:
             raise ValueError("No candidate pipeline ids found, unable to generate the ensemble pipeline.")
         elif len(self.pids) == 1:
-            raise ValueError("Only 1 candidate pipeline id found, unable to generate the ensemble pipeline.")        
+            raise ValueError("Only 1 candidate pipeline id found, unable to generate the ensemble pipeline.")
         step_outputs = []
         self.big_pipeline, pipeline_output, pipeline_input, target = self.preprocessing_pipeline()
         for each_pid in self.pids:
-            each_dsbox_fitted, each_runtime = FittedPipeline.load(self.pipeline_files_dir, each_pid, self.log_dir)
+            each_dsbox_fitted = FittedPipeline.load(self.pipeline_files_dir, each_pid, self.log_dir)
+            each_runtime = each_dsbox_fitted.runtime
             each_fitted = runtime_module.FittedPipeline(each_pid, each_runtime, context=pipeline_module.PipelineContext.TESTING)
             each_step = pipeline_module.FittedPipelineStep(each_fitted.id, each_fitted)
             each_step.add_input(pipeline_input)
@@ -304,8 +306,8 @@ class HorizontalTuningPipeline(EnsembleTuningPipeline):
             step_outputs.append(each_step.add_output('output'))
 
         concat_step = pipeline_module.PrimitiveStep({
-            "python_path": "d3m.primitives.dsbox.HorizontalConcat", 
-            "id": "dsbox-horizontal-concat", 
+            "python_path": "d3m.primitives.dsbox.HorizontalConcat",
+            "id": "dsbox-horizontal-concat",
             "version": "1.3.0",
             "name": "DSBox horizontal concat"
             })
@@ -490,7 +492,7 @@ if __name__ == "__main__":
     # problem_doc_metadata = Metadata(problem_doc)
 
     # pp = EnsembleTuningPipeline(pipeline_files_dir = data_dir, log_dir = log_dir,
-    #              pids = pids, candidate_choose_method = choose_method, report = None, problem = problem, 
+    #              pids = pids, candidate_choose_method = choose_method, report = None, problem = problem,
     #              test_dataset = dataset, train_dataset = dataset, problem_doc_metadata = problem_doc_metadata)
     # pp.generate_ensemble_pipeline()
     # pp.fit_and_produce()
@@ -512,10 +514,6 @@ if __name__ == "__main__":
     qq.generate_candidate_pids()
     print(qq.pids)
     qq.generate_ensemble_pipeline()
-    qq.fit_and_produce() 
+    qq.fit_and_produce()
     print(qq.fitted_pipeline.get_produce_step_output(0))
     qq.save()
-
-
-
-

@@ -47,6 +47,12 @@ class Status(enum.Enum):
 class Controller:
     TIMEOUT = 59  # in minutes
 
+    # _controller = None
+
+    # @classmethod
+    # def get_controller(cls) -> 'Controller':
+    #     return Controller._controller
+
     def __init__(self, development_mode: bool = False, run_single_template_name: str = "", is_ta3=True) -> None:
         self.development_mode: bool = development_mode
         self.is_ta3 = is_ta3
@@ -56,10 +62,6 @@ class Controller:
             self.use_multiprocessing = False
 
         self.run_single_template_name = run_single_template_name
-
-        # Do not use, should use parsed results from key/value pairs of config
-        # TA3 API may not provid the same information
-        # self.config: typing.Dict = {}
 
         self.config: DsboxConfig = None
 
@@ -247,8 +249,9 @@ class Controller:
         # find the data resources type
         self.taskSourceType = set()  # set the type to be set so that we can ignore the repeat
         # elements
-        for each_type in self.config.dataset_doc["dataResources"]:
-            self.taskSourceType.add(each_type["resType"])
+        for doc in self.config.dataset_docs:
+            for each_type in doc["dataResources"]:
+                self.taskSourceType.add(each_type["resType"])
         self.problem_info["data_type"] = self.taskSourceType
 
 
@@ -285,7 +288,7 @@ class Controller:
 
         self._logger = logging.getLogger(__name__)
 
-        self._logger.info('Top level output directory: %s' % self.config.output_root)
+        self._logger.info('Top level output directory: %s' % self.config.output_dir)
 
     def _log_search_results(self, report: typing.Dict[str, typing.Any]):
         # self.report_ensemble['report'] = report
@@ -400,7 +403,7 @@ class Controller:
             train_dataset2=self.train_dataset2,
             all_dataset=self.all_dataset,
             ensemble_tuning_dataset=self.ensemble_dataset,
-            output_directory=self.config.output_root,
+            output_directory=self.config.output_dir,
             log_dir=self.config.log_dir,
             is_multiprocessing=False,
             timeout=self.config.timeout_search
@@ -422,7 +425,7 @@ class Controller:
             train_dataset2=self.train_dataset2,
             all_dataset=self.all_dataset,
             ensemble_tuning_dataset=self.ensemble_dataset,
-            output_directory=self.config.output_root,
+            output_directory=self.config.output_dir,
             log_dir=self.config.log_dir,
             num_proc=self.config.cpu,
             timeout=self.config.timeout_search,
@@ -446,7 +449,7 @@ class Controller:
             train_dataset2=self.train_dataset2,
             all_dataset=self.all_dataset,
             ensemble_tuning_dataset=self.ensemble_dataset,
-            output_directory=self.config.output_root,
+            output_directory=self.config.output_dir,
             log_dir=self.config.log_dir,
             num_proc=self.config.cpu,
             timeout=self.config.timeout_search,
@@ -469,7 +472,7 @@ class Controller:
             train_dataset2=self.train_dataset2,
             all_dataset=self.all_dataset,
             ensemble_tuning_dataset = self.ensemble_dataset,
-            output_directory=self.config.output_root,
+            output_directory=self.config.output_dir,
             log_dir=self.config.log_dir,
             num_proc=self.config.cpu,
             timeout=self.config.timeout_search,
@@ -492,7 +495,7 @@ class Controller:
             train_dataset2=self.train_dataset2,
             all_dataset=self.all_dataset,
             ensemble_tuning_dataset = self.ensemble_dataset,
-            output_directory=self.config.output_root,
+            output_directory=self.config.output_dir,
             log_dir=self.config.log_dir,
             num_proc=self.config.cpu,
             timeout=self.config.timeout_search,
@@ -538,7 +541,7 @@ class Controller:
 
         prediction_class_name = []
         try:
-            with open(self.config.dataset_schema_file, 'r') as dataset_description_file:
+            with open(self.config.dataset_schema_files[0], 'r') as dataset_description_file:
                 dataset_description = json.load(dataset_description_file)
                 for each_resource in dataset_description["dataResources"]:
                     if "columns" in each_resource:
@@ -635,7 +638,7 @@ class Controller:
 
         else:
             try:
-                pp = EnsembleTuningPipeline(pipeline_files_dir=self.config.output_root, log_dir=self.config.log_dir,
+                pp = EnsembleTuningPipeline(pipeline_files_dir=self.config.output_dir, log_dir=self.config.log_dir,
                                             pids=None, candidate_choose_method=self.ensemble_voting_candidate_choose_method,
                                             report=ensemble_tuning_report, problem=self.problem,
                                             test_dataset=self.test_dataset1, train_dataset=self.train_dataset1,
@@ -653,7 +656,7 @@ class Controller:
             self._logger.error("No ensemble tuning dataset found")
         else:
             try:
-                qq = HorizontalTuningPipeline(pipeline_files_dir=self.config.output_root, log_dir=self.config.log_dir,
+                qq = HorizontalTuningPipeline(pipeline_files_dir=self.config.output_dir, log_dir=self.config.log_dir,
                                               pids=None, problem=self.problem, test_dataset=self.test_dataset1,
                                               train_dataset=self.train_dataset1,
                                               problem_doc_metadata=self.config.problem_metadata,
@@ -698,7 +701,7 @@ class Controller:
 
         # Dataset
         loader = D3MDatasetLoader()
-        json_file = os.path.abspath(self.config.dataset_schema_file)
+        json_file = os.path.abspath(self.config.dataset_schema_files[0])
         all_dataset_uri = 'file://{}'.format(json_file)
         self.all_dataset = loader.load(dataset_uri=all_dataset_uri)
 
@@ -716,7 +719,7 @@ class Controller:
         # Dataset
         loader = D3MDatasetLoader()
 
-        json_file = os.path.abspath(self.config.dataset_schema_file)
+        json_file = os.path.abspath(self.config.dataset_schema_files[0])
         all_dataset_uri = 'file://{}'.format(json_file)
         self.all_dataset = loader.load(dataset_uri=all_dataset_uri)
 
@@ -731,7 +734,7 @@ class Controller:
         # Dataset
         loader = D3MDatasetLoader()
 
-        json_file = os.path.abspath(self.config.dataset_schema_file)
+        json_file = os.path.abspath(self.config.dataset_schema_files[0])
         all_dataset_uri = 'file://{}'.format(json_file)
         self.all_dataset = loader.load(dataset_uri=all_dataset_uri)
 
@@ -739,7 +742,7 @@ class Controller:
         self.load_templates()
 
     def load_pipe_runtime(self):
-        d = os.path.expanduser(self.config.output_root + '/pipelines')
+        d = os.path.expanduser(self.config.output_dir + '/pipelines')
         read_pipeline_id = self.saved_pipeline_id
         if read_pipeline_id == "":
             self._logger.info(
@@ -752,10 +755,10 @@ class Controller:
             lastmodified = files[-1]
             read_pipeline_id = lastmodified.split('/')[-1].split('.')[0]
 
-        pipeline_load, run = FittedPipeline.load(folder_loc=self.config.output_root,
-                                                 pipeline_id=read_pipeline_id,
-                                                 log_dir=self.config.log_dir)
-        return self.config.output_root, pipeline_load, read_pipeline_id, run
+        pipeline_load = FittedPipeline.load(folder_loc=self.config.output_dir,
+                                            fitted_pipeline_id=read_pipeline_id,
+                                            log_dir=self.config.log_dir)
+        return self.config.output_dir, pipeline_load, read_pipeline_id, pipeline_load.runtime
 
     def load_templates(self) -> None:
         self.template = self.template_library.get_templates(self.config.task_type,
@@ -951,7 +954,7 @@ class Controller:
 
     def test_fitted_pipeline(self, fitted_pipeline_id):
         print("[INFO] Start test function")
-        d = os.path.expanduser(self.config.output_root + '/pipelines')
+        d = os.path.expanduser(self.config.output_dir + '/pipelines')
         if fitted_pipeline_id == "":
             print(
                 "[INFO] No specified pipeline ID found, will load the latest "
@@ -963,10 +966,10 @@ class Controller:
             lastmodified = files[-1]
             fitted_pipeline_id = lastmodified.split('/')[-1].split('.')[0]
 
-        pipeline_load, run_test = FittedPipeline.load(folder_loc=self.config.output_root,
-                                                      pipeline_id=fitted_pipeline_id,
-                                                      log_dir=self.config.log_dir)
-
+        pipeline_load = FittedPipeline.load(folder_loc=self.config.output_dir,
+                                            fitted_pipeline_id=fitted_pipeline_id,
+                                            log_dir=self.config.log_dir)
+        run_test = pipeline_load.runtime
         print("[INFO] Pipeline load finished")
 
         print("[INFO] testing data:")
@@ -988,15 +991,14 @@ class Controller:
         # get the target column name
         prediction_class_name = []
         try:
-            with open(self.config.dataset_schema_file, 'r') as dataset_description_file:
+            with open(self.config.dataset_schema_files[0], 'r') as dataset_description_file:
                 dataset_description = json.load(dataset_description_file)
                 for each_resource in dataset_description["dataResources"]:
                     if "columns" in each_resource:
                         for each_column in each_resource["columns"]:
-                            if "suggestedTarget" in each_column["role"] or "target" in each_column[
-                                "role"]:
+                            if "suggestedTarget" in each_column["role"] or "target" in each_column["role"]:
                                 prediction_class_name.append(each_column["colName"])
-        except:
+        except Exception:
             self._logger.error(
                 "[Warning] Can't find the prediction class name, will use default name "
                 "'prediction'.")
@@ -1018,7 +1020,7 @@ class Controller:
             for i in range(len(prediction_class_name)):
                 prediction = prediction.rename(
                     columns={prediction_col_name[i]: prediction_class_name[i]})
-        prediction_folder_loc = self.config.output_root + "/predictions/" + fitted_pipeline_id
+        prediction_folder_loc = self.config.output_dir + "/predictions/" + fitted_pipeline_id
         folder = os.path.exists(prediction_folder_loc)
         if not folder:
             os.makedirs(prediction_folder_loc)
@@ -1312,7 +1314,7 @@ class Controller:
         return self.problem
 
     def load_fitted_pipeline(self, fitted_pipeline_id) -> FittedPipeline:
-        fitted_pipeline_load, run = FittedPipeline.load(folder_loc=self.config.output_root,
-                                                        pipeline_id=fitted_pipeline_id,
-                                                        log_dir=self.config.log_dir)
+        fitted_pipeline_load = FittedPipeline.load(folder_loc=self.config.output_dir,
+                                                   fitted_pipeline_id=fitted_pipeline_id,
+                                                   log_dir=self.config.log_dir)
         return fitted_pipeline_load
