@@ -178,64 +178,63 @@ class TemplateLibrary:
         # default tabular templates, encompassing many of the templates below
         self.templates.append(DefaultClassificationTemplate)
         self.templates.append(NaiveBayesClassificationTemplate)
-        # self.templates.append(DefaultRegressionTemplate)
+        self.templates.append(DefaultRegressionTemplate)
 
         # new tabular classification
-        self.templates.append(RandomForestClassificationTemplate)
+        # self.templates.append(RandomForestClassificationTemplate)
         # self.templates.append(ExtraTreesClassificationTemplate)
         # self.templates.append(GradientBoostingClassificationTemplate)
 
-        # # takes too long to run self.templates.append(SVCClassificationTemplate)
+        # takes too long to run self.templates.append(SVCClassificationTemplate)
 
-        # # new tabular regression
-        # self.templates.append(RandomForestRegressionTemplate)
-        # self.templates.append(ExtraTreesRegressionTemplate)
-        # self.templates.append(GradientBoostingRegressionTemplate)
-        # # takes too long to run self.templates.append(SVRRegressionTemplate)
+        # new tabular regression
+        self.templates.append(RandomForestRegressionTemplate)
+        self.templates.append(ExtraTreesRegressionTemplate)
+        self.templates.append(GradientBoostingRegressionTemplate)
+        # takes too long to run self.templates.append(SVRRegressionTemplate)
 
-        # # text templates, but also support tabular data
-        # self.templates.append(DefaultTextClassificationTemplate)
-        # self.templates.append(DefaultTextRegressionTemplate)
+        # text templates, but also support tabular data
+        self.templates.append(DefaultTextClassificationTemplate)
+        self.templates.append(DefaultTextRegressionTemplate)
 
-        # # Tabular Classification
-        # self.templates.append(TA1Classification_3)
-        # self.templates.append(MuxinTA1ClassificationTemplate1)
-        # self.templates.append(UU3TestTemplate)
-        # self.templates.append(TA1ClassificationTemplate1)
+        # Tabular Classification
+        self.templates.append(TA1Classification_3)
+        self.templates.append(MuxinTA1ClassificationTemplate1)
+        self.templates.append(UU3TestTemplate)
+        self.templates.append(TA1ClassificationTemplate1)
 
-        # # Image Regression
-        # self.templates.append(DefaultImageProcessingRegressionTemplate)
+        # Image Regression
+        self.templates.append(DefaultImageProcessingRegressionTemplate)
 
-        # # Others
-        # self.templates.append(DefaultTimeseriesCollectionTemplate)
-        # self.templates.append(TimeSeriesForcastingTestingTemplate)
+        # Others
+        self.templates.append(DefaultTimeseriesCollectionTemplate)
+        self.templates.append(TimeSeriesForcastingTestingTemplate)
 
-        # self.templates.append(DefaultLinkPredictionTemplate)
-        # self.templates.append(SRICommunityDetectionTemplate)
-        # self.templates.append(SRIGraphMatchingTemplate)
-        # self.templates.append(SRIVertexNominationTemplate)
+        self.templates.append(DefaultLinkPredictionTemplate)
+        self.templates.append(SRICommunityDetectionTemplate)
+        self.templates.append(SRIGraphMatchingTemplate)
+        self.templates.append(SRIVertexNominationTemplate)
 
-        # self.templates.append(BBNAudioClassificationTemplate)
-        # self.templates.append(SRICollaborativeFilteringTemplate)
-        # self.templates.append(DefaultTimeSeriesForcastingTemplate)
-        # self.templates.append(CMUClusteringTemplate)
-        # self.templates.append(MichiganVideoClassificationTemplate)
-        # self.templates.append(TemporaryObjectDetectionTemplate)
-        # self.templates.append(JHUVertexNominationTemplate)
-        # self.templates.append(JHUGraphMatchingTemplate)
+        self.templates.append(BBNAudioClassificationTemplate)
+        self.templates.append(SRICollaborativeFilteringTemplate)
+        self.templates.append(DefaultTimeSeriesForcastingTemplate)
+        self.templates.append(CMUClusteringTemplate)
+        self.templates.append(MichiganVideoClassificationTemplate)
+        self.templates.append(TemporaryObjectDetectionTemplate)
+        self.templates.append(JHUVertexNominationTemplate)
+        self.templates.append(JHUGraphMatchingTemplate)
 
-        # # templates used for datasets with a large number of columns
-        # self.templates.append(Large_column_number_with_numerical_only_classification)
-        # self.templates.append(Large_column_number_with_numerical_only_regression)
+        # templates used for datasets with a large number of columns
+        self.templates.append(Large_column_number_with_numerical_only_classification)
+        self.templates.append(Large_column_number_with_numerical_only_regression)
 
-        # self.templates.append(ClassificationWithSelection)
-        # self.templates.append(RegressionWithSelection)
+        self.templates.append(ClassificationWithSelection)
+        self.templates.append(RegressionWithSelection)
 
-        # # dsbox all in one templates
-        # # move dsboxClassificationTemplate to last execution because sometimes this template have bugs
-        # self.templates.append(dsboxClassificationTemplate)
-        # self.templates.append(dsboxRegressionTemplate)
-
+        # dsbox all in one templates
+        # move dsboxClassificationTemplate to last execution because sometimes this template have bugs
+        self.templates.append(dsboxClassificationTemplate)
+        self.templates.append(dsboxRegressionTemplate)
 
     def _load_single_inline_templates(self, template_name):
         if template_name in self.all_templates:
@@ -1213,7 +1212,7 @@ class Large_column_number_with_numerical_only_classification(DSBoxTemplate):
                     "primitives": [
                         "d3m.primitives.data_preprocessing.DoNothing.DSBOX",
                         {
-                            "primitive": "d3m.primitives.data.CastToType",
+                            "primitive": "d3m.primitives.data_transformation.cast_to_type.Common",
                             "hyperparameters": {"type_to_cast": ["float"]}
                         },
 
@@ -1301,7 +1300,7 @@ class Large_column_number_with_numerical_only_regression(DSBoxTemplate):
                     "primitives": [
                         "d3m.primitives.data_preprocessing.DoNothing.DSBOX",
                         {
-                            "primitive": "d3m.primitives.data.CastToType",
+                            "primitive": "d3m.primitives.data_transformation.cast_to_type.Common",
                             "hyperparameters": {"type_to_cast": ["float"]}
                         },
 
@@ -1409,7 +1408,7 @@ class DefaultTimeSeriesForcastingTemplate(DSBoxTemplate):
                     "name": "cast_1_step",
                     "primitives": [
                         {
-                            "primitive": "d3m.primitives.data.CastToType",
+                            "primitive": "d3m.primitives.data_transformation.cast_to_type.Common",
                             "hyperparameters": {"type_to_cast": ["float"]}
                         },
                         {
@@ -1764,7 +1763,7 @@ class DefaultTimeseriesCollectionTemplate(DSBoxTemplate):
                 },
                 # {
                 #     "name": "column_parser_step",
-                #     "primitives": ["d3m.primitives.data.ColumnParser"],
+                #     "primitives": ["d3m.primitives.data_transformation.column_parser.DataFrameCommon"],
                 #     "inputs": ["extract_target_step"]
                 # },
 
@@ -1861,7 +1860,7 @@ class DefaultTimeseriesRegressionTemplate(DSBoxTemplate):
                     "name": "cast_1_step",
                     "primitives": [
                         {
-                            "primitive": "d3m.primitives.data.CastToType",
+                            "primitive": "d3m.primitives.data_transformation.cast_to_type.Common",
                             "hyperparameters": {"type_to_cast": ["float"]}
                         },
                         {
@@ -1986,7 +1985,7 @@ class TA1VggImageProcessingRegressionTemplate(DSBoxTemplate):
                 },
                 # {
                 #     "name": "column_parser_step",
-                #     "primitives": ["d3m.primitives.data.ColumnParser"],
+                #     "primitives": ["d3m.primitives.data_transformation.column_parser.DataFrameCommon"],
                 #     "inputs": ["to_dataframe_step"]
                 # },
                 # read X value
@@ -2060,7 +2059,7 @@ class TA1DefaultImageProcessingRegressionTemplate(DSBoxTemplate):
                 },
                 # {
                 #     "name": "column_parser_step",
-                #     "primitives": ["d3m.primitives.data.ColumnParser"],
+                #     "primitives": ["d3m.primitives.data_transformation.column_parser.DataFrameCommon"],
                 #     "inputs": ["to_dataframe_step"]
                 # },
                 # read X value
@@ -2132,7 +2131,7 @@ class DefaultImageProcessingRegressionTemplate(DSBoxTemplate):
                 },
                 # {
                 #     "name": "column_parser_step",
-                #     "primitives": ["d3m.primitives.data.ColumnParser"],
+                #     "primitives": ["d3m.primitives.data_transformation.column_parser.DataFrameCommon"],
                 #     "inputs": ["to_dataframe_step"]
                 # },
                 # read X value
@@ -2729,7 +2728,7 @@ class CMUClusteringTemplate(DSBoxTemplate):
                 },
                 {
                     "name": "column_parser_step",
-                    "primitives": ["d3m.primitives.data.ColumnParser"],
+                    "primitives": ["d3m.primitives.data_transformation.column_parser.DataFrameCommon"],
                     "inputs": ["to_dataframe_step"]
                 },
                 {
@@ -2810,24 +2809,25 @@ class MichiganVideoClassificationTemplate(DSBoxTemplate):
                 },
                 {
                     "name": "read_video_step",
-                    "primitives": ["d3m.primitives.data.VideoReader"],
+                    "primitives": ["d3m.primitives.data_preprocessing.video_reader.DataFrameCommon"],
                     "inputs": ["to_dataframe_step"]
                 },
                 {
                     "name": "featurize_step",
-                    "primitives": ["d3m.primitives.spider.featurization.I3D"],
+                    "primitives": ["d3m.primitives.feature_extraction.i3d.umich"],
                     "inputs": ["read_video_step"]
 
                 },
                 {
                     "name": "convert_step",
-                    "primitives": ["d3m.primitives.data.NDArrayToDataFrame"],
+                    "primitives": ["d3m.primitives.data_transformation.ndarray_to_dataframe.Common"],
                     "inputs": ["featurize_step"]
 
                 },
                 {
                     "name": "model_step",
-                    "primitives": ["d3m.primitives.classifier.RandomForest"],
+                    # "primitives": ["d3m.primitives.classifier.RandomForest"],
+                    "primitives": ["d3m.primitives.classification.random_forest.SKlearn"],
                     "inputs": ["convert_step", "extract_target_step"]
                 },
             ]
@@ -2904,7 +2904,7 @@ class TA1ClassificationTemplate1(DSBoxTemplate):
                     "name": "cast_1_step",
                     "primitives": [
                         {
-                            "primitive": "d3m.primitives.data.CastToType",
+                            "primitive": "d3m.primitives.data_transformation.cast_to_type.Common",
                             "hyperparameters": {"type_to_cast": ["float"]}
                         },
                         "d3m.primitives.data_preprocessing.DoNothing.DSBOX",
@@ -2955,7 +2955,7 @@ class TA1Classification_2(DSBoxTemplate):
                                     target_name="extract_target_step"),
                 {
                     "name": "corex_step",
-                    "primitives": ["d3m.primitives.dsbox.CorexText"],
+                    "primitives": ["d3m.primitives.feature_construction.corex_text.CorexText"],
                     "inputs": ["extract_attribute_step"]
                 },
                 {
@@ -3070,12 +3070,12 @@ class TA1Classification_3(DSBoxTemplate):
                 },
                 {
                     "name": "corex_step",
-                    "primitives": ["d3m.primitives.dsbox.CorexText"],
+                    "primitives": ["d3m.primitives.feature_construction.corex_text.CorexText"],
                     "inputs": ["label_step"]
                 },
                 # {
                 #     "name": "corex_step",
-                #     "primitives": ["d3m.primitives.dsbox.CorexText"],
+                #     "primitives": ["d3m.primitives.feature_construction.corex_text.CorexText"],
                 #     "inputs": ["cast_1_step"]
                 # },
                 {
@@ -3165,7 +3165,7 @@ class MuxinTA1ClassificationTemplate1(DSBoxTemplate):
                     "name": "cast_1_step",
                     "primitives": [
                         {
-                            "primitive": "d3m.primitives.data.CastToType",
+                            "primitive": "d3m.primitives.data_transformation.cast_to_type.Common",
                             "hyperparameters": {"type_to_cast": ["float"]}
                         },
                         "d3m.primitives.data_preprocessing.DoNothing.DSBOX",
@@ -3281,14 +3281,14 @@ class MuxinTA1ClassificationTemplate2(DSBoxTemplate):
                 },
                 # {
                 #     "name": "corex_step",
-                #     "primitives": ["d3m.primitives.dsbox.CorexText"],
+                #     "primitives": ["d3m.primitives.feature_construction.corex_text.CorexText"],
                 #     "inputs": ["cast_1_step"]
                 # },
                 {
                     "name": "cast_1_step",
                     "primitives": [
                         {
-                            "primitive": "d3m.primitives.data.CastToType",
+                            "primitive": "d3m.primitives.data_transformation.cast_to_type.Common",
                             "hyperparameters": {"type_to_cast": ["float"]}
                         },
                         {
@@ -3380,14 +3380,14 @@ class MuxinTA1ClassificationTemplate3(DSBoxTemplate):
                 },
                 # {
                 #     "name": "corex_step",
-                #     "primitives": ["d3m.primitives.dsbox.CorexText"],
+                #     "primitives": ["d3m.primitives.feature_construction.corex_text.CorexText"],
                 #     "inputs": ["cast_1_step"]
                 # },
                 {
                     "name": "cast_1_step",
                     "primitives": [
                         {
-                            "primitive": "d3m.primitives.data.CastToType",
+                            "primitive": "d3m.primitives.data_transformation.cast_to_type.Common",
                             "hyperparameters": {"type_to_cast": ["float"]}
                         },
                         {
@@ -3481,7 +3481,7 @@ class MuxinTA1ClassificationTemplate4(DSBoxTemplate):
                     "name": "cast_1_step",
                     "primitives": [
                         {
-                            "primitive": "d3m.primitives.data.CastToType",
+                            "primitive": "d3m.primitives.data_transformation.cast_to_type.Common",
                             "hyperparameters": {"type_to_cast": ["float"]}
                         },
                         "d3m.primitives.data_preprocessing.DoNothing.DSBOX",
@@ -3568,7 +3568,7 @@ class UU3TestTemplate(DSBoxTemplate):
                     "name": "cast_step",
                     "primitives": [
                         {
-                            "primitive": "d3m.primitives.data.CastToType",
+                            "primitive": "d3m.primitives.data_transformation.cast_to_type.Common",
                             "hyperparameters": {"type_to_cast": ["float"]}
                         },
                         {
@@ -3580,7 +3580,7 @@ class UU3TestTemplate(DSBoxTemplate):
                 },
                 # {
                 #     "name": "corex_step",
-                #     "primitives": ["d3m.primitives.dsbox.CorexText"],
+                #     "primitives": ["d3m.primitives.feature_construction.corex_text.CorexText"],
                 #     "inputs": ["cast_1_step"]
                 # },
                 {
@@ -3661,7 +3661,7 @@ class HorizontalTemplate(DSBoxTemplate): #This template only generate processed 
                     "name": "corex_step",
                     "primitives": [
                         {
-                            "primitive": "d3m.primitives.dsbox.CorexText",
+                            "primitive": "d3m.primitives.feature_construction.corex_text.CorexText",
                             "hyperparameters":
                                 {
                                 }

@@ -599,7 +599,7 @@ class DSBoxTemplate():
                 if "runtime" in binding[step]:
                     # primitive_desc["runtime"] = binding[step]["runtime"]
                     primitive_step.__dict__['_dsbox_runtime'] = binding[step]["runtime"]
-                    print('==== ', primitive_step._dsbox_runtime)
+                    # print('==== ', primitive_step._dsbox_runtime)
 
             else:
                 raise exceptions.InvalidArgumentValueError("Error, can't find the primitive : ",

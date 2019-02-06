@@ -373,7 +373,8 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
             fitted_pipeline2.set_metric(training_metrics[0])
             cv = fitted_pipeline2.get_cross_validation_metrics()
             if not cv:
-                cv = {}
+                # CandidateCache asserts cv must be a list
+                cv = []
 
             data = {
                 'id': fitted_pipeline2.id,
@@ -476,7 +477,8 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
 
             cv = fitted_pipeline_final.get_cross_validation_metrics()
             if not cv:
-                cv = {}
+                # CandidateCache asserts cv must be a list
+                cv = []
             data = {
                 'id': fitted_pipeline_final.id,
                 'fitted_pipeline': fitted_pipeline_final,

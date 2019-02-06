@@ -47,14 +47,13 @@ class DsboxConfig:
     * dsbox_output_dir: os.environ['D3MINPUTDIR']
 
     DSBox output directory structure under dsbox_output_dir:
-    * pipelines_fitted: directory for storing fitted pipelines
+    * pipelines_fitted (pipelines_fitted_dir): directory for storing fitted pipelines
     * logs (log_dir): directory for logging files
     * logs/dfs (dfs_log_dir): directory for detailed dataframe logging
 
     DSBox variables
     * search_method: pipeline search methods, possible values 'serial', 'parallel', 'random-dimensional', 'bandit', 'multi-bandit'
     * is_multiprocess: if False, then should not spawn subprocesses. Needed for TA3 mode.
-    * logs_dir: Directory to store logs
     * timeout_search: Timeout for search part. Typically equal to timeout less 120 seconds
 
     '''
@@ -120,7 +119,7 @@ class DsboxConfig:
     @timeout.setter
     def timeout(self, value: int):
         self._timeout = value
-        self.timeout_search = max(self.timeout - 120, int(self.timeout * 0.95))
+        self.timeout_search = max(self._timeout - 120, int(self._timeout * 0.95))
 
     def load(self):
         self._load_d3m_environment()
@@ -171,6 +170,13 @@ class DsboxConfig:
         dataset_ids = [obj['datasetID'] for obj in self.problem_doc['inputs']['data']]
         if len(dataset_ids) > 1:
             self._logger.warning(f"ProblemDoc specifies more than one dataset id: {dataset_ids}")
+
+        for id in dataset_ids:
+            if id not in self._all_datasets:
+                self._logger.info(f'Available datasets are: {self._all_datasets.keys()}')
+                self._logger.error(f'Dataset {id} is not available')
+                return
+
         self.dataset_schema_files = [self._all_datasets[id] for id in dataset_ids]
 
         for dataset_doc in self.dataset_schema_files:
@@ -234,7 +240,7 @@ class DsboxConfig:
 
         # DSBox directories
         self.dsbox_output_dir = self.output_dir
-        self.pipelines_fitted = os.path.join(self.dsbox_output_dir, 'pipelines_fitted')
+        self.pipelines_fitted_dir = os.path.join(self.dsbox_output_dir, 'pipelines_fitted')
         self.log_dir = os.path.join(self.dsbox_output_dir, 'logs')
         self.dfs_log_dir = os.path.join(self.log_dir, 'dfs')
 
@@ -243,7 +249,7 @@ class DsboxConfig:
                 self.pipelines_ranked_dir, self.pipelines_scored_dir,
                 self.pipelines_searched_dir, self.subpipelines_dir, self.pipeline_runs_dir,
                 self.additional_inputs_dir,
-                self.dsbox_output_dir, self.pipelines_fitted, self.log_dir, self.dfs_log_dir]:
+                self.dsbox_output_dir, self.pipelines_fitted_dir, self.log_dir, self.dfs_log_dir]:
             if not os.path.exists(directory):
                 os.mkdir(directory)
 
@@ -302,6 +308,7 @@ class DsboxConfig:
         print(f'  cpu: {self.cpu}', file=out)
         print(f'  ram: {self.ram}', file=out)
         print(f'  timeout: {self.timeout}', file=out)
+        print(f'  timeout_search: {self.timeout_search}', file=out)
         content = out.getvalue()
         out.close()
         return content

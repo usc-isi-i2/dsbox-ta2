@@ -3,20 +3,20 @@
 import argparse
 import grpc
 import os
-import os.path
 import sys
 import time
 
 import numpy
 from concurrent import futures
 
-import core_pb2_grpc
-from dsbox.server.ta2_servicer import TA2Servicer
-from dsbox.controller.config import DsboxConfig
+from ta3ta2_api import core_pb2_grpc
 
 # Setup Paths
-# PARENTDIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-# sys.path.append(PARENTDIR)
+PARENTDIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(PARENTDIR)
+
+from dsbox.server.ta2_servicer import TA2Servicer
+from dsbox.controller.config import DsboxConfig
 
 # from dsbox_dev_setup import path_setup
 # path_setup()
@@ -53,10 +53,9 @@ def serve():
         print('volume: {} to {}'.format(host_dir, container_dir))
 
     config = DsboxConfig()
-    config.load_ta3(output_root=output_root)
+    config.load()
 
-    if 'output_root' not in config:
-        config['output_root'] = '/output'
+    print(config)
 
     servicer = TA2Servicer(
         config=config,

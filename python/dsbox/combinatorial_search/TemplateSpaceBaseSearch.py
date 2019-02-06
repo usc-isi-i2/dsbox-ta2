@@ -104,6 +104,7 @@ class TemplateSpaceBaseSearch(typing.Generic[T]):
 
         success_count = 0
         for search in self._select_next_template(num_iter=num_iter):
+            # search: ConfigurationSpaceBaseSearch
             if self._done(success_count):
                 break
             _logger.info(f'Search template {search.template}')
@@ -115,8 +116,9 @@ class TemplateSpaceBaseSearch(typing.Generic[T]):
                         args=(candidate, self.cacheManager.primitive_cache, True))
                     success_count += 1
                     _logger.info(f'Search template pipeline {search.template}')
-                    _logger.info(f'report {report}')
-                except:
+                    _logger.info(f'report fitted_pipeline {report["id"]}')
+                    _logger.debug(f'report {report}')
+                except Exception:
                     traceback.print_exc()
                     _logger.error(f'Search template pipeline failed {search.template}')
                     _logger.error(traceback.format_exc())

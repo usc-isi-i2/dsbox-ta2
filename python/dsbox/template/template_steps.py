@@ -53,7 +53,7 @@ class TemplateSteps:
                 "name": "corex_step",
                 "primitives": [
                     {
-                        "primitive": "d3m.primitives.dsbox.CorexText",
+                        "primitive": "d3m.primitives.feature_construction.corex_text.CorexText",
                         "hyperparameters":
                             {
                             }
@@ -98,7 +98,7 @@ class TemplateSteps:
                 "name": "cast_1_step",  # turn columns to float
                 "primitives": [
                     # {
-                    #     "primitive": "d3m.primitives.data.CastToType",
+                    #     "primitive": "d3m.primitives.data_transformation.cast_to_type.Common",
                     #     "hyperparameters":
                     #                     {
                     #                     "type_to_cast": ["float"],
@@ -192,7 +192,7 @@ class TemplateSteps:
                 "name": "corex_step",
                 "primitives": [
                     {
-                        "primitive": "d3m.primitives.dsbox.CorexText",
+                        "primitive": "d3m.primitives.feature_construction.corex_text.CorexText",
                         "hyperparameters":
                             {
                                 'n_hidden': [5, 10],
@@ -235,7 +235,7 @@ class TemplateSteps:
                 "name": data,
                 "primitives": [
                     {
-                        "primitive": "d3m.primitives.data.CastToType",
+                        "primitive": "d3m.primitives.data_transformation.cast_to_type.Common",
                         "hyperparameters": {"type_to_cast": ["float"]}
                     },
                     "d3m.primitives.data_preprocessing.DoNothing.DSBOX",
@@ -317,7 +317,7 @@ class TemplateSteps:
                 "name": "cast_step",  # turn columns to float
                 "primitives": [
                     {
-                        "primitive": "d3m.primitives.data.CastToType",
+                        "primitive": "d3m.primitives.data_transformation.cast_to_type.Common",
                         "hyperparameters": {"type_to_cast": ["float"]}
                     },
                     "d3m.primitives.data_preprocessing.DoNothing.DSBOX",
@@ -509,14 +509,14 @@ class TemplateSteps:
                 *TemplateSteps.default_dataparser(target_name=target_name),
                 {
                     "name": "column_parser_step",
-                    "primitives": ["d3m.primitives.data.ColumnParser"],
+                    "primitives": ["d3m.primitives.data_transformation.column_parser.DataFrameCommon"],
                     "inputs": ["extract_attribute_step"]
                 },
                 {
                     "name": attribute_name,
                     "primitives": [
                         {
-                            "primitive": "d3m.primitives.data.CastToType",
+                            "primitive": "d3m.primitives.data_transformation.cast_to_type.Common",
                             "hyperparameters": {"type_to_cast": ["float"]}
                         },
                         {
@@ -558,14 +558,14 @@ class TemplateSteps:
                 # TODO the ColumnParser primitive is buggy as it generates arbitrary nan values
                 # {
                 #     "name": "encode_strings_step",
-                #     "primitives": ["d3m.primitives.data.ColumnParser"],
+                #     "primitives": ["d3m.primitives.data_transformation.column_parser.DataFrameCommon"],
                 #     "inputs": [clean_name]
                 # },
                 {
                     "name": "encode_text_step",
                     "primitives": [
                         {
-                            "primitive": "d3m.primitives.dsbox.CorexText",
+                            "primitive": "d3m.primitives.feature_construction.corex_text.CorexText",
                             "hyperparameters":
                                 {
                                     'n_hidden': [(10)],
@@ -601,7 +601,7 @@ class TemplateSteps:
                 # {
                 #     "name": encoded_name,
                 #     "primitives": [{
-                #         "primitive": "d3m.primitives.data.CastToType",
+                #         "primitive": "d3m.primitives.data_transformation.cast_to_type.Common",
                 #         "hyperparameters":
                 #             {
                 #                 'type_to_cast': ['float','str'],

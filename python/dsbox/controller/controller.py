@@ -2,6 +2,7 @@ import enum
 import json
 import logging
 import os
+import operator
 import random
 import typing
 import uuid
@@ -285,6 +286,11 @@ class Controller:
             console.setFormatter(logging.Formatter(self.config.console_formatter))
             console.setLevel(self.config.console_logging_level)
             logging.getLogger('').addHandler(console)
+        else:
+            for handler in logging.getLogger('').handlers:
+                if type(handler) is logging.StreamHandler:
+                    handler.setFormatter(logging.Formatter(self.config.console_formatter))
+                    handler.setLevel(self.config.console_logging_level)
 
         self._logger = logging.getLogger(__name__)
 
@@ -334,8 +340,34 @@ class Controller:
         #         '[ERROR] Save training results Failed!')
 
     def _process_pipeline_submission(self) -> None:
+        self._logger.info(f'Moving top 20 pipelines to {self.config.pipelines_ranked_dir}')
+
+        # Get list of (rank, pipeline) pairs
+        pipeline_files = os.listdir(self.config.pipelines_scored_dir)
+        ranked_list = []
+        for filename in pipeline_files:
+            filepath = os.path.join(self.config.pipelines_scored_dir, filename)
+            with open(filepath) as f:
+                pipeline = json.load(f)
+                if 'pipeline_rank' in pipeline:
+                    ranked_list.append((pipeline['pipeline_rank'], filename))
+                else:
+                    # Move pipelines without scores to pipelines_searched directory
+                    self._logger.info(f'Pipeline does not have score. id={pipeline["id"]}')
+                    shutil.move(filepath, self.config.pipelines_searched_dir)
+
+        if not ranked_list:
+            self._logger.warning('No ranked pipelines found.')
+            return
+
+        # Copy top 20 pipelines to pipelines_ranked directory
+        sorted(ranked_list, key=operator.itemgetter(0))
+        for _, filename in ranked_list[:20]:
+            shutil.copy(os.path.join(self.config.pipelines_scored_dir, filename), self.config.pipelines_ranked_dir)
+
+    def _process_pipeline_submission_old(self) -> None:
         output_dir = os.path.dirname(self.output_pipelines_dir)
-        print("[PROSKA]:",output_dir)
+        print("[PROSKA]:", output_dir)
         pipelines_root: str = os.path.join(output_dir, 'pipelines')
         executables_root: str = os.path.join(output_dir, 'executables')
         supporting_root: str = os.path.join(output_dir, 'supporting_files')
@@ -734,9 +766,12 @@ class Controller:
         # Dataset
         loader = D3MDatasetLoader()
 
-        json_file = os.path.abspath(self.config.dataset_schema_files[0])
-        all_dataset_uri = 'file://{}'.format(json_file)
-        self.all_dataset = loader.load(dataset_uri=all_dataset_uri)
+        json_file = self.config.dataset_schema_files[0]
+        if json_file.startswith('file://'):
+            self.all_dataset = loader.load(dataset_uri=json_file)
+        else:
+            json_file = os.path.abspath(json_file)
+            self.all_dataset = loader.load(dataset_uri='file://{}'.format(json_file))
 
         # Templates
         self.load_templates()
@@ -1311,10 +1346,35 @@ class Controller:
         return self._search_method.history.all_reports
 
     def get_problem(self) -> typing.Dict:
-        return self.problem
+        return self.config.problem
 
     def load_fitted_pipeline(self, fitted_pipeline_id) -> FittedPipeline:
         fitted_pipeline_load = FittedPipeline.load(folder_loc=self.config.output_dir,
                                                    fitted_pipeline_id=fitted_pipeline_id,
                                                    log_dir=self.config.log_dir)
         return fitted_pipeline_load
+
+    def export_solution(self, fitted_pipeline_id) -> None:
+        '''
+        Copy pipeline to pipelines_ranked directory
+        '''
+        fitted_filepath = os.path.join(self.config.pipelines_fitted_dir, fitted_pipeline_id, fitted_pipeline_id + '.json')
+        if not os.path.exists(fitted_filepath):
+            self._logger.error(f'Fitted pipeline does not exists: {fitted_pipeline_id}')
+            return
+
+        with open(fitted_filepath) as f:
+            fitted_structure = json.load(f)
+
+        pipeline_id = fitted_structure['pipeline_id']
+        filepath = os.path.join(self.config.pipelines_scored_dir, pipeline_id + '.json')
+
+        if not os.path.exists(filepath):
+            self._logger.error(f'Pipeline does not exists: {fitted_pipeline_id}')
+            return
+
+        if os.path.exists(os.path.join(self.config.pipelines_ranked_dir, pipeline_id + '.json')):
+            self._logger.info(f'Pipeline solution already exported: {fitted_pipeline_id}')
+            return
+
+        shutil.copy(filepath, self.config.pipelines_ranked_dir)

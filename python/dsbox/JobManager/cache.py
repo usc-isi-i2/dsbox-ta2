@@ -137,11 +137,13 @@ class CandidateCache:
             assert match['status'] is not None
             assert match['configuration'] is not None
             for k in comparison_metrics:
+                # _logger.debug('_check_update_format: metric={k}')
                 if match['status'] == CandidateCache.S_INVALID:
                     update['status'] = CandidateCache.S_VALID
                 assert k in match
                 assert k in update
 
+                # _logger.debug('_check_update_format: update[k]={update[k]}')
                 assert update[k] is None or isinstance(update[k], list)
                 assert match[k] is None or isinstance(match[k], list)
 

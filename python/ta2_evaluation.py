@@ -9,7 +9,7 @@ from dsbox.controller.controller import Controller
 from dsbox.controller.config import DsboxConfig
 
 start_time = time.time()
-
+wrote_result = False
 
 class StdoutLogger(object):
     def __init__(self, f):
@@ -54,6 +54,8 @@ def main(config: DsboxConfig):
         try:
             # Reset to handlers to default as not to output multiple times
             signal.signal(signal.SIGALRM, signal.SIG_DFL)
+            global wrote_result
+            wrote_result = True
 
             print('[INFO] Killing child processes', flush=True)
 
@@ -90,6 +92,9 @@ def main(config: DsboxConfig):
     controller.initialize_from_config_for_evaluation(config)
     status = controller.train()
     print("[INFO] Training Done")
+
+    if not wrote_result:
+        write_results_and_exit(None, None)
 
     time_used = (time.time() - start_time) / 60.0
     print("[INFO] The time used for running program is {:0.2f} minutes.".format(time_used))

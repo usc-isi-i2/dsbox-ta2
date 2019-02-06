@@ -131,6 +131,8 @@ class Runtime(runtime_base.Runtime):
             raise exceptions.InvalidPipelineError("Primitive has not been resolved.")
 
         time_start = time.time()
+
+        _logger.info(f"running primitive: {this_step.primitive.metadata.query()['name']}")
         # call d3m's run primitive directly if not use cache
         # NOTE: But need to perform cross validation!
         if not self.use_cache:
@@ -148,7 +150,6 @@ class Runtime(runtime_base.Runtime):
             if not self.skip_fit_phase:
                 # if we need to do cross validation, do it before normal fit() step
                 if '_dsbox_runtime' in this_step.__dict__ and "cross_validation" in this_step._dsbox_runtime:
-                    print('xxxx ', this_step._dsbox_runtime)
 
                     primitive: typing.Type[base.PrimitiveBase] = this_step.primitive
                     # TODO: add one more "if" to restrict runtime to run cross validation only for tuning steps

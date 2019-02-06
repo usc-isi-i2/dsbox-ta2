@@ -365,7 +365,7 @@ class FittedPipeline:
         runtime: Runtime = FittedPipeline.load_pickle_files(
             pipeline, structure['fitted_pipeline_id'], pipelines_fitted_dir=pipelines_fitted_dir, log_dir=log_dir)
 
-        fitted_pipeline = FittedPipeline(pipeline, structure['dataset_id'], log_dir)
+        fitted_pipeline = FittedPipeline(pipeline, dataset_id=structure['dataset_id'], log_dir=log_dir, id=fitted_pipeline_id)
         fitted_pipeline.runtime = runtime
         fitted_pipeline._set_fitted(runtime.steps_state)
         return fitted_pipeline

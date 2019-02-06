@@ -1,3 +1,4 @@
+import copy
 import logging
 import os
 import pickle
@@ -24,68 +25,69 @@ import d3m.metadata.problem as d3m_problem
 import d3m.container as d3m_container
 
 from d3m.container.dataset import D3MDatasetLoader
-from d3m.metadata.pipeline import Pipeline, PrimitiveStep, SubpipelineStep, ArgumentType
+from d3m.metadata.pipeline import Pipeline, PrimitiveStep, SubpipelineStep
 from d3m.primitive_interfaces.base import PrimitiveBase
 
 
-import core_pb2
-import core_pb2_grpc
-import problem_pb2
-import value_pb2
-import pipeline_pb2
+from ta3ta2_api import core_pb2 as core_pb2
+from ta3ta2_api import core_pb2_grpc as core_pb2_grpc
+from ta3ta2_api import problem_pb2 as problem_pb2
+from ta3ta2_api import value_pb2 as value_pb2
+from ta3ta2_api import pipeline_pb2 as pipeline_pb2
 
 from google.protobuf.reflection import GeneratedProtocolMessageType  # type: ignore
 from google.protobuf.timestamp_pb2 import Timestamp  # type: ignore
 
 # import autoflowconfig
-from core_pb2 import DescribeSolutionResponse
-from core_pb2 import EndSearchSolutionsResponse
-from core_pb2 import EvaluationMethod
-from core_pb2 import FitSolutionResponse
-from core_pb2 import GetFitSolutionResultsResponse
-from core_pb2 import GetProduceSolutionResultsResponse
-from core_pb2 import GetScoreSolutionResultsResponse
-from core_pb2 import GetSearchSolutionsResultsResponse
-from core_pb2 import HelloResponse
-from core_pb2 import ListPrimitivesResponse
-from core_pb2 import PrimitiveStepDescription
-from core_pb2 import ProduceSolutionResponse
-from core_pb2 import Progress
-from core_pb2 import ProgressState
-from core_pb2 import Score
-from core_pb2 import ScoreSolutionResponse
-from core_pb2 import ScoringConfiguration
-from core_pb2 import SearchSolutionsResponse
-from core_pb2 import SolutionSearchScore
-from core_pb2 import StepDescription
-from core_pb2 import StepProgress
-from core_pb2 import SubpipelineStepDescription
+from ta3ta2_api.core_pb2 import DescribeSolutionResponse
+from ta3ta2_api.core_pb2 import EndSearchSolutionsResponse
+from ta3ta2_api.core_pb2 import EvaluationMethod
+from ta3ta2_api.core_pb2 import FitSolutionResponse
+from ta3ta2_api.core_pb2 import GetFitSolutionResultsResponse
+from ta3ta2_api.core_pb2 import GetProduceSolutionResultsResponse
+from ta3ta2_api.core_pb2 import GetScoreSolutionResultsResponse
+from ta3ta2_api.core_pb2 import GetSearchSolutionsResultsResponse
+from ta3ta2_api.core_pb2 import HelloResponse
+from ta3ta2_api.core_pb2 import ListPrimitivesResponse
+from ta3ta2_api.core_pb2 import PrimitiveStepDescription
+from ta3ta2_api.core_pb2 import ProduceSolutionResponse
+from ta3ta2_api.core_pb2 import Progress
+from ta3ta2_api.core_pb2 import ProgressState
+from ta3ta2_api.core_pb2 import Score
+from ta3ta2_api.core_pb2 import ScoreSolutionResponse
+from ta3ta2_api.core_pb2 import ScoringConfiguration
+from ta3ta2_api.core_pb2 import SearchSolutionsResponse
+from ta3ta2_api.core_pb2 import SolutionSearchScore
+from ta3ta2_api.core_pb2 import StepDescription
+from ta3ta2_api.core_pb2 import StepProgress
+from ta3ta2_api.core_pb2 import SubpipelineStepDescription
+from ta3ta2_api.core_pb2 import SolutionExportResponse
 
-from pipeline_pb2 import PipelineDescription
-from pipeline_pb2 import PipelineDescriptionInput
-from pipeline_pb2 import PipelineDescriptionOutput
-from pipeline_pb2 import PipelineDescriptionStep
-from pipeline_pb2 import PipelineDescriptionUser
-from pipeline_pb2 import PrimitivePipelineDescriptionStep
-from pipeline_pb2 import PrimitiveStepArgument
-from pipeline_pb2 import PrimitiveStepHyperparameter
-from pipeline_pb2 import StepOutput
-from pipeline_pb2 import ContainerArgument
-from pipeline_pb2 import DataArgument
-from pipeline_pb2 import PrimitiveArgument
-from pipeline_pb2 import ValueArgument
-from pipeline_pb2 import PrimitiveArguments
+from ta3ta2_api.pipeline_pb2 import PipelineDescription
+from ta3ta2_api.pipeline_pb2 import PipelineDescriptionInput
+from ta3ta2_api.pipeline_pb2 import PipelineDescriptionOutput
+from ta3ta2_api.pipeline_pb2 import PipelineDescriptionStep
+from ta3ta2_api.pipeline_pb2 import PipelineDescriptionUser
+from ta3ta2_api.pipeline_pb2 import PrimitivePipelineDescriptionStep
+from ta3ta2_api.pipeline_pb2 import PrimitiveStepArgument
+from ta3ta2_api.pipeline_pb2 import PrimitiveStepHyperparameter
+from ta3ta2_api.pipeline_pb2 import StepOutput
+from ta3ta2_api.pipeline_pb2 import ContainerArgument
+from ta3ta2_api.pipeline_pb2 import DataArgument
+from ta3ta2_api.pipeline_pb2 import PrimitiveArgument
+from ta3ta2_api.pipeline_pb2 import ValueArgument
+from ta3ta2_api.pipeline_pb2 import PrimitiveArguments
 
-from problem_pb2 import ProblemPerformanceMetric
-from problem_pb2 import PerformanceMetric
-from problem_pb2 import ProblemTarget
+from ta3ta2_api.problem_pb2 import ProblemPerformanceMetric
+from ta3ta2_api.problem_pb2 import PerformanceMetric
+from ta3ta2_api.problem_pb2 import ProblemTarget
 
-from primitive_pb2 import Primitive
+from ta3ta2_api.primitive_pb2 import Primitive
 
-from value_pb2 import Value
-from value_pb2 import ValueRaw
-from value_pb2 import ValueList
-from value_pb2 import ValueDict
+from ta3ta2_api.value_pb2 import Value
+from ta3ta2_api.value_pb2 import ValueRaw
+from ta3ta2_api.value_pb2 import ValueList
+from ta3ta2_api.value_pb2 import ValueDict
 
 from dsbox.controller.controller import Controller
 from dsbox.controller.config import DsboxConfig
@@ -129,11 +131,11 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
         self.controller = Controller(is_ta3=True)
 
         self.config = config
-        self.output_dir = config['output_root']
-        self.log_dir = os.path.join(self.output_dir, 'supporting_files', 'logs')
+        # self.output_dir = config.output_dir
+        # self.log_dir = os.path.join(self.config.output_dir, 'supporting_files', 'logs')
         self.directory_mapping = directory_mapping
 
-        self.file_transfer_directory = os.path.join(self.output_dir, 'tmp')
+        self.file_transfer_directory = os.path.join(self.config.output_dir, 'tmp')
         if not os.path.exists(self.file_transfer_directory):
             os.makedirs(self.file_transfer_directory)
 
@@ -154,7 +156,7 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
 
         if fitted_pipeline_id:
             fitted_pipeline = FittedPipeline.load(
-                fitted_pipeline_id=fitted_pipeline_id, folder_loc=self.output_dir, log_dir=self.log_dir)
+                fitted_pipeline_id=fitted_pipeline_id, folder_loc=self.config.output_dir, log_dir=self.config.log_dir)
             self.fit_solution[fitted_pipeline_id] = fitted_pipeline
 
     def Hello(self, request, context):
@@ -197,24 +199,34 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
         self.problem_parsed = problem_parsed
 
         # Although called uri, it's just a filepath to datasetDoc.json
-        dataset_uri = request.inputs[0].dataset_uri
-        self.dataset_uri = dataset_uri
+        self.dataset_uris = [input.dataset_uri for input in request.inputs]
 
-        dataset_uri = self._map_directories(dataset_uri)
+        dataset_uris = [self._map_directories(uri) for uri in self.dataset_uris]
 
-        problem_config = DsboxConfig(self.config)
-        problem_config.update({
-            'problem_json': problem_json_dict,
-            'problem_parsed': problem_parsed,
-            'dataset_schema': dataset_uri,
-            'timeout': request.time_bound
-        })
+        # problem_config = DsboxConfig(self.config)
+        # problem_config.update({
+        #     'problem_json': problem_json_dict,
+        #     'problem_parsed': problem_parsed,
+        #     'dataset_schema': dataset_uri,
+        #     'timeout': request.time_bound
+        # })
+
+        # convert to seconds
+        self.config.timeout = request.time_bound * 60
+
+        self.config.dataset_schema_files = dataset_uris
+        self.config.set_problem(problem_json_dict, problem_parsed)
 
         print('===config')
-        pprint(problem_config)
+        print(self.config)
 
         request_id = self.generateId()
-        self.search_solution[request_id] = problem_config
+
+        logger = self.config._logger
+        self.config._logger = None
+        self.search_solution[request_id] = copy.deepcopy(self.config)
+        self.search_solution[request_id]._logger = logger
+
         result = SearchSolutionsResponse(search_id=request_id)
 
         check(result)
@@ -304,8 +316,8 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
 
         if score_request.inputs is not None:
             dataset_uri = score_request.inputs[0].dataset_uri
-            if not self.dataset_uri == dataset_uri:
-                _logger.error("Dataset_uri not the same %s != %s", self.dataset_uri, dataset_uri)
+            if not self.dataset_uris[0] == dataset_uri:
+                _logger.error("Dataset_uri not the same %s != %s", self.dataset_uris[0], dataset_uri)
 
         problem = self.controller.get_problem()
         for results in self.search_solution_results.values():
@@ -337,8 +349,16 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
         return EndSearchSolutionsResponse()
 
     def SolutionExport(self, request, context):
-        _logger.error("SolutionExport not yet implemented")
-        pass
+        '''
+        Exports a solution for evaluation based on NIST specifications.
+
+        '''
+        fitted_pipeline_id = request.fitted_solution_id
+        self.log_msg(msg=f"SolutionExport invoked with rank {request.rank} fitted_solution_id {fitted_pipeline_id}")
+        self.controller.export_solution(fitted_pipeline_id)
+
+        return SolutionExportResponse()
+
 
     def StopSearchSolutions(self, request, context):
         _logger.error("StopSearchSolutions not yet implemented")
@@ -385,8 +405,8 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
         # hack
         add_true_target(dataset)
 
-        print('Load fitted pipeline', self.output_dir, fitted_pipeline_id)
-        fitted_pipeline = FittedPipeline.load(fitted_pipeline_id=fitted_pipeline_id, folder_loc=self.output_dir, log_dir=self.log_dir)
+        print('Load fitted pipeline', self.config.output_dir, fitted_pipeline_id)
+        fitted_pipeline = FittedPipeline.load(fitted_pipeline_id=fitted_pipeline_id, folder_loc=self.config.output_dir, log_dir=self.config.log_dir)
         fitted_pipeline.produce(inputs=[dataset])
 
         timestamp = Timestamp()
@@ -450,8 +470,8 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
 
         request_id = self.generateId()
         self.fit_solution[request_id] = {
-            'request' : request,
-            'start' : Timestamp().GetCurrentTime()
+            'request': request,
+            'start': Timestamp().GetCurrentTime()
         }
         return FitSolutionResponse(request_id=request_id)
 
@@ -479,74 +499,94 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
         # hack
         add_true_target(dataset)
 
-        old_fitted_pipeline = FittedPipeline.load(fitted_pipeline_id=fitted_pipeline_id, folder_loc=self.output_dir, log_dir=self.log_dir)
-        fitted_pipeline = FittedPipeline(old_fitted_pipeline.pipeline,
-                                         dataset.metadata.query(())['id'],
-                                         log_dir=self.log_dir,
-                                         id=str(uuid.uuid4()),
-                                         metric_descriptions=old_fitted_pipeline.metric_descriptions)
+        old_fitted_pipeline = FittedPipeline.load(fitted_pipeline_id=fitted_pipeline_id, folder_loc=self.config.output_dir, log_dir=self.config.log_dir)
 
-        fitted_pipeline.fit(inputs=[dataset])
-        fitted_pipeline.produce(inputs=[dataset])
+        if old_fitted_pipeline.dataset_id == dataset.metadata.query(())['id']:
+            # Nothigh to do. Old fitted pipeline was trained on the same dataset
+            self.log_msg(msg="Reuse fitted pipeline")
 
-        fitted_pipeline.save(self.output_dir)
+            fit_solution_results = []
+            fit_solution_results.append(GetFitSolutionResultsResponse(
+                progress=Progress(state=core_pb2.COMPLETED,
+                                  status="Done",
+                                  start=start_time,
+                                  end=Timestamp().GetCurrentTime()),
+                steps=[],
+                exposed_outputs=[],
+                fitted_solution_id=old_fitted_pipeline.id
+            ))
 
-        timestamp = Timestamp()
+        else:
+            self.log_msg(msg="Training new fitted pipeline")
 
-        steps_progress = []
-        for i, step in enumerate(fitted_pipeline.pipeline.steps):
-            primitive_metadata = step.primitive.metadata.query()
-            primitive_name = primitive_metadata['name']
-            steps_progress.append(
-                StepProgress(
-                    progress=Progress(
-                        state=core_pb2.COMPLETED,
-                        status="Done",
-                        start=start_time,
-                        end=timestamp.GetCurrentTime())))
+            fitted_pipeline = FittedPipeline(old_fitted_pipeline.pipeline,
+                                             dataset.metadata.query(())['id'],
+                                             log_dir=self.config.log_dir,
+                                             id=str(uuid.uuid4()),
+                                             metric_descriptions=old_fitted_pipeline.metric_descriptions)
 
-        step_outputs = {}
-        for expose_output in fit_request.expose_outputs:
-            parsed_output = parse_step_output(expose_output)
-            if 'outputs' in parsed_output:
-                parsed_output = parse_step_output(fitted_pipeline.pipeline.outputs[parsed_output['outputs']]['data'])
-            dataframe = fitted_pipeline.get_fit_step_output(parsed_output['steps'])
+            fitted_pipeline.fit(inputs=[dataset])
+            fitted_pipeline.produce(inputs=[dataset])
 
-            if 'outputs' in expose_output:
-                if len(dataframe.columns) > 1:
-                    print(dataframe.shape)
-                    print(dataframe.columns)
-                    print(dataframe.head())
-                    filepath = to_csv_file(dataframe,
-                                           self.file_transfer_directory,
-                                           "fit_{}_{}".format(request.request_id, expose_output),
-                                           index=False)
-                else:
-                    entry_id = find_entry_id(dataset)
-                    if self.problem_parsed:
-                        target_column_name = self.problem_parsed['inputs'][0]['targets'][0]['column_name']
+            fitted_pipeline.save(self.config.output_dir)
+
+            timestamp = Timestamp()
+
+            steps_progress = []
+            for i, step in enumerate(fitted_pipeline.pipeline.steps):
+                primitive_metadata = step.primitive.metadata.query()
+                primitive_name = primitive_metadata['name']
+                steps_progress.append(
+                    StepProgress(
+                        progress=Progress(
+                            state=core_pb2.COMPLETED,
+                            status="Done",
+                            start=start_time,
+                            end=timestamp.GetCurrentTime())))
+
+            step_outputs = {}
+            for expose_output in fit_request.expose_outputs:
+                parsed_output = parse_step_output(expose_output)
+                if 'outputs' in parsed_output:
+                    parsed_output = parse_step_output(fitted_pipeline.pipeline.outputs[parsed_output['outputs']]['data'])
+                dataframe = fitted_pipeline.get_fit_step_output(parsed_output['steps'])
+
+                if 'outputs' in expose_output:
+                    if len(dataframe.columns) > 1:
+                        print(dataframe.shape)
+                        print(dataframe.columns)
+                        print(dataframe.head())
+                        filepath = to_csv_file(dataframe,
+                                               self.file_transfer_directory,
+                                               "fit_{}_{}".format(request.request_id, expose_output),
+                                               index=False)
                     else:
-                        target_column_name = find_target_column_name(dataset, entry_id)
-                    index_column_name, index_column = find_index_column_name_index(dataset, entry_id)
-                    dataframe.columns = [target_column_name]
-                    dataframe = pd.DataFrame(np.concatenate((dataset[entry_id].loc[:, [index_column_name]].as_matrix(), dataframe.as_matrix()), axis=1))
-                    dataframe.columns = [index_column_name, target_column_name]
-                    dataframe = dataframe.set_index(index_column_name)
+                        entry_id = find_entry_id(dataset)
+                        if self.problem_parsed:
+                            target_column_name = self.problem_parsed['inputs'][0]['targets'][0]['column_name']
+                        else:
+                            target_column_name = find_target_column_name(dataset, entry_id)
+                        index_column_name, index_column = find_index_column_name_index(dataset, entry_id)
+                        dataframe.columns = [target_column_name]
+                        dataframe = pd.DataFrame(np.concatenate((dataset[entry_id].loc[:, [index_column_name]].as_matrix(), dataframe.as_matrix()), axis=1))
+                        dataframe.columns = [index_column_name, target_column_name]
+                        dataframe = dataframe.set_index(index_column_name)
 
-                    filepath = to_csv_file(dataframe, self.file_transfer_directory, "fit_{}_{}".format(request.request_id, expose_output))
-            step_outputs[expose_output] = Value(csv_uri=filepath)
+                        filepath = to_csv_file(dataframe, self.file_transfer_directory, "fit_{}_{}".format(request.request_id, expose_output))
+                step_outputs[expose_output] = Value(csv_uri=filepath)
 
-        fit_solution_results = []
-        fit_solution_results.append(GetFitSolutionResultsResponse(
-            progress=Progress(state=core_pb2.COMPLETED,
-                              status="Done",
-                              start=start_time,
-                              end=timestamp.GetCurrentTime()),
-            steps=steps_progress,
-            exposed_outputs=step_outputs,
-            fitted_solution_id=fitted_pipeline.id
-        ))
+            fit_solution_results = []
+            fit_solution_results.append(GetFitSolutionResultsResponse(
+                progress=Progress(state=core_pb2.COMPLETED,
+                                  status="Done",
+                                  start=start_time,
+                                  end=timestamp.GetCurrentTime()),
+                steps=steps_progress,
+                exposed_outputs=step_outputs,
+                fitted_solution_id=fitted_pipeline.id
+            ))
 
+        # Return results
         for result in fit_solution_results:
             yield result
 
@@ -572,6 +612,19 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
         check(result)
 
         return result
+
+    def SaveSolution(self, request, context):
+        _logger.error("SaveSolution not yet implemented")
+
+    def LoadSolution(self, request, context):
+        _logger.error("LoadSolution not yet implemented")
+
+
+    def SaveFittedSolution(self, request, context):
+        _logger.error("SaveFittedSolution not yet implemented")
+
+    def LoadFittedSolution(self, request, context):
+        _logger.error("LoadFittedSolution not yet implemented")
 
     def log_msg(self, msg):
         '''
@@ -892,12 +945,12 @@ def to_proto_primitive_step(step: PrimitiveStep) -> PipelineDescriptionStep:
     """
     arguments = {}
     for argument_name, argument_desc in step.arguments.items():
-        if argument_desc['type']==ArgumentType.CONTAINER:
-            # ArgumentType.CONTAINER
+        if argument_desc['type'] == mbase.ArgumentType.CONTAINER:
+            # mbase.ArgumentType.CONTAINER
             arguments[argument_name] = PrimitiveStepArgument(
                 container=ContainerArgument(data=argument_desc['data']))
         else:
-            # ArgumentType.DATA
+            # mbase.ArgumentType.DATA
             arguments[argument_name] = PrimitiveStepArgument(
                 data=DataArgument(data=argument_desc['data']))
     outputs = [StepOutput(id=output) for output in step.outputs]
@@ -905,13 +958,13 @@ def to_proto_primitive_step(step: PrimitiveStep) -> PipelineDescriptionStep:
     for name, hyperparam_dict in step.hyperparams.items():
         hyperparam_type = hyperparam_dict['type']
         hyperparam_data = hyperparam_dict['data']
-        if hyperparam_type == ArgumentType.CONTAINER:
+        if hyperparam_type == mbase.ArgumentType.CONTAINER:
             hyperparam = PrimitiveStepHyperparameter(container=ContainerArgument(data=hyperparam_data))
-        elif hyperparam_type == ArgumentType.DATA:
+        elif hyperparam_type == mbase.ArgumentType.DATA:
             hyperparam = PrimitiveStepHyperparameter(data=DataArgument(data=hyperparam_data))
-        elif hyperparam_type == ArgumentType.PRIMITIVE:
+        elif hyperparam_type == mbase.ArgumentType.PRIMITIVE:
             hyperparam = PrimitiveStepHyperparameter(primitive=PrimitiveArgument(data=hyperparam_data))
-        elif hyperparam_type == ArgumentType.VALUE:
+        elif hyperparam_type == mbase.ArgumentType.VALUE:
             hyperparam = PrimitiveStepHyperparameter(value=ValueArgument(data=Value(raw=to_proto_value_raw(hyperparam_data))))
         else:
             # Dataset is not a valid ArgumentType
