@@ -42,6 +42,7 @@ pd.set_option("display.max_rows", 100)
 
 class Status(enum.Enum):
     OK = 0
+    ERROR = 1
     PROBLEM_NOT_IMPLEMENT = 148
 
 
@@ -258,6 +259,7 @@ class Controller:
 
         # !!!!
         # self.saved_pipeline_id = config.get('saved_pipeline_ID', "")
+        self.saved_pipeline_id = ""
 
         for i in range(len(self.config.problem['inputs'])):
             if 'targets' in self.config.problem['inputs'][i]:
@@ -777,7 +779,7 @@ class Controller:
         self.load_templates()
 
     def load_pipe_runtime(self):
-        d = os.path.expanduser(self.config.output_dir + '/pipelines')
+        dir = os.path.expanduser(self.config.output_dir + '/pipelines_fitted')
         read_pipeline_id = self.saved_pipeline_id
         if read_pipeline_id == "":
             self._logger.info(
@@ -785,7 +787,7 @@ class Controller:
                 "crated pipeline.")
             # if no pipeline ID given, load the newest created file in the
             # folder
-            files = [os.path.join(d, f) for f in os.listdir(d)]
+            files = [os.path.join(dir, f) for f in os.listdir(dir)]
             files.sort(key=lambda f: os.stat(f).st_mtime)
             lastmodified = files[-1]
             read_pipeline_id = lastmodified.split('/')[-1].split('.')[0]
@@ -973,9 +975,15 @@ class Controller:
 
         # update: it seems now prediction on new runtime will only have last output
         # TODO: check whether it fit all dataset
-        step_number_output = 0
-        prediction = run_test.produce_outputs[step_number_output]
-        prediction = self.add_d3m_index_and_prediction_class_name(prediction)
+        # step_number_output = 0
+        # prediction = run_test.produce_outputs[step_number_output]
+        # prediction = self.add_d3m_index_and_prediction_class_name(prediction)
+
+        if 'outputs.0' not in run_test.produce_outputs.values:
+            self._logger.error("Could not find 'outputs.' in pipeline outputs")
+            return Status.ERROR
+
+        prediction = run_test.produce_outputs.values['outputs.0']
         prediction_folder_loc = outputs_loc + "/predictions/" + read_pipeline_id
         folder = os.path.exists(prediction_folder_loc)
         if not folder:
