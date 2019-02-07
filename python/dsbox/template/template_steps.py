@@ -304,7 +304,7 @@ class TemplateSteps:
                 "name": "encoder_step",
                 "primitives": [
                     "d3m.primitives.data_preprocessing.Encoder.DSBOX",
-                    "d3m.primitives.data_cleaning.Labler.DSBOX"
+                    "d3m.primitives.data_cleaning.Labeler.DSBOX"
                 ],
                 "inputs": ["clean_step"]
             },
@@ -592,7 +592,7 @@ class TemplateSteps:
                     "name": encoded_name,
                     "primitives": [
                         {"primitive": "d3m.primitives.data_preprocessing.Encoder.DSBOX", },
-                        {"primitive": "d3m.primitives.data_cleaning.Labler.DSBOX", },
+                        {"primitive": "d3m.primitives.data_cleaning.Labeler.DSBOX", },
                         # {"primitive": "d3m.primitives.data_preprocessing.DoNothing.DSBOX", },
                     ],
                     "inputs": ["encode_text_step"]

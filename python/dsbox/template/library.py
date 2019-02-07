@@ -1199,7 +1199,7 @@ class Large_column_number_with_numerical_only_classification(DSBoxTemplate):
                 # },
                 {
                     "name": "encode2_step",
-                    "primitives": ["d3m.primitives.data_cleaning.Labler.DSBOX"],
+                    "primitives": ["d3m.primitives.data_cleaning.Labeler.DSBOX"],
                     "inputs": ["extract_attribute_step"]
                 },
                 # {
