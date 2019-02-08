@@ -1287,7 +1287,7 @@ class Large_column_number_with_numerical_only_regression(DSBoxTemplate):
                 # },
                 {
                     "name": "encode2_step",
-                    "primitives": ["d3m.primitives.data_cleaning.Labler.DSBOX"],
+                    "primitives": ["d3m.primitives.data_cleaning.Labeler.DSBOX"],
                     "inputs": ["extract_attribute_step"]
                 },
                 # {
@@ -2960,7 +2960,7 @@ class TA1Classification_2(DSBoxTemplate):
                 },
                 {
                     "name": "encoder_step",
-                    "primitives": ["d3m.primitives.data_cleaning.Labler.DSBOX"],
+                    "primitives": ["d3m.primitives.data_cleaning.Labeler.DSBOX"],
                     "inputs": ["corex_step"]
                 },
                 {
@@ -3065,7 +3065,7 @@ class TA1Classification_3(DSBoxTemplate):
                 },
                 {
                     "name": "label_step",
-                    "primitives": ["d3m.primitives.data_cleaning.Labler.DSBOX"],
+                    "primitives": ["d3m.primitives.data_cleaning.Labeler.DSBOX"],
                     "inputs": ["impute_step"]
                 },
                 {
