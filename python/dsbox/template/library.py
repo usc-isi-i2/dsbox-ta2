@@ -90,6 +90,7 @@ class TemplateLibrary:
             "TA1_classification_template_1": TA1ClassificationTemplate1,
             "MuxinTA1ClassificationTemplate1": MuxinTA1ClassificationTemplate1,
             "MuxinTA1ClassificationTemplate2": MuxinTA1ClassificationTemplate2,
+            "MuxinTA1ClassificationTemplate3": MuxinTA1ClassificationTemplate3,
             "UU3_Test_Template": UU3TestTemplate,
             "TA1Classification_2": TA1Classification_2,
             "TA1Classification_3": TA1Classification_3,
@@ -110,6 +111,7 @@ class TemplateLibrary:
             "JHU_Graph_Matching_Template": JHUGraphMatchingTemplate,
             "JHU_Vertex_Nomination_Template": JHUVertexNominationTemplate,
             "Default_Time_Series_Forcasting_Template": DefaultTimeSeriesForcastingTemplate,
+            "Default_timeseries_collection_template": DefaultTimeseriesCollectionTemplate,
             "Michigan_Video_Classification_Template": MichiganVideoClassificationTemplate,
             "DefaultTimeseriesRegressionTemplate": DefaultTimeseriesRegressionTemplate,
             "TimeSeriesForcastingTestingTemplate": TimeSeriesForcastingTestingTemplate,
@@ -1754,7 +1756,8 @@ class DefaultTimeseriesCollectionTemplate(DSBoxTemplate):
                         "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.DataFrameCommon",
                         "hyperparameters":
                             {
-                                'semantic_types': ('https://metadata.datadrivendiscovery.org/types/TrueTarget',),
+                                'semantic_types': ('https://metadata.datadrivendiscovery.org/types/Target',
+                                                'https://metadata.datadrivendiscovery.org/types/SuggestedTarget'),
                                 'use_columns': (),
                                 'exclude_columns': ()
                             }
@@ -3158,8 +3161,11 @@ class MuxinTA1ClassificationTemplate1(DSBoxTemplate):
                 },
                 {
                     "name": "impute_step",
-                    "primitives": ["d3m.primitives.data_preprocessing.MeanImputation.DSBOX"],
-                    "inputs": ["encode2_step"]
+                    # "primitives": ["d3m.primitives.data_preprocessing.MeanImputation.DSBOX"],
+                    "primitives": ["d3m.primitives.data_preprocessing.GreedyImputation.DSBOX"],
+                    # "primitives": ["d3m.primitives.data_preprocessing.IterativeRegressionImputation.DSBOX"],
+
+                    "inputs": ["encode2_step","extract_target_step" ]
                 },
                 {
                     "name": "cast_1_step",
