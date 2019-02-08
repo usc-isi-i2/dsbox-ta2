@@ -226,6 +226,7 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
         self.config._logger = None
         self.search_solution[request_id] = copy.deepcopy(self.config)
         self.search_solution[request_id]._logger = logger
+        self.config._logger = logger
 
         result = SearchSolutionsResponse(search_id=request_id)
 
