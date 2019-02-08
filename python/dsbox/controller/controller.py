@@ -13,12 +13,14 @@ from math import sqrt, log
 import traceback
 import importlib
 import frozendict
+
 spam_spec = importlib.util.find_spec("colorama")
 STYLE = ""
 ERROR = ""
 WARNING = ""
 if spam_spec is not None:
     from colorama import Fore, Back, init
+
     # STYLE = Fore.BLUE + Back.GREEN
     STYLE = Fore.BLACK + Back.GREEN
     ERROR = Fore.WHITE + Back.RED
@@ -39,6 +41,7 @@ from d3m.metadata.base import ALL_ELEMENTS
 from d3m.metadata.base import Metadata, DataMetadata
 from d3m.metadata.problem import TaskSubtype
 from d3m.metadata.problem import parse_problem_description
+from d3m.metadata.problem import PerformanceMetric
 
 from dsbox.pipeline.fitted_pipeline import FittedPipeline
 from dsbox.template.library import TemplateDescription
@@ -66,6 +69,7 @@ LOG_FILENAME = 'dsbox.log'
 CONSOLE_LOGGING_LEVEL = logging.DEBUG
 # CONSOLE_LOGGING_LEVEL = logging.DEBUG
 CONSOLE_FORMATTER = "[%(levelname)s] - %(name)s - %(message)s"
+
 
 class Status(enum.Enum):
     OK = 0
@@ -105,8 +109,8 @@ class Controller:
         self.threshold_index_length = 100000
         # hard coded unsplit dataset type
         # TODO: check whether "speech" type should be put into this list or not
-        self.data_type_cannot_split = ["graph","edgeList", "audio"]
-        self.task_type_can_split = ["CLASSIFICATION","REGRESSION","TIME_SERIES_FORECASTING"]
+        self.data_type_cannot_split = ["graph", "edgeList", "audio"]
+        self.task_type_can_split = ["CLASSIFICATION", "REGRESSION", "TIME_SERIES_FORECASTING"]
 
         # Resource limits
         self.num_cpus: int = 0
@@ -144,12 +148,15 @@ class Controller:
         4. _log_init
         **********************************************************************
     '''
+
     def _check_and_set_dataset_metadata(self) -> None:
         # Need to make sure the Target and TrueTarget column semantic types are set
         if self.task_type == TaskType.CLASSIFICATION or self.task_type == TaskType.REGRESSION:
 
             # start from last column, since typically target is the last column
-            for index in range(self.all_dataset.metadata.query(('0', ALL_ELEMENTS))['dimension']['length']-1, -1, -1):
+            for index in range(
+                    self.all_dataset.metadata.query(('0', ALL_ELEMENTS))['dimension']['length'] - 1,
+                    -1, -1):
                 column_semantic_types = self.all_dataset.metadata.query(
                     ('0', ALL_ELEMENTS, index))['semantic_types']
                 if ('https://metadata.datadrivendiscovery.org/types/Target' in column_semantic_types
@@ -157,12 +164,15 @@ class Controller:
                     return
 
             # If not set, use sugested target column
-            for index in range(self.all_dataset.metadata.query(('0', ALL_ELEMENTS))['dimension']['length']-1, -1, -1):
+            for index in range(
+                    self.all_dataset.metadata.query(('0', ALL_ELEMENTS))['dimension']['length'] - 1,
+                    -1, -1):
                 column_semantic_types = self.all_dataset.metadata.query(
                     ('0', ALL_ELEMENTS, index))['semantic_types']
                 if 'https://metadata.datadrivendiscovery.org/types/SuggestedTarget' in column_semantic_types:
-                    column_semantic_types = list(column_semantic_types) + ['https://metadata.datadrivendiscovery.org/types/Target',
-                                                                           'https://metadata.datadrivendiscovery.org/types/TrueTarget']
+                    column_semantic_types = list(column_semantic_types) + [
+                        'https://metadata.datadrivendiscovery.org/types/Target',
+                        'https://metadata.datadrivendiscovery.org/types/TrueTarget']
                     self.all_dataset.metadata = self.all_dataset.metadata.update(
                         ('0', ALL_ELEMENTS, index), {'semantic_types': column_semantic_types})
                     return
@@ -206,7 +216,8 @@ class Controller:
 
         self._log_init()
         self._logger.info('Top level output directory: %s' % self.output_directory)
-        considered_root = os.path.join(os.path.dirname(self.output_pipelines_dir), 'pipelines_considered')
+        considered_root = os.path.join(os.path.dirname(self.output_pipelines_dir),
+                                       'pipelines_considered')
         self._logger.info('Considered output directory: %s' % considered_root)
 
     def _load_schema(self, config):
@@ -215,7 +226,8 @@ class Controller:
 
         # Problem
         self.problem = parse_problem_description(config['problem_schema'])
-        self.problem_doc_metadata = runtime.load_problem_doc(os.path.abspath(config['problem_schema']))
+        self.problem_doc_metadata = runtime.load_problem_doc(
+            os.path.abspath(config['problem_schema']))
         self.task_type = self.problem['problem']['task_type']
         self.task_subtype = self.problem['problem']['task_subtype']
 
@@ -236,12 +248,13 @@ class Controller:
         self.timeout = (config.get('timeout', self.TIMEOUT)) * 60
         self.saved_pipeline_id = config.get('saved_pipeline_ID', "")
 
-    # def _generate_problem_info(self,problem):
+        # def _generate_problem_info(self,problem):
         for i in range(len(self.problem['inputs'])):
             if 'targets' in self.problem['inputs'][i]:
                 break
 
-        self.problem_info["task_type"] = self.problem['problem']['task_type'].name  # 'classification' 'regression'
+        self.problem_info["task_type"] = self.problem['problem'][
+            'task_type'].name  # 'classification' 'regression'
         self.problem_info["res_id"] = self.problem['inputs'][i]['targets'][0]['resource_id']
         self.problem_info["target_index"] = []
         for each in self.problem['inputs'][i]['targets']:
@@ -268,7 +281,7 @@ class Controller:
 
     def _process_pipeline_submission(self) -> None:
         output_dir = os.path.dirname(self.output_pipelines_dir)
-        print("[PROSKA]:",output_dir)
+        print("[PROSKA]:", output_dir)
         pipelines_root: str = os.path.join(output_dir, 'pipelines')
         executables_root: str = os.path.join(output_dir, 'executables')
         supporting_root: str = os.path.join(output_dir, 'supporting_files')
@@ -293,7 +306,6 @@ class Controller:
                 pipelines_df.at[name, 'rank'] = rank
             except:
                 os.remove(os.path.join(pipelines_root, name))
-
 
         # sort them based on their rank field
         pipelines_df.sort_values(by='rank', ascending=True, inplace=True)
@@ -348,6 +360,7 @@ class Controller:
         18. write_training_results
         **********************************************************************
     '''
+
     def auto_regress_convert(self, dataset: "Dataset"):
         '''
         do auto convert for timeseriesforecasting prob
@@ -357,8 +370,10 @@ class Controller:
         for each_target in range(len(targets)):
             resID = targets[each_target]["resID"]
             colIndex = targets[each_target]["colIndex"]
-            if problem["about"]["taskType"] == "timeSeriesForecasting" or problem["about"]["taskType"] == "regression":
-                dataset[resID].iloc[:, colIndex] = pd.to_numeric(dataset[resID].iloc[:, colIndex], downcast = "float", errors = "coerce")
+            if problem["about"]["taskType"] == "timeSeriesForecasting" or problem["about"][
+                "taskType"] == "regression":
+                dataset[resID].iloc[:, colIndex] = pd.to_numeric(dataset[resID].iloc[:, colIndex],
+                                                                 downcast="float", errors="coerce")
                 meta = dict(dataset.metadata.query((resID, ALL_ELEMENTS, colIndex)))
                 meta["structural_type"] = float
                 dataset.metadata = dataset.metadata.update((resID, ALL_ELEMENTS, colIndex), meta)
@@ -374,14 +389,13 @@ class Controller:
             reward = history['reward']
             # / history['trial']
 
-            return (beta * (reward) * max(log(10*history['trial']), 1) +
-                gamma * sqrt(2 * log(self.total_run) / history['trial']) +
-                delta * sqrt(2 * log(self.total_time) / history['exe_time']))
+            return (beta * (reward) * max(log(10 * history['trial']), 1) +
+                    gamma * sqrt(2 * log(self.total_run) / history['trial']) +
+                    delta * sqrt(2 * log(self.total_time) / history['exe_time']))
         except:
             self._logger.error('Failed to compute UCT. Defaulting to 100.0')
             # print(STYLE+"[WARN] compute UCT failed:", history.tolist())
             return None
-
 
     @staticmethod
     def generate_configuration_space(template_desc: TemplateDescription, problem: typing.Dict,
@@ -403,7 +417,6 @@ class Controller:
         # values: typing.Dict[DimensionName, typing.List] = {}
         return SimpleConfigurationSpace(values)
 
-
     def initialize_from_config_for_evaluation(self, config: typing.Dict) -> None:
         '''
             This function for running ta2_evaluation
@@ -417,9 +430,13 @@ class Controller:
         all_dataset_uri = 'file://{}'.format(json_file)
         self.all_dataset = loader.load(dataset_uri=all_dataset_uri)
 
+        # test dataset
+        json_file = config['original_schema']
+        test_uri = 'file://{}'.format(json_file)
+        self.original_dataset = loader.load(dataset_uri=test_uri)
+
         # load templates
         self.load_templates()
-
 
     def initialize_from_config_train_test(self, config: typing.Dict) -> None:
         '''
@@ -438,7 +455,6 @@ class Controller:
         # Templates
         self.load_templates()
 
-
     def initialize_uct(self):
         self.total_run = 0
         self.total_time = 0
@@ -448,7 +464,8 @@ class Controller:
 
         self.exec_history = pd.DataFrame(None,
                                          index=map(lambda s: s.template["name"], self.template),
-                                         columns=['reward', 'exe_time', 'trial', 'candidate', 'best_value'])
+                                         columns=['reward', 'exe_time', 'trial', 'candidate',
+                                                  'best_value'])
         self.exec_history[['reward', 'exe_time', 'trial']] = 0
         self.exec_history[['best_value']] = float('-inf')
 
@@ -457,7 +474,6 @@ class Controller:
 
         # print(self.exec_history.to_string())
         self.uct_score = [None] * len(self.template)
-
 
     def load_pipe_runtime(self):
         d = os.path.expanduser(self.output_directory + '/pipelines')
@@ -478,9 +494,9 @@ class Controller:
                                                  log_dir=self.output_logs_dir)
         return self.output_directory, pipeline_load, read_pipeline_id, run
 
-
     def load_templates(self) -> None:
-        self.template = self.template_library.get_templates(self.task_type, self.task_subtype, self.taskSourceType)
+        self.template = self.template_library.get_templates(self.task_type, self.task_subtype,
+                                                            self.taskSourceType)
         # find the maximum dataset split requirements
         for each_template in self.template:
             for each_step in each_template.template['steps']:
@@ -488,7 +504,6 @@ class Controller:
                     split_times = int(each_step["runtime"]["test_validation"])
                     if split_times > self.max_split_times:
                         self.max_split_times = split_times
-
 
     def remove_empty_targets(self, dataset: "Dataset"):
         '''
@@ -514,9 +529,8 @@ class Controller:
 
         return dataset
 
-
-    def search_template(self, template: DSBoxTemplate, candidate: typing.Dict=None,
-                        cache_bundle: typing.Tuple[typing.Dict, typing.Dict]=(None, None)) \
+    def search_template(self, template: DSBoxTemplate, candidate: typing.Dict = None,
+                        cache_bundle: typing.Tuple[typing.Dict, typing.Dict] = (None, None)) \
             -> typing.Dict:
 
         self._logger.info('Searching template %s', template.template['name'])
@@ -527,13 +541,13 @@ class Controller:
 
         # setup the dimensional search configs
         search = TemplateDimensionalSearch(
-            template = template, configuration_space = space, problem = self.problem_doc_metadata,
-            test_dataset1 = self.test_dataset1, train_dataset1 = self.train_dataset1,
-            test_dataset2 = self.test_dataset2, train_dataset2 = self.train_dataset2,
-            all_dataset = self.all_dataset, performance_metrics = metrics,
+            template=template, configuration_space=space, problem=self.problem_doc_metadata,
+            test_dataset1=self.test_dataset1, train_dataset1=self.train_dataset1,
+            test_dataset2=self.test_dataset2, train_dataset2=self.train_dataset2,
+            all_dataset=self.all_dataset, performance_metrics=metrics,
             output_directory=self.output_directory, log_dir=self.output_logs_dir,
             num_workers=self.num_cpus
-            )
+        )
 
         self.minimize = search.minimize
         # candidate, value = search.search_one_iter()
@@ -548,7 +562,7 @@ class Controller:
         else:
             self._logger.info("******************\n[INFO] Writing results")
             pprint.pprint(candidate.data)
-            self._logger.info(str(candidate.data)+ " "+ str(value))
+            self._logger.info(str(candidate.data) + " " + str(value))
 
             if candidate.data['training_metrics']:
                 if type(candidate.data['training_metrics'][0]) is dict:
@@ -605,15 +619,18 @@ class Controller:
             selected = random_choices_without_replacement(_choices, _weights, 1)
             yield selected[0]
 
-    def split_dataset(self, dataset, random_state=42, test_size=0.2, n_splits=1, need_test_dataset = True):
+    def split_dataset(self, dataset, random_state=42, test_size=0.2, n_splits=1,
+                      need_test_dataset=True):
         '''
             Split dataset into 2 parts for training and test
         '''
+
         def _add_meta_data(dataset, res_id, input_part):
             dataset_with_new_meta = copy.copy(dataset)
             dataset_metadata = dict(dataset_with_new_meta.metadata.query(()))
             dataset_metadata['id'] = dataset_metadata['id'] + '_' + str(uuid.uuid4())
-            dataset_with_new_meta.metadata = dataset_with_new_meta.metadata.update((), dataset_metadata)
+            dataset_with_new_meta.metadata = dataset_with_new_meta.metadata.update((),
+                                                                                   dataset_metadata)
 
             dataset_with_new_meta[res_id] = input_part
             meta = dict(dataset_with_new_meta.metadata.query((res_id,)))
@@ -625,11 +642,11 @@ class Controller:
             # pprint(dict(dataset_with_new_meta.metadata.query((res_id,))))
             return dataset_with_new_meta
 
-        task_type = self.problem_info["task_type"]  #['problem']['task_type'].name  # 'classification' 'regression'
+        task_type = self.problem_info[
+            "task_type"]  # ['problem']['task_type'].name  # 'classification' 'regression'
         res_id = self.problem_info["res_id"]
         target_index = self.problem_info["target_index"]
         data_type = self.problem_info["data_type"]
-
 
         train_return = []
         test_return = []
@@ -654,7 +671,7 @@ class Controller:
         # if the dataset type in the list that we should not split
         if cannot_split:
             for i in range(n_splits):
-            # just return all dataset to train part
+                # just return all dataset to train part
                 train_return.append(dataset)
                 test_return.append(None)
 
@@ -664,31 +681,39 @@ class Controller:
                 try:
 
                     # Use stratified sample to split the dataset
-                    sss = StratifiedShuffleSplit(n_splits=n_splits, test_size=test_size, random_state=random_state)
+                    sss = StratifiedShuffleSplit(n_splits=n_splits, test_size=test_size,
+                                                 random_state=random_state)
                     sss.get_n_splits(dataset[res_id], dataset[res_id].iloc[:, target_index])
 
-                    for train_index, test_index in sss.split(dataset[res_id], dataset[res_id].iloc[:, target_index]):
+                    for train_index, test_index in sss.split(dataset[res_id],
+                                                             dataset[res_id].iloc[:, target_index]):
                         indf = dataset[res_id]
-                        outdf_train = pd.DataFrame(columns = dataset[res_id].columns)
+                        outdf_train = pd.DataFrame(columns=dataset[res_id].columns)
 
                         for each_index in train_index:
-                            outdf_train = outdf_train.append(indf.loc[each_index],ignore_index = True)
+                            outdf_train = outdf_train.append(indf.loc[each_index],
+                                                             ignore_index=True)
 
-                        outdf_train = d3m_DataFrame(outdf_train, generate_metadata = False)
-                        outdf_train = outdf_train.set_index("d3mIndex", drop = False)
-                        train = _add_meta_data(dataset = dataset, res_id = res_id, input_part = outdf_train)
-                        #train = _add_meta_data(dataset = dataset, res_id = res_id, input_part = dataset[res_id].iloc[train_index, :])
+                        outdf_train = d3m_DataFrame(outdf_train, generate_metadata=False)
+                        outdf_train = outdf_train.set_index("d3mIndex", drop=False)
+                        train = _add_meta_data(dataset=dataset, res_id=res_id,
+                                               input_part=outdf_train)
+                        # train = _add_meta_data(dataset = dataset, res_id = res_id, input_part =
+                        # dataset[res_id].iloc[train_index, :])
                         train_return.append(train)
 
                         # for special condition that only need get part of the dataset
                         if need_test_dataset:
-                            outdf_test = pd.DataFrame(columns = dataset[res_id].columns)
+                            outdf_test = pd.DataFrame(columns=dataset[res_id].columns)
                             for each_index in test_index:
-                                outdf_test = outdf_test.append(indf.loc[each_index],ignore_index = True)
-                            outdf_test = d3m_DataFrame(outdf_test, generate_metadata = False)
-                            outdf_test = outdf_test.set_index("d3mIndex", drop = False)
-                            test = _add_meta_data(dataset = dataset, res_id = res_id, input_part = outdf_test)
-                            #test = _add_meta_data(dataset = dataset, res_id = res_id, input_part = dataset[res_id].iloc[test_index, :])
+                                outdf_test = outdf_test.append(indf.loc[each_index],
+                                                               ignore_index=True)
+                            outdf_test = d3m_DataFrame(outdf_test, generate_metadata=False)
+                            outdf_test = outdf_test.set_index("d3mIndex", drop=False)
+                            test = _add_meta_data(dataset=dataset, res_id=res_id,
+                                                  input_part=outdf_test)
+                            # test = _add_meta_data(dataset = dataset, res_id = res_id,
+                            # input_part = dataset[res_id].iloc[test_index, :])
                             test_return.append(test)
                         else:
                             test_return.append(None)
@@ -702,22 +727,22 @@ class Controller:
             else:
                 # Use random split
                 if not task_type == "REGRESSION":
-
                     print('USING Random Split to split task type: {}'.format(task_type))
                 ss = ShuffleSplit(n_splits=n_splits, test_size=test_size, random_state=random_state)
                 ss.get_n_splits(dataset[res_id])
                 for train_index, test_index in ss.split(dataset[res_id]):
-                    train = _add_meta_data(dataset = dataset, res_id = res_id, input_part = dataset[res_id].iloc[train_index, :])
+                    train = _add_meta_data(dataset=dataset, res_id=res_id,
+                                           input_part=dataset[res_id].iloc[train_index, :])
                     train_return.append(train)
                     # for special condition that only need get part of the dataset
                     if need_test_dataset:
-                        test = _add_meta_data(dataset = dataset, res_id = res_id, input_part = dataset[res_id].iloc[test_index, :])
+                        test = _add_meta_data(dataset=dataset, res_id=res_id,
+                                              input_part=dataset[res_id].iloc[test_index, :])
                         test_return.append(test)
                     else:
                         test_return.append(None)
 
         return (train_return, test_return)
-
 
     def test(self) -> Status:
         """
@@ -750,10 +775,12 @@ class Controller:
                 for each_resource in dataset_description["dataResources"]:
                     if "columns" in each_resource:
                         for each_column in each_resource["columns"]:
-                            if "suggestedTarget" in each_column["role"] or "target" in each_column["role"]:
+                            if "suggestedTarget" in each_column["role"] or "target" in each_column[
+                                "role"]:
                                 prediction_class_name.append(each_column["colName"])
         except:
-            self._logger.error("[Warning] Can't find the prediction class name, will use default name 'prediction'.")
+            self._logger.error(
+                "[Warning] Can't find the prediction class name, will use default name 'prediction'.")
             prediction_class_name.append("prediction")
 
         prediction = run_test.produce_outputs[step_number_output]
@@ -770,33 +797,59 @@ class Controller:
             prediction = prediction[prediction_col_name]
             prediction_col_name.remove('d3mIndex')
             for i in range(len(prediction_class_name)):
-                prediction = prediction.rename(columns={prediction_col_name[i]: prediction_class_name[i]})
+                prediction = prediction.rename(
+                    columns={prediction_col_name[i]: prediction_class_name[i]})
         prediction_folder_loc = outputs_loc + "/predictions/" + read_pipeline_id
         folder = os.path.exists(prediction_folder_loc)
         if not folder:
             os.makedirs(prediction_folder_loc)
         prediction.to_csv(prediction_folder_loc + "/predictions.csv", index=False)
         self._logger.info("[INFO] Finished: prediction results saving finished")
-        self._logger.info("[INFO] The prediction results is stored at: {}".format(prediction_folder_loc))
+        self._logger.info(
+            "[INFO] The prediction results is stored at: {}".format(prediction_folder_loc))
         return Status.OK
+
+    def test_all_fitted_pipelines(self):
+        d = os.path.expanduser(self.output_directory + '/pipelines')
+        files = [os.path.join(d, f) for f in os.listdir(d)]
+        fileranks = []
+        for f_name in files:
+            with open(f_name) as f:
+                pipe_json = json.load(f)
+                fileranks.append((f_name, pipe_json["pipeline_rank"]))
+
+        fileranks.sort(key=lambda t: t[1])
+
+        results = pd.DataFrame(None, index=files, columns=['metrics', 'rank'])
+
+        for file_pipe, rank in fileranks:
+            fitted_pipeline_id = file_pipe.split('/')[-1].split('.')[0]
+            metric = self.test_fitted_pipeline(fitted_pipeline_id=fitted_pipeline_id)
+            results.loc[file_pipe,'metric'] = metric
+            results.loc[file_pipe,'rank'] = rank
+
+        results.to_csv(os.path.join(self.output_directory, 'test_set_results.csv'))
+        print(results)
 
     def test_fitted_pipeline(self, fitted_pipeline_id):
         print("[INFO] Start test function")
-        d = os.path.expanduser(self.output_directory + '/pipelines')
+        # d = os.path.expanduser(os.path.join(self.output_directory ,'pipelines'))
         if fitted_pipeline_id == "":
-            print(
-                "[INFO] No specified pipeline ID found, will load the latest "
-                "crated pipeline.")
-            # if no pipeline ID given, load the newest created file in the
-            # folder
+            d = os.path.expanduser(self.output_directory + '/pipelines')
             files = [os.path.join(d, f) for f in os.listdir(d)]
-            files.sort(key=lambda f: os.stat(f).st_mtime)
-            lastmodified = files[-1]
+            fileranks = []
+            for f_name in files:
+                with open(f_name) as f:
+                    pipe_json = json.load(f)
+                    fileranks.append((f_name, pipe_json["pipeline_rank"]))
+
+            fileranks.sort(key=lambda t: t[1])
+            lastmodified = fileranks[0][0]
             fitted_pipeline_id = lastmodified.split('/')[-1].split('.')[0]
 
         pipeline_load, run_test = FittedPipeline.load(folder_loc=self.output_directory,
-                                                 pipeline_id=fitted_pipeline_id,
-                                                 log_dir=self.output_logs_dir)
+                                                      pipeline_id=fitted_pipeline_id,
+                                                      log_dir=self.output_logs_dir)
 
         print("[INFO] Pipeline load finished")
 
@@ -824,11 +877,22 @@ class Controller:
                 for each_resource in dataset_description["dataResources"]:
                     if "columns" in each_resource:
                         for each_column in each_resource["columns"]:
-                            if "suggestedTarget" in each_column["role"] or "target" in each_column["role"]:
+                            if "suggestedTarget" in each_column["role"] or "target" in each_column[
+                                "role"]:
                                 prediction_class_name.append(each_column["colName"])
         except:
-            self._logger.error("[Warning] Can't find the prediction class name, will use default name 'prediction'.")
+            self._logger.error(
+                "[Warning] Can't find the prediction class name, will use default name 'prediction'.")
             prediction_class_name.append("prediction")
+
+        # golden = get_target_columns(self.all_dataset, self.problem_doc_metadata)
+
+        self.original_dataset = self.auto_regress_convert(self.original_dataset)
+        runtime.add_target_columns_metadata(self.original_dataset, self.problem_doc_metadata)
+
+        all_golden = get_target_columns(self.original_dataset, self.problem_doc_metadata)
+
+        # print("[INFO] actual data:", type(golden))
 
         prediction = run_test.produce_outputs[step_number_output]
         # if the prediction results do not have d3m_index column
@@ -843,23 +907,42 @@ class Controller:
             prediction = prediction[prediction_col_name]
             prediction_col_name.remove('d3mIndex')
             for i in range(len(prediction_class_name)):
-                prediction = prediction.rename(columns={prediction_col_name[i]: prediction_class_name[i]})
+                prediction = prediction.rename(
+                    columns={prediction_col_name[i]: prediction_class_name[i]})
         prediction_folder_loc = self.output_directory + "/predictions/" + fitted_pipeline_id
         folder = os.path.exists(prediction_folder_loc)
         if not folder:
             os.makedirs(prediction_folder_loc)
         prediction.to_csv(prediction_folder_loc + "/predictions.csv", index=False)
         self._logger.info("[INFO] Finished: prediction results saving finished")
-        self._logger.info("[INFO] The prediction results is stored at: {}".format(prediction_folder_loc))
-        return Status.OK
+        self._logger.info(
+            "[INFO] The prediction results is stored at: {}".format(prediction_folder_loc))
 
+        ############################## Computing the evaluation metric
+        test_golden = all_golden.set_index('d3mIndex').loc[prediction['d3mIndex'].values]
+
+        performance_metric = self.problem['problem']['performance_metrics']
+
+        computed_metrics = []
+        for metric_description in performance_metric:
+            metricDesc = metric_description[
+                'metric']  # PerformanceMetric.parse(metric_description['metric'])
+            metric: typing.Callable = metricDesc.get_function()
+            params: typing.Dict = metric_description['params']
+
+            metric_val = metric(test_golden, prediction.set_index("d3mIndex"), **params)
+            print("[INFO] value for {} is {}".format(metric_description, metric_val))
+            computed_metrics.append((metric_description, metric_val))
+
+
+        return computed_metrics
 
     def train(self) -> Status:
         """
             Generate and train pipelines.
         """
-        #self._process_pipeline_submission()
-        #exit(0)
+        # self._process_pipeline_submission()
+        # exit(0)
         if not self.template:
             return Status.PROBLEM_NOT_IMPLEMENT
 
@@ -881,14 +964,19 @@ class Controller:
         # if the column length is larger than the threshold, it may failed in the given time, so we need to sample part of the dataset
 
         if main_res_shape[1] > self.threshold_column_length:
-            self._logger.info("The columns number of the input dataset is very large, now sampling part of them.")
+            self._logger.info(
+                "The columns number of the input dataset is very large, now sampling part of them.")
 
             # first check the target column amount
             target_column_list = []
-            all_column_length = self.all_dataset.metadata.query((res_id,ALL_ELEMENTS))['dimension']['length']
+            all_column_length = \
+            self.all_dataset.metadata.query((res_id, ALL_ELEMENTS))['dimension']['length']
             for each_column in range(all_column_length - 1, 0, -1):
-                each_column_meta = self.all_dataset.metadata.query((res_id,ALL_ELEMENTS,each_column))
-                if ('https://metadata.datadrivendiscovery.org/types/SuggestedTarget' or  'https://metadata.datadrivendiscovery.org/types/Target' or  'https://metadata.datadrivendiscovery.org/types/TrueTarget') in each_column_meta['semantic_types']:
+                each_column_meta = self.all_dataset.metadata.query(
+                    (res_id, ALL_ELEMENTS, each_column))
+                if (
+                        'https://metadata.datadrivendiscovery.org/types/SuggestedTarget' or 'https://metadata.datadrivendiscovery.org/types/Target' or 'https://metadata.datadrivendiscovery.org/types/TrueTarget') in \
+                        each_column_meta['semantic_types']:
                     target_column_list.append(each_column)
                 # to accelerate the program running, now we assume the target columns are always at the end of the columns
                 else:
@@ -913,25 +1001,28 @@ class Controller:
                     # TODO:
                     # add special template that use random projection directly
                     # add one special source type for the template special process such kind of dataset
-                    self._logger.info("Special type of dataset: large column number with all categorical columns.")
+                    self._logger.info(
+                        "Special type of dataset: large column number with all categorical columns.")
                     self._logger.info("Will reload the template with new task source type.")
                     self.taskSourceType.add("large_column_number")
                     # aadd new template specially for large column numbers at the first priority
-                    new_template = self.template_library.get_templates(self.task_type, self.task_subtype, self.taskSourceType)
+                    new_template = self.template_library.get_templates(self.task_type,
+                                                                       self.task_subtype,
+                                                                       self.taskSourceType)
                     # find the maximum dataset split requirements
                     for each_template in new_template:
-                        self.template.insert(0,each_template)
+                        self.template.insert(0, each_template)
                         for each_step in each_template.template['steps']:
                             if "runtime" in each_step and "test_validation" in each_step["runtime"]:
                                 split_times = int(each_step["runtime"]["test_validation"])
                                 if split_times > self.max_split_times:
                                     self.max_split_times = split_times
 
-                # else:
+                    # else:
                     # run sampling method to randomly throw some columns
                     # update problem metadata
                     problem = dict(self.problem_doc_metadata.query(()))
-                    #data_meta = dict(problem["inputs"]["data"][0])
+                    # data_meta = dict(problem["inputs"]["data"][0])
                     data_meta = []
                     for each_data in problem["inputs"]["data"]:
                         # update targets metadata for each target columns
@@ -939,7 +1030,8 @@ class Controller:
                         each_data = dict(each_data)
                         for each_target in each_data["targets"]:
                             target_meta_each = dict(each_target)
-                            target_meta_each['colIndex'] = self.threshold_column_length + (all_column_length - target_meta_each['colIndex'])
+                            target_meta_each['colIndex'] = self.threshold_column_length + (
+                                        all_column_length - target_meta_each['colIndex'])
                             target_meta.append(frozendict.FrozenOrderedDict(target_meta_each))
                         # return the updated target_meta
                         each_data["targets"] = tuple(target_meta)
@@ -951,7 +1043,7 @@ class Controller:
                     problem["inputs"] = frozendict.FrozenOrderedDict(problem["inputs"])
                     problem = frozendict.FrozenOrderedDict(problem)
                     # update problem doc metadata
-                    self.problem_doc_metadata = self.problem_doc_metadata.update((),problem)
+                    self.problem_doc_metadata = self.problem_doc_metadata.update((), problem)
                     # updating problem_doc_metadata finished
 
                     all_attribute_columns = range(1, attribute_column_length + 1)
@@ -960,61 +1052,76 @@ class Controller:
                     metadata_new = DataMetadata()
                     # update whole source description
                     metadata_new = metadata_new.update((), self.all_dataset.metadata.query(()))
-                    metadata_new = metadata_new.update((res_id,), self.all_dataset.metadata.query((res_id,)))
+                    metadata_new = metadata_new.update((res_id,),
+                                                       self.all_dataset.metadata.query((res_id,)))
                     # update column 0 (d3mIndex) metadata
-                    metadata_new = metadata_new.update((res_id,ALL_ELEMENTS,0), self.all_dataset.metadata.query((res_id,ALL_ELEMENTS,0)))
+                    metadata_new = metadata_new.update((res_id, ALL_ELEMENTS, 0),
+                                                       self.all_dataset.metadata.query(
+                                                           (res_id, ALL_ELEMENTS, 0)))
                     metadata_old = copy.copy(self.all_dataset.metadata)
                     # generate the remained column index randomly and sort it
-                    remained_columns = random.sample(all_attribute_columns, self.threshold_column_length)
+                    remained_columns = random.sample(all_attribute_columns,
+                                                     self.threshold_column_length)
                     remained_columns.sort()
-                    remained_columns.insert(0,0)
+                    remained_columns.insert(0, 0)
                     remained_columns.extend(target_column_list)
                     # sample the dataset
-                    self.all_dataset[res_id] = self.all_dataset[res_id].iloc[:,remained_columns]
+                    self.all_dataset[res_id] = self.all_dataset[res_id].iloc[:, remained_columns]
 
                     # update metadata on column information
-                    new_column_meta = dict(self.all_dataset.metadata.query((res_id,ALL_ELEMENTS)))
+                    new_column_meta = dict(self.all_dataset.metadata.query((res_id, ALL_ELEMENTS)))
                     new_column_meta['dimension'] = dict(new_column_meta['dimension'])
-                    new_column_meta['dimension']['length'] = self.threshold_column_length + 1 + target_column_length
-                    metadata_new = metadata_new.update((res_id,ALL_ELEMENTS), new_column_meta)
+                    new_column_meta['dimension'][
+                        'length'] = self.threshold_column_length + 1 + target_column_length
+                    metadata_new = metadata_new.update((res_id, ALL_ELEMENTS), new_column_meta)
 
                     # update the metadata on attribute column
                     for new_column_count, each_remained_column in enumerate(remained_columns):
                         old_selector = (res_id, ALL_ELEMENTS, each_remained_column)
                         new_selector = (res_id, ALL_ELEMENTS, new_column_count + 1)
-                        metadata_new = metadata_new.update(new_selector, metadata_old.query(old_selector))
+                        metadata_new = metadata_new.update(new_selector,
+                                                           metadata_old.query(old_selector))
 
                     # update class column
                     for new_column_count, each_target_column in enumerate(target_column_list):
-                        old_selector = (res_id,ALL_ELEMENTS, each_target_column)
-                        new_selector = (res_id,ALL_ELEMENTS, self.threshold_column_length + new_column_count + 1)
-                        metadata_new = metadata_new.update(new_selector, metadata_old.query(old_selector))
+                        old_selector = (res_id, ALL_ELEMENTS, each_target_column)
+                        new_selector = (
+                        res_id, ALL_ELEMENTS, self.threshold_column_length + new_column_count + 1)
+                        metadata_new = metadata_new.update(new_selector,
+                                                           metadata_old.query(old_selector))
 
                     # update the new metadata to replace the old one
                     self.all_dataset.metadata = metadata_new
                     # update traget_index for spliting into train and test dataset
                     if type(self.problem_info["target_index"]) is list:
                         for i in range(len(self.problem_info["target_index"])):
-                            self.problem_info["target_index"][i] = self.threshold_column_length + i + 1
+                            self.problem_info["target_index"][
+                                i] = self.threshold_column_length + i + 1
                     else:
-                        self.problem_info["target_index"] = self.threshold_column_length + target_column_length
+                        self.problem_info[
+                            "target_index"] = self.threshold_column_length + target_column_length
 
                     self._logger.info("Random sampling on columns Finished.")
 
         if main_res_shape[0] > self.threshold_index_length:
-            self._logger.info("The row number of the input dataset is very large, will send only part of them to search.")
+            self._logger.info(
+                "The row number of the input dataset is very large, will send only part of them to search.")
             if main_res_shape[1] > 20:
                 self.threshold_index_length = int(self.threshold_index_length * 0.3)
-                self._logger.info("The column number is also very large, will reduce the sampling amount on row number.")
+                self._logger.info(
+                    "The column number is also very large, will reduce the sampling amount on row number.")
             # too many indexs, we can run another split dataset
-            index_removed_percent = 1 - float(self.threshold_index_length) / float(main_res_shape[0])
+            index_removed_percent = 1 - float(self.threshold_index_length) / float(
+                main_res_shape[0])
             # ignore the test part
-            self.all_dataset, _ = self.split_dataset(dataset = self.all_dataset, test_size = index_removed_percent, need_test_dataset = False)
+            self.all_dataset, _ = self.split_dataset(dataset=self.all_dataset,
+                                                     test_size=index_removed_percent,
+                                                     need_test_dataset=False)
             self.all_dataset = self.all_dataset[0]
             self._logger.info("Random sampling on rows Finished.")
 
         # split the dataset first time
-        self.train_dataset1, self.test_dataset1 = self.split_dataset(dataset = self.all_dataset)
+        self.train_dataset1, self.test_dataset1 = self.split_dataset(dataset=self.all_dataset)
 
         # here we only split one times, so no need to use list to include the dataset
         if len(self.train_dataset1) == 1:
@@ -1033,9 +1140,11 @@ class Controller:
         # if necessary, we need to make a second split
         if self.max_split_times > 0:
             # make n times of different spliting results
-            self.train_dataset2, self.test_dataset2 = self.split_dataset(dataset = self.train_dataset1, test_size = 0.1, n_splits = self.max_split_times)
+            self.train_dataset2, self.test_dataset2 = self.split_dataset(
+                dataset=self.train_dataset1, test_size=0.1, n_splits=self.max_split_times)
             if len(self.train_dataset2) < 1:
-                self._logger.error("Some error happend with train_dataset1 split: The length of splitted dataset is less than 1")
+                self._logger.error(
+                    "Some error happend with train_dataset1 split: The length of splitted dataset is less than 1")
             if len(self.test_dataset2) < 1:
                 self._logger.error("Split failed on train_dataset1.")
                 self.test_dataset2 = None
@@ -1051,14 +1160,17 @@ class Controller:
             template = self.template[idx]
             print("[INFO] The config of the template is")
             pprint.pprint(template.template)
-            #template.template
-            self._logger.info(STYLE+"[INFO] Template {}:{} Selected. UCT:{}".format(idx, template.template['name'], self.uct_score))
+            # template.template
+            self._logger.info(STYLE + "[INFO] Template {}:{} Selected. UCT:{}".format(idx,
+                                                                                      template.template[
+                                                                                          'name'],
+                                                                                      self.uct_score))
 
             try:
                 report = self.search_template(
                     template, candidate=self.exec_history.iloc[idx]['candidate'],
                     cache_bundle=(cache, candidate_cache),
-                    )
+                )
 
             except:
                 self._logger.exception("search_template failed on {} with UCT: {}".format(
@@ -1070,8 +1182,8 @@ class Controller:
                 continue
             self._logger.info(STYLE + "[INFO] report: " + str(report['best_val']))
             self.update_UCT_score(index=idx, report=report)
-            self._logger.info(STYLE+"[INFO] cache size: " + str(len(cache))+
-                  ", candidates: " + str(len(candidate_cache)))
+            self._logger.info(STYLE + "[INFO] cache size: " + str(len(cache)) +
+                              ", candidates: " + str(len(candidate_cache)))
 
             new_best = False
             if best_report is None:
@@ -1095,7 +1207,8 @@ class Controller:
                 # save_location = os.path.join(self.output_logs_dir, dataset_name + ".txt")
                 save_location = self.output_directory + ".txt"
 
-                self._logger.info("******************\n[INFO] Saving training results in %s", save_location)
+                self._logger.info("******************\n[INFO] Saving training results in %s",
+                                  save_location)
                 metrics = self.problem['problem']['performance_metrics']
                 candidate = best_report['candidate']
                 try:
@@ -1104,7 +1217,7 @@ class Controller:
 
                     for m in ["training_metrics", "cross_validation_metrics", "test_metrics"]:
                         if m in candidate.data and candidate.data[m]:
-                            f.write(m + ' ' +  str(candidate.data[m][0]['value']) + "\n")
+                            f.write(m + ' ' + str(candidate.data[m][0]['value']) + "\n")
                     # f.write(str(candidate.data['training_metrics'][0]['value']) + "\n")
                     # f.write(str(candidate.data['cross_validation_metrics'][0]['value']) + "\n")
                     # f.write(str(candidate.data['test_metrics'][0]['value']) + "\n")
@@ -1116,7 +1229,6 @@ class Controller:
 
         # shutdown the cache manager
         manager.shutdown()
-
 
     def update_UCT_score(self, index: int, report: typing.Dict):
         self.update_history(index, report)
@@ -1131,7 +1243,7 @@ class Controller:
         for i in range(len(self.uct_score)):
             self.uct_score[i] = self.compute_UCT(i)
 
-        self._logger.info(STYLE+"[INFO] UCT updated: %s", self.uct_score)
+        self._logger.info(STYLE + "[INFO] UCT updated: %s", self.uct_score)
 
     def update_history(self, index, report):
         self.total_run += report['sim_count']
@@ -1151,7 +1263,6 @@ class Controller:
 
         for k in update:
             self.exec_history.iloc[index][k] = update[k]
-
 
     def write_training_results(self):
         # load trained pipelines

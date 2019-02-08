@@ -1,0 +1,233 @@
+#!/usr/bin/env python
+
+"""
+Command Line Interface for running the DSBox TA2 Search
+"""
+import time
+from dsbox_dev_setup import path_setup
+import argparse
+import json
+import os
+import signal
+import subprocess
+import sys
+import traceback
+from pprint import pprint
+
+from importlib import reload
+import dsbox.controller.controller
+reload(dsbox.controller.controller)
+from dsbox.controller.controller import Controller
+from  dsbox.controller.controller import Status
+import os
+# controller = Controller(development_mode=True)
+
+import getpass
+
+start_time = time.time()
+
+def kill_child_processes(parent_pid, sig=signal.SIGTERM):
+    ps_command = subprocess.Popen("ps -o pid --ppid %d --noheaders" % parent_pid, shell=True, stdout=subprocess.PIPE)
+    ps_output = ps_command.stdout.read()
+    retcode = ps_command.wait()
+    assert retcode == 0, "ps command returned %d" % retcode
+    print('parent id={}'.format(parent_pid), flush=True)
+    for pid_str in ps_output.decode('utf-8').split("\n")[:-1]:
+        try:
+            print('chdild id={}'.format(pid_str), flush=True)
+            os.kill(int(pid_str), sig)
+        except:
+            pass
+
+def load_one_pipeline(path) -> tuple:
+    '''
+    read a pipeline, return its rank and pipeline
+    '''
+
+    with open(path, "r") as f:
+        pipeline = json.load(f)
+        return (pipeline["id"], pipeline["pipeline_rank"], pipeline["metric_value"])
+
+
+def load_all_fitted_pipeline(pipeline_path) -> dict:
+    '''
+    go through all the directorys from problem runs
+    '''
+
+    mypath = os.path.join(pipeline_path)
+    all_pipes = os.listdir(mypath)
+    pipe_list = []
+    for pipe_adr in all_pipes:
+        pipe_list.append(load_one_pipeline(os.path.join(mypath, pipe_adr)))
+    # print(allfile)
+    pipe_list.sort(key=lambda t: t[1])
+    return pipe_list
+
+
+def main(args):
+
+    timeout = 0
+    configuration_file = args.configuration_file
+    debug = args.debug
+
+    controller = Controller(development_mode=debug)
+
+    with open(configuration_file) as data:
+        config = json.load(data)
+
+    # Time to write results (in minutes)
+    write_results_time = 2
+    if args.timeout:
+        timeout = args.timeout - write_results_time
+    else:
+        if 'timeout' in config:
+            # Timeout less 1 minute to give system chance to clean up
+            timeout = int(config['timeout']) - write_results_time
+        else:
+            timeout = 60 - write_results_time
+            config['timeout'] = timeout
+
+    print('[INFO] Time out is ', timeout)
+
+    # Define signal handler to exit gracefully
+    def write_results_and_exit(a_signal, frame):
+        print('==== Times up ====')
+        time_used = (time.time() - start_time) / 60.0
+        print("[INFO] The time used so far is {:0.2f} minutes.".format(time_used))
+        try:
+            # Reset to handlers to default as not to output multiple times
+            signal.signal(signal.SIGALRM, signal.SIG_DFL)
+
+            print('[INFO] Killing child processes', flush=True)
+            process_id = os.getpid()
+            kill_child_processes(process_id)
+
+            print('[INFO] writing results', flush=True)
+            controller.write_training_results()
+
+            print('==== Done cleaning up ====', flush=True)
+            time_used = (time.time() - start_time) / 60.0
+            print("[INFO] The time used so far is {:0.2f} minutes.".format(time_used), flush=True)
+        except Exception as e:
+            print(e)
+            traceback.print_exc()
+        finally:
+            # sys.exit(0) generates SystemExit exception, which may
+            # be caught and ignored.
+
+            # This os._exit() cannot be caught.
+            # print('SIGNAL exiting {}'.format(configuration_file), flush=True)
+            os._exit(0)
+
+    if timeout > 0:
+        signal.signal(signal.SIGALRM, write_results_and_exit)
+        signal.alarm(60 * timeout)
+    else:
+        # Do not set alaram
+        pass
+
+    if args.cpus > -1:
+        config['cpus'] = args.cpus
+
+    # Replace output directories
+    if args.output_prefix is not None:
+        for key in ['pipeline_logs_root', 'executables_root', 'temp_storage_root']:
+            if not '/output/' in config[key]:
+                print(
+                    'Skipping. No "*/output/" for config[{}]={}.'.format(key, config[key]))
+            else:
+                suffix = config[key].split('/output/', 1)[1]
+                config[key] = os.path.join(args.output_prefix, suffix)
+
+    # os.system('clear')
+    print('Using configuation:')
+    pprint(config)
+
+    if 'test_data_root' in config:
+        print("[INFO] Now in testing process")
+        controller.initialize_from_config_for_evaluation(config)
+    else:
+        status = Status.PROBLEM_NOT_IMPLEMENT
+        print("[ERROR] Neither train or test root was given, the program will exit.")
+
+    
+    #all_pipes = load_all_fitted_pipeline(config['TODO'])
+    #fitted_pipeline_id = all_pipes[0][0]
+    status = controller.test_all_fitted_pipelines()
+    print("[INFO] Testing Done")
+
+    time_used = (time.time() - start_time) / 60.0
+    print("[INFO] The time used for running program is {:0.2f} minutes.".format(time_used))
+
+    return status.value
+
+
+class StdoutLogger(object):
+    def __init__(self, f):
+        self.terminal = sys.stdout
+        self.log = f
+
+    def write(self, message):
+        self.terminal.write(message)
+        self.log.write(message)
+
+    def flush(self):
+        self.log.flush()
+
+
+class StderrLogger(object):
+    def __init__(self, f):
+        self.err = sys.stderr
+        self.log = f
+
+    def write(self, message):
+        self.err.write(message)
+        self.log.write(message)
+
+    def flush(self):
+        self.log.flush()
+
+
+if __name__ == "__main__":
+
+    parser = argparse.ArgumentParser(
+        description='Run DSBox TA2 system using json configuration file')
+
+    parser.add_argument('configuration_file',
+                        help='D3M TA2 json configuration file')
+    parser.add_argument('--timeout', action='store', type=int, default=-1,
+                        help='Overide configuation timeout setting. In minutes.')
+    parser.add_argument('--cpus', action='store', type=int, default=-1,
+                        help='Overide configuation number of cpus usage setting')
+    parser.add_argument('--output-prefix', action='store', default=None,
+                        help='''Overide configuation output directories paths (pipeline_logs_root, executables_root, temp_storage_root).
+                        Replace path prefix "*/output/" with argument''')
+    parser.add_argument('--debug', action='store_true', default=False,
+                        help='Debug mode. No timeout and no output redirection')
+
+    args = parser.parse_args()
+
+    config = json.load(open(args.configuration_file, "r"))
+    if 'logs_root' in config:
+        std_dir = os.path.abspath(config['logs_root'])
+    else:
+        std_dir = os.path.join(config['temp_storage_root'], 'logs')
+
+    os.makedirs(std_dir, exist_ok=True)
+
+    orig_stdout = sys.stdout
+    orig_stderr = sys.stderr
+    f = open(os.path.join(std_dir, 'out.txt'), 'w')
+
+    sys.stdout = StdoutLogger(f)
+    sys.stderr = StderrLogger(f)
+
+    print(args)
+
+    result = main(args)
+    sys.stdout = orig_stdout
+    sys.stderr = orig_stderr
+
+    f.close()
+
+    os._exit(result)
