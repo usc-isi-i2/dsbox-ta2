@@ -454,18 +454,21 @@ def set_target_column(dataset):
     """
         Function used for unit test
     """
+
+    # TODO: Cannot assume resource_id '0' exists
+    resource_id = '0'
     for index in range(
-            dataset.metadata.query(('0', ALL_ELEMENTS))['dimension']['length'] - 1,
+            dataset.metadata.query((resource_id, ALL_ELEMENTS))['dimension']['length'] - 1,
             -1, -1):
         column_semantic_types = dataset.metadata.query(
-            ('0', ALL_ELEMENTS, index))['semantic_types']
+            (resource_id, ALL_ELEMENTS, index))['semantic_types']
         if 'https://metadata.datadrivendiscovery.org/types/SuggestedTarget' in \
                 column_semantic_types:
             column_semantic_types = list(column_semantic_types) + [
                 'https://metadata.datadrivendiscovery.org/types/Target',
                 'https://metadata.datadrivendiscovery.org/types/TrueTarget']
             dataset.metadata = dataset.metadata.update(
-                ('0', ALL_ELEMENTS, index), {'semantic_types': column_semantic_types})
+                (resource_id, ALL_ELEMENTS, index), {'semantic_types': column_semantic_types})
             return
 
     raise exceptions.InvalidArgumentValueError(

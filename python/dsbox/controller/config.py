@@ -85,14 +85,15 @@ class DsboxConfig:
 
         # DSBox search
         self.search_method = 'serial'
+        self.serial_search_iterations = 10
         self.is_multiprocess = False
         self.timeout_search: int = 0
 
         # DSBox logging
-        self.file_formatter = "[%(levelname)s] - %(asctime)s - %(name)s - %(message)s"
+        self.file_formatter = "%(asctime)s [%(levelname)s] %(name)s -- %(message)s"
         self.file_logging_level = logging.INFO
         self.log_filename = 'dsbox.log'
-        self.console_formatter = "[%(levelname)s] - %(name)s - %(message)s"
+        self.console_formatter = "%(asctime)s [%(levelname)s] %(name)s -- %(message)s"
         self.console_logging_level = logging.INFO
         self.root_logger_level = min(self.file_logging_level, self.console_logging_level)
 
@@ -119,7 +120,7 @@ class DsboxConfig:
     @timeout.setter
     def timeout(self, value: int):
         self._timeout = value
-        self.timeout_search = max(self._timeout - 120, int(self._timeout * 0.95))
+        self.timeout_search = max(self._timeout - 180, int(self._timeout * 0.95))
 
     def load(self):
         self._load_d3m_environment()
@@ -155,6 +156,10 @@ class DsboxConfig:
         self._logger = logging.getLogger(__name__)
         self._all_datasets = self._find_dataset_docs(self.input_dir)
         self._load_problem()
+
+        # TA3: Return sooner for TA3
+        if 'ta3' in self.d3m_run:
+            self.serial_search_iterations = 5
 
     def _load_problem(self):
         with open(os.path.abspath(self.problem_schema)) as file:

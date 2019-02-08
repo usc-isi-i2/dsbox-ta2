@@ -102,6 +102,14 @@ class DatasetInfo():
             '22_handgeometry', dataset_base_path,
             problem_pb2.REGRESSION, problem_pb2.UNIVARIATE, problem_pb2.MEAN_SQUARED_ERROR,
             0, '1', 2, 'WRISTBREADTH')
+        datasets_info_dict['196_autoMpg'] = DatasetInfo(
+            '196_autoMpg',  dataset_base_path,
+            problem_pb2.REGRESSION, problem_pb2.UNIVARIATE, problem_pb2.MEAN_SQUARED_ERROR,
+            0, '0', 8, 'class')
+        datasets_info_dict['185_baseball_new'] = DatasetInfo(
+            '185_baseball', '/nfs1/dsbox-repo/data/dataset-2019/seed_datasets_current',
+            problem_pb2.CLASSIFICATION, problem_pb2.MULTICLASS, problem_pb2.F1_MACRO,
+            0, '0', 18, 'Hall_of_Fame')
         return datasets_info_dict
 
 
@@ -245,7 +253,7 @@ class Client(object):
         request = SearchSolutionsRequest(
             user_agent="Test Client",
             version="2018.7.7",
-            time_bound=2, # minutes
+            time_bound=2,  # minutes
             priority=0,
             allowed_value_types=[value_pb2.RAW],
             problem=ProblemDescription(

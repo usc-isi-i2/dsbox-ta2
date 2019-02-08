@@ -32,8 +32,6 @@ def serve():
     parser.add_argument(
         '--port', help='TA2 server port', default=PORT)
     parser.add_argument(
-        '--output', help='Output directory', default='')
-    parser.add_argument(
         '--debug-volume-map', action='append',
         help="Map config directories, e.g. --debug-volume-map /host/dir/output:/output --debug-volume-map /host/dir/input:/input",
         default=[])
@@ -44,7 +42,6 @@ def serve():
     print(args)
 
     server_port = args.port
-    output_root = args.output
 
     dir_mapping = {}
     for entry in args.debug_volume_map:
@@ -74,6 +71,7 @@ def serve():
             time.sleep(_ONE_DAY_IN_SECONDS)
     except KeyboardInterrupt:
         server.stop(0)
+
 
 if __name__ == '__main__':
     serve()

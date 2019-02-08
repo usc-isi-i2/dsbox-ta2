@@ -158,17 +158,20 @@ class Controller:
 
     def _check_and_set_dataset_metadata(self) -> None:
         """
-        The function used to change the metadata of the target predictions to be "TRueTarget"
+        The function used to change the metadata of the target predictions to be "TrueTarget"
         """
+        # TODO: Should use self.config.problem to set TrueTarget
+
+        resource_id = self.config.problem['inputs'][0]['targets'][0]['resource_id']
         # Need to make sure the Target and TrueTarget column semantic types are set
         if self.config.task_type == TaskType.CLASSIFICATION or self.config.task_type == TaskType.REGRESSION:
 
             # start from last column, since typically target is the last column
             for index in range(
-                    self.all_dataset.metadata.query(('0', ALL_ELEMENTS))['dimension']['length'] - 1,
+                    self.all_dataset.metadata.query((resource_id, ALL_ELEMENTS))['dimension']['length'] - 1,
                     -1, -1):
                 column_semantic_types = self.all_dataset.metadata.query(
-                    ('0', ALL_ELEMENTS, index))['semantic_types']
+                    (resource_id, ALL_ELEMENTS, index))['semantic_types']
                 if ('https://metadata.datadrivendiscovery.org/types/Target' in column_semantic_types
                         and 'https://metadata.datadrivendiscovery.org/types/TrueTarget' in
                         column_semantic_types):
@@ -176,17 +179,17 @@ class Controller:
 
             # If not set, use sugested target column
             for index in range(
-                    self.all_dataset.metadata.query(('0', ALL_ELEMENTS))['dimension']['length'] - 1,
+                    self.all_dataset.metadata.query((resource_id, ALL_ELEMENTS))['dimension']['length'] - 1,
                     -1, -1):
                 column_semantic_types = self.all_dataset.metadata.query(
-                    ('0', ALL_ELEMENTS, index))['semantic_types']
+                    (resource_id, ALL_ELEMENTS, index))['semantic_types']
                 if 'https://metadata.datadrivendiscovery.org/types/SuggestedTarget' in \
                         column_semantic_types:
                     column_semantic_types = list(column_semantic_types) + [
                         'https://metadata.datadrivendiscovery.org/types/Target',
                         'https://metadata.datadrivendiscovery.org/types/TrueTarget']
                     self.all_dataset.metadata = self.all_dataset.metadata.update(
-                        ('0', ALL_ELEMENTS, index), {'semantic_types': column_semantic_types})
+                        (resource_id, ALL_ELEMENTS, index), {'semantic_types': column_semantic_types})
                     return
 
             raise InvalidArgumentValueError(
@@ -279,19 +282,19 @@ class Controller:
             filename=os.path.join(self.config.log_dir, self.config.log_filename),
             mode='w')
         file_handler.setLevel(self.config.file_logging_level)
-        file_handler.setFormatter(logging.Formatter(fmt=self.config.file_formatter, datefmt='%m-%d %H:%M:%S'))
+        file_handler.setFormatter(logging.Formatter(fmt=self.config.file_formatter, datefmt='%Y-%m-%d %H:%M:%S'))
         logging.getLogger('').addHandler(file_handler)
 
         # Do not add another console handler
         if logging.StreamHandler not in [type(x) for x in logging.getLogger('').handlers]:
             console = logging.StreamHandler()
-            console.setFormatter(logging.Formatter(self.config.console_formatter))
+            console.setFormatter(logging.Formatter(self.config.console_formatter, datefmt='%m-%d %H:%M:%S'))
             console.setLevel(self.config.console_logging_level)
             logging.getLogger('').addHandler(console)
         else:
             for handler in logging.getLogger('').handlers:
                 if type(handler) is logging.StreamHandler:
-                    handler.setFormatter(logging.Formatter(self.config.console_formatter))
+                    handler.setFormatter(logging.Formatter(self.config.console_formatter, datefmt='%m-%d %H:%M:%S'))
                     handler.setLevel(self.config.console_logging_level)
 
         self._logger = logging.getLogger(__name__)
@@ -443,7 +446,7 @@ class Controller:
             timeout=self.config.timeout_search
         )
         # report = self._search_method.search(num_iter=50)
-        report = self._search_method.search(num_iter=10)
+        report = self._search_method.search(num_iter=self.config.serial_search_iterations)
         if report_ensemble:
             report_ensemble['report'] = report
         self._log_search_results(report=report)
