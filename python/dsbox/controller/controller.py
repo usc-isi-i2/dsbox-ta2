@@ -830,7 +830,7 @@ class Controller:
 
         results.sort_values(by=['rank']).to_csv(
             os.path.join(self.output_directory, 'test_set_results.csv'))
-        print(results.sort_values(by=['rank']))
+        # print(results.sort_values(by=['rank']))
         return Status.OK
 
     def test_fitted_pipeline(self, fitted_pipeline_id):
