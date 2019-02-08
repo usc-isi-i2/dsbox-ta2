@@ -825,11 +825,13 @@ class Controller:
         for file_pipe, rank in fileranks:
             fitted_pipeline_id = file_pipe.split('/')[-1].split('.')[0]
             metric = self.test_fitted_pipeline(fitted_pipeline_id=fitted_pipeline_id)
-            results.loc[file_pipe,'metric'] = metric
-            results.loc[file_pipe,'rank'] = rank
+            results.set_value(file_pipe, 'metrics', str(metric))
+            results.set_value(file_pipe, 'rank', str(rank))
 
-        results.to_csv(os.path.join(self.output_directory, 'test_set_results.csv'))
-        print(results)
+        results.sort_values(by=['rank']).to_csv(
+            os.path.join(self.output_directory, 'test_set_results.csv'))
+        print(results.sort_values(by=['rank']))
+        return Status.OK
 
     def test_fitted_pipeline(self, fitted_pipeline_id):
         print("[INFO] Start test function")
