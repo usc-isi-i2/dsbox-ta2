@@ -901,7 +901,7 @@ def check(message, *, depth=0):
 
 def to_proto_value_raw(value):
     if value is None:
-        return ValueRaw(NulValue=value_pb2.NULL_VALUE)
+        return ValueRaw(null=value_pb2.NULL_VALUE)
     elif isinstance(value, int):
         return ValueRaw(int64=value)
     elif isinstance(value, float):
