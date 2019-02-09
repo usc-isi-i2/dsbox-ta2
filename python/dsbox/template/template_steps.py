@@ -1,3 +1,8 @@
+import logging
+
+_logger = logging.getLogger(__name__)
+
+
 class TemplateSteps:
 
     '''
@@ -711,7 +716,7 @@ class TemplateSteps:
         g = None
         try:
             g = index.get_primitive(primitive_name).metadata.query()["primitive_code"]["hyperparams"][parameter_name]['structural_type'](definition)
-        except:
-            print("[ERROR] Hyperparameter not valid!")
+        except Exception:
+            _logger.error(f"Hyperparameter not valid for {primitive_name}!")
             pass
         return g

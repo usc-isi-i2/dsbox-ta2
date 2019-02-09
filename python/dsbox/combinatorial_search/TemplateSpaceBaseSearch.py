@@ -103,8 +103,8 @@ class TemplateSpaceBaseSearch(typing.Generic[T]):
         """
 
         success_count = 0
+        search: ConfigurationSpaceBaseSearch
         for search in self._select_next_template(num_iter=num_iter):
-            # search: ConfigurationSpaceBaseSearch
             if self._done(success_count):
                 break
             _logger.info(f'Search template {search.template}')

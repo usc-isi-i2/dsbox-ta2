@@ -365,6 +365,8 @@ class DSBoxTemplate():
     def __str__(self):
         if hasattr(self, 'template') and 'name' in getattr(self, 'template'):
             return f"DSBoxTemplate:{self.template['name']}"
+        else:
+            return f"DSBoxTemplate:BLANK"
 
     def __repr__(self):
         return self.__str__()

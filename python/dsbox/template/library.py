@@ -155,11 +155,9 @@ class TemplateLibrary:
         if results == []:
             _logger.error(f"Cannot find a suitable template type to fit the problem: {task.name}")
         else:
-            print("[INFO] Template choices:")
             # otherwise print the template list we added
             for each_template in results:
-                print("Template '", each_template.template["name"],
-                      "' has been added to template base.")
+                _logger.info(f"{each_template} has been added to template base.")
 
         return results
 

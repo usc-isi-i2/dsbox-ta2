@@ -85,7 +85,7 @@ class DsboxConfig:
 
         # DSBox search
         self.search_method = 'serial'
-        self.serial_search_iterations = 10
+        self.serial_search_iterations = 50
         self.is_multiprocess = False
         self.timeout_search: int = 0
 
@@ -159,7 +159,7 @@ class DsboxConfig:
 
         # TA3: Return sooner for TA3
         if 'ta3' in self.d3m_run:
-            self.serial_search_iterations = 5
+            self.serial_search_iterations = 30
 
     def _load_problem(self):
         with open(os.path.abspath(self.problem_schema)) as file:
