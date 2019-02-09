@@ -50,6 +50,7 @@ _logger = logging.getLogger(__name__)
 
 PRINT_REQUEST = False
 
+
 def get_dataset_path(use_docker_server):
     if use_docker_server:
         dataset_base_path = '/input/'
@@ -57,6 +58,7 @@ def get_dataset_path(use_docker_server):
         dataset_base_path = '/nfs1/dsbox-repo/data/datasets-v31/seed_datasets_current'
     print('Using dataset base path:', dataset_base_path)
     return dataset_base_path
+
 
 class DatasetInfo():
     def __init__(self, id, dataset_base_path, task_type, task_subtype, metric, target_index, resource_id, column_index, column_name):
@@ -143,6 +145,7 @@ class Client(object):
         parser.add_argument('--dataset', dest='dataset')
 
         parser.add_argument('--basic', action='store_true')
+        parser.add_argument('--complete', action='store_true')
         parser.add_argument('--solution')
         parser.add_argument('--produce')
         parser.add_argument('--fit')
@@ -160,6 +163,9 @@ class Client(object):
             # Make a set of calls that follow the basic pipeline search
             search_id = self.basicPipelineSearch(stub, dataset_info)
             print('Search ID', search_id)
+        elif args.complete:
+            search_id = self.completePipelineSearch(stub, dataset_info)
+            print('Search ID', search_id)
         elif args.solution:
             solution_id = args.solution
             self.describeSolution(stub, solution_id)
@@ -175,12 +181,11 @@ class Client(object):
         else:
             print('Try adding --basic')
 
-
-    '''
-    Follow the example on the TA2-TA3 API documentation that follows the basic pipeline
-    search interation diagram.
-    '''
-    def basicPipelineSearch(self, stub, dataset_info):
+    def basicPipelineSearch(self, stub, dataset_info, end_search=False):
+        '''
+        Follow the example on the TA2-TA3 API documentation that follows the basic pipeline
+        search interation diagram.
+        '''
         # 1. Say Hello
         self.hello(stub)
 
@@ -215,11 +220,51 @@ class Client(object):
                 log_msg(scoreSolutionResultsResponse)
                 i += 1
 
-        # # 8. Now that we have some results lets can the Search Solutions request
-        # self.endSearchSolutions(stub, search_id)
+        if end_search:
+            self.endSearchSolutions(stub, search_id)
 
         return search_id
 
+    def completePipelineSearch(self, stub, dataset_info, end_search=False):
+        '''
+        Follow the example on the TA2-TA3 API documentation that follows the basic pipeline
+        search interation diagram.
+        '''
+        # 1. Say Hello
+        self.hello(stub)
+
+        # 2. Initiate Solution Search
+        searchSolutionsResponse = self.searchSolutions(stub, dataset_info)
+
+        # 3. Get the search context id
+        search_id = searchSolutionsResponse.search_id
+
+        # 4. Ask for the current solutions
+        solutions = self.processSearchSolutionsResultsResponses(stub, search_id)
+
+        solution_id = None
+        for count, solution in enumerate(solutions):
+            _logger.info('solution #{}'.format(count))
+            solution_id = solution.solution_id
+
+            self.describeSolution(stub, solution_id)
+
+            _ = self.fitSolution(stub, solution_id, dataset_info)
+
+            scoreSolution = self.scoreSolutionRequest(stub, solution_id, dataset_info)
+
+            scoreSolutionResults = self.getScoreSolutionResults(stub, scoreSolution.request_id)
+
+            i = 0
+            for scoreSolutionResultsResponse in scoreSolutionResults:
+                _logger.info("State of solution for run %s is %s" % (str(i), str(scoreSolutionResultsResponse.progress.state)))
+                log_msg(scoreSolutionResultsResponse)
+                i += 1
+
+        if end_search:
+            self.endSearchSolutions(stub, search_id)
+
+        return search_id
 
     def basicFitSolution(self, stub, solution_id, dataset_info):
         fit_solution_response = self.fitSolution(stub, solution_id, dataset_info)
@@ -252,8 +297,8 @@ class Client(object):
         _logger.info("Calling Search Solutions:")
         request = SearchSolutionsRequest(
             user_agent="Test Client",
-            version="2018.7.7",
-            time_bound=2,  # minutes
+            version="2019.1.22",
+            time_bound=10,  # minutes
             priority=0,
             allowed_value_types=[value_pb2.RAW],
             problem=ProblemDescription(
@@ -420,6 +465,7 @@ class Client(object):
         log_msg(reply)
         return reply
 
+
 def to_dict(msg):
     '''
     convert request/reply to dict
@@ -437,14 +483,16 @@ def to_dict(msg):
     result = { type(msg).__name__: fields}
     return result
 
+
 def print_request(request):
     if PRINT_REQUEST:
         pprint.pprint(to_dict(request))
 
-'''
-Handy method for generating pipeline trace logs
-'''
+
 def log_msg(msg):
+    '''
+    Handy method for generating pipeline trace logs
+    '''
     msg = str(msg)
     for line in msg.splitlines():
         _logger.info("    | %s" % line)
