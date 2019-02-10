@@ -8,6 +8,7 @@ import logging
 import os
 import pprint
 import sys
+import typing
 
 import google
 
@@ -43,21 +44,42 @@ from ta3ta2_api.problem_pb2 import TaskSubtype
 from ta3ta2_api.problem_pb2 import ProblemInput
 from ta3ta2_api.problem_pb2 import ProblemTarget
 
+from d3m.metadata.problem import parse_problem_description
+
+from dsbox.controller.config import find_dataset_docs
 
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s [%(levelname)s] %(name)s -- %(message)s')
 _logger = logging.getLogger(__name__)
 
 
 PRINT_REQUEST = False
+dataset_base_path = ''
+daset_docs = {}
 
 
-def get_dataset_path(use_docker_server):
+def config_datasets(use_docker_server) -> typing.List:
+    global dataset_base_path, dataset_docs
     if use_docker_server:
         dataset_base_path = '/input/'
     else:
         dataset_base_path = '/nfs1/dsbox-repo/data/datasets-v31/seed_datasets_current'
     print('Using dataset base path:', dataset_base_path)
+    dataset_docs = find_dataset_docs(dataset_base_path, _logger)
     return dataset_base_path
+
+
+def get_problem_description(dataset_base_path, dataset_name: str, problem_type: str) -> dict:
+    dataset_names = os.listdir(dataset_base_path)
+    if dataset_name not in dataset_names:
+        _logger.error(f'Cannot find {dataset_name}. Possible names are {dataset_names}')
+        raise Exception(f'Cannot find {dataset_name}')
+    if problem_type == 'TRAIN' or problem_type == 'TEST':
+        problem_filepath = os.path.join(dataset_base_path, dataset_name, problem_type, 'problem_'+problem_type, 'problemDoc.json')
+    else:
+        problem_filepath = os.path.join(dataset_base_path, dataset_name, dataset_name + '_problem', 'problemDoc.json')
+    if not os.path.exists(problem_filepath):
+        raise Exception(f'Cannot find problem doc: {problem_filepath}')
+    return parse_problem_description(problem_filepath)
 
 
 class DatasetInfo():
@@ -115,18 +137,19 @@ class DatasetInfo():
         return datasets_info_dict
 
 
-'''
-This script is a dummy TA3 client the submits a bunch of messages to drive the TA2 pipeline creation process.
-
-Based on SRI's TA2 test client
-'''
 class Client(object):
+    '''
+    This script is a dummy TA3 client the submits a bunch of messages to drive the TA2 pipeline creation process.
 
+    Based on SRI's TA2 test client
     '''
-    Main entry point for the TA2 test client
-    '''
+
     def main(self, argv):
-        _logger.info("Running TA2/TA3 Interface version v2018.6.2");
+        '''
+        Main entry point for the TA2 test client
+        '''
+
+        _logger.info("Running TA2/TA3 Interface version v2019.1.22")
 
         # Standardized TA2-TA3 port is 45042
         address = 'localhost:45042'
@@ -152,36 +175,42 @@ class Client(object):
         parser.add_argument('--end-search')
         args = parser.parse_args()
 
-        dataset_path = get_dataset_path(args.docker)
-        dataset_info_dict = DatasetInfo.generate_info_dict(dataset_path)
-        dataset_name = args.dataset if args.dataset else '38_sick'
-        dataset_info = dataset_info_dict[dataset_name]
+        config_datasets(args.docker)
+        train_problem_desc = get_problem_description(dataset_base_path, args.dataset, 'TRAIN')
+        test_problem_desc = get_problem_description(dataset_base_path, args.dataset, 'TEST')
 
-        print('dataset: ', dataset_info.dataset_uri)
+        pprint.pprint(train_problem_desc)
+
+        # dataset_path = get_dataset_path(args.docker)
+        # dataset_info_dict = DatasetInfo.generate_info_dict(dataset_path)
+        # dataset_name = args.dataset if args.dataset else '38_sick'
+        # dataset_info = dataset_info_dict[dataset_name]
+
+        # print('dataset: ', dataset_info.dataset_uri)
 
         if args.basic:
             # Make a set of calls that follow the basic pipeline search
-            search_id = self.basicPipelineSearch(stub, dataset_info)
+            search_id = self.basicPipelineSearch(stub, train_problem_desc)
             print('Search ID', search_id)
         elif args.complete:
-            search_id = self.completePipelineSearch(stub, dataset_info)
+            search_id = self.completePipelineSearch(stub, train_problem_desc, test_problem_desc)
             print('Search ID', search_id)
         elif args.solution:
             solution_id = args.solution
             self.describeSolution(stub, solution_id)
         elif args.produce:
             solution_id = args.produce
-            self.basicProduceSolution(stub, solution_id, dataset_info)
+            self.basicProduceSolution(stub, solution_id, train_problem_desc)
         elif args.fit:
             solution_id = args.fit
-            self.basicFitSolution(stub, solution_id, dataset_info)
+            self.basicFitSolution(stub, solution_id, train_problem_desc)
         elif args.end_search:
             search_id = args.end_search
             self.endSearchSolutions(stub, search_id)
         else:
             print('Try adding --basic')
 
-    def basicPipelineSearch(self, stub, dataset_info, end_search=False):
+    def basicPipelineSearch(self, stub, train_problem, test_problem, end_search=False):
         '''
         Follow the example on the TA2-TA3 API documentation that follows the basic pipeline
         search interation diagram.
@@ -190,7 +219,7 @@ class Client(object):
         self.hello(stub)
 
         # 2. Initiate Solution Search
-        searchSolutionsResponse = self.searchSolutions(stub, dataset_info)
+        searchSolutionsResponse = self.searchSolutions(stub, train_problem)
 
         # 3. Get the search context id
         search_id = searchSolutionsResponse.search_id
@@ -205,7 +234,7 @@ class Client(object):
             # break # for now lets just work with one solution
 
             # 5. Score the first of the solutions.
-            scoreSolution = self.scoreSolutionRequest(stub, solution_id, dataset_info)
+            scoreSolution = self.scoreSolutionRequest(stub, solution_id, test_problem)
             request_id = scoreSolution.request_id
             _logger.info("request id is: " + request_id)
 
@@ -225,7 +254,7 @@ class Client(object):
 
         return search_id
 
-    def completePipelineSearch(self, stub, dataset_info, end_search=False):
+    def completePipelineSearch(self, stub, train_problem, test_problem, end_search=False):
         '''
         Follow the example on the TA2-TA3 API documentation that follows the basic pipeline
         search interation diagram.
@@ -234,7 +263,7 @@ class Client(object):
         self.hello(stub)
 
         # 2. Initiate Solution Search
-        searchSolutionsResponse = self.searchSolutions(stub, dataset_info)
+        searchSolutionsResponse = self.searchSolutions(stub, train_problem)
 
         # 3. Get the search context id
         search_id = searchSolutionsResponse.search_id
@@ -249,9 +278,9 @@ class Client(object):
 
             self.describeSolution(stub, solution_id)
 
-            _ = self.fitSolution(stub, solution_id, dataset_info)
+            _ = self.fitSolution(stub, solution_id, train_problem)
 
-            scoreSolution = self.scoreSolutionRequest(stub, solution_id, dataset_info)
+            scoreSolution = self.scoreSolutionRequest(stub, solution_id, train_problem)
 
             scoreSolutionResults = self.getScoreSolutionResults(stub, scoreSolution.request_id)
 
@@ -266,15 +295,15 @@ class Client(object):
 
         return search_id
 
-    def basicFitSolution(self, stub, solution_id, dataset_info):
-        fit_solution_response = self.fitSolution(stub, solution_id, dataset_info)
+    def basicFitSolution(self, stub, solution_id, problem):
+        fit_solution_response = self.fitSolution(stub, solution_id, problem)
 
         get_fit_solution_results_response = self.getFitSolutionResults(stub, fit_solution_response.request_id)
         for fit_solution_results_response in get_fit_solution_results_response:
             log_msg(fit_solution_results_response)
 
-    def basicProduceSolution(self, stub, solution_id, dataset_info):
-        produce_solution_response = self.produceSolution(stub, solution_id, dataset_info)
+    def basicProduceSolution(self, stub, solution_id, problem):
+        produce_solution_response = self.produceSolution(stub, solution_id, problem)
 
         get_produce_solution_results_response = self.getProduceSolutionResults(stub, produce_solution_response.request_id)
         for produce_solution_results_response in get_produce_solution_results_response:
@@ -293,7 +322,7 @@ class Client(object):
     Invoke Search Solutions
     Non streaming call
     '''
-    def searchSolutions(self, stub, dataset_info):
+    def searchSolutions(self, stub, problem):
         _logger.info("Calling Search Solutions:")
         request = SearchSolutionsRequest(
             user_agent="Test Client",
@@ -303,30 +332,30 @@ class Client(object):
             allowed_value_types=[value_pb2.RAW],
             problem=ProblemDescription(
                 problem=Problem(
-                    id=dataset_info.id,
+                    id=problem['id'],
                     version="3.1.2",
-                    name=dataset_info.id,
-                    description=dataset_info.id,
-                    task_type=dataset_info.task_type,
-                    task_subtype=dataset_info.task_subtype,
+                    name=problem['id'],
+                    description=problem['id'],
+                    task_type=problem['problem']['task_type'].value,
+                    task_subtype=problem['problem']['task_subtype'].value,
                     performance_metrics=[
                         ProblemPerformanceMetric(
-                            metric=dataset_info.metric,
+                            metric=problem['problem']['performance_metrics'][0]['metric'].value,
                         )]
                     ),
                 inputs=[ProblemInput(
-                    dataset_id=dataset_info.id,
+                    dataset_id=problem['inputs'][0]['dataset_id'],
                     targets=[
                         ProblemTarget(
-                            target_index=dataset_info.target_index,
-                            resource_id=dataset_info.resource_id,
-                            column_index=dataset_info.column_index,
-                            column_name=dataset_info.column_name
+                            target_index=problem['inputs'][0]['targets'][0]['target_index'],
+                            resource_id=problem['inputs'][0]['targets'][0]['resource_id'],
+                            column_index=problem['inputs'][0]['targets'][0]['column_index'],
+                            column_name=problem['inputs'][0]['targets'][0]['column_name']
                         )
                         ])]
                 ),
             template=PipelineDescription(), # TODO: We will handle pipelines later D3M-61
-            inputs=[Value(dataset_uri=dataset_info.dataset_uri)]
+            inputs=[Value(dataset_uri='file://' + dataset_docs[problem['inputs'][0]['dataset_id']])]
         )
         print_request(request)
         reply = stub.SearchSolutions(request)
@@ -357,17 +386,17 @@ class Client(object):
     For the provided Search Solution Results solution_id get the Score Solution Results Response
     Non streaming call
     '''
-    def scoreSolutionRequest(self, stub, solution_id, dataset_info):
+    def scoreSolutionRequest(self, stub, solution_id, problem):
         _logger.info("Calling Score Solution Request:")
 
         request = ScoreSolutionRequest(
             solution_id=solution_id,
-            inputs=[ Value(dataset_uri=dataset_info.dataset_uri)],
+            inputs=[Value(dataset_uri='file://' + dataset_docs[problem['inputs'][0]['dataset_id']])],
             performance_metrics=[ProblemPerformanceMetric(
                 metric=problem_pb2.ACCURACY
             )],
-            users=[SolutionRunUser()], # Optional so pushing for now
-            configuration=None # For future implementation
+            users=[SolutionRunUser()],  # Optional so pushing for now
+            configuration=None  # For future implementation
         )
         print_request(request)
         reply = stub.ScoreSolution(request)
@@ -415,15 +444,15 @@ class Client(object):
         log_msg(reply)
         return reply
 
-    def fitSolution(self, stub, solution_id, dataset_info):
+    def fitSolution(self, stub, solution_id, problem):
         _logger.info("Calling FitSolution with solution_id: " + solution_id)
 
         request = FitSolutionRequest(
             solution_id=solution_id,
-            inputs=[Value(dataset_uri=dataset_info.dataset_uri)],
+            inputs=[Value(dataset_uri='file://' + dataset_docs[problem['inputs'][0]['dataset_id']])],
             # expose_outputs = ['steps.7.produce'],
-            expose_outputs = ['outputs.0'],
-            expose_value_types = [value_pb2.CSV_URI]
+            expose_outputs=['outputs.0'],
+            expose_value_types=[value_pb2.CSV_URI]
         )
         print_request(request)
         reply = stub.FitSolution(request)
@@ -440,15 +469,15 @@ class Client(object):
         log_msg(reply)
         return reply
 
-    def produceSolution(self, stub, solution_id, dataset_info):
+    def produceSolution(self, stub, solution_id, problem):
         _logger.info("Calling ProduceSolution with solution_id: " + solution_id)
 
         request = ProduceSolutionRequest(
             fitted_solution_id=solution_id,
-            inputs=[Value(dataset_uri=dataset_info.dataset_uri)],
+            inputs=[Value(dataset_uri='file://' + dataset_docs[problem['inputs'][0]['dataset_id']])],
             # expose_outputs = ['steps.7.produce'],
-            expose_outputs = ['outputs.0'],
-            expose_value_types = [value_pb2.CSV_URI]
+            expose_outputs=['outputs.0'],
+            expose_value_types=[value_pb2.CSV_URI]
         )
         print_request(request)
         reply = stub.ProduceSolution(request)

@@ -154,7 +154,7 @@ class DsboxConfig:
     def _setup(self):
         self._define_create_output_dirs()
         self._logger = logging.getLogger(__name__)
-        self._all_datasets = self._find_dataset_docs(self.input_dir)
+        self._all_datasets = find_dataset_docs(self.input_dir, self._logger)
         self._load_problem()
 
         # TA3: Return sooner for TA3
@@ -187,48 +187,6 @@ class DsboxConfig:
         for dataset_doc in self.dataset_schema_files:
             with open(dataset_doc, 'r') as dataset_description_file:
                 self.dataset_docs.append(json.load(dataset_description_file))
-
-    def _find_dataset_docs(self, datasets_dir):
-        '''
-        Find all datasetDoc.json files under the input root directory.
-        '''
-
-        datasets: typing.Dict[str, str] = {}
-
-        for dirpath, dirnames, filenames in os.walk(datasets_dir, followlinks=True):
-            dirpath = os.path.abspath(os.path.join(datasets_dir, dirpath))
-
-            if 'datasetDoc.json' in filenames:
-                # Do not traverse further (to not parse "datasetDoc.json" or "problemDoc.json" if they
-                # exists in raw data filename).
-                dirnames[:] = []
-
-                dataset_path = os.path.join(dirpath, 'datasetDoc.json')
-
-                try:
-                    with open(dataset_path, 'r') as dataset_file:
-                        dataset_doc = json.load(dataset_file)
-
-                    dataset_id = dataset_doc['about']['datasetID']
-
-                    if dataset_id in datasets:
-                        self._logger.warning(
-                            "Duplicate dataset ID '%(dataset_id)s': '%(old_dataset)s' and '%(dataset)s'", {
-                                'dataset_id': dataset_id,
-                                'dataset': dataset_path,
-                                'old_dataset': datasets[dataset_id],
-                            },
-                        )
-                    else:
-                        datasets[dataset_id] = dataset_path
-
-                except (ValueError, KeyError):
-                    self._logger.exception(
-                        "Unable to read dataset '%(dataset)s'.", {
-                            'dataset': dataset_path,
-                        },
-                    )
-        return datasets
 
     def _define_create_output_dirs(self):
         '''
@@ -340,3 +298,47 @@ class DsboxConfig:
     #     if key in self and self[key].startswith(org_prefix):
     #         suffix = self[key].split(org_prefix, 1)[1]
     #         self[key] = os.path.join(prefix, suffix)
+
+
+def find_dataset_docs(datasets_dir, _logger=None):
+    '''
+    Find all datasetDoc.json files under the input root directory.
+    '''
+    if not _logger:
+        _logger = logging.getLogger(__name__)
+    datasets: typing.Dict[str, str] = {}
+
+    for dirpath, dirnames, filenames in os.walk(datasets_dir, followlinks=True):
+        dirpath = os.path.abspath(os.path.join(datasets_dir, dirpath))
+
+        if 'datasetDoc.json' in filenames:
+            # Do not traverse further (to not parse "datasetDoc.json" or "problemDoc.json" if they
+            # exists in raw data filename).
+            dirnames[:] = []
+
+            dataset_path = os.path.join(dirpath, 'datasetDoc.json')
+
+            try:
+                with open(dataset_path, 'r') as dataset_file:
+                    dataset_doc = json.load(dataset_file)
+
+                dataset_id = dataset_doc['about']['datasetID']
+
+                if dataset_id in datasets:
+                    _logger.warning(
+                        "Duplicate dataset ID '%(dataset_id)s': '%(old_dataset)s' and '%(dataset)s'", {
+                            'dataset_id': dataset_id,
+                            'dataset': dataset_path,
+                            'old_dataset': datasets[dataset_id],
+                        },
+                    )
+                else:
+                    datasets[dataset_id] = dataset_path
+
+            except (ValueError, KeyError):
+                _logger.exception(
+                    "Unable to read dataset '%(dataset)s'.", {
+                        'dataset': dataset_path,
+                    },
+                )
+    return datasets

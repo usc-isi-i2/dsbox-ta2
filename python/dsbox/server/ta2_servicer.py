@@ -360,10 +360,12 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
 
         return SolutionExportResponse()
 
-
     def StopSearchSolutions(self, request, context):
-        _logger.error("StopSearchSolutions not yet implemented")
-        pass
+        '''
+        Stops the search but leaves all currently found solutions available.
+        '''
+        # With current serial implementation, search is already stoped. Do nothing.
+        return EndSearchSolutionsResponse()
 
     def ListPrimitives(self, request, context):
         primitives = []
@@ -619,7 +621,6 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
 
     def LoadSolution(self, request, context):
         _logger.error("LoadSolution not yet implemented")
-
 
     def SaveFittedSolution(self, request, context):
         _logger.error("SaveFittedSolution not yet implemented")
