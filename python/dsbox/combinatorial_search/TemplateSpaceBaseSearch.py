@@ -90,7 +90,7 @@ class TemplateSpaceBaseSearch(typing.Generic[T]):
     def _setup_exec_history(self, template_list: typing.List[DSBoxTemplate]):
         self.history = ExecutionHistory(template_list=template_list)
 
-    def search(self, num_iter=1) -> typing.Dict[str, typing.Any]:
+    def search(self, num_iter=1, *, one_pipeline_only=False) -> typing.Dict[str, typing.Any]:
         """
         This method implements the random search method with support of multiple templates. The
         method incorporates the primitives cache and candidates cache to store the intermediate
@@ -105,7 +105,7 @@ class TemplateSpaceBaseSearch(typing.Generic[T]):
         success_count = 0
         search: ConfigurationSpaceBaseSearch
         for search in self._select_next_template(num_iter=num_iter):
-            if self._done(success_count):
+            if self._done(success_count, one_pipeline_only=one_pipeline_only):
                 break
             _logger.info(f'Search template {search.template}')
             for candidate in self._sample_random_pipeline(search=search, num_iter=1):
@@ -133,7 +133,10 @@ class TemplateSpaceBaseSearch(typing.Generic[T]):
         self.cacheManager.cleanup()
         return self.history.get_best_history()
 
-    def _done(self, success_count):
+    def _done(self, success_count, *, one_pipeline_only=False):
+        if one_pipeline_only and success_count >= 1:
+            _logger.info('Found one pipeline')
+            return True
         _logger.info(f'Test Done: {time.time() > self.start_time + self.timeout}: {time.time()} > {self.start_time} + {self.timeout}')
         return (self.timeout > 0 and time.time() > self.start_time + self.timeout)
 

@@ -25,7 +25,7 @@ def main(args):
     controller.initialize_from_config_for_evaluation(config)
 
     print("[INFO] Training...")
-    status = controller.train()
+    status = controller.train(one_pipeline_only=True)
 
     controller.write_training_results()
 

@@ -429,7 +429,7 @@ class Controller:
                 traceback.print_exc()
                 pass
 
-    def _run_SerialBaseSearch(self, report_ensemble):
+    def _run_SerialBaseSearch(self, report_ensemble, *, one_pipeline_only=False):
         self._search_method = TemplateSpaceBaseSearch(
             template_list=self.template,
             performance_metrics=self.config.problem['problem']['performance_metrics'],
@@ -446,7 +446,7 @@ class Controller:
             timeout=self.config.timeout_search
         )
         # report = self._search_method.search(num_iter=50)
-        report = self._search_method.search(num_iter=self.config.serial_search_iterations)
+        report = self._search_method.search(num_iter=self.config.serial_search_iterations, one_pipeline_only=one_pipeline_only)
         if report_ensemble:
             report_ensemble['report'] = report
         self._log_search_results(report=report)
@@ -1087,7 +1087,7 @@ class Controller:
 
         return None
 
-    def train(self) -> Status:
+    def train(self, *, one_pipeline_only=False) -> Status:
         """
         Generate and train pipelines.
         """
@@ -1101,7 +1101,7 @@ class Controller:
         # FIXME) to catch the errors of the child process
 
         if self.use_multiprocessing or self.config.search_method == 'serial':
-            self._run_SerialBaseSearch(self.report_ensemble)
+            self._run_SerialBaseSearch(self.report_ensemble, one_pipeline_only=one_pipeline_only)
         else:
             from multiprocessing import Process
             with mplog.open_queue() as log_queue:
