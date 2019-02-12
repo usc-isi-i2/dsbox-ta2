@@ -243,7 +243,8 @@ class Runtime(runtime_base.Runtime):
                     else:
                         raise exceptions.InvalidReturnValueError("Missing declared output '{output_id}' in computed primitive's outputs.".format(output_id=output_id))
 
-            # if we did not find the cache, run the primitive with d3m's inner function
+
+                # if we did not find the cache, run the primitive with d3m's inner function
             else:
                 # print("!!!!Fit step with not hit!!!!")
                 super()._run_primitive(this_step)
@@ -259,8 +260,8 @@ class Runtime(runtime_base.Runtime):
                 self._log_fitted_step(self.cache, output_data_reference, this_step, self.data_values)
             # END processing part for FIT Phase
 
-            # if in produce step, always use the d3m's codes
         elif self.phase == metadata_base.PipelineRunPhase.PRODUCE:
+            # if in produce step, always use the d3m's codes
             super()._run_primitive(this_step)
 
         else:
@@ -268,6 +269,7 @@ class Runtime(runtime_base.Runtime):
 
         # add up the timing
         self.timing["total_time_used"] += (time.time() - time_start)
+        _logger.info(f"   done primitive: {this_step.primitive.metadata.query()['name']}")
 
     def _log_fitted_step(self, cache, output_data_reference, primitive_step, primitives_outputs):
         '''
@@ -356,16 +358,15 @@ class Runtime(runtime_base.Runtime):
                             # Temporary fix
                             # Still ignore the use_semantic types hyperparameters
                             if "use_semantic_types" in custom_hyperparams:
-                                try:
-                                    custom_hyperparams.pop("use_semantic_types")
-                                    custom_hyperparams.pop("return_result")
-                                    custom_hyperparams.pop("add_index_columns")
-                                except:
-                                    pass
+                                custom_hyperparams.pop("use_semantic_types")
+                            if "return_result" in custom_hyperparams:
+                                custom_hyperparams.pop("return_result")
+                            if "add_index_columns" in custom_hyperparams:
+                                custom_hyperparams.pop("add_index_columns")
 
                             model = primitive(hyperparams=primitive_hyperparams(
                                 primitive_hyperparams.defaults(), **custom_hyperparams))
-                        except:
+                        except Exception:
                             print(
                                 "******************\n[ERROR]Hyperparameters unsuccesfully set - "
                                 "using defaults")
@@ -379,6 +380,16 @@ class Runtime(runtime_base.Runtime):
                         trainY = y.take(train, axis=0)#.values.ravel()
                         testX = X.take(test, axis=0)
                         testY = y.take(test, axis=0)#.values.ravel()
+
+                        # reset index to be continuous
+                        trainX = trainX.reset_index()
+                        trainY = trainY.reset_index()
+                        testX = testX.reset_index()
+                        testY = testY.reset_index()
+                        trainX = trainX.iloc[:, 1:]
+                        trainY = trainY.iloc[:, 1:]
+                        testX = testX.iloc[:, 1:]
+                        testY = testY.iloc[:, 1:]
 
                         validation_train = dict(training_arguments)
                         validation_train['inputs'] = trainX
@@ -413,6 +424,8 @@ class Runtime(runtime_base.Runtime):
 
         average_metrics: typing.Dict[str, dict] = {}
         for name, values in validation_metrics.items():
+            if len(values) == 0:
+                return results
             average_metrics[name] = sum(values) / len(values)
 
         for metric_description in self.metric_descriptions:
