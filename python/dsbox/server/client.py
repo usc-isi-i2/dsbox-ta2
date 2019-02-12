@@ -144,6 +144,9 @@ class Client(object):
     Based on SRI's TA2 test client
     '''
 
+    def __init__(self):
+        self.time_bound = 10  # minutes
+
     def main(self, argv):
         '''
         Main entry point for the TA2 test client
@@ -173,7 +176,11 @@ class Client(object):
         parser.add_argument('--produce')
         parser.add_argument('--fit')
         parser.add_argument('--end-search')
+
+        parser.add_argument('--time-bound', type=int, default=self.time_bound, help='Time bound in minutes (default: %(default)s)')
         args = parser.parse_args()
+
+        self.time_bound = args.time_bound
 
         config_datasets(args.docker)
         train_problem_desc = get_problem_description(dataset_base_path, args.dataset, 'TRAIN')
@@ -327,7 +334,7 @@ class Client(object):
         request = SearchSolutionsRequest(
             user_agent="Test Client",
             version="2019.1.22",
-            time_bound=10,  # minutes
+            time_bound=self.time_bound,
             priority=0,
             allowed_value_types=[value_pb2.RAW],
             problem=ProblemDescription(
