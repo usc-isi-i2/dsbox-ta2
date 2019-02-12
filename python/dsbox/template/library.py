@@ -199,9 +199,9 @@ class TemplateLibrary:
 
         # Tabular Classification
         self.templates.append(TA1Classification_3)
-        self.templates.append(MuxinTA1ClassificationTemplate1)
+        # self.templates.append(MuxinTA1ClassificationTemplate1)
         self.templates.append(UU3TestTemplate)
-        self.templates.append(TA1ClassificationTemplate1)
+        # self.templates.append(TA1ClassificationTemplate1)
 
         # Image Regression
         self.templates.append(DefaultImageProcessingRegressionTemplate)
@@ -719,43 +719,42 @@ class ClassificationWithSelection(DSBoxTemplate):
             "inputType": "table",  # See SEMANTIC_TYPES.keys() for range of values
             "output": "model_step",  # Name of the final step generating the prediction
             "target": "extract_target_step",  # Name of the step generating the ground truth
-            "steps": TemplateSteps.human_steps() + TemplateSteps.dsbox_feature_selector("classification") +
-                     [
-                         {
-                             "name": "model_step",
-                             "primitives": [
-                                 {
-                                     "primitive": "d3m.primitives.classification.sgd.SKlearn",
-                                     "hyperparameters": {
-                                        'use_semantic_types':[True],
-                                        'return_result':['new'],
-                                        'add_index_columns':[True],
-                                         "loss": ['log', 'hinge', 'squared_hinge', 'perceptron'],
-                                         "alpha": [float(x) for x in np.logspace(-6, -1.004, 7)],
-                                         "l1_ratio": [float(x) for x in np.logspace(-9, -0.004, 7)],
-                                         "penalty": ['elasticnet', 'l2']
-                                     }
-                                 },
-                                 {
-                                     "primitive":
-                                         "d3m.primitives.classification.gradient_boosting.SKlearn",
-                                     "hyperparameters":
-                                         {
-                                            'use_semantic_types':[True],
-                                            'return_result':['new'],
-                                            'add_index_columns':[True],
-                                             'max_depth': [2, 5],
-                                             'n_estimators': [50, 100],
-                                             'learning_rate': [0.1, 0.3],
-                                             'min_samples_split': [2, 3],
-                                             'min_samples_leaf': [1, 2],
-                                         }
-                                 },
+            "steps": TemplateSteps.human_steps() + TemplateSteps.dsbox_feature_selector("classification") + [
+                {
+                    "name": "model_step",
+                    "primitives": [
+                        {
+                            "primitive": "d3m.primitives.classification.sgd.SKlearn",
+                            "hyperparameters": {
+                                'use_semantic_types': [True],
+                                'return_result':['new'],
+                                'add_index_columns':[True],
+                                "loss": ['log', 'hinge', 'squared_hinge', 'perceptron'],
+                                "alpha": [float(x) for x in np.logspace(-6, -1.004, 7)],
+                                "l1_ratio": [float(x) for x in np.logspace(-9, -0.004, 7)],
+                                "penalty": ['elasticnet', 'l2']
+                            }
+                        },
+                        {
+                            "primitive":
+                            "d3m.primitives.classification.gradient_boosting.SKlearn",
+                            "hyperparameters":
+                            {
+                                'use_semantic_types':[True],
+                                'return_result':['new'],
+                                'add_index_columns':[True],
+                                'max_depth': [2, 5],
+                                'n_estimators': [50, 100],
+                                'learning_rate': [0.1, 0.3],
+                                'min_samples_split': [2, 3],
+                                'min_samples_leaf': [1, 2],
+                            }
+                        },
 
                              ],
-                             "inputs": ["feature_selector_step", "extract_target_step"]
-                         }
-                     ]
+                    "inputs": ["feature_selector_step", "extract_target_step"]
+                }
+            ]
         }
 
     # @override
@@ -839,6 +838,7 @@ class DefaultRegressionTemplate(DSBoxTemplate):
                                     'learning_rate': [0.1, 0.23, 0.34, 0.5],
                                     'min_samples_split': [2, 3],
                                     'min_samples_leaf': [1, 2],
+                                    'add_index_columns': [True],
                                 }
                         },
                         {
@@ -851,7 +851,8 @@ class DefaultRegressionTemplate(DSBoxTemplate):
                                     'min_samples_leaf': [1, 2, 4],
                                     'min_samples_split': [2, 5, 10],
                                     'max_features': ['auto', 'sqrt'],
-                                    'n_estimators': [10, 50, 100]
+                                    'n_estimators': [10, 50, 100],
+                                    'add_index_columns': [True],
                                 }
                         },
                         {
@@ -864,7 +865,8 @@ class DefaultRegressionTemplate(DSBoxTemplate):
                                     'min_samples_leaf': [1, 2, 4],
                                     'min_samples_split': [2, 5, 10],
                                     'max_features': ['auto', 'sqrt'],
-                                    'n_estimators': [10, 50, 100]
+                                    'n_estimators': [10, 50, 100],
+                                    'add_index_columns': [True],
                                 }
                         },
                     ],
@@ -901,13 +903,14 @@ class SVRRegressionTemplate(DSBoxTemplate):
                     "primitives": [
                         {
                             "primitive":
-                                "d3m.primitives.regression.svr.SKlearn",
+                            "d3m.primitives.regression.svr.SKlearn",
                             "hyperparameters":
-                                {
-                                    'C': [0.8, 1.0, 1.2],
-                                    'kernel': ['rbf', 'poly'],
-                                    'degree': [2, 3, 4, 5],
-                                }
+                            {
+                                'C': [0.8, 1.0, 1.2],
+                                'kernel': ['rbf', 'poly'],
+                                'degree': [2, 3, 4, 5],
+                                'add_index_columns': [True],
+                            }
                         },
                     ],
                     "inputs": ["data", "target"]
@@ -950,6 +953,7 @@ class GradientBoostingRegressionTemplate(DSBoxTemplate):
                                     'learning_rate': [0.1, 0.3, 0.5],
                                     'min_samples_split': [2, 3],
                                     'min_samples_leaf': [1, 2],
+                                    'add_index_columns': [True],
                                 }
                         },
                     ],
@@ -993,7 +997,8 @@ class ExtraTreesRegressionTemplate(DSBoxTemplate):
                                     'min_samples_leaf': [1, 2, 4],
                                     'min_samples_split': [2, 5, 10],
                                     'max_features': ['auto', 'sqrt'],
-                                    'n_estimators': [10, 50, 100]
+                                    'n_estimators': [10, 50, 100],
+                                    'add_index_columns': [True],
                                 }
                         },
                     ],
@@ -1037,7 +1042,8 @@ class RandomForestRegressionTemplate(DSBoxTemplate):
                                     'min_samples_leaf': [1, 2, 4],
                                     'min_samples_split': [2, 5, 10],
                                     'max_features': ['auto', 'sqrt'],
-                                    'n_estimators': [10, 50, 100]
+                                    'n_estimators': [10, 50, 100],
+                                    'add_index_columns': [True],
                                 }
                         },
                     ],
@@ -1072,7 +1078,8 @@ class RegressionWithSelection(DSBoxTemplate):
                                          "loss": ['squared_loss', 'huber'],
                                          "alpha": [float(x) for x in np.logspace(-5, -1.004, 7)],  # cannot reach 0.1
                                          "l1_ratio": [0.01, 0.15, 0.3, 0.5, 0.6, 0.7, 0.9],  # cannot reach 1
-                                         "learning_rate": ['optimal', 'invscaling']
+                                         "learning_rate": ['optimal', 'invscaling'],
+                                         'add_index_columns': [True],
                                      }
                                  },
                                  {
@@ -1085,6 +1092,7 @@ class RegressionWithSelection(DSBoxTemplate):
                                              'learning_rate': [0.1, 0.3, 0.5],
                                              'min_samples_split': [2, 3],
                                              'min_samples_leaf': [1, 2],
+                                             'add_index_columns': [True],
                                          }
                                  },
                              ],
@@ -1221,7 +1229,13 @@ class Large_column_number_with_numerical_only_classification(DSBoxTemplate):
                 },
                 {
                     "name": "model_step",
-                    "primitives": ["d3m.primitives.classification.random_forest.SKlearn"],
+                    "primitives": [
+                        {
+                            "primitive": "d3m.primitives.classification.random_forest.SKlearn",
+                            "hyperparameters": {
+                                'add_index_columns': [True],
+                            }
+                        }],
                     "inputs": ["cast_1_step", "extract_target_step"]
                 },
             ]
@@ -1309,7 +1323,14 @@ class Large_column_number_with_numerical_only_regression(DSBoxTemplate):
                 },
                 {
                     "name": "model_step",
-                    "primitives": ["d3m.primitives.regression.random_forest.SKlearn"],
+                    "primitives": [
+                        {
+                            "primitive": "d3m.primitives.regression.random_forest.SKlearn",
+                            "hyperparameters": {
+                                'add_index_columns': [True],
+                            }
+                        }
+                    ],
                     "inputs": ["cast_1_step", "extract_target_step"]
                 },
             ]
@@ -1420,7 +1441,14 @@ class DefaultTimeSeriesForcastingTemplate(DSBoxTemplate):
                 },
                 {
                     "name": "random_forest_step",
-                    "primitives": ["d3m.primitives.regression.random_forest.SKlearn"],
+                    "primitives": [
+                        {
+                            "primitive": "d3m.primitives.regression.random_forest.SKlearn",
+                            "hyperparameters": {
+                                'add_index_columns': [True],
+                            }
+                        }
+                    ],
                     "inputs": ["random_projection_step", "cast_1_step"]
                 },
             ]
@@ -1501,7 +1529,14 @@ class TimeSeriesForcastingTestingTemplate(DSBoxTemplate):
                 },
                 {
                     "name": "model_step",
-                    "primitives": ["d3m.primitives.regression.extra_trees.SKlearn"],
+                    "primitives": [
+                        {
+                            "primitive": "d3m.primitives.regression.extra_trees.SKlearn",
+                            "hyperparameters": {
+                                'add_index_columns': [True],
+                            }
+                        }
+                    ],
                     "inputs": ["encoder_step", "extract_target_step"]
                 },
             ]
@@ -1617,7 +1652,14 @@ class TimeSeriesForcastingTestingTemplate2(DSBoxTemplate):
                 },
                 {
                     "name": "model_step",
-                    "primitives": ["d3m.primitives.regression.extra_trees.SKlearn"],
+                    "primitives": [
+                        {
+                            "primitive": "d3m.primitives.regression.extra_trees.SKlearn",
+                            "hyperparameters": {
+                                'add_index_columns': [True],
+                            }
+                        }
+                    ],
                     "inputs": ["concat_step", "extract_target_step"]
                 },
             ]
@@ -1706,7 +1748,14 @@ class TemporaryObjectDetectionTemplate(DSBoxTemplate):
 
                 {
                     "name": "model_step",
-                    "primitives": ["d3m.primitives.regression.random_forest.SKlearn"],
+                    "primitives": [
+                        {
+                            "primitive": "d3m.primitives.regression.random_forest.SKlearn",
+                            "hyperparameters": {
+                                'add_index_columns': [True],
+                            }
+                        }
+                    ],
                     "inputs": ["image_processing_step", "data_clean_step"]
                 },
             ]
@@ -1783,7 +1832,14 @@ class DefaultTimeseriesCollectionTemplate(DSBoxTemplate):
 
                 {
                     "name": "random_forest_step",
-                    "primitives": ["d3m.primitives.classification.random_forest.SKlearn"],
+                    "primitives": [
+                        {
+                            "primitive": "d3m.primitives.classification.random_forest.SKlearn",
+                            "hyperparameters": {
+                                'add_index_columns': [True],
+                            }
+                        }
+                    ],
                     "inputs": ["random_projection_step", "extract_target_step"]
                 },
             ]
@@ -1873,7 +1929,14 @@ class DefaultTimeseriesRegressionTemplate(DSBoxTemplate):
                 },
                 {
                     "name": "random_forest_step",
-                    "primitives": ["d3m.primitives.regression.random_forest.SKlearn"],
+                    "primitives": [
+                        {
+                            "primitive": "d3m.primitives.classification.random_forest.SKlearn",
+                            "hyperparameters": {
+                                'add_index_columns': [True],
+                            }
+                        }
+                    ],
                     "inputs": ["random_projection_step", "cast_1_step"]
                 },
             ]
@@ -2009,7 +2072,14 @@ class TA1VggImageProcessingRegressionTemplate(DSBoxTemplate):
 
                 {
                     "name": "regressor_step",
-                    "primitives": ["d3m.primitives.regression.random_forest.SKlearn"],
+                    "primitives": [
+                        {
+                            "primitive": "d3m.primitives.regression.random_forest.SKlearn",
+                            "hyperparameters": {
+                                'add_index_columns': [True],
+                            }
+                        }
+                    ],
                     "inputs": ["PCA_step", "extract_target_step"]
                 },
             ]
@@ -2083,7 +2153,14 @@ class TA1DefaultImageProcessingRegressionTemplate(DSBoxTemplate):
 
                 {
                     "name": "regressor_step",
-                    "primitives": ["d3m.primitives.regression.random_forest.SKlearn"],
+                    "primitives": [
+                        {
+                            "primitive": "d3m.primitives.regression.random_forest.SKlearn",
+                            "hyperparameters": {
+                                'add_index_columns': [True],
+                            }
+                        }
+                    ],
                     "inputs": ["PCA_step", "extract_target_step"]
                 },
             ]
@@ -2154,7 +2231,14 @@ class DefaultImageProcessingRegressionTemplate(DSBoxTemplate):
 
                 {
                     "name": "regressor_step",
-                    "primitives": ["d3m.primitives.regression.random_forest.SKlearn"],
+                    "primitives": [
+                        {
+                            "primitive": "d3m.primitives.regression.random_forest.SKlearn",
+                            "hyperparameters": {
+                                'add_index_columns': [True],
+                            }
+                        }
+                    ],
                     "inputs": ["PCA_step", "extract_target_step"]
                 },
             ]
@@ -2192,30 +2276,33 @@ class DefaultTextClassificationTemplate(DSBoxTemplate):
                     "primitives": [
                         {
                             "primitive":
-                                "d3m.primitives.classification.gradient_boosting.SKlearn",
+                            "d3m.primitives.classification.gradient_boosting.SKlearn",
                             "hyperparameters":
-                                {
-                                    'max_depth': [2, 5],
-                                    'n_estimators': [50, 100],
-                                    'learning_rate': [0.1, 0.3],
-                                    'min_samples_split': [2, 3],
-                                    'min_samples_leaf': [1, 2],
-                                }
+                            {
+                                'max_depth': [2, 5],
+                                'n_estimators': [50, 100],
+                                'learning_rate': [0.1, 0.3],
+                                'min_samples_split': [2, 3],
+                                'min_samples_leaf': [1, 2],
+                                'add_index_columns': [True],
+                            }
                         },
                         {
                             "primitive":
-                                "d3m.primitives.classification.multinomial_naive_bayes.SKlearn",
+                            "d3m.primitives.classification.multinomial_naive_bayes.SKlearn",
                             "hyperparameters":
-                                {
-                                    'alpha': [0, .5, 1],
-                                }
+                            {
+                                'alpha': [0, .5, 1],
+                                'add_index_columns': [True],
+                            }
                         },
                         {
                             "primitive":
-                                "d3m.primitives.classification.random_forest.SKlearn",
+                            "d3m.primitives.classification.random_forest.SKlearn",
                             "hyperparameters":
-                                {
-                                }
+                            {
+                                'add_index_columns': [True],
+                            }
                         },
                     ],
                     "inputs": ["data", "target"]
@@ -2250,22 +2337,24 @@ class DefaultTextRegressionTemplate(DSBoxTemplate):
                     "primitives": [
                         {
                             "primitive":
-                                "d3m.primitives.regression.gradient_boosting.SKlearn",
+                            "d3m.primitives.regression.gradient_boosting.SKlearn",
                             "hyperparameters":
-                                {
-                                    'max_depth': [2, 5],
-                                    'n_estimators': [100, 200],
-                                    'learning_rate': [0.1, 0.3],
-                                    'min_samples_split': [2, 3],
-                                    'min_samples_leaf': [1, 2],
-                                }
+                            {
+                                'max_depth': [2, 5],
+                                'n_estimators': [100, 200],
+                                'learning_rate': [0.1, 0.3],
+                                'min_samples_split': [2, 3],
+                                'min_samples_leaf': [1, 2],
+                                'add_index_columns': [True],
+                            }
                         },
                         {
                             "primitive":
-                                "d3m.primitives.regression.random_forest.SKlearn",
+                            "d3m.primitives.regression.random_forest.SKlearn",
                             "hyperparameters":
-                                {
-                                }
+                            {
+                                'add_index_columns': [True],
+                            }
                         },
                     ],
                     "inputs": ["data", "target"]
@@ -2340,6 +2429,7 @@ class DefaultLinkPredictionTemplate(DSBoxTemplate):
                             'min_samples_split': [2, 5, 10],
                             'max_features': ['auto', 'sqrt'],
                             'n_estimators': [10, 50, 100],
+                            'add_index_columns': [True],
                         }
                     }
                     ],
@@ -2828,7 +2918,14 @@ class MichiganVideoClassificationTemplate(DSBoxTemplate):
                 {
                     "name": "model_step",
                     # "primitives": ["d3m.primitives.classifier.RandomForest"],
-                    "primitives": ["d3m.primitives.classification.random_forest.SKlearn"],
+                    "primitives": [
+                        {
+                            "primitive": "d3m.primitives.classification.random_forest.SKlearn",
+                            "hyperparameters":
+                            {
+                                'add_index_columns': [True],
+                            }
+                        }],
                     "inputs": ["convert_step", "extract_target_step"]
                 },
             ]
@@ -2871,7 +2968,8 @@ class TA1ClassificationTemplate1(DSBoxTemplate):
                         "hyperparameters":
                             {
                                 'semantic_types': (
-                                    'https://metadata.datadrivendiscovery.org/types/Attribute',),
+                                    'https://metadata.datadrivendiscovery.org/types/PrimaryKey',
+                                    'https://metadata.datadrivendiscovery.org/types/Attribute'),
                                 'use_columns': (),
                                 'exclude_columns': ()
                             }
@@ -2897,38 +2995,41 @@ class TA1ClassificationTemplate1(DSBoxTemplate):
                     "inputs": ["extract_attribute_step"]
                 },
                 {
-                    "name": "impute_step",
-                    "primitives": ["d3m.primitives.data_preprocessing.MeanImputation.DSBOX"],
+                    "name": "cast_step",
+                    "primitives": [
+                        "d3m.primitives.data_transformation.to_numeric.DSBOX",
+                        # {
+                        #     "primitive": "d3m.primitives.data_transformation.cast_to_type.Common",
+                        #     "hyperparameters": {"type_to_cast": ["float"]}
+                        # },
+                        #"d3m.primitives.data_preprocessing.DoNothing.DSBOX",
+                    ],
                     "inputs": ["encode_step"]
                 },
                 {
-                    "name": "cast_1_step",
-                    "primitives": [
-                        {
-                            "primitive": "d3m.primitives.data_transformation.cast_to_type.Common",
-                            "hyperparameters": {"type_to_cast": ["float"]}
-                        },
-                        "d3m.primitives.data_preprocessing.DoNothing.DSBOX",
-                    ],
-                    "inputs": ["impute_step"]
+                    "name": "impute_step",
+                    "primitives": ["d3m.primitives.data_preprocessing.MeanImputation.DSBOX"],
+                    "inputs": ["cast_step"]
                 },
                 {
                     "name": "model_step",
-                    "runtime": {
-                        "cross_validation": 10,
-                        "stratified": True
-                    },
+                    # "runtime": {
+                    #     "cross_validation": 10,
+                    #     "stratified": True
+                    # },
                     "primitives": [{
                         "primitive":
                             "d3m.primitives.classification.random_forest.SKlearn",
                         "hyperparameters":
                             {
                                 'max_depth': [(2), (4), (8)],  # (10), #
-                                'n_estimators': [(10), (20), (30)]
+                                'n_estimators': [(10), (20), (30)],
+                                'return_result':['new'],
+                                'add_index_columns': [True],
                             }
                     },
                     ],
-                    "inputs": ["cast_1_step", "extract_target_step"]
+                    "inputs": ["impute_step", "extract_target_step"]
                 }
             ]
         }
@@ -2985,7 +3086,15 @@ class TA1Classification_2(DSBoxTemplate):
                         "cross_validation": 10,
                         "stratified": True
                     },
-                    "primitives": ["d3m.primitives.classification.random_forest.SKlearn"],
+                    "primitives": [
+                        {
+                            "primitive": "d3m.primitives.classification.random_forest.SKlearn",
+                            "hyperparameters":
+                            {
+                                'add_index_columns': [True],
+                            }
+                        }
+                    ],
                     "inputs": ["scaler_step", "extract_target_step"]
                 }
             ]
@@ -3082,7 +3191,13 @@ class TA1Classification_3(DSBoxTemplate):
                 {
                     "name": "model_step",
                     "primitives": [
-                        "d3m.primitives.classification.random_forest.SKlearn"],
+                        {
+                            "primitive": "d3m.primitives.classification.random_forest.SKlearn",
+                            "hyperparameters":
+                            {
+                                'add_index_columns': [True],
+                            }
+                        }],
                     "runtime": {
                         "cross_validation": 10,
                         "stratified": False
@@ -3190,7 +3305,8 @@ class MuxinTA1ClassificationTemplate1(DSBoxTemplate):
                             "hyperparameters":
                                 {
                                     'max_depth': [(2), (4)],  # (10), #
-                                    'n_estimators': [(10), (30)]
+                                    'n_estimators': [(10), (30)],
+                                    'add_index_columns': [True],
                                 }
                         },
                         # {
@@ -3304,7 +3420,15 @@ class MuxinTA1ClassificationTemplate2(DSBoxTemplate):
                 },
                 {
                     "name": "model_step",
-                    "primitives": ["d3m.primitives.classification.random_forest.SKlearn"],
+                    "primitives": [
+                        {
+                            "primitive": "d3m.primitives.classification.random_forest.SKlearn",
+                            "hyperparameters":
+                            {
+                                'add_index_columns': [True],
+                            }
+                        }
+                    ],
                     "runtime": {
                         "cross_validation": 10,
                         "stratified": False
@@ -3403,7 +3527,15 @@ class MuxinTA1ClassificationTemplate3(DSBoxTemplate):
                 },
                 {
                     "name": "model_step",
-                    "primitives": ["d3m.primitives.classification.random_forest.SKlearn"],
+                    "primitives": [
+                        {
+                            "primitive": "d3m.primitives.classification.random_forest.SKlearn",
+                            "hyperparameters":
+                            {
+                                'add_index_columns': [True],
+                            }
+                        }
+                    ],
                     "runtime": {
                         "cross_validation": 10,
                         "stratified": False
@@ -3495,7 +3627,13 @@ class MuxinTA1ClassificationTemplate4(DSBoxTemplate):
                 {
                     "name": "model_step",
                     "primitives": [
-                        "d3m.primitives.classification.random_forest.SKlearn"],
+                        {
+                            "primitive": "d3m.primitives.classification.random_forest.SKlearn",
+                            "hyperparameters":
+                            {
+                                'add_index_columns': [True],
+                            }
+                        }],
                     "runtime": {
                         "cross_validation": 10,
                         "stratified": False
@@ -3590,10 +3728,10 @@ class UU3TestTemplate(DSBoxTemplate):
                 {
                     "name": "model_step",
                     "primitives": [{
-                        "primitive":
-                            "d3m.primitives.regression.random_forest.SKlearn",
+                        "primitive": "d3m.primitives.regression.random_forest.SKlearn",
                         "hyperparameters":
                             {
+                                'add_index_columns':[True],
                             }
                     }
                     ],
