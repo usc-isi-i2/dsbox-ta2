@@ -430,7 +430,7 @@ class Controller:
             ensemble_tuning_dataset=self.ensemble_dataset,
             output_directory=self.config.output_dir,
             log_dir=self.config.log_dir,
-            timeout=self.config.timeout_search
+            timeout_sec=self.config.timeout_search
         )
         # report = self._search_method.search(num_iter=50)
         report = self._search_method.search(num_iter=self.config.serial_search_iterations, one_pipeline_only=one_pipeline_only)
@@ -462,6 +462,7 @@ class Controller:
         self._search_method.job_manager.reset()
 
     def _run_RandomDimSearch(self, report_ensemble):
+        # !! Need to updated
         self._search_method = RandomDimensionalSearch(
             template_list=self.template,
             performance_metrics=self.config.problem['problem']['performance_metrics'],
@@ -485,6 +486,7 @@ class Controller:
         self._search_method.job_manager.reset()
 
     def _run_BanditDimSearch(self, report_ensemble):
+        # !! Need to updated
         self._search_method = BanditDimensionalSearch(
             template_list=self.template,
             performance_metrics=self.config.problem['problem']['performance_metrics'],
@@ -508,6 +510,7 @@ class Controller:
         self._search_method.job_manager.reset()
 
     def _run_MultiBanditSearch(self, report_ensemble):
+        # !! Need to updated
         self._search_method = MultiBanditSearch(
             template_list=self.template,
             performance_metrics=self.config.problem['problem']['performance_metrics'],

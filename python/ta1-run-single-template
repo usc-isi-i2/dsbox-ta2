@@ -19,8 +19,13 @@ def main(args):
 
     config = DsboxConfig()
     config.load()
+    config.search_method = 'serial'
+
+    print('== config')
+    print(config)
 
     controller = Controller(development_mode=debug, run_single_template_name=template_name)
+    controller.initialize(config)
 
     controller.initialize_from_config_for_evaluation(config)
 
