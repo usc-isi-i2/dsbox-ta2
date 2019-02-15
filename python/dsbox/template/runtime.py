@@ -132,7 +132,7 @@ class Runtime(runtime_base.Runtime):
 
         time_start = time.time()
 
-        _logger.info(f"running primitive: {this_step.primitive.metadata.query()['name']}")
+        _logger.debug(f"running primitive: {this_step.primitive.metadata.query()['name']}")
         # call d3m's run primitive directly if not use cache
         # NOTE: But need to perform cross validation!
         if not self.use_cache:
@@ -269,7 +269,7 @@ class Runtime(runtime_base.Runtime):
 
         # add up the timing
         self.timing["total_time_used"] += (time.time() - time_start)
-        _logger.info(f"   done primitive: {this_step.primitive.metadata.query()['name']}")
+        _logger.debug(f"   done primitive: {this_step.primitive.metadata.query()['name']}")
 
     def _log_fitted_step(self, cache, output_data_reference, primitive_step, primitives_outputs):
         '''
