@@ -59,10 +59,6 @@ class Controller:
         self.development_mode: bool = development_mode
         self.is_ta3 = is_ta3
 
-        self.use_multiprocessing = True
-        if is_ta3:
-            self.use_multiprocessing = False
-
         self.run_single_template_name = run_single_template_name
 
         self.config: DsboxConfig = None
@@ -99,14 +95,6 @@ class Controller:
         self.do_horizontal_tune = False
 
         self.report_ensemble = dict()
-        if self.do_ensemble_tune:
-            # creat a special dictionary that can collect the results in each processes
-            if self.use_multiprocessing:
-                from multiprocessing import Manager
-                m = Manager()
-                self.report_ensemble = m.dict()
-            self.ensemble_voting_candidate_choose_method = 'lastStep'
-            # self.ensemble_voting_candidate_choose_method = 'resultSimilarity'
 
         # Resource limits
         # self.ram: int = 0  # concurrently ignored
@@ -430,7 +418,7 @@ class Controller:
                 pass
 
     def _run_SerialBaseSearch(self, report_ensemble, *, one_pipeline_only=False):
-        self._search_method = TemplateSpaceBaseSearch(
+        self._search_method.initialize_problem(
             template_list=self.template,
             performance_metrics=self.config.problem['problem']['performance_metrics'],
             problem=self.config.problem_metadata,
@@ -442,7 +430,6 @@ class Controller:
             ensemble_tuning_dataset=self.ensemble_dataset,
             output_directory=self.config.output_dir,
             log_dir=self.config.log_dir,
-            is_multiprocessing=False,
             timeout=self.config.timeout_search
         )
         # report = self._search_method.search(num_iter=50)
@@ -452,7 +439,7 @@ class Controller:
         self._log_search_results(report=report)
 
     def _run_ParallelBaseSearch(self, report_ensemble):
-        self._search_method = TemplateSpaceParallelBaseSearch(
+        self._search_method.initialize_problem(
             template_list=self.template,
             performance_metrics=self.config.problem['problem']['performance_metrics'],
             problem=self.config.problem_metadata,
@@ -464,8 +451,7 @@ class Controller:
             ensemble_tuning_dataset=self.ensemble_dataset,
             output_directory=self.config.output_dir,
             log_dir=self.config.log_dir,
-            num_proc=self.config.cpu,
-            timeout=self.config.timeout_search,
+            timeout_sec=self.config.timeout_search,
         )
         report = self._search_method.search(num_iter=50)
 
@@ -473,7 +459,7 @@ class Controller:
             report_ensemble['report'] = report
         self._log_search_results(report=report)
 
-        self._search_method.job_manager.kill_job_mananger()
+        self._search_method.job_manager.reset()
 
     def _run_RandomDimSearch(self, report_ensemble):
         self._search_method = RandomDimensionalSearch(
@@ -496,7 +482,7 @@ class Controller:
             report_ensemble['report'] = report
         self._log_search_results(report=report)
 
-        self._search_method.job_manager.kill_job_mananger()
+        self._search_method.job_manager.reset()
 
     def _run_BanditDimSearch(self, report_ensemble):
         self._search_method = BanditDimensionalSearch(
@@ -519,7 +505,7 @@ class Controller:
             report_ensemble['report'] = report
         self._log_search_results(report=report)
 
-        self._search_method.job_manager.kill_job_mananger()
+        self._search_method.job_manager.reset()
 
     def _run_MultiBanditSearch(self, report_ensemble):
         self._search_method = MultiBanditSearch(
@@ -542,7 +528,7 @@ class Controller:
             report_ensemble['report'] = report
         self._log_search_results(report=report)
 
-        self._search_method.job_manager.kill_job_mananger()
+        self._search_method.job_manager.reset()
 
     """
         **********************************************************************
@@ -564,8 +550,34 @@ class Controller:
         1. get_candidates
         2. get_problem
         3. load_fitted_pipeline
+        4. export_solution
         **********************************************************************
     """
+    def initialize(self, config: DsboxConfig):
+        '''
+        This method should called as soon as possible. Need to spawn all processes before grpc connection.
+        '''
+        self.config = config
+        use_multiprocessing = True
+        if self.config.search_method == 'serial':
+            self._search_method = TemplateSpaceBaseSearch()
+            use_multiprocessing = False
+        elif self.config.search_method == 'parallel':
+            self._search_method = TemplateSpaceParallelBaseSearch(num_proc=self.config.cpu)
+        # elif self.config.search_method == 'bandit':
+        #     self._search_method = BanditDimensionalSearch(num_proc=self.config.cpu)
+        else:
+            self._search_method = TemplateSpaceParallelBaseSearch(num_proc=self.config.cpu)
+
+        if self.do_ensemble_tune:
+            # creat a special dictionary that can collect the results in each processes
+            if use_multiprocessing:
+                from multiprocessing import Manager
+                m = Manager()
+                self.report_ensemble = m.dict()
+            self.ensemble_voting_candidate_choose_method = 'lastStep'
+            # self.ensemble_voting_candidate_choose_method = 'resultSimilarity'
+
     def add_d3m_index_and_prediction_class_name(self, prediction, from_dataset = None):
         """
             The function to process the prediction results
@@ -1100,32 +1112,37 @@ class Controller:
         # FIXME) come up with a better way to implement this part. The fork does not provide a way
         # FIXME) to catch the errors of the child process
 
-        if self.use_multiprocessing or self.config.search_method == 'serial':
+        if self.config.search_method == 'serial':
             self._run_SerialBaseSearch(self.report_ensemble, one_pipeline_only=one_pipeline_only)
         else:
-            from multiprocessing import Process
-            with mplog.open_queue() as log_queue:
-                self._logger.info('Starting Search process')
+            self._run_ParallelBaseSearch(self.report_ensemble)
 
-                if self.config.search_method == 'parallel':
-                    proc = Process(target=mplog.logged_call,
-                                   args=(log_queue, self._run_ParallelBaseSearch, self.report_ensemble))
-                elif self.config.search_method == 'bandit':
-                    proc = Process(target=mplog.logged_call,
-                                   args=(log_queue, self._run_BanditDimSearch,))
-                else:
-                    proc = Process(target=mplog.logged_call,
-                                   args=(log_queue, self._run_ParallelBaseSearch, self.report_ensemble))
+        # if not self.use_multiprocessing or self.config.search_method == 'serial':
+        #     self._run_SerialBaseSearch(self.report_ensemble, one_pipeline_only=one_pipeline_only)
+        # else:
+        #     from multiprocessing import Process
+        #     with mplog.open_queue() as log_queue:
+        #         self._logger.info('Starting Search process')
 
-                proc.start()
-                self._logger.info('Searching is finished')
+        #         if self.config.search_method == 'parallel':
+        #             proc = Process(target=mplog.logged_call,
+        #                            args=(log_queue, self._run_ParallelBaseSearch, self.report_ensemble))
+        #         elif self.config.search_method == 'bandit':
+        #             proc = Process(target=mplog.logged_call,
+        #                            args=(log_queue, self._run_BanditDimSearch,))
+        #         else:
+        #             proc = Process(target=mplog.logged_call,
+        #                            args=(log_queue, self._run_ParallelBaseSearch, self.report_ensemble))
 
-                # wait until process is done
-                proc.join()
-                print(f"END OF FORK {proc.exitcode}")
-                status = proc.exitcode
-                print("[INFO] Search Status:")
-                pprint.pprint(status)
+        #         proc.start()
+        #         self._logger.info('Searching is finished')
+
+        #         # wait until process is done
+        #         proc.join()
+        #         print(f"END OF FORK {proc.exitcode}")
+        #         status = proc.exitcode
+        #         print("[INFO] Search Status:")
+        #         pprint.pprint(status)
 
         if self.do_ensemble_tune:
             self._logger.info("Normal searching finished, now starting ensemble tuning")

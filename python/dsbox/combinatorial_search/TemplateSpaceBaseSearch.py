@@ -40,16 +40,20 @@ class TemplateSpaceBaseSearch(typing.Generic[T]):
         the dictinary containing the results of the best pipline
     """
 
-    def __init__(self, template_list: typing.List[DSBoxTemplate],
-                 performance_metrics: typing.List[typing.Dict],
-                 problem: Metadata, train_dataset1: Dataset,
-                 train_dataset2: typing.List[Dataset], test_dataset1: Dataset,
-                 test_dataset2: typing.List[Dataset], all_dataset: Dataset,
-                 ensemble_tuning_dataset: Dataset,
-                 output_directory: str, log_dir: str,
-                 timeout: int = -1,  # in seconds
-                 is_multiprocessing: bool = True) -> None:
+    def __init__(self, is_multiprocessing: bool = True):
+        self.is_multiprocessing = is_multiprocessing
+        self.cacheManager = CacheManager(is_multiprocessing=is_multiprocessing)
 
+    def initialize_problem(self, template_list: typing.List[DSBoxTemplate],
+                           performance_metrics: typing.List[typing.Dict],
+                           problem: Metadata, train_dataset1: Dataset,
+                           train_dataset2: typing.List[Dataset], test_dataset1: Dataset,
+                           test_dataset2: typing.List[Dataset], all_dataset: Dataset,
+                           ensemble_tuning_dataset: Dataset,
+                           output_directory: str, log_dir: str,
+                           timeout_sec: int = -1) -> None:
+
+        self.cacheManager.timeout_sec = timeout_sec
         self.template_list = template_list
 
         self.configuration_space_list = list(
@@ -63,15 +67,12 @@ class TemplateSpaceBaseSearch(typing.Generic[T]):
                     problem=problem, train_dataset1=train_dataset1, train_dataset2=train_dataset2,
                     test_dataset1=test_dataset1, test_dataset2=test_dataset2,
                     all_dataset=all_dataset, performance_metrics=performance_metrics,
-                    ensemble_tuning_dataset = ensemble_tuning_dataset,
+                    ensemble_tuning_dataset=ensemble_tuning_dataset,
                     output_directory=output_directory, log_dir=log_dir
                 ),
                 zip(template_list, self.configuration_space_list)
             )
         )
-
-        self.is_multiprocessing = is_multiprocessing
-        self.cacheManager = CacheManager(is_multiprocessing=is_multiprocessing)
 
         self.history: ExecutionHistory = None
         # setup the execution history to store the results of each template separately
@@ -79,8 +80,8 @@ class TemplateSpaceBaseSearch(typing.Generic[T]):
 
         self.ensemble_tuning_result = {}
 
-        self.timeout = timeout
-        self.start_time = time.time()
+        self.timeout_sec = timeout_sec
+        self.start_time = time.perf_counter()
         # load libraries with a dummy evaluation
         # try:
         #     self.confSpaceBaseSearch[-1].dummy_evaluate()
@@ -115,12 +116,12 @@ class TemplateSpaceBaseSearch(typing.Generic[T]):
                     report = search.evaluate_pipeline(
                         args=(candidate, self.cacheManager.primitive_cache, True))
                     success_count += 1
-                    _logger.info(f'Search template pipeline {search.template}')
+                    _logger.info(f'Search template pipeline SUCCEEDED {search.template}')
                     _logger.info(f'report fitted_pipeline {report["id"]}')
                     _logger.debug(f'report {report}')
                 except Exception:
                     traceback.print_exc()
-                    _logger.error(f'Search template pipeline failed {search.template}')
+                    _logger.error(f'Search template pipeline FAILED {search.template}')
                     _logger.error(traceback.format_exc())
                     _logger.debug("Failed candidate: {candidate}")
                     report = None
@@ -137,8 +138,8 @@ class TemplateSpaceBaseSearch(typing.Generic[T]):
         if one_pipeline_only and success_count >= 1:
             _logger.info('Found one pipeline')
             return True
-        _logger.info(f'Test Done: {time.time() > self.start_time + self.timeout}: {time.time()} > {self.start_time} + {self.timeout}')
-        return (self.timeout > 0 and time.time() > self.start_time + self.timeout)
+        _logger.info(f'Test Done: {time.perf_counter() > self.start_time + self.timeout_sec}: {time.perf_counter()} > {self.start_time} + {self.timeout_sec}')
+        return (self.timeout_sec > 0 and time.perf_counter() > self.start_time + self.timeout_sec)
 
     def _add_report_to_history(self, kwargs_bundle: typing.Dict[str, typing.Any],
                                report: typing.Dict[str, typing.Any]) -> None:

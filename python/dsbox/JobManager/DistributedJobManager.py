@@ -1,42 +1,59 @@
-import time
-import typing
+import copy
 import os
 import logging
 import psutil
-from threading import Timer
-from math import ceil
+import time
 import traceback
+import typing
+
+from enum import Enum
+from math import ceil
 from multiprocessing import Pool, Queue, Manager, current_process
-import copy
+from threading import Timer
 
 _logger = logging.getLogger(__name__)
 
 
+class TimerResponse(Enum):
+    KILL_WORKERS = 0
+    STOP_WORKER_JOBS = 1
+
+
 class DistributedJobManager:
-    def __init__(self, proc_num: int = 4, timeout: int = 55):
+    def __init__(self, proc_num: int = 4, timer_response=TimerResponse.STOP_WORKER_JOBS):
 
         self.start_time = time.perf_counter()
         self.proc_num = proc_num
-        self.timeout = timeout
+        self.timer_response = timer_response
+        self._timeout_sec = -1
 
         self.manager = Manager()
         # self.manager.start()
         self.arguments_queue: Queue = self.manager.Queue()
         self.result_queue: Queue = self.manager.Queue()
 
-        self.Qlock = self.manager.Lock()
+        self.argument_lock = self.manager.Lock()
+        self.result_lock = self.manager.Lock()
 
         # initialize
         self.job_pool: Pool = None
 
         self.timer: Timer = None
-        self._setup_timeout_timer()
 
         # status counter
         self.ongoing_jobs: int = 0
 
         # start the workers
         self._start_workers(DistributedJobManager._posted_job_wrapper)
+
+    @property
+    def timeout_sec(self):
+        return self._timeout_sec
+
+    @timeout_sec.setter
+    def timeout_sec(self, value: int):
+        self._timeout_sec = value
+        self._setup_timeout_timer()
 
     def _start_workers(self, target_method: typing.Callable):
         self.job_pool = Pool(processes=self.proc_num)
@@ -162,15 +179,14 @@ class DistributedJobManager:
             l in kwargs_bundle for l in ['target_obj', 'target_method', 'kwargs']), hint_message
         assert isinstance(kwargs_bundle['kwargs'], dict), hint_message
 
-        self.Qlock.acquire()
-        self.ongoing_jobs += 1
-        self.arguments_queue.put(kwargs_bundle)
-        self.Qlock.release()
+        with self.argument_lock:
+            self.ongoing_jobs += 1
+            self.arguments_queue.put(kwargs_bundle)
         # self.result_queue_size = None
 
         return hash(str(kwargs_bundle))
 
-    def pop_job(self, block: bool = False) -> typing.Tuple[typing.Dict, typing.Any]:
+    def pop_job(self, block: bool = False, timeout=None) -> typing.Tuple[typing.Dict, typing.Any]:
         """
         Pops the results from results queue
         Args:
@@ -182,12 +198,12 @@ class DistributedJobManager:
         """
         _logger.info(f"# ongoing_jobs {self.ongoing_jobs}")
         print(f"# ongoing_jobs {self.ongoing_jobs}")
-        self.Qlock.acquire()
 
-        (kwargs, results) = self.result_queue.get(block=block)
-        self.ongoing_jobs -= 1
-        print(f"[PID] pid:{os.getpid()}")
-        self.Qlock.release()
+        with self.result_lock:
+            (kwargs, results) = self.result_queue.get(block=block, timeout=timeout)
+            self.ongoing_jobs -= 1
+            print(f"[PID] pid:{os.getpid()}")
+
         # _logger.info(f"[INFO] end of pop # ongoing_jobs {self.ongoing_jobs}")
         return (kwargs, results)
 
@@ -234,9 +250,13 @@ class DistributedJobManager:
         Raises:
             TimeoutError: if the timeout is reached
         """
-        elapsed_min = ceil((time.perf_counter() - self.start_time) / 60)
-        if elapsed_min > self.timeout:
-            raise TimeoutError("Timeout reached: {}/{}".format(elapsed_min, self.timeout))
+        elapsed_sec = ceil(time.perf_counter() - self.start_time)
+        if elapsed_sec > self._timeout_sec:
+            raise TimeoutError("Timeout reached: {}/{}".format(elapsed_sec, self.timeout_sec))
+
+    def reset(self):
+        self._timeout_sec = -1
+        self.timer.cancel()
 
     def kill_job_mananger(self):
         """
@@ -244,6 +264,7 @@ class DistributedJobManager:
         Returns:
             None
         """
+        _logger.warning('===DO YOU REALLY WANT TO KILL THE JOB MANAGER===')
         _logger.debug("self.job_pool.terminate()")
         self.job_pool.terminate()
 
@@ -261,9 +282,21 @@ class DistributedJobManager:
         self.timer.cancel()
 
     def _setup_timeout_timer(self):
-        self.timer = Timer(self.timeout * 60, self._kill_me)
+        self.start_time = time.perf_counter()
+        if self.timer_response == TimerResponse.KILL_WORKERS:
+            self.timer = Timer(self._timeout_sec, self._kill_me)
+        else:
+            self.timer = Timer(self._timeout_sec, self._stop_worker_jobs)
         self.timer.start()
-        _logger.warning(f"timer started: {self.timeout} min")
+        _logger.warning(f"timer started: {self._timeout_sec/60} min")
+
+    def _stop_worker_jobs(self):
+        _logger.warning("search TIMEOUT reached! Stopping worker jobs. Actually just clearing the queue.")
+        with self.argument_lock:
+            _logger.info(f"Clearing {self.ongoing_jobs} jobs from queue")
+            self.ongoing_jobs = 0
+            while not self.arguments_queue.empty():
+                self.arguments_queue.get()
 
     def _kill_me(self):
         _logger.warning("search TIMEOUT reached! Killing search Process")

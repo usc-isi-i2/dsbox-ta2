@@ -128,9 +128,10 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
         The __init__ method is used to establish the underlying TA2 libraries to service requests from the TA3 system.
         '''
         self.log_msg("Init invoked")
-        self.controller = Controller(is_ta3=True)
-
         self.config = config
+        self.controller = Controller(is_ta3=True)
+        self.controller.initialize(config)
+
         # self.output_dir = config.output_dir
         # self.log_dir = os.path.join(self.config.output_dir, 'supporting_files', 'logs')
         self.directory_mapping = directory_mapping

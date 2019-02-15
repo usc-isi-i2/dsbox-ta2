@@ -53,7 +53,6 @@ class DsboxConfig:
 
     DSBox variables
     * search_method: pipeline search methods, possible values 'serial', 'parallel', 'random-dimensional', 'bandit', 'multi-bandit'
-    * is_multiprocess: if False, then should not spawn subprocesses. Needed for TA3 mode.
     * timeout_search: Timeout for search part. Typically equal to timeout less 120 seconds
 
     '''
@@ -86,7 +85,6 @@ class DsboxConfig:
         # DSBox search
         self.search_method = 'serial'
         self.serial_search_iterations = 50
-        self.is_multiprocess = False
         self.timeout_search: int = 0
 
         # DSBox logging
@@ -149,7 +147,7 @@ class DsboxConfig:
 
     def _load_dsbox(self):
         self._load_logging()
-        self.search_method = 'serial'
+        self.search_method = 'parallel'
 
     def _setup(self):
         self._define_create_output_dirs()
@@ -272,6 +270,7 @@ class DsboxConfig:
         print(f'  ram: {self.ram}', file=out)
         print(f'  timeout: {self.timeout}', file=out)
         print(f'  timeout_search: {self.timeout_search}', file=out)
+        print(f'  search_method: {self.search_method}', file=out)
         content = out.getvalue()
         out.close()
         return content
