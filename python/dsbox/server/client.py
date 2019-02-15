@@ -62,7 +62,7 @@ def config_datasets(use_docker_server) -> typing.List:
     if use_docker_server:
         dataset_base_path = '/input/'
     else:
-        dataset_base_path = '/nfs1/dsbox-repo/data/datasets-v31/seed_datasets_current'
+        dataset_base_path = '/nfs1/dsbox-repo/data/datasets-v32/seed_datasets_current'
     print('Using dataset base path:', dataset_base_path)
     dataset_docs = find_dataset_docs(dataset_base_path, _logger)
     return dataset_base_path
