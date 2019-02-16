@@ -118,7 +118,7 @@ class DsboxConfig:
     @timeout.setter
     def timeout(self, value: int):
         self._timeout = value
-        self.timeout_search = max(self._timeout - 180, int(self._timeout * 0.95))
+        self.timeout_search = max(self._timeout - 180, int(self._timeout * 0.8))
 
     def load(self):
         self._load_d3m_environment()
