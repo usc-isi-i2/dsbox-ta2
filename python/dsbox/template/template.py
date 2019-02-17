@@ -575,7 +575,7 @@ class DSBoxTemplate():
         # pprint(binding)
         # print(sequence)
         # print("[INFO] list:",list(map(str, metadata_base.Context)))
-        pipeline = Pipeline(name="dsbox_" + str(id(binding)),
+        pipeline = Pipeline(name=self.template['name'] + ":" + str(id(binding)),
                             context=metadata_base.Context.PRETRAINING,
                             description=self.description_info)  # 'PRETRAINING'
         templateinput = pipeline.add_input("input dataset")
