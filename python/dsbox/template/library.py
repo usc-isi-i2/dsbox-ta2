@@ -1175,7 +1175,8 @@ class Large_column_number_with_numerical_only_classification(DSBoxTemplate):
                         "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.DataFrameCommon",
                         "hyperparameters":
                             {
-                                'semantic_types': ('https://metadata.datadrivendiscovery.org/types/PrimaryKey', 'https://metadata.datadrivendiscovery.org/types/Attribute',),
+                                'semantic_types': ('https://metadata.datadrivendiscovery.org/types/PrimaryKey',
+                                                   'https://metadata.datadrivendiscovery.org/types/Attribute',),
                                 'use_columns': (),
                                 'exclude_columns': ()
                             }
@@ -1257,7 +1258,8 @@ class Large_column_number_with_numerical_only_regression(DSBoxTemplate):
                         "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.DataFrameCommon",
                         "hyperparameters":
                             {
-                                'semantic_types': ('https://metadata.datadrivendiscovery.org/types/PrimaryKey', 'https://metadata.datadrivendiscovery.org/types/Attribute',),
+                                'semantic_types': ('https://metadata.datadrivendiscovery.org/types/PrimaryKey',
+                                                   'https://metadata.datadrivendiscovery.org/types/Attribute',),
                                 'use_columns': (),
                                 'exclude_columns': ()
                             }
@@ -1360,8 +1362,8 @@ class DefaultTimeSeriesForcastingTemplate(DSBoxTemplate):
                         "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.DataFrameCommon",
                         "hyperparameters":
                             {
-                                'semantic_types': ('https://metadata.datadrivendiscovery.org/types/PrimaryKey', 
-                                    'https://metadata.datadrivendiscovery.org/types/Attribute',),
+                                'semantic_types': ('https://metadata.datadrivendiscovery.org/types/PrimaryKey',
+                                                   'https://metadata.datadrivendiscovery.org/types/Attribute',),
                                 'use_columns': (),
                                 'exclude_columns': ()
                             }
@@ -1447,8 +1449,8 @@ class TimeSeriesForcastingTestingTemplate(DSBoxTemplate):
                         "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.DataFrameCommon",
                         "hyperparameters":
                             {
-                                'semantic_types': ('https://metadata.datadrivendiscovery.org/types/PrimaryKey', 
-                                    'https://metadata.datadrivendiscovery.org/types/Attribute',),
+                                'semantic_types': ('https://metadata.datadrivendiscovery.org/types/PrimaryKey',
+                                                   'https://metadata.datadrivendiscovery.org/types/Attribute',),
                                 'use_columns': (),
                                 'exclude_columns': ()
                             }
@@ -1540,8 +1542,8 @@ class TimeSeriesForcastingTestingTemplate2(DSBoxTemplate):
                         "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.DataFrameCommon",
                         "hyperparameters":
                             {
-                                'semantic_types': (
-                                    'https://metadata.datadrivendiscovery.org/types/Attribute',),
+                                'semantic_types': ('https://metadata.datadrivendiscovery.org/types/PrimaryKey',
+                                                   'https://metadata.datadrivendiscovery.org/types/Attribute',),
                                 'use_columns': (),
                                 'exclude_columns': (3,)
                             }
@@ -1852,8 +1854,8 @@ class DefaultTimeseriesRegressionTemplate(DSBoxTemplate):
                         "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.DataFrameCommon",
                         "hyperparameters":
                             {
-                                'semantic_types': ('https://metadata.datadrivendiscovery.org/types/PrimaryKey', 
-                                    'https://metadata.datadrivendiscovery.org/types/Attribute',),
+                                'semantic_types': ('https://metadata.datadrivendiscovery.org/types/PrimaryKey',
+                                                   'https://metadata.datadrivendiscovery.org/types/Attribute',),
                                 'use_columns': (),
                                 'exclude_columns': ()
                             }
@@ -2289,7 +2291,8 @@ class DefaultLinkPredictionTemplate(DSBoxTemplate):
                         "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.DataFrameCommon",
                         "hyperparameters":
                             {
-                                'semantic_types': ('https://metadata.datadrivendiscovery.org/types/PrimaryKey', 'https://metadata.datadrivendiscovery.org/types/Attribute',),
+                                'semantic_types': ('https://metadata.datadrivendiscovery.org/types/PrimaryKey',
+                                                   'https://metadata.datadrivendiscovery.org/types/Attribute',),
                                 'use_columns': (),
                                 'exclude_columns': ()
                             }
@@ -2720,7 +2723,8 @@ class CMUClusteringTemplate(DSBoxTemplate):
                         "hyperparameters":
                             {
                                 'semantic_types': (
-                                    'https://metadata.datadrivendiscovery.org/types/PrimaryKey',  'https://metadata.datadrivendiscovery.org/types/Attribute',),
+                                    'https://metadata.datadrivendiscovery.org/types/PrimaryKey',
+                                    'https://metadata.datadrivendiscovery.org/types/Attribute',),
                                 'use_columns': (),
                                 'exclude_columns': ()
                             }
@@ -3027,7 +3031,8 @@ class TA1Classification_3(DSBoxTemplate):
                         "hyperparameters":
                             {
                                 'semantic_types': (
-                                    'https://metadata.datadrivendiscovery.org/types/PrimaryKey', 'https://metadata.datadrivendiscovery.org/types/Attribute',),
+                                    'https://metadata.datadrivendiscovery.org/types/PrimaryKey',
+                                    'https://metadata.datadrivendiscovery.org/types/Attribute',),
                                 'use_columns': (),
                                 'exclude_columns': ()
                             }
@@ -3133,7 +3138,8 @@ class MuxinTA1ClassificationTemplate1(DSBoxTemplate):
                         "hyperparameters":
                             {
                                 'semantic_types': (
-                                    'https://metadata.datadrivendiscovery.org/types/PrimaryKey', 'https://metadata.datadrivendiscovery.org/types/Attribute',),
+                                    'https://metadata.datadrivendiscovery.org/types/PrimaryKey',
+                                    'https://metadata.datadrivendiscovery.org/types/Attribute',),
                                 'use_columns': (),
                                 'exclude_columns': ()
                             }
@@ -3239,7 +3245,8 @@ class MuxinTA1ClassificationTemplate2(DSBoxTemplate):
                         "hyperparameters":
                             {
                                 'semantic_types': (
-                                    'https://metadata.datadrivendiscovery.org/types/PrimaryKey', 'https://metadata.datadrivendiscovery.org/types/Attribute',),
+                                    'https://metadata.datadrivendiscovery.org/types/PrimaryKey',
+                                    'https://metadata.datadrivendiscovery.org/types/Attribute',),
                                 'use_columns': (),
                                 'exclude_columns': ()
                             }
@@ -3333,7 +3340,8 @@ class MuxinTA1ClassificationTemplate3(DSBoxTemplate):
                         "hyperparameters":
                             {
                                 'semantic_types': (
-                                    'https://metadata.datadrivendiscovery.org/types/PrimaryKey','https://metadata.datadrivendiscovery.org/types/Attribute',),
+                                    'https://metadata.datadrivendiscovery.org/types/PrimaryKey',
+                                    'https://metadata.datadrivendiscovery.org/types/Attribute',),
                                 'use_columns': (),
                                 'exclude_columns': ()
                             }
@@ -3430,7 +3438,8 @@ class UU3TestTemplate(DSBoxTemplate):
                         "hyperparameters":
                             {
                                 'semantic_types': (
-                                    'https://metadata.datadrivendiscovery.org/types/PrimaryKey','https://metadata.datadrivendiscovery.org/types/Attribute',),
+                                    'https://metadata.datadrivendiscovery.org/types/PrimaryKey',
+                                    'https://metadata.datadrivendiscovery.org/types/Attribute',),
                                 'use_columns': (),
                                 'exclude_columns': ()
                             }

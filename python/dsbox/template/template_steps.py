@@ -454,6 +454,7 @@ class TemplateSteps:
                         "hyperparameters":
                             {
                                 'semantic_types': (
+                                    'https://metadata.datadrivendiscovery.org/types/PrimaryKey',
                                     'https://metadata.datadrivendiscovery.org/types/Attribute',),
                                 'use_columns': (),
                                 'exclude_columns': ()
