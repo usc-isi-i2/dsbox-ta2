@@ -925,6 +925,9 @@ class Controller:
                             outdf_train = outdf_train.append(indf.loc[each_index],
                                                              ignore_index=True)
 
+                        # reset to sequential
+                        outdf_train = outdf_train.reset_index(drop=True)
+
                         outdf_train = d3m_DataFrame(outdf_train, generate_metadata=False)
                         train = _add_meta_data(dataset=dataset, res_id=res_id,
                                                input_part=outdf_train)
@@ -936,15 +939,17 @@ class Controller:
                             for each_index in test_index:
                                 outdf_test = outdf_test.append(indf.loc[each_index],
                                                                ignore_index=True)
+                            # reset to sequential
+                            outdf_test = outdf_test.reset_index(drop=True)
                             outdf_test = d3m_DataFrame(outdf_test, generate_metadata=False)
                             test = _add_meta_data(dataset=dataset, res_id=res_id,
                                                   input_part=outdf_test)
                             test_return.append(test)
                         else:
                             test_return.append(None)
-                except:
+                except Exception:
                     # Do not split stratified shuffle fails
-                    print('[Info] Not splitting dataset. Stratified shuffle failed')
+                    self._logger.info('Not splitting dataset. Stratified shuffle failed')
                     for i in range(n_splits):
                         train_return.append(dataset)
                         test_return.append(None)
@@ -957,12 +962,12 @@ class Controller:
                 ss.get_n_splits(dataset[res_id])
                 for train_index, test_index in ss.split(dataset[res_id]):
                     train = _add_meta_data(dataset=dataset, res_id=res_id,
-                                           input_part=dataset[res_id].iloc[train_index, :])
+                                           input_part=dataset[res_id].iloc[train_index, :].reset_index(drop=True))
                     train_return.append(train)
                     # for special condition that only need get part of the dataset
                     if need_test_dataset:
                         test = _add_meta_data(dataset=dataset, res_id=res_id,
-                                              input_part=dataset[res_id].iloc[test_index, :])
+                                              input_part=dataset[res_id].iloc[test_index, :].reset_index(drop=True))
                         test_return.append(test)
                     else:
                         test_return.append(None)
