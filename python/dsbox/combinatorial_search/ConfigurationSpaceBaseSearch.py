@@ -7,7 +7,6 @@ import enum
 # import eventlet
 
 from multiprocessing import current_process
-from pprint import pprint
 from warnings import warn
 
 from d3m.container.dataset import Dataset
@@ -33,17 +32,21 @@ PrimitiveDescription = typing.NewType('PrimitiveDescription', dict)
 
 _logger = logging.getLogger(__name__)
 
+
 class Mode(enum.IntEnum):
     CROSS_VALIDATION_MODE = 1
     TRAIN_TEST_MODE = 2
+
 
 class MetaMetric(type):
     @property
     def classification_metric(cls):
         return cls.classification_metric
+
     @property
     def regression_metric(cls):
         return cls.regression_metric
+
 
 class SpecialMetric(object, metaclass=MetaMetric):
     # TODO These variables have not been used at all
@@ -53,6 +56,7 @@ class SpecialMetric(object, metaclass=MetaMetric):
     regression_metric = ('meanSquaredError', 'rootMeanSquaredError',
                               'rootMeanSquaredErrorAvg', 'meanAbsoluteError', 'rSquared',
                               'jaccardSimilarityScore', 'precisionAtTopK')
+
 
 class ConfigurationSpaceBaseSearch(typing.Generic[T]):
     """
@@ -196,7 +200,6 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
         #     traceback.print_exc()
         #     return None
         # configuration.data.update(new_data)
-
 
     def _evaluate(self,
                   configuration: ConfigurationPoint,
@@ -557,7 +560,7 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
                             **params
                         )
                     })
-            except:
+            except Exception:
                 raise NotSupportedError(
                     '[ERROR] metric calculation failed in test pickled pipeline')
 
@@ -599,6 +602,7 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
         else:
             _logger.debug(("\n" * 5) + "Pickling succeeded" + ("\n" * 5))
 
+
 def graph_problem_conversion(task_type, prediction):
     """
         Inner function used to process with graph type tasks
@@ -613,9 +617,10 @@ def graph_problem_conversion(task_type, prediction):
             prediction.iloc[:, -1] = prediction.iloc[:, -1].astype(int)
     return prediction
 
-def calculate_score(ground_truth:DataFrame, prediction:DataFrame,
-                    performance_metrics:typing.List[typing.Dict],
-                    task_type, regression_metric:set()):
+
+def calculate_score(ground_truth: DataFrame, prediction: DataFrame,
+                    performance_metrics: typing.List[typing.Dict],
+                    task_type, regression_metric: set()):
     """
     static method used to calculate the score based on given predictions and metric tpyes
     Parameters
@@ -704,7 +709,7 @@ def calculate_score(ground_truth:DataFrame, prediction:DataFrame,
                                 **params
                             )
                         })
-        except:
+        except Exception:
             raise NotSupportedError('[ERROR] metric calculation failed')
     # END for loop
 
