@@ -11,6 +11,7 @@ from d3m.metadata.pipeline import Pipeline, Resolver, StepBase, PrimitiveStep, S
 from d3m import exceptions
 
 from dsbox.template.runtime import Runtime
+from dsbox.template.template import DSBoxTemplate
 # from dsbox.template.runtime import ForkedPdb
 
 from .utils import larger_is_better
@@ -44,13 +45,27 @@ class FittedPipeline:
     """
 
     def __init__(self, pipeline: Pipeline, dataset_id: str, log_dir: str, *, id: str = None,
-                 metric_descriptions: typing.List = [], template=None, problem=None) -> None:
+                 metric_descriptions: typing.List = [], template: DSBoxTemplate = None,
+                 template_name: str = None, template_task: str = None, template_subtask: str = None,
+                 problem=None) -> None:
 
         # these two are mandatory
         # TODO add the check
         self.dataset_id: str = dataset_id
         self.pipeline: Pipeline = pipeline
-        self.template = template
+        self.template_name = ""
+        self.template_task = ""
+        self.template_subtask = ""
+        if template is not None:
+            self.template_name = template.template['name']
+            self.template_task = str(template.template['taskType'])
+            self.template_subtask = str(template.template['taskSubtype'])
+        if template_name:
+            self.template_name = template_name
+        if template_task:
+            self.template_task = template_task
+        if template_subtask:
+            self.template_subtask = template_subtask
         self.problem = problem
         if id is None:
             # Create id distinct, since there may be several fitted pipelines
@@ -61,7 +76,7 @@ class FittedPipeline:
 
         self.log_dir = log_dir
 
-        self.runtime = Runtime(pipeline, fitted_pipeline_id=self.id, log_dir=self.log_dir)
+        self.runtime = Runtime(pipeline, fitted_pipeline_id=self.id, template_name=self.template_name, log_dir=self.log_dir)
 
         self.metric_descriptions = list(metric_descriptions)
         self.runtime.set_metric_descriptions(self.metric_descriptions)
@@ -104,120 +119,6 @@ class FittedPipeline:
         # return self.runtime.produce_outputs[0]
         return self.runtime.produce_outputs.values['outputs.0']
 
-    def save_old(self, folder_loc: str) -> None:
-        '''
-        Save the given fitted pipeline from TemplateDimensionalSearch
-        inputs:
-        folder_loc: str
-            the location of the files of pipeline
-        '''
-        _logger.debug('Saving fitted pipeline %s', self.id)
-        pipeline_dir = os.path.join(folder_loc, 'pipelines')
-        executable_dir = os.path.join(folder_loc, 'executables')
-        supporting_files_dir = os.path.join(folder_loc, 'supporting_files')
-        os.makedirs(pipeline_dir, exist_ok=True)
-        os.makedirs(executable_dir, exist_ok=True)
-        os.makedirs(supporting_files_dir, exist_ok=True)
-
-        # store fitted_pipeline id
-        structure = self.pipeline.to_json_structure()
-        structure["parent_id"] = self.pipeline.id
-        structure['id'] = self.id
-        structure['dataset_id'] = self.dataset_id
-        # add timing for each step
-        # for each_step in structure['steps']:
-        #     primitive_name = each_step["primitive"]["python_path"]
-        #     each_step["timing"] = self.runtime.timing[primitive_name]
-        # FIXME [TIMING]
-        # add timing for each step
-        # for each_step in structure['steps']:
-        #     primitive_name = each_step["primitive"]["python_path"]
-        #     each_step["timing"] = self.runtime.timing[primitive_name]
-
-        # Save pipeline rank
-        if self.metric:
-            metric: str = self.metric['metric']
-            value: float = self.metric['value']
-            if larger_is_better(metric):
-                if value == 0.0:
-                    rank = sys.float_info.max
-                else:
-                    rank = 1 / value
-            else:
-                rank = value
-            structure['pipeline_rank'] = rank
-            structure['metric'] = metric
-            structure['metric_value'] = value
-        else:
-            _logger.warn("[WARN] Metric type of the pipeline is unknown, unable to calculate the rank of the pipeline")
-
-        if self.template:
-            structure['template_name'] = self.template.template['name']
-            structure['template_taskType'] = str(self.template.template['taskType'])
-            structure['template_taskSubtype'] = str(self.template.template['taskSubtype'])
-        else:
-            _logger.warn("[WARN] Template type of the pipeline is unknown, unable to save template name / taskType / taskSubtype")
-
-        if self.problem:
-            problem_meta = self.problem.query(())['about']
-            structure['problem_taskType'] = str(problem_meta['taskType'])
-            try:
-                structure['problem_taskSubType'] = str(problem_meta['taskSubType'])
-            except:
-                structure['problem_taskSubType'] = "NONE"
-        else:
-            _logger.warn("[WARN] problem type of the pipeline is unknown, unable to save problem taskType / taskSubtype")
-
-        # structure['total_time_used'] = self.runtime.timing["total_time_used"]
-
-        # structure['total_time_used_without_cache'] = self.runtime.timing["total_time_used_without_cache"]
-
-        # structure['template'] = runtime.
-
-        # FIXME: this is here for testing purposes
-        # structure['runtime_stats'] = str(self.auxiliary)
-
-        # save the pipeline with json format
-        json_loc = os.path.join(pipeline_dir, self.id + '.json')
-        with open(json_loc, 'w') as out:
-            json.dump(structure, out)
-
-        # save the pipeline spec under executables to be a json file simply specifies the pipeline id
-        json_loc = os.path.join(executable_dir, self.id + '.json')
-        with open(json_loc, 'w') as out:
-            json.dump({"fitted_pipeline_id": self.id}, out)
-
-        # save subpipelines if exists
-        for each_step in self.pipeline.steps:
-            if isinstance(each_step, SubpipelineStep):
-                need_save = True
-                json_loc = os.path.join(pipeline_dir, each_step.pipeline.id + '.json')
-                subpipeline_structure = each_step.pipeline.to_json_structure()
-
-                # if pipeline already exist, check it
-                if os.path.exists(json_loc):
-                    with open(json_loc, 'r') as out:
-                        temp_pipeline = json.load(out)
-                        if 'pipeline_rank' not in temp_pipeline:
-                            _logger.warn("The sub-pipeline {} of pipeline {} do not have rank".format(each_step.pipeline.id, self.id))
-                        if 'steps' in temp_pipeline:
-                            if temp_pipeline['steps'] != subpipeline_structure:
-                                _logger.warn("The pipeline structure of {} is not same as new one.".format(each_step.pipeline.id))
-                            else:
-                                need_save = False
-                        else:
-                            _logger.warn("The original pipeline file of {} is not completed.".format(each_step.pipeline.id))
-
-                if need_save:
-                    with open(json_loc, 'w') as out:
-                        json.dump(subpipeline_structure, out)
-
-        # save the detail supporting files
-        assert len(self.runtime.steps_state) == len(self.pipeline.steps)
-
-        supporting_files_dir = os.path.join(folder_loc, 'supporting_files', self.runtime.fitted_pipeline_id)
-        self.save_pickle_files(supporting_files_dir, self.runtime)
-
     def save_schema_only(self, folder_loc: str, pipeline_schema_subdir: str = 'pipelines_scored',
                          subpipelines_subdir: str = 'subpipelines') -> None:
         '''
@@ -247,12 +148,9 @@ class FittedPipeline:
         else:
             _logger.warn("Metric type of the pipeline is unknown, unable to calculate the rank of the pipeline")
 
-        if self.template:
-            structure['template_name'] = self.template.template['name']
-            structure['template_taskType'] = str(self.template.template['taskType'])
-            structure['template_taskSubtype'] = str(self.template.template['taskSubtype'])
-        else:
-            _logger.warn("Template type of the pipeline is unknown, unable to save template name / taskType / taskSubtype")
+        structure['template_name'] = self.template_name
+        structure['template_task'] = self.template_task
+        structure['template_subtask'] = self.template_subtask
 
         if self.problem:
             problem_meta = self.problem.query(())['about']
@@ -337,7 +235,7 @@ class FittedPipeline:
     @classmethod
     def load_schema_only(cls: typing.Type[FP], pipeline_id: str, folder_loc: str,
                          pipeline_schema_subdir: str = 'pipelines_scored',
-                         subpipelines_subdir: str = 'subpipelines') -> Pipeline:
+                         subpipelines_subdir: str = 'subpipelines') -> (Pipeline, typing.Dict):
         pipeline_dir = os.path.join(folder_loc, pipeline_schema_subdir)
         subpipeline_dir = os.path.join(folder_loc, subpipelines_subdir)
 
@@ -348,7 +246,7 @@ class FittedPipeline:
 
         resolver = Resolver(pipeline_search_paths=[pipeline_dir, subpipeline_dir])
         pipeline = Pipeline.from_json_structure(pipeline_description=structure, resolver=resolver)
-        return pipeline
+        return (pipeline, structure)
 
     @classmethod
     def load(cls: typing.Type[FP], *, fitted_pipeline_id: str, folder_loc: str, log_dir: str,
@@ -361,12 +259,16 @@ class FittedPipeline:
         with open(fitted_pipeline_schema, 'r') as f:
             structure = json.load(f)
 
-        pipeline: Pipeline = FittedPipeline.load_schema_only(structure['pipeline_id'], folder_loc)
+        pipeline, pipeline_structure = FittedPipeline.load_schema_only(structure['pipeline_id'], folder_loc)
         runtime: Runtime = FittedPipeline.load_pickle_files(
             pipeline, structure['fitted_pipeline_id'], pipelines_fitted_dir=pipelines_fitted_dir, log_dir=log_dir)
 
         fitted_pipeline = FittedPipeline(pipeline, dataset_id=structure['dataset_id'], log_dir=log_dir, id=fitted_pipeline_id)
         fitted_pipeline.runtime = runtime
+        if 'template_name' in pipeline_structure:
+            fitted_pipeline.template_name = pipeline_structure['template_name']
+            fitted_pipeline.template_task = pipeline_structure['template_task']
+            fitted_pipeline.template_subtask = pipeline_structure['template_subtask']
         fitted_pipeline._set_fitted(runtime.steps_state)
         return fitted_pipeline
 

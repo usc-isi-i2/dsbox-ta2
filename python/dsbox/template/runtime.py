@@ -89,7 +89,7 @@ class Runtime(runtime_base.Runtime):
             random_seed: int = 0, volumes_dir: str = None, is_standard_pipeline: bool = False,
             environment: pipeline_run_module.RuntimeEnvironment = None,
             users: typing.Sequence[pipeline_run_module.User] = None,
-            fitted_pipeline_id: str = None, log_dir: str = None
+            fitted_pipeline_id: str = None, template_name: str = '', log_dir: str = None
     ) -> None:
 
         super().__init__(
@@ -103,6 +103,7 @@ class Runtime(runtime_base.Runtime):
         self.cache: PrimitivesCache = None
         self.cross_validation_result = None
         self.fitted_pipeline_id = fitted_pipeline_id
+        self.template_name = template_name
         self.fit_outputs = None
         self.log_dir = log_dir
         self.metric_descriptions = None
@@ -264,6 +265,10 @@ class Runtime(runtime_base.Runtime):
             # if in produce step, always use the d3m's codes
             super()._run_primitive(this_step)
 
+            for output_id in this_step.outputs:
+                output_data_reference = 'steps.{i}.{output_id}'.format(i=this_step.index, output_id=output_id)
+            self._log_produce_step(output_data_reference, this_step, self.data_values)
+
         else:
             raise exceptions.UnexpectedValueError("Unknown phase: {phase}".format(phase=self.phase))
 
@@ -293,13 +298,14 @@ class Runtime(runtime_base.Runtime):
             n_step = int(output_data_reference.split('.')[1])
             debug_file = os.path.join(
                 self.log_dir, 'dfs',
-                'fit_{}_{}_{:02}_{}'.format(self.pipeline.id,
+                'fit_{}_{}_{:02}_{}'.format(self.template_name,
                                             self.fitted_pipeline_id, n_step,
                                             primitive_step.primitive))
             _logger.debug(
-                "'id': '%(pipeline_id)s', 'fitted': '%(fitted_pipeline_id)s', 'name': '%("
+                "'template': '%(template)s', 'id': '%(pipeline_id)s', 'fitted': '%(fitted_pipeline_id)s', 'name': '%("
                 "name)s', 'worker_id': '%(worker_id)s'. Output is written to: '%(path)s'.",
                 {
+                    'template': self.template_name,
                     'pipeline_id': self.pipeline.id,
                     'fitted_pipeline_id': self.fitted_pipeline_id,
                     'name': primitive_step.primitive,
@@ -314,7 +320,51 @@ class Runtime(runtime_base.Runtime):
                 if isinstance(primitives_outputs[output_data_reference], DataFrame):
                     try:
                         primitives_outputs[output_data_reference][:MAX_DUMP_SIZE].to_csv(debug_file)
-                    except:
+                        # primitives_outputs[output_data_reference].metadata.pretty_print()
+                    except Exception:
+                        pass
+
+    def _log_produce_step(self, output_data_reference, primitive_step, primitives_outputs):
+        '''
+            The function use to record the intermediate output of each primitive and save into
+            the logs
+
+            Parameters
+            ---------
+            output_data_reference: a str use to indicate the dict key of the step output stored
+            in self.environment
+            primitive_step: indicate the primitive for logging
+            primitives_outputs: the dict used to store outputs
+        '''
+        if _logger.getEffectiveLevel() <= 10:
+
+            n_step = int(output_data_reference.split('.')[1])
+            debug_file = os.path.join(
+                self.log_dir, 'dfs',
+                'pro_{}_{}_{:02}_{}'.format(self.template_name,
+                                            self.fitted_pipeline_id, n_step,
+                                            primitive_step.primitive))
+            _logger.debug(
+                "'template': '%(template)s', 'id': '%(pipeline_id)s', 'fitted': '%(fitted_pipeline_id)s', 'name': '%("
+                "name)s', 'worker_id': '%(worker_id)s'. Output is written to: '%(path)s'.",
+                {
+                    'template': self.template_name,
+                    'pipeline_id': self.pipeline.id,
+                    'fitted_pipeline_id': self.fitted_pipeline_id,
+                    'name': primitive_step.primitive,
+                    'worker_id': current_process(),
+                    'path': debug_file
+                },
+            )
+            if primitives_outputs[output_data_reference] is None:
+                with open(debug_file) as f:
+                    f.write("None")
+            else:
+                if isinstance(primitives_outputs[output_data_reference], DataFrame):
+                    try:
+                        primitives_outputs[output_data_reference][:MAX_DUMP_SIZE].to_csv(debug_file)
+                        # primitives_outputs[output_data_reference].metadata.pretty_print()
+                    except Exception:
                         pass
 
     def _cross_validation(self, primitive: typing.Type[base.PrimitiveBase],
