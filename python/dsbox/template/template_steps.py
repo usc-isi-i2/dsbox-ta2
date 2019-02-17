@@ -101,9 +101,9 @@ class TemplateSteps:
                         "primitive": "d3m.primitives.data_transformation.pca.SKlearn",
                         "hyperparameters":
                         {
-                            'use_semantic_types':[True],
-                            'return_result':['new'],
-                            'add_index_columns':[True],
+                            'use_semantic_types': [True],
+                            'add_index_columns': [True],
+                            'return_result': ['new'],
                             'n_components': [10, 15, 25]
                         }
                     },
@@ -212,7 +212,10 @@ class TemplateSteps:
                 "primitives": [
                     {
                         "primitive": "d3m.primitives.data_preprocessing.max_abs_scaler.SKlearn",
-                        "hyperparameters": {}
+                        "hyperparameters": {
+                            'add_index_columns': [True],
+                            'use_semantic_types': [True],
+                        }
                     },
                     {
                         "primitive": "d3m.primitives.normalization.IQRScaler.DSBOX",
@@ -329,18 +332,20 @@ class TemplateSteps:
                         {
                             "primitive": "d3m.primitives.data_preprocessing.select_fwe.SKlearn",
                             "hyperparameters": {
-                            'use_semantic_types':[True],
-                                'return_result':['new'],
-                                'add_index_columns':[True],
+                                'use_semantic_types': [True],
+                                'add_index_columns': [True],
+                                'return_result': ['new'],
+                                'add_index_columns': [True],
                                 "alpha": [float(x) for x in np.logspace(-4, -1, 6)]
                             }
                         },
                         {
                             "primitive": "d3m.primitives.feature_selection.generic_univariate_select.SKlearn",
                             "hyperparameters": {
-                                'use_semantic_types':[True],
-                                'return_result':['new'],
-                                'add_index_columns':[True],
+                                'use_semantic_types': [True],
+                                'add_index_columns': [True],
+                                'return_result': ['new'],
+                                'add_index_columns': [True],
                                 "score_func": ["f_regression"],
                                 "mode": ["percentile"],
                                 "param": [5, 7, 10, 15, 30, 50, 75],
@@ -359,9 +364,9 @@ class TemplateSteps:
                         {
                             "primitive": "d3m.primitives.data_preprocessing.select_fwe.SKlearn",
                             "hyperparameters": {
-                            'use_semantic_types':[True],
-                                'return_result':['new'],
-                                'add_index_columns':[True],
+                                'use_semantic_types': [True],
+                                'return_result': ['new'],
+                                'add_index_columns': [True],
                                 "alpha": [float(x) for x in np.logspace(-4, -1, 6)]
                             }
                         },
@@ -369,9 +374,9 @@ class TemplateSteps:
                         {
                             "primitive": "d3m.primitives.feature_selection.generic_univariate_select.SKlearn",
                             "hyperparameters": {
-                                'use_semantic_types':[True],
-                                'return_result':['new'],
-                                'add_index_columns':[True],
+                                'use_semantic_types': [True],
+                                'return_result': ['new'],
+                                'add_index_columns': [True],
                                 "mode": ["percentile"],
                                 "param": [5, 7, 10, 15, 30, 50, 75],
                             }
@@ -400,12 +405,17 @@ class TemplateSteps:
                         {
                             "primitive": "d3m.primitives.data_transformation.pca.SKlearn",
                             "hyperparameters":
-                                {'n_components': [(2), (4), (8), (16), (32), (64), (128)], }
+                                {
+                                    'add_index_columns': [True],
+                                    'use_semantic_types':[True],
+                                    'n_components': [(2), (4), (8), (16), (32), (64), (128)], }
                         },
                         {
                             "primitive": "d3m.primitives.data_transformation.kernel_pca.SKlearn",
                             "hyperparameters":
                                 {
+                                    'add_index_columns': [True],
+                                    'use_semantic_types':[True],
                                     'n_components': [(2), (4), (8), (16), (32), (64), (128)],
                                     'kernel': [('rbf'), ('sigmoid'), ('cosine')]
                                 }
@@ -414,6 +424,8 @@ class TemplateSteps:
                             "primitive": "d3m.primitives.data_transformation.kernel_pca.SKlearn",
                             "hyperparameters":
                                 {
+                                    'add_index_columns': [True],
+                                    'use_semantic_types':[True],
                                     'n_components': [(2), (4), (8), (16), (32), (64), (128)],
                                     'kernel': [('poly')],
                                     'degree': [(2), (3), (4)],
@@ -422,7 +434,11 @@ class TemplateSteps:
                         {
                             "primitive": "d3m.primitives.data_preprocessing.variance_threshold.SKlearn",
                             "hyperparameters":
-                                {'threshold': [(0.01), (0.01), (0.05), (0.1)], }
+                                {
+                                    'add_index_columns': [True],
+                                    'use_semantic_types':[True],
+                                    'threshold': [(0.01), (0.01), (0.05), (0.1)],
+                                }
                         },
                     ],
                     "inputs": [feature_name]
@@ -594,7 +610,12 @@ class TemplateSteps:
                 {
                     "name": impute_name,
                     "primitives": [
-                        {"primitive": "d3m.primitives.data_preprocessing.max_abs_scaler.SKlearn", },  # IQR always create error
+                        {
+                            "primitive": "d3m.primitives.data_preprocessing.max_abs_scaler.SKlearn",
+                            "hyperparameters": {
+                                'use_semantic_types': [True],
+                                'add_index_columns': [True],
+                            }},  # IQR always create error
                         {"primitive": "d3m.primitives.data_preprocessing.DoNothing.DSBOX", },
                     ],
                     "inputs": ["base_impute_step"]
@@ -617,6 +638,8 @@ class TemplateSteps:
                             "d3m.primitives.classification.random_forest.SKlearn",
                         "hyperparameters":
                             {
+                                'use_semantic_types': [True],
+                                'add_index_columns': [True],
                                 'max_depth': [(2), (4), (8)],  # (10), #
                                 'n_estimators': [(2), (5), (10), (20), (30), (40)]
                             }
@@ -626,6 +649,8 @@ class TemplateSteps:
                                 "d3m.primitives.classification.svc.SKlearn",
                             "hyperparameters":
                                 {
+                                    'use_semantic_types': [True],
+                                    'add_index_columns': [True],
                                     'C': [(1), (10), (100)],  # (10), #
                                 }
                     }, {
@@ -633,6 +658,8 @@ class TemplateSteps:
                                 "d3m.primitives.classification.multinomial_naive_bayes.SKlearn",
                             "hyperparameters":
                                 {
+                                    'use_semantic_types': [True],
+                                    'add_index_columns': [True],
                                     'alpha': [(1)],
                                 }
                     },
@@ -650,16 +677,55 @@ class TemplateSteps:
                     "name": "model_step",
                     "primitives": [
                         # linear ridge : simplistic linear regression with L2 regularization
-                        {"primitive": "d3m.primitives.regression.ridge.SKlearn", },
+                        {
+                            "primitive": "d3m.primitives.regression.ridge.SKlearn",
+                            "hyperparameters":
+                            {
+                                'use_semantic_types': [True],
+                                'add_index_columns': [True],
+                                'alpha': [(1)],
+                            }},
                         # Least-angle regression: (1 / (2 * n_samples)) * |y - Xw|^2_2 + alpha * |w|_1
-                        {"primitive": "d3m.primitives.regression.lars.SKlearn", },
+                        {
+                            "primitive": "d3m.primitives.regression.lars.SKlearn",
+                            "hyperparameters":
+                            {
+                                'use_semantic_types': [True],
+                                'add_index_columns': [True],
+                            }},
                         # Nearest Neighbour
-                        {"primitive": "d3m.primitives.regression.k_neighbors.SKlearn", },
+                        {
+                            "primitive": "d3m.primitives.regression.k_neighbors.SKlearn",
+                            "hyperparameters":
+                            {
+                                'use_semantic_types': [True],
+                                'add_index_columns': [True],
+                            }},
                         # Support Vector Regression Method
-                        {"primitive": "d3m.primitives.regression.svr.SKlearn", },
+                        {
+                            "primitive": "d3m.primitives.regression.svr.SKlearn",
+                            "hyperparameters":
+                            {
+                                'use_semantic_types': [True],
+                                'add_index_columns': [True],
+                            }},
 
-                        {"primitive": "d3m.primitives.regression.sgd.SKlearn", },
-                        {"primitive": "d3m.primitives.regression.gradient_boosting.SKlearn", },
+                        {
+                            "primitive": "d3m.primitives.regression.sgd.SKlearn",
+                            "hyperparameters":
+                            {
+                                'use_semantic_types': [True],
+                                'add_index_columns': [True],
+                                'alpha': [(1)],
+                            }},
+                        {
+                            "primitive": "d3m.primitives.regression.gradient_boosting.SKlearn",
+                            "hyperparameters":
+                            {
+                                'use_semantic_types': [True],
+                                'add_index_columns': [True],
+                                'alpha': [(1)],
+                            }},
                     ],
                     "runtime": {
                         "cross_validation": 10,
