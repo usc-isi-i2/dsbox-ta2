@@ -17,7 +17,7 @@ class TemplateSteps:
         return [
             {
                 "name": "denormalize_step",
-                "primitives": ["d3m.primitives.normalization.Denormalize.DSBOX"],
+                "primitives": ["d3m.primitives.data_transformation.denormalize.Common"],
                 "inputs": ["template_input"]
             },
             {
@@ -138,7 +138,7 @@ class TemplateSteps:
             {
                 "name": "denormalize_step",
                 "primitives": [
-                    "d3m.primitives.normalization.Denormalize.DSBOX"
+                    "d3m.primitives.data_transformation.denormalize.Common"
                 ],
                 "inputs": ["template_input"]
             },
@@ -252,7 +252,7 @@ class TemplateSteps:
         return [
             {
                 "name": "denormalize_step",
-                "primitives": ["d3m.primitives.normalization.Denormalize.DSBOX"],
+                "primitives": ["d3m.primitives.data_transformation.denormalize.Common"],
                 "inputs": ["template_input"]
             },
             {
@@ -459,7 +459,7 @@ class TemplateSteps:
             [
                 {
                     "name": "denormalize_step",
-                    "primitives": ["d3m.primitives.normalization.Denormalize.DSBOX"],
+                    "primitives": ["d3m.primitives.data_transformation.denormalize.Common"],
                     "inputs": ['template_input']
                 },
                 {

@@ -1170,7 +1170,7 @@ class Large_column_number_with_numerical_only_classification(DSBoxTemplate):
             "steps": [
                 {
                     "name": "denormalize_step",
-                    "primitives": ["d3m.primitives.normalization.Denormalize.DSBOX"],
+                    "primitives": ["d3m.primitives.data_transformation.denormalize.Common"],
                     "inputs": ["template_input"]
                 },
                 {
@@ -1254,7 +1254,7 @@ class Large_column_number_with_numerical_only_regression(DSBoxTemplate):
             "steps": [
                 {
                     "name": "denormalize_step",
-                    "primitives": ["d3m.primitives.normalization.Denormalize.DSBOX"],
+                    "primitives": ["d3m.primitives.data_transformation.denormalize.Common"],
                     "inputs": ["template_input"]
                 },
                 {
@@ -1343,7 +1343,7 @@ class DefaultTimeSeriesForcastingTemplate(DSBoxTemplate):
 
                 {
                     "name": "denormalize_step",
-                    "primitives": ["d3m.primitives.normalization.Denormalize.DSBOX"],
+                    "primitives": ["d3m.primitives.data_transformation.denormalize.Common"],
                     "inputs": ["template_input"]
                 },
                 {
@@ -1447,7 +1447,7 @@ class TimeSeriesForcastingTestingTemplate(DSBoxTemplate):
             "steps": [
                 {
                     "name": "denormalize_step",
-                    "primitives": ["d3m.primitives.normalization.Denormalize.DSBOX"],
+                    "primitives": ["d3m.primitives.data_transformation.denormalize.Common"],
                     "inputs": ["template_input"]
                 },
                 {
@@ -1541,7 +1541,7 @@ class TimeSeriesForcastingTestingTemplate2(DSBoxTemplate):
             "steps": [
                 {
                     "name": "denormalize_step",
-                    "primitives": ["d3m.primitives.normalization.Denormalize.DSBOX"],
+                    "primitives": ["d3m.primitives.data_transformation.denormalize.Common"],
                     "inputs": ["template_input"]
                 },
                 {
@@ -1665,7 +1665,7 @@ class TemporaryObjectDetectionTemplate(DSBoxTemplate):
             "steps": [
                 {
                     "name": "denormalize_step",
-                    "primitives": ["d3m.primitives.normalization.Denormalize.DSBOX"],
+                    "primitives": ["d3m.primitives.data_transformation.denormalize.Common"],
                     "inputs": ["template_input"]
                 },
                 {
@@ -1763,7 +1763,7 @@ class DefaultTimeseriesCollectionTemplate(DSBoxTemplate):
 
                 {
                     "name": "denormalize_step",
-                    "primitives": ["d3m.primitives.normalization.Denormalize.DSBOX"],
+                    "primitives": ["d3m.primitives.data_transformation.denormalize.Common"],
                     "inputs": ["template_input"]
                 },
                 {
@@ -1840,7 +1840,7 @@ class DefaultTimeseriesRegressionTemplate(DSBoxTemplate):
 
                 {
                     "name": "denormalize_step",
-                    "primitives": ["d3m.primitives.normalization.Denormalize.DSBOX"],
+                    "primitives": ["d3m.primitives.data_transformation.denormalize.Common"],
                     "inputs": ["template_input"]
                 },
                 {
@@ -1936,7 +1936,7 @@ class UCHITimeSeriesClassificationTemplate(DSBoxTemplate):
             "steps": [
                 # {
                 #     "name": "denormalize_step",
-                #     "primitives": ["d3m.primitives.normalization.Denormalize.DSBOX"],
+                #     "primitives": ["d3m.primitives.data_transformation.denormalize.Common"],
                 #     "inputs": ["template_input"]
                 # },
                 # {
@@ -1993,7 +1993,7 @@ class TA1VggImageProcessingRegressionTemplate(DSBoxTemplate):
             "steps": [
                 {
                     "name": "denormalize_step",
-                    "primitives": ["d3m.primitives.normalization.Denormalize.DSBOX"],
+                    "primitives": ["d3m.primitives.data_transformation.denormalize.Common"],
                     "inputs": ["template_input"]
                 },
                 {
@@ -2080,7 +2080,7 @@ class DefaultImageProcessingRegressionTemplate(DSBoxTemplate):
 
                 {
                     "name": "denormalize_step",
-                    "primitives": ["d3m.primitives.normalization.Denormalize.DSBOX"],
+                    "primitives": ["d3m.primitives.data_transformation.denormalize.Common"],
                     "inputs": ["template_input"]
                 },
                 {
@@ -2557,7 +2557,7 @@ class BBNAudioClassificationTemplate(DSBoxTemplate):
             "steps": [
                 {
                     "name": "denormalize_step",
-                    "primitives": ["d3m.primitives.normalization.Denormalize.DSBOX"],
+                    "primitives": ["d3m.primitives.data_transformation.denormalize.Common"],
                     "inputs": ["template_input"]
                 },
                 {
@@ -2727,7 +2727,7 @@ class CMUClusteringTemplate(DSBoxTemplate):
             "steps": [
                 {
                     "name": "denormalize_step",
-                    "primitives": ["d3m.primitives.normalization.Denormalize.DSBOX"],
+                    "primitives": ["d3m.primitives.data_transformation.denormalize.Common"],
                     "inputs": ["template_input"]
                 },
                 {
@@ -2795,7 +2795,7 @@ class MichiganVideoClassificationTemplate(DSBoxTemplate):
             "steps": [
                 {
                     "name": "denormalize_step",
-                    "primitives": ["d3m.primitives.normalization.Denormalize.DSBOX"],
+                    "primitives": ["d3m.primitives.data_transformation.denormalize.Common"],
                     "inputs": ["template_input"]
                 },
                 {
@@ -2873,7 +2873,7 @@ class TA1ClassificationTemplate1(DSBoxTemplate):
             "steps": [
                 {
                     "name": "denormalize_step",
-                    "primitives": ["d3m.primitives.normalization.Denormalize.DSBOX"],
+                    "primitives": ["d3m.primitives.data_transformation.denormalize.Common"],
                     "inputs": ["template_input"]
                 },
                 {
@@ -3043,7 +3043,7 @@ class TA1Classification_3(DSBoxTemplate):
             "steps": [
                 {
                     "name": "denormalize_step",
-                    "primitives": ["d3m.primitives.normalization.Denormalize.DSBOX"],
+                    "primitives": ["d3m.primitives.data_transformation.denormalize.Common"],
                     "inputs": ["template_input"]
                 },
                 {
@@ -3151,7 +3151,7 @@ class MuxinTA1ClassificationTemplate1(DSBoxTemplate):
             "steps": [
                 {
                     "name": "denormalize_step",
-                    "primitives": ["d3m.primitives.normalization.Denormalize.DSBOX"],
+                    "primitives": ["d3m.primitives.data_transformation.denormalize.Common"],
                     "inputs": ["template_input"]
                 },
                 {
@@ -3259,7 +3259,7 @@ class MuxinTA1ClassificationTemplate2(DSBoxTemplate):
             "steps": [
                 {
                     "name": "denormalize_step",
-                    "primitives": ["d3m.primitives.normalization.Denormalize.DSBOX"],
+                    "primitives": ["d3m.primitives.data_transformation.denormalize.Common"],
                     "inputs": ["template_input"]
                 },
                 {
@@ -3355,7 +3355,7 @@ class MuxinTA1ClassificationTemplate3(DSBoxTemplate):
             "steps": [
                 {
                     "name": "denormalize_step",
-                    "primitives": ["d3m.primitives.normalization.Denormalize.DSBOX"],
+                    "primitives": ["d3m.primitives.data_transformation.denormalize.Common"],
                     "inputs": ["template_input"]
                 },
                 {
@@ -3549,7 +3549,7 @@ class HorizontalTemplate(DSBoxTemplate): #This template only generate processed 
             "steps": [
                 {
                     "name": "denormalize_step",
-                    "primitives": ["d3m.primitives.normalization.Denormalize.DSBOX"],
+                    "primitives": ["d3m.primitives.data_transformation.denormalize.Common"],
                     "inputs": ["template_input"]
                 },
                 {
