@@ -137,7 +137,9 @@ class TemplateSteps:
         return [
             {
                 "name": "denormalize_step",
-                "primitives": ["d3m.primitives.normalization.Denormalize.DSBOX"],
+                "primitives": [
+                    "d3m.primitives.normalization.Denormalize.DSBOX"
+                ],
                 "inputs": ["template_input"]
             },
             {
@@ -210,13 +212,15 @@ class TemplateSteps:
             {
                 "name": data,
                 "primitives": [
-                    {
-                        "primitive": "d3m.primitives.data_preprocessing.max_abs_scaler.SKlearn",
-                        "hyperparameters": {
-                            'add_index_columns': [True],
-                            'use_semantic_types': [True],
-                        }
-                    },
+                    # Feb 17, 2019: Do not use until issue is resolved
+                    # https://gitlab.com/datadrivendiscovery/sklearn-wrap/issues/153
+                    # {
+                    #     "primitive": "d3m.primitives.data_preprocessing.max_abs_scaler.SKlearn",
+                    #     "hyperparameters": {
+                    #         'add_index_columns': [True],
+                    #         'use_semantic_types': [True],
+                    #     }
+                    # },
                     {
                         "primitive": "d3m.primitives.normalization.IQRScaler.DSBOX",
                         "hyperparameters": {}
@@ -610,13 +614,24 @@ class TemplateSteps:
                 {
                     "name": impute_name,
                     "primitives": [
+                        # Feb 17, 2019: Do not use until issue is resolved
+                        # https://gitlab.com/datadrivendiscovery/sklearn-wrap/issues/153
+                        # {
+                        #     "primitive": "d3m.primitives.data_preprocessing.max_abs_scaler.SKlearn",
+                        #     "hyperparameters": {
+                        #         'use_semantic_types': [True],
+                        #         'add_index_columns': [True],
+                        #     }},
                         {
-                            "primitive": "d3m.primitives.data_preprocessing.max_abs_scaler.SKlearn",
+                            "primitive": "d3m.primitives.normalization.IQRScaler.DSBOX",
                             "hyperparameters": {
-                                'use_semantic_types': [True],
-                                'add_index_columns': [True],
-                            }},  # IQR always create error
-                        {"primitive": "d3m.primitives.data_preprocessing.DoNothing.DSBOX", },
+                                "use_semantic_types": [True],
+                                "add_index_columns": [True],
+                            }
+                        },
+
+                        # !!!! KYAO
+                        # {"primitive": "d3m.primitives.data_preprocessing.DoNothing.DSBOX", },
                     ],
                     "inputs": ["base_impute_step"]
                 },
