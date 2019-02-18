@@ -320,7 +320,9 @@ class Runtime(runtime_base.Runtime):
                 if isinstance(primitives_outputs[output_data_reference], DataFrame):
                     try:
                         primitives_outputs[output_data_reference][:MAX_DUMP_SIZE].to_csv(debug_file)
-                        # primitives_outputs[output_data_reference].metadata.pretty_print()
+                        metadata_filepath = debug_file + '_meta'
+                        with open(metadata_filepath, 'w') as out:
+                            primitives_outputs[output_data_reference].metadata.pretty_print(handle=out)
                     except Exception:
                         pass
 
@@ -363,7 +365,9 @@ class Runtime(runtime_base.Runtime):
                 if isinstance(primitives_outputs[output_data_reference], DataFrame):
                     try:
                         primitives_outputs[output_data_reference][:MAX_DUMP_SIZE].to_csv(debug_file)
-                        # primitives_outputs[output_data_reference].metadata.pretty_print()
+                        metadata_filepath = debug_file + '_meta'
+                        with open(metadata_filepath, 'w') as out:
+                            primitives_outputs[output_data_reference].metadata.pretty_print(handle=out)
                     except Exception:
                         pass
 
