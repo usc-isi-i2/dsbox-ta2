@@ -572,6 +572,9 @@ class Controller:
         else:
             self._search_method = TemplateSpaceParallelBaseSearch(num_proc=self.config.cpu)
 
+        if self.config.static_dir:
+            FittedPipeline.static_volume_dir = self.config.static_dir
+
         if self.do_ensemble_tune:
             # creat a special dictionary that can collect the results in each processes
             if use_multiprocessing:
