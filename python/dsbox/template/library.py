@@ -2299,6 +2299,9 @@ class DefaultTextRegressionTemplate(DSBoxTemplate):
 
 
 class DefaultLinkPredictionTemplate(DSBoxTemplate):
+    '''
+    Dummy implementation that does not look at the underlying graph at all.
+    '''
     def __init__(self):
         DSBoxTemplate.__init__(self)
         self.template = {
@@ -2310,7 +2313,7 @@ class DefaultLinkPredictionTemplate(DSBoxTemplate):
             "steps": [
                 {
                     "name": "denormalize_step",
-                    "primitives": ["d3m.primitives.datasets.Denormalize"],
+                    "primitives": ["d3m.primitives.data_transformation.denormalize.Common"],
                     "inputs": ["template_input"]
                 },
                 {
@@ -2331,6 +2334,11 @@ class DefaultLinkPredictionTemplate(DSBoxTemplate):
                             }
                     }],
                     "inputs": ["to_dataframe_step"]
+                },
+                {
+                    "name": "to_numeric_step",
+                    "primitives": ["d3m.primitives.data_transformation.to_numeric.DSBOX"],
+                    "inputs":["extract_attribute_step"],
                 },
                 {
                     "name": "extract_target_step",
@@ -2361,7 +2369,7 @@ class DefaultLinkPredictionTemplate(DSBoxTemplate):
                         }
                     }
                     ],
-                    "inputs": ["extract_attribute_step", "extract_target_step"]
+                    "inputs": ["to_numeric_step", "extract_target_step"]
                 }
             ]
         }
