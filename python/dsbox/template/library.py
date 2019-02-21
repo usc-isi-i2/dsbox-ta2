@@ -3239,7 +3239,7 @@ class MuxinTA1ClassificationTemplate1(DSBoxTemplate):
                     "primitives": ["d3m.primitives.data_preprocessing.GreedyImputation.DSBOX"],
                     # "primitives": ["d3m.primitives.data_preprocessing.IterativeRegressionImputation.DSBOX"],
 
-                    "inputs": ["encode2_step","extract_target_step" ]
+                    "inputs": ["to_numeric_step", "extract_target_step" ]
                 },
                 {
                     "name": "model_step",
