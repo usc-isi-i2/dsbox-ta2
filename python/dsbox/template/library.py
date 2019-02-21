@@ -56,6 +56,7 @@ class TemplateLibrary:
             self._load_library()
 
         self.all_templates = {
+            "test_default_classification_template":TestDefaultClassificationTemplate,
             "Horizontal_Template": HorizontalTemplate,
             "default_classification_template": DefaultClassificationTemplate,
             "default_regression_template": DefaultRegressionTemplate,
@@ -1218,7 +1219,7 @@ class Large_column_number_with_numerical_only_classification(DSBoxTemplate):
                 },
                 {
                     "name": "to_numeric_step",
-                    "primitives": ["d3m.primitives.data_transformation.to_numeric.DSBOX"],
+                    "primitives": ["d3m.primitives.data_transformation.ToNumeric.DSBOX"],
                     "inputs":["encode2_step"],
                 },
                 {
@@ -1297,7 +1298,7 @@ class Large_column_number_with_numerical_only_regression(DSBoxTemplate):
                 },
                 {
                     "name": "to_numeric_step",
-                    "primitives": ["d3m.primitives.data_transformation.to_numeric.DSBOX"],
+                    "primitives": ["d3m.primitives.data_transformation.ToNumeric.DSBOX"],
                     "inputs":["encode2_step"],
                 },
                 {
@@ -1407,7 +1408,7 @@ class DefaultTimeSeriesForcastingTemplate(DSBoxTemplate):
                 },
                 {
                     "name": "to_numeric_step",
-                    "primitives": ["d3m.primitives.data_transformation.to_numeric.DSBOX"],
+                    "primitives": ["d3m.primitives.data_transformation.ToNumeric.DSBOX"],
                     "inputs":["extract_target_step"],
                 },
                 {
@@ -1898,7 +1899,7 @@ class DefaultTimeseriesRegressionTemplate(DSBoxTemplate):
                 },
                 {
                     "name": "to_numeric_step",
-                    "primitives": ["d3m.primitives.data_transformation.to_numeric.DSBOX"],
+                    "primitives": ["d3m.primitives.data_transformation.ToNumeric.DSBOX"],
                     "inputs":["extract_target_step"],
                 },
                 {
@@ -2344,7 +2345,7 @@ class DefaultLinkPredictionTemplate(DSBoxTemplate):
                 },
                 {
                     "name": "to_numeric_step",
-                    "primitives": ["d3m.primitives.data_transformation.to_numeric.DSBOX"],
+                    "primitives": ["d3m.primitives.data_transformation.ToNumeric.DSBOX"],
                     "inputs":["extract_attribute_step"],
                 },
                 {
@@ -2942,7 +2943,7 @@ class TA1ClassificationTemplate1(DSBoxTemplate):
                 {
                     "name": "cast_step",
                     "primitives": [
-                        "d3m.primitives.data_transformation.to_numeric.DSBOX",
+                        "d3m.primitives.data_transformation.ToNumeric.DSBOX",
                         # {
                         #     "primitive": "d3m.primitives.data_transformation.cast_to_type.Common",
                         #     "hyperparameters": {"type_to_cast": ["float"]}
@@ -3229,7 +3230,7 @@ class MuxinTA1ClassificationTemplate1(DSBoxTemplate):
                 },
                 {
                     "name": "to_numeric_step",
-                    "primitives": ["d3m.primitives.data_transformation.to_numeric.DSBOX"],
+                    "primitives": ["d3m.primitives.data_transformation.ToNumeric.DSBOX"],
                     "inputs":["corex_step"],
                 },
                 {
@@ -3332,7 +3333,7 @@ class MuxinTA1ClassificationTemplate2(DSBoxTemplate):
                 },
                 {
                     "name": "to_numeric_step",
-                    "primitives": ["d3m.primitives.data_transformation.to_numeric.DSBOX"],
+                    "primitives": ["d3m.primitives.data_transformation.ToNumeric.DSBOX"],
                     "inputs":["corex_step"],
                 },
                 {
@@ -3433,7 +3434,7 @@ class MuxinTA1ClassificationTemplate3(DSBoxTemplate):
                 },
                 {
                     "name": "to_numeric_step",
-                    "primitives": ["d3m.primitives.data_transformation.to_numeric.DSBOX"],
+                    "primitives": ["d3m.primitives.data_transformation.ToNumeric.DSBOX"],
                     "inputs":["corex_step"],
                 },
                 {
@@ -3527,7 +3528,7 @@ class UU3TestTemplate(DSBoxTemplate):
                 },
                 {
                     "name": "to_numeric_step",
-                    "primitives": ["d3m.primitives.data_transformation.to_numeric.DSBOX"],
+                    "primitives": ["d3m.primitives.data_transformation.ToNumeric.DSBOX"],
                     "inputs":["encode2_step"],
                 },
                 {
