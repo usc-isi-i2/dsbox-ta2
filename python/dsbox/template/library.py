@@ -1801,7 +1801,14 @@ class DefaultTimeseriesCollectionTemplate(DSBoxTemplate):
 
                 {
                     "name": "random_projection_step",
-                    "primitives": ["d3m.primitives.feature_extraction.RandomProjectionTimeSeriesFeaturization.DSBOX"],
+                    "primitives": [
+                        {
+                            "primitive": "d3m.primitives.feature_extraction.RandomProjectionTimeSeriesFeaturization.DSBOX",
+                            "hyperparameters":{
+                                'generate_metadata':[True],
+                            }
+                        }
+                    ],
                     "inputs": ["timeseries_to_list_step"]
                 },
 
