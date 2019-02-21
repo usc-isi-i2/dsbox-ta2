@@ -2069,7 +2069,7 @@ class TA1VggImageProcessingRegressionTemplate(DSBoxTemplate):
                     # 19 Feb 2019: Stop using PCA until issue is resolved
                     # https://gitlab.com/datadrivendiscovery/sklearn-wrap/issues/154
                     # "inputs": ["PCA_step", "extract_target_step"]
-                    "inputs": ["featur_extraction", "extract_target_step"]
+                    "inputs": ["feature_extraction", "extract_target_step"]
                 },
             ]
         }
