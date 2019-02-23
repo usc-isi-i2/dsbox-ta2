@@ -1168,6 +1168,7 @@ class Controller:
     def generate_dataset_splits(self):
         self.all_dataset = self.remove_empty_targets(self.all_dataset)
         self.all_dataset = self.auto_regress_convert_and_add_metadata(self.all_dataset)
+        '''
         # runtime.add_target_columns_metadata(self.all_dataset, self.config.problem_metadata)
         res_id = self.problem_info['res_id']
         # check the shape of the dataset
@@ -1337,7 +1338,7 @@ class Controller:
                                                      need_test_dataset=False)
             self.all_dataset = self.all_dataset[0]
             self._logger.info("Random sampling on rows Finished.")
-
+        '''
         # if we need to do ensemble tune, we split one extra time
         if self.do_ensemble_tune or self.do_horizontal_tune:
             self.train_dataset1, self.ensemble_dataset = self.split_dataset(dataset=self.all_dataset, test_size = 0.1)
