@@ -72,7 +72,7 @@ class TemplateSteps:
             },
             {
                 "name": "to_numeric_step",
-                "primitives": ["d3m.primitives.data_transformation.to_numeric.DSBOX"],
+                "primitives": ["d3m.primitives.data_transformation.ToNumeric.DSBOX"],
                 "inputs":["corex_step"],
             },
             {
@@ -207,7 +207,7 @@ class TemplateSteps:
 
             {
                 "name": "to_numeric_step",
-                "primitives": ["d3m.primitives.data_transformation.to_numeric.DSBOX"],
+                "primitives": ["d3m.primitives.data_transformation.ToNumeric.DSBOX"],
                 "inputs":["corex_step"],
             },
             {
@@ -304,7 +304,7 @@ class TemplateSteps:
             },
             {
                 "name": "to_numeric_step",
-                "primitives": ["d3m.primitives.data_transformation.to_numeric.DSBOX"],
+                "primitives": ["d3m.primitives.data_transformation.ToNumeric.DSBOX"],
                 "inputs":["encoder_step"],
             },
             {
@@ -518,7 +518,7 @@ class TemplateSteps:
                     "name": attribute_name,
                     "primitives": [
                         {
-                            "primitive": "d3m.primitives.data_transformation.to_numeric.DSBOX",
+                            "primitive": "d3m.primitives.data_transformation.ToNumeric.DSBOX",
                             "hyperparameters": {}
                         },
                         {

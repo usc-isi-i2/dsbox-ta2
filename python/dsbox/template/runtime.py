@@ -298,9 +298,9 @@ class Runtime(runtime_base.Runtime):
             n_step = int(output_data_reference.split('.')[1])
             debug_file = os.path.join(
                 self.log_dir, 'dfs',
-                'fit_{}_{}_{:02}_{}'.format(self.template_name,
-                                            self.fitted_pipeline_id, n_step,
-                                            primitive_step.primitive))
+                'fit_{}_{}_{}_{:02}_{}'.format(self.template_name, self.pipeline.id.split('-')[0],
+                                               self.fitted_pipeline_id.split('-')[0], n_step,
+                                               primitive_step.primitive))
             _logger.debug(
                 "'template': '%(template)s', 'id': '%(pipeline_id)s', 'fitted': '%(fitted_pipeline_id)s', 'name': '%("
                 "name)s', 'worker_id': '%(worker_id)s'. Output is written to: '%(path)s'.",
@@ -343,9 +343,9 @@ class Runtime(runtime_base.Runtime):
             n_step = int(output_data_reference.split('.')[1])
             debug_file = os.path.join(
                 self.log_dir, 'dfs',
-                'pro_{}_{}_{:02}_{}'.format(self.template_name,
-                                            self.fitted_pipeline_id, n_step,
-                                            primitive_step.primitive))
+                'pro_{}_{}_{}_{:02}_{}'.format(self.template_name, self.pipeline.id.split('-')[0],
+                                               self.fitted_pipeline_id.split('-')[0], n_step,
+                                               primitive_step.primitive))
             _logger.debug(
                 "'template': '%(template)s', 'id': '%(pipeline_id)s', 'fitted': '%(fitted_pipeline_id)s', 'name': '%("
                 "name)s', 'worker_id': '%(worker_id)s'. Output is written to: '%(path)s'.",
