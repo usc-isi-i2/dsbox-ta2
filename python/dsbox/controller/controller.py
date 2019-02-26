@@ -943,6 +943,8 @@ class Controller:
 
             except Exception:
                 # Do not split stratified shuffle fails
+                train_return = []
+                test_return = []
                 self._logger.info('Not splitting dataset. Stratified shuffle failed')
                 for i in range(n_splits):
                     train_return.append(dataset)
