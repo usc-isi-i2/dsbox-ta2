@@ -17,7 +17,7 @@ class TemplateSteps:
         return [
             {
                 "name": "sampling_step",
-                "primitives": ["d3m.primitives.data_preprocessing.Splitter.DSBOX"],
+                "primitives": ["d3m.primitives.data_preprocessing.DoNothingForDataset.DSBOX"],
                 "inputs": ["template_input"]
             },
 
@@ -142,11 +142,16 @@ class TemplateSteps:
         '''
         return [
             {
+                "name": "sampling_step",
+                "primitives": ["d3m.primitives.data_preprocessing.DoNothingForDataset.DSBOX"],
+                "inputs": ["template_input"]
+            },
+            {
                 "name": "denormalize_step",
                 "primitives": [
                     "d3m.primitives.data_transformation.denormalize.Common"
                 ],
-                "inputs": ["template_input"]
+                "inputs": ["sampling_step"]
             },
             {
                 "name": "to_dataframe_step",
