@@ -561,6 +561,11 @@ class Controller:
         This method should called as soon as possible. Need to spawn all processes before grpc connection.
         '''
         self.config = config
+
+        # Set staic volume before process forks
+        if self.config.static_dir:
+            FittedPipeline.static_volume_dir = self.config.static_dir
+
         use_multiprocessing = True
         if self.config.search_method == 'serial':
             self._search_method = TemplateSpaceBaseSearch()
@@ -571,9 +576,6 @@ class Controller:
         #     self._search_method = BanditDimensionalSearch(num_proc=self.config.cpu)
         else:
             self._search_method = TemplateSpaceParallelBaseSearch(num_proc=self.config.cpu)
-
-        if self.config.static_dir:
-            FittedPipeline.static_volume_dir = self.config.static_dir
 
         if self.do_ensemble_tune:
             # creat a special dictionary that can collect the results in each processes
