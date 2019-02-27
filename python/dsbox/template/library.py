@@ -1278,7 +1278,7 @@ class Large_column_number_with_numerical_only_regression(DSBoxTemplate):
                     "inputs": ["to_dataframe_step"]
                 },
                 {
-                    "name": "extract_target_step",
+                    "name": "pre_extract_target_step",
                     "primitives": [{
                         "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.DataFrameCommon",
                         "hyperparameters":
@@ -1289,6 +1289,16 @@ class Large_column_number_with_numerical_only_regression(DSBoxTemplate):
                              }
                     }],
                     "inputs": ["to_dataframe_step"]
+                },
+                {
+                    "name": "extract_target_step",
+                    "primitives": [{
+                        "primitive": "d3m.primitives.data_transformation.ToNumeric.DSBOX",
+                        "hyperparameters": {
+                            "drop_non_numeric_columns": [False]
+                        }
+                    }],
+                    "inputs": ["pre_extract_target_step"]
                 },
 
                 {
@@ -1354,17 +1364,27 @@ class DefaultTimeSeriesForcastingTemplate(DSBoxTemplate):
                 },
                 # read Y value
                 {
-                    "name": "extract_target_step",
+                    "name": "pre_extract_target_step",
                     "primitives": [{
                         "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.DataFrameCommon",
                         "hyperparameters":
-                            {
-                                'semantic_types': ('https://metadata.datadrivendiscovery.org/types/TrueTarget',),
-                                'use_columns': (),
-                                'exclude_columns': ()
-                            }
+                            {'semantic_types': ('https://metadata.datadrivendiscovery.org/types/Target',
+                                                'https://metadata.datadrivendiscovery.org/types/SuggestedTarget',),
+                             'use_columns': (),
+                             'exclude_columns': ()
+                             }
                     }],
                     "inputs": ["to_dataframe_step"]
+                },
+                {
+                    "name": "extract_target_step",
+                    "primitives": [{
+                        "primitive": "d3m.primitives.data_transformation.ToNumeric.DSBOX",
+                        "hyperparameters": {
+                            "drop_non_numeric_columns": [False]
+                        }
+                    }],
+                    "inputs": ["pre_extract_target_step"]
                 },
 
                 # read X value
@@ -1487,18 +1507,27 @@ class TimeSeriesForcastingTestingTemplate(DSBoxTemplate):
                 },
                 # read Y value
                 {
-                    "name": "extract_target_step",
+                    "name": "pre_extract_target_step",
                     "primitives": [{
                         "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.DataFrameCommon",
                         "hyperparameters":
-                            {
-                                'semantic_types': (
-                                    'https://metadata.datadrivendiscovery.org/types/TrueTarget',),
-                                'use_columns': (),
-                                'exclude_columns': ()
-                            }
+                            {'semantic_types': ('https://metadata.datadrivendiscovery.org/types/Target',
+                                                'https://metadata.datadrivendiscovery.org/types/SuggestedTarget',),
+                             'use_columns': (),
+                             'exclude_columns': ()
+                             }
                     }],
                     "inputs": ["to_dataframe_step"]
+                },
+                {
+                    "name": "extract_target_step",
+                    "primitives": [{
+                        "primitive": "d3m.primitives.data_transformation.ToNumeric.DSBOX",
+                        "hyperparameters": {
+                            "drop_non_numeric_columns": [False]
+                        }
+                    }],
+                    "inputs": ["pre_extract_target_step"]
                 },
                 {
                     "name": "model_step",
@@ -1774,18 +1803,27 @@ class DefaultTimeseriesCollectionTemplate(DSBoxTemplate):
                 },
                 # read Y value
                 {
-                    "name": "extract_target_step",
+                    "name": "pre_extract_target_step",
                     "primitives": [{
                         "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.DataFrameCommon",
                         "hyperparameters":
-                            {
-                                'semantic_types': ('https://metadata.datadrivendiscovery.org/types/Target',
-                                                'https://metadata.datadrivendiscovery.org/types/SuggestedTarget'),
-                                'use_columns': (),
-                                'exclude_columns': ()
-                            }
+                            {'semantic_types': ('https://metadata.datadrivendiscovery.org/types/Target',
+                                                'https://metadata.datadrivendiscovery.org/types/SuggestedTarget',),
+                             'use_columns': (),
+                             'exclude_columns': ()
+                             }
                     }],
                     "inputs": ["to_dataframe_step"]
+                },
+                {
+                    "name": "extract_target_step",
+                    "primitives": [{
+                        "primitive": "d3m.primitives.data_transformation.ToNumeric.DSBOX",
+                        "hyperparameters": {
+                            "drop_non_numeric_columns": [False]
+                        }
+                    }],
+                    "inputs": ["pre_extract_target_step"]
                 },
                 # {
                 #     "name": "column_parser_step",
@@ -1858,17 +1896,27 @@ class DefaultTimeseriesRegressionTemplate(DSBoxTemplate):
                 },
                 # read Y value
                 {
-                    "name": "extract_target_step",
+                    "name": "pre_extract_target_step",
                     "primitives": [{
                         "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.DataFrameCommon",
                         "hyperparameters":
-                            {
-                                'semantic_types': ('https://metadata.datadrivendiscovery.org/types/TrueTarget',),
-                                'use_columns': (),
-                                'exclude_columns': ()
-                            }
+                            {'semantic_types': ('https://metadata.datadrivendiscovery.org/types/Target',
+                                                'https://metadata.datadrivendiscovery.org/types/SuggestedTarget',),
+                             'use_columns': (),
+                             'exclude_columns': ()
+                             }
                     }],
                     "inputs": ["to_dataframe_step"]
+                },
+                {
+                    "name": "extract_target_step",
+                    "primitives": [{
+                        "primitive": "d3m.primitives.data_transformation.ToNumeric.DSBOX",
+                        "hyperparameters": {
+                            "drop_non_numeric_columns": [False]
+                        }
+                    }],
+                    "inputs": ["pre_extract_target_step"]
                 },
 
                 # read X value
@@ -2011,17 +2059,27 @@ class TA1VggImageProcessingRegressionTemplate(DSBoxTemplate):
                 },
                 # read Y value
                 {
-                    "name": "extract_target_step",
+                    "name": "pre_extract_target_step",
                     "primitives": [{
                         "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.DataFrameCommon",
                         "hyperparameters":
-                            {
-                                'semantic_types': ('https://metadata.datadrivendiscovery.org/types/TrueTarget',),
-                                'use_columns': (),
-                                'exclude_columns': ()
-                            }
+                            {'semantic_types': ('https://metadata.datadrivendiscovery.org/types/Target',
+                                                'https://metadata.datadrivendiscovery.org/types/SuggestedTarget',),
+                             'use_columns': (),
+                             'exclude_columns': ()
+                             }
                     }],
                     "inputs": ["to_dataframe_step"]
+                },
+                {
+                    "name": "extract_target_step",
+                    "primitives": [{
+                        "primitive": "d3m.primitives.data_transformation.ToNumeric.DSBOX",
+                        "hyperparameters": {
+                            "drop_non_numeric_columns": [False]
+                        }
+                    }],
+                    "inputs": ["pre_extract_target_step"]
                 },
                 {
                     "name": "dataframe_to_tensor",
@@ -2103,17 +2161,27 @@ class DefaultImageProcessingRegressionTemplate(DSBoxTemplate):
                 },
                 # read Y value
                 {
-                    "name": "extract_target_step",
+                    "name": "pre_extract_target_step",
                     "primitives": [{
                         "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.DataFrameCommon",
                         "hyperparameters":
-                            {
-                                'semantic_types': ('https://metadata.datadrivendiscovery.org/types/TrueTarget',),
-                                'use_columns': (),
-                                'exclude_columns': ()
-                            }
+                            {'semantic_types': ('https://metadata.datadrivendiscovery.org/types/Target',
+                                                'https://metadata.datadrivendiscovery.org/types/SuggestedTarget',),
+                             'use_columns': (),
+                             'exclude_columns': ()
+                             }
                     }],
                     "inputs": ["to_dataframe_step"]
+                },
+                {
+                    "name": "extract_target_step",
+                    "primitives": [{
+                        "primitive": "d3m.primitives.data_transformation.ToNumeric.DSBOX",
+                        "hyperparameters": {
+                            "drop_non_numeric_columns": [False]
+                        }
+                    }],
+                    "inputs": ["pre_extract_target_step"]
                 },
                 # {
                 #     "name": "column_parser_step",

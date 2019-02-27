@@ -112,19 +112,28 @@ class TemplateSteps:
                 "inputs": ["scaler_step"]
             },
             {
-                "name": target,
+                "name": "pre_"+target,
                 "primitives": [{
                     "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.DataFrameCommon",
                     "hyperparameters":
                         {
                             'semantic_types': (
-                                #'https://metadata.datadrivendiscovery.org/types/PrimaryKey',
                                 'https://metadata.datadrivendiscovery.org/types/TrueTarget',),
                             'use_columns': (),
                             'exclude_columns': ()
                         }
                 }],
                 "inputs": ["to_dataframe_step"]
+            },
+            {
+                "name": target,
+                "primitives": [{
+                    "primitive": "d3m.primitives.data_transformation.ToNumeric.DSBOX",
+                    "hyperparameters": {
+                        "drop_non_numeric_columns": [False]
+                    }
+                }],
+                "inputs": ["pre_"+target]
             },
         ]
 
@@ -230,17 +239,28 @@ class TemplateSteps:
                 "inputs": ["impute_step"]
             },
             {
-                "name": target,
+                "name": "pre_"+target,
                 "primitives": [{
                     "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.DataFrameCommon",
                     "hyperparameters":
                         {
-                            'semantic_types': ('https://metadata.datadrivendiscovery.org/types/TrueTarget',),
+                            'semantic_types': (
+                                'https://metadata.datadrivendiscovery.org/types/TrueTarget',),
                             'use_columns': (),
                             'exclude_columns': ()
                         }
                 }],
                 "inputs": ["to_dataframe_step"]
+            },
+            {
+                "name": target,
+                "primitives": [{
+                    "primitive": "d3m.primitives.data_transformation.ToNumeric.DSBOX",
+                    "hyperparameters": {
+                        "drop_non_numeric_columns": [False]
+                    }
+                }],
+                "inputs": ["pre_"+target]
             },
         ]
 
@@ -307,7 +327,7 @@ class TemplateSteps:
                 "inputs": ["to_numeric_step"]
             },
             {
-                "name": "extract_target_step",
+                "name": "pre_extract_target_step",
                 "primitives": [{
                     "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.DataFrameCommon",
                     "hyperparameters":
@@ -319,6 +339,16 @@ class TemplateSteps:
                         }
                 }],
                 "inputs": ["to_dataframe_step"]
+            },
+            {
+                "name": "extract_target_step",
+                "primitives": [{
+                    "primitive": "d3m.primitives.data_transformation.ToNumeric.DSBOX",
+                    "hyperparameters": {
+                        "drop_non_numeric_columns": [False]
+                    }
+                }],
+                "inputs": ["pre_extract_target_step"]
             },
         ]
 
@@ -483,17 +513,28 @@ class TemplateSteps:
                     "inputs": ["to_dataframe_step"]
                 },
                 {
-                    "name": target_name,
+                    "name": "pre_"+target_name,
                     "primitives": [{
                         "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.DataFrameCommon",
                         "hyperparameters":
-                            {
-                                'semantic_types': ('https://metadata.datadrivendiscovery.org/types/TrueTarget',),
-                                'use_columns': (),
-                                'exclude_columns': ()
-                            }
+                        {
+                            'semantic_types': (
+                                'https://metadata.datadrivendiscovery.org/types/TrueTarget',),
+                            'use_columns': (),
+                            'exclude_columns': ()
+                        }
                     }],
                     "inputs": ["to_dataframe_step"]
+                },
+                {
+                    "name": target_name,
+                    "primitives": [{
+                        "primitive": "d3m.primitives.data_transformation.ToNumeric.DSBOX",
+                        "hyperparameters": {
+                            "drop_non_numeric_columns": [False]
+                        }
+                    }],
+                    "inputs": ["pre_"+target_name]
                 }
             ]
 
