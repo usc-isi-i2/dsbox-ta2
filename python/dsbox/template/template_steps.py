@@ -103,34 +103,45 @@ class TemplateSteps:
             {
                 "name": data,
                 "primitives": [
-                    {
-                        "primitive": "d3m.primitives.data_transformation.pca.SKlearn",
-                        "hyperparameters":
-                        {
-                            'use_semantic_types': [True],
-                            'add_index_columns': [True],
-                            'return_result': ['new'],
-                            'n_components': [10, 15, 25]
-                        }
-                    },
+                    # 19 Feb 2019: Stop using PCA until issue is resolved
+                    # https://gitlab.com/datadrivendiscovery/sklearn-wrap/issues/154
+                    # {
+                    #     "primitive": "d3m.primitives.data_transformation.pca.SKlearn",
+                    #     "hyperparameters":
+                    #     {
+                    #         'use_semantic_types': [True],
+                    #         'add_index_columns': [True],
+                    #         'return_result': ['new'],
+                    #         'n_components': [10, 15, 25]
+                    #     }
+                    # },
                     "d3m.primitives.data_preprocessing.DoNothing.DSBOX",
                 ],
                 "inputs": ["scaler_step"]
             },
             {
-                "name": target,
+                "name": "pre_"+target,
                 "primitives": [{
                     "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.DataFrameCommon",
                     "hyperparameters":
                         {
                             'semantic_types': (
-                                #'https://metadata.datadrivendiscovery.org/types/PrimaryKey',
                                 'https://metadata.datadrivendiscovery.org/types/TrueTarget',),
                             'use_columns': (),
                             'exclude_columns': ()
                         }
                 }],
                 "inputs": ["to_dataframe_step"]
+            },
+            {
+                "name": target,
+                "primitives": [{
+                    "primitive": "d3m.primitives.data_transformation.ToNumeric.DSBOX",
+                    "hyperparameters": {
+                        "drop_non_numeric_columns": [False]
+                    }
+                }],
+                "inputs": ["pre_"+target]
             },
         ]
 
@@ -241,17 +252,28 @@ class TemplateSteps:
                 "inputs": ["impute_step"]
             },
             {
-                "name": target,
+                "name": "pre_"+target,
                 "primitives": [{
                     "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.DataFrameCommon",
                     "hyperparameters":
                         {
-                            'semantic_types': ('https://metadata.datadrivendiscovery.org/types/TrueTarget',),
+                            'semantic_types': (
+                                'https://metadata.datadrivendiscovery.org/types/TrueTarget',),
                             'use_columns': (),
                             'exclude_columns': ()
                         }
                 }],
                 "inputs": ["to_dataframe_step"]
+            },
+            {
+                "name": target,
+                "primitives": [{
+                    "primitive": "d3m.primitives.data_transformation.ToNumeric.DSBOX",
+                    "hyperparameters": {
+                        "drop_non_numeric_columns": [False]
+                    }
+                }],
+                "inputs": ["pre_"+target]
             },
         ]
 
@@ -318,7 +340,7 @@ class TemplateSteps:
                 "inputs": ["to_numeric_step"]
             },
             {
-                "name": "extract_target_step",
+                "name": "pre_extract_target_step",
                 "primitives": [{
                     "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.DataFrameCommon",
                     "hyperparameters":
@@ -330,6 +352,16 @@ class TemplateSteps:
                         }
                 }],
                 "inputs": ["to_dataframe_step"]
+            },
+            {
+                "name": "extract_target_step",
+                "primitives": [{
+                    "primitive": "d3m.primitives.data_transformation.ToNumeric.DSBOX",
+                    "hyperparameters": {
+                        "drop_non_numeric_columns": [False]
+                    }
+                }],
+                "inputs": ["pre_extract_target_step"]
             },
         ]
 
@@ -417,14 +449,16 @@ class TemplateSteps:
                         {
                             "primitive": "d3m.primitives.data_preprocessing.DoNothing.DSBOX",
                         },
-                        {
-                            "primitive": "d3m.primitives.data_transformation.pca.SKlearn",
-                            "hyperparameters":
-                                {
-                                    'add_index_columns': [True],
-                                    'use_semantic_types':[True],
-                                    'n_components': [(2), (4), (8), (16), (32), (64), (128)], }
-                        },
+                        # 19 Feb 2019: Stop using PCA until issue is resolved
+                        # https://gitlab.com/datadrivendiscovery/sklearn-wrap/issues/154
+                        # {
+                        #     "primitive": "d3m.primitives.data_transformation.pca.SKlearn",
+                        #     "hyperparameters":
+                        #         {
+                        #             'add_index_columns': [True],
+                        #             'use_semantic_types':[True],
+                        #             'n_components': [(2), (4), (8), (16), (32), (64), (128)], }
+                        # },
                         {
                             "primitive": "d3m.primitives.data_transformation.kernel_pca.SKlearn",
                             "hyperparameters":
@@ -494,17 +528,28 @@ class TemplateSteps:
                     "inputs": ["to_dataframe_step"]
                 },
                 {
-                    "name": target_name,
+                    "name": "pre_"+target_name,
                     "primitives": [{
                         "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.DataFrameCommon",
                         "hyperparameters":
-                            {
-                                'semantic_types': ('https://metadata.datadrivendiscovery.org/types/TrueTarget',),
-                                'use_columns': (),
-                                'exclude_columns': ()
-                            }
+                        {
+                            'semantic_types': (
+                                'https://metadata.datadrivendiscovery.org/types/TrueTarget',),
+                            'use_columns': (),
+                            'exclude_columns': ()
+                        }
                     }],
                     "inputs": ["to_dataframe_step"]
+                },
+                {
+                    "name": target_name,
+                    "primitives": [{
+                        "primitive": "d3m.primitives.data_transformation.ToNumeric.DSBOX",
+                        "hyperparameters": {
+                            "drop_non_numeric_columns": [False]
+                        }
+                    }],
+                    "inputs": ["pre_"+target_name]
                 }
             ]
 
@@ -750,7 +795,6 @@ class TemplateSteps:
                             {
                                 'use_semantic_types': [True],
                                 'add_index_columns': [True],
-                                'alpha': [(1)],
                             }},
                     ],
                     "runtime": {

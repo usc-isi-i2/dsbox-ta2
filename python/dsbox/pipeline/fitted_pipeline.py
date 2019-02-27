@@ -140,11 +140,15 @@ class FittedPipeline:
 
     def fit(self, **arguments):
         _logger.debug('Fitting fitted pipeline %s', self.id)
-        self.runtime.fit(**arguments)
+        inputs = arguments['inputs']
+        del arguments['inputs']
+        self.runtime.fit(inputs, **arguments)
 
     def produce(self, **arguments):
         _logger.debug('Producing fitted pipeline %s', self.id)
-        self.runtime.produce(**arguments)
+        inputs = arguments['inputs']
+        del arguments['inputs']
+        self.runtime.produce(inputs, **arguments)
 
     def get_cross_validation_metrics(self) -> typing.List:
         return self.runtime.cross_validation_result
