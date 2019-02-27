@@ -178,11 +178,10 @@ class FittedPipeline:
         structure = self.pipeline.to_json_structure()
         # if we has DoNothingForDataset, we need update pipeline again
         if structure['steps'][0]['primitive'] ['python_path'] == "d3m.primitives.data_preprocessing.DoNothingForDataset.DSBOX":
-            print("UPDATED!!!!!!!!!!")
+            _logger.info("The pipeline with DoNothingForDataset at step.0 detected.")
             self.set_sampler_primitive()
             structure = self.pipeline.to_json_structure()
-            print("!!!!!!!!!")
-            print(structure)
+            _logger.info("The pipeline with DoNothingForDataset has been replaced to be Splitter.")
 
         # Save pipeline rank
         if self.metric:
