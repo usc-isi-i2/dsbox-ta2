@@ -97,16 +97,18 @@ class TemplateSteps:
             {
                 "name": data,
                 "primitives": [
-                    {
-                        "primitive": "d3m.primitives.data_transformation.pca.SKlearn",
-                        "hyperparameters":
-                        {
-                            'use_semantic_types': [True],
-                            'add_index_columns': [True],
-                            'return_result': ['new'],
-                            'n_components': [10, 15, 25]
-                        }
-                    },
+                    # 19 Feb 2019: Stop using PCA until issue is resolved
+                    # https://gitlab.com/datadrivendiscovery/sklearn-wrap/issues/154
+                    # {
+                    #     "primitive": "d3m.primitives.data_transformation.pca.SKlearn",
+                    #     "hyperparameters":
+                    #     {
+                    #         'use_semantic_types': [True],
+                    #         'add_index_columns': [True],
+                    #         'return_result': ['new'],
+                    #         'n_components': [10, 15, 25]
+                    #     }
+                    # },
                     "d3m.primitives.data_preprocessing.DoNothing.DSBOX",
                 ],
                 "inputs": ["scaler_step"]
@@ -436,14 +438,16 @@ class TemplateSteps:
                         {
                             "primitive": "d3m.primitives.data_preprocessing.DoNothing.DSBOX",
                         },
-                        {
-                            "primitive": "d3m.primitives.data_transformation.pca.SKlearn",
-                            "hyperparameters":
-                                {
-                                    'add_index_columns': [True],
-                                    'use_semantic_types':[True],
-                                    'n_components': [(2), (4), (8), (16), (32), (64), (128)], }
-                        },
+                        # 19 Feb 2019: Stop using PCA until issue is resolved
+                        # https://gitlab.com/datadrivendiscovery/sklearn-wrap/issues/154
+                        # {
+                        #     "primitive": "d3m.primitives.data_transformation.pca.SKlearn",
+                        #     "hyperparameters":
+                        #         {
+                        #             'add_index_columns': [True],
+                        #             'use_semantic_types':[True],
+                        #             'n_components': [(2), (4), (8), (16), (32), (64), (128)], }
+                        # },
                         {
                             "primitive": "d3m.primitives.data_transformation.kernel_pca.SKlearn",
                             "hyperparameters":
