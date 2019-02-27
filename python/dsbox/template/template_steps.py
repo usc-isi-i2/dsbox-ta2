@@ -784,7 +784,6 @@ class TemplateSteps:
                             {
                                 'use_semantic_types': [True],
                                 'add_index_columns': [True],
-                                'alpha': [(1)],
                             }},
                     ],
                     "runtime": {
