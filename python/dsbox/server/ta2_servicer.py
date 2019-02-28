@@ -355,8 +355,8 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
         Exports a solution for evaluation based on NIST specifications.
 
         '''
-        fitted_pipeline_id = request.fitted_solution_id
-        self.log_msg(msg=f"SolutionExport invoked with rank {request.rank} fitted_solution_id {fitted_pipeline_id}")
+        fitted_pipeline_id = request.solution_id
+        self.log_msg(msg=f"SolutionExport invoked with rank {request.rank} solution_id {fitted_pipeline_id}")
         self.controller.export_solution(fitted_pipeline_id)
 
         return SolutionExportResponse()
@@ -375,7 +375,7 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
         return ListPrimitivesResponse(primitives=primitives)
 
     def ProduceSolution(self, request, context):
-        self.log_msg(msg="ProduceSolution invoked with request_id " + request.fitted_solution_id)
+        self.log_msg(msg="ProduceSolution invoked with request_id " + request.solution_id)
         self.log_msg(request)
 
         request_id = self.generateId()
@@ -398,7 +398,7 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
         start_time = self.produce_solution[request.request_id]['start']
         self.produce_solution.pop(request.request_id, None)
 
-        fitted_pipeline_id = produce_request.fitted_solution_id
+        fitted_pipeline_id = produce_request.solution_id
 
         # Load dataset
         loader = D3MDatasetLoader()
@@ -517,7 +517,7 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
                                   end=Timestamp().GetCurrentTime()),
                 steps=[],
                 exposed_outputs=[],
-                fitted_solution_id=old_fitted_pipeline.id
+                solution_id=old_fitted_pipeline.id
             ))
 
         else:
@@ -587,7 +587,7 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
                                   end=timestamp.GetCurrentTime()),
                 steps=steps_progress,
                 exposed_outputs=step_outputs,
-                fitted_solution_id=fitted_pipeline.id
+                solution_id=fitted_pipeline.id
             ))
 
         # Return results
