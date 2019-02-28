@@ -125,7 +125,7 @@ class TemplateLibrary:
     def get_templates(self, task: TaskType, subtype: TaskSubtype, taskSourceType: SEMANTIC_TYPES) \
             -> typing.List[DSBoxTemplate]:
         results = []
-        # results.append(SRIMeanBaselineTemplate())  # put the meanbaseline here so whatever dataset will have a result
+        results.append(SRIMeanBaselineTemplate())  # put the meanbaseline here so whatever dataset will have a result
         for template_class in self.templates:
             template = template_class()
             # sourceType refer to d3m/container/dataset.py ("SEMANTIC_TYPES" as line 40-70)
@@ -2586,14 +2586,14 @@ class JHUVertexNominationTemplate(DSBoxTemplate):
                 {
                     "name": "readgraph_step",
                     "primitives": [
-                        "d3m.primitives.jhu_primitives.LargestConnectedComponent"
+                        "d3m.primitives.data_preprocessing.largest_connected_component.JHU"
                     ],
                     "inputs": ["template_input"]
                 },
                 {
                     "name": "embedding_step",
                     "primitives": [
-                        "d3m.primitives.jhu_primitives.AdjacencySpectralEmbedding"
+                        "d3m.primitives.data_transformation.adjacency_spectral_embedding.JHU"
                     ],
                     "inputs": ["readgraph_step"]
 
@@ -2601,7 +2601,7 @@ class JHUVertexNominationTemplate(DSBoxTemplate):
                 {
                     "name": "model_step",
                     "primitives": [
-                        "d3m.primitives.jhu_primitives.GaussianClassification"
+                        "d3m.primitives.data_transformation.adjacency_spectral_embedding.JHU"
                     ],
                     "inputs": ["embedding_step"]
                 }
@@ -2624,7 +2624,7 @@ class JHUGraphMatchingTemplate(DSBoxTemplate):
             "steps": [
                 {
                     "name": "model_step",
-                    "primitives": ["d3m.primitives.jhu_primitives.SeededGraphMatching"],
+                    "primitives": ["d3m.primitives.graph_matching.seeded_graph_matching.JHU"],
                     "inputs": ["template_input"]
                 }
             ]

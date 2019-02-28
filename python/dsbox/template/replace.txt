@@ -59,3 +59,9 @@ s/d3m.primitives.dsbox.EnsembleVoting/d3m.primitives.data_preprocessing.Ensemble
 s/d3m.primitives.dsbox.HorizontalConcat/d3m.primitives.data_preprocessing.HorizontalConcat.DSBOX/g
 s/d3m.primitives.dsbox.Unfold/d3m.primitives.data_preprocessing.Unfold.DSBOX/g
 s/d3m.primitives.dsbox.VerticalConcat/d3m.primitives.data_preprocessing.VerticalConcat.DSBOX/g
+s/d3m.primitives.jhu_primitives.SeededGraphMatching/d3m.primitives.graph_matching.seeded_graph_matching.JHU/g
+s/d3m.primitives.jhu_primitives.LargestConnectedComponent/d3m.primitives.data_preprocessing.largest_connected_component.JHU/g
+s/d3m.primitives.jhu_primitives.AdjacencySpectralEmbedding/d3m.primitives.data_transformation.adjacency_spectral_embedding.JHU/g
+s/d3m.primitives.jhu_primitives.GaussianClassification/d3m.primitives.data_transformation.adjacency_spectral_embedding.JHU/g
+s/d3m.primitives.cmu.fastlvm.GMM/d3m.primitives.cmu.fastlvm.GMM/g
+s/d3m.primitives.feature_extraction.i3d.umich/d3m.primitives.feature_extraction.i3d.umich/g
