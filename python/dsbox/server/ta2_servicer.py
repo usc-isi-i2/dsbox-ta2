@@ -355,9 +355,9 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
         Exports a solution for evaluation based on NIST specifications.
 
         '''
-        fitted_pipeline_id = request.fitted_solution_id
-        self.log_msg(msg=f"SolutionExport invoked with rank {request.rank} fitted_solution_id {fitted_pipeline_id}")
-        self.controller.export_solution(fitted_pipeline_id)
+        pipeline_id = request.solution_id
+        self.log_msg(msg=f"SolutionExport invoked with rank {request.rank} solution_id {pipeline_id}")
+        self.controller.export_solution(pipeline_id)
 
         return SolutionExportResponse()
 
