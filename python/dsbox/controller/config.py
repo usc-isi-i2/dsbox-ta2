@@ -148,6 +148,7 @@ class DsboxConfig:
     def _load_dsbox(self):
         self._load_logging()
         self.search_method = 'parallel'
+        # self.search_method = 'serial'
 
     def _setup(self):
         self._define_create_output_dirs()

@@ -377,7 +377,7 @@ class TemplateSteps:
                     "name": "feature_selector_step",
                     "primitives": [
                         {
-                            "primitive": "d3m.primitives.data_preprocessing.select_fwe.SKlearn",
+                            "primitive": "d3m.primitives.feature_selection.select_fwe.SKlearn",
                             "hyperparameters": {
                                 'use_semantic_types': [True],
                                 'add_index_columns': [True],
@@ -409,7 +409,7 @@ class TemplateSteps:
                     "name": "feature_selector_step",
                     "primitives": [
                         {
-                            "primitive": "d3m.primitives.data_preprocessing.select_fwe.SKlearn",
+                            "primitive": "d3m.primitives.feature_selection.select_fwe.SKlearn",
                             "hyperparameters": {
                                 'use_semantic_types': [True],
                                 'return_result': ['new'],
@@ -481,7 +481,7 @@ class TemplateSteps:
                                 }
                         },
                         {
-                            "primitive": "d3m.primitives.data_preprocessing.variance_threshold.SKlearn",
+                            "primitive": "d3m.primitives.feature_selection.variance_threshold.SKlearn",
                             "hyperparameters":
                                 {
                                     'add_index_columns': [True],

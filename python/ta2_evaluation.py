@@ -9,7 +9,8 @@ from dsbox.controller.controller import Controller
 from dsbox.controller.config import DsboxConfig
 
 start_time = time.time()
-wrote_result = False
+# wrote_result = False
+
 
 class StdoutLogger(object):
     def __init__(self, f):
@@ -40,6 +41,7 @@ class StderrLogger(object):
 def main(config: DsboxConfig):
     controller = Controller(development_mode=False)
     controller.initialize(config)
+    config.start_time = time.perf_counter()
 
     def kill_child_processes():
         process_id = os.getpid()
@@ -47,27 +49,16 @@ def main(config: DsboxConfig):
         for child in parent.children(recursive=True):  # or parent.children() for recursive=False
             child.kill()
 
-    # Define signal handler to exit gracefully
-    def write_results_and_exit(a_signal, frame):
+    # Define signal handler to simulate evaluation timeout
+    def force_exit(a_signal, frame):
         print('==== Times up ====')
         time_used = (time.time() - start_time) / 60.0
-        print("[INFO] The time used so far is {:0.2f} minutes.".format(time_used))
+        print("The time used so far is {:0.2f} minutes.".format(time_used))
         try:
             # Reset to handlers to default as not to output multiple times
             signal.signal(signal.SIGALRM, signal.SIG_DFL)
-            global wrote_result
-            wrote_result = True
 
             print('[INFO] Killing child processes', flush=True)
-
-
-            print('[INFO] writing results', flush=True)
-            controller.write_training_results()
-
-            print('==== Done cleaning up ====', flush=True)
-            time_used = (time.time() - start_time) / 60.0
-            print("[INFO] The time used so far is {:0.2f} minutes.".format(time_used), flush=True)
-
             kill_child_processes()
         except Exception as e:
             print(e)
@@ -80,11 +71,10 @@ def main(config: DsboxConfig):
             # print('SIGNAL exiting {}'.format(configuration_file), flush=True)
             os._exit(0)
 
-    write_results_time = 60  # seconds
-    timeout = config.timeout - write_results_time
+    timeout = config.timeout
 
     if timeout > 0:
-        signal.signal(signal.SIGALRM, write_results_and_exit)
+        signal.signal(signal.SIGALRM, force_exit)
         signal.alarm(timeout)
     else:
         raise Exception('Negative timeout {}'.format(timeout))
@@ -94,10 +84,9 @@ def main(config: DsboxConfig):
     status = controller.train()
     print("[INFO] Training Done")
 
-    if not wrote_result:
-        write_results_and_exit(None, None)
+    controller.write_training_results()
 
-    time_used = (time.time() - start_time) / 60.0
+    time_used = (time.perf_counter() - config.start_time) / 60.0
     print("[INFO] The time used for running program is {:0.2f} minutes.".format(time_used))
 
     return status.value

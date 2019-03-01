@@ -4,6 +4,7 @@ import os
 import pickle
 import random
 import string
+import time
 import typing
 import uuid
 
@@ -181,6 +182,7 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
         Search Solutions call
         Non streaming
         '''
+        self.config.start_time = time.perf_counter()
         self.log_msg(msg="SearchSolutions invoked")
 
         # Workaround for loading in keras graphs multiple times
@@ -355,9 +357,9 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
         Exports a solution for evaluation based on NIST specifications.
 
         '''
-        fitted_pipeline_id = request.solution_id
-        self.log_msg(msg=f"SolutionExport invoked with rank {request.rank} solution_id {fitted_pipeline_id}")
-        self.controller.export_solution(fitted_pipeline_id)
+        pipeline_id = request.solution_id
+        self.log_msg(msg=f"SolutionExport invoked with rank {request.rank} solution_id {pipeline_id}")
+        self.controller.export_solution(pipeline_id)
 
         return SolutionExportResponse()
 

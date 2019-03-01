@@ -51,7 +51,8 @@ class TemplateSpaceBaseSearch(typing.Generic[T]):
                            test_dataset2: typing.List[Dataset], all_dataset: Dataset,
                            ensemble_tuning_dataset: Dataset,
                            output_directory: str, log_dir: str,
-                           timeout_sec: int = -1) -> None:
+                           start_time: float = 0,
+                           timeout_sec: float = -1) -> None:
 
         self.cacheManager.timeout_sec = timeout_sec
         self.template_list = template_list
@@ -80,8 +81,11 @@ class TemplateSpaceBaseSearch(typing.Generic[T]):
 
         self.ensemble_tuning_result = {}
 
+        if start_time > 0:
+            self.start_time = start_time
+        else:
+            self.start_time = time.perf_counter()
         self.timeout_sec = timeout_sec
-        self.start_time = time.perf_counter()
         # load libraries with a dummy evaluation
         # try:
         #     self.confSpaceBaseSearch[-1].dummy_evaluate()

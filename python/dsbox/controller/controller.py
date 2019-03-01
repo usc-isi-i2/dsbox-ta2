@@ -431,6 +431,7 @@ class Controller:
             ensemble_tuning_dataset=self.ensemble_dataset,
             output_directory=self.config.output_dir,
             log_dir=self.config.log_dir,
+            start_time=self.config.start_time,
             timeout_sec=self.config.timeout_search
         )
         # report = self._search_method.search(num_iter=50)
@@ -452,6 +453,7 @@ class Controller:
             ensemble_tuning_dataset=self.ensemble_dataset,
             output_directory=self.config.output_dir,
             log_dir=self.config.log_dir,
+            start_time=self.config.start_time,
             timeout_sec=self.config.timeout_search,
         )
         report = self._search_method.search(num_iter=50)
@@ -501,6 +503,7 @@ class Controller:
             output_directory=self.config.output_dir,
             log_dir=self.config.log_dir,
             num_proc=self.config.cpu,
+            start_time=self.config.start_time,
             timeout=self.config.timeout_search,
         )
         report = self._search_method.search(num_iter=5)
@@ -525,6 +528,7 @@ class Controller:
             output_directory=self.config.output_dir,
             log_dir=self.config.log_dir,
             num_proc=self.config.cpu,
+            start_time=self.config.start_time,
             timeout=self.config.timeout_search,
         )
         report = self._search_method.search(num_iter=30)

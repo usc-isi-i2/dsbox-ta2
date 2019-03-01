@@ -54,7 +54,8 @@ class TemplateSpaceParallelBaseSearch(TemplateSpaceBaseSearch[T]):
                            train_dataset2: typing.List[Dataset], test_dataset1: Dataset,
                            test_dataset2: typing.List[Dataset], all_dataset: Dataset,
                            ensemble_tuning_dataset: Dataset,
-                           output_directory: str, log_dir: str, timeout_sec: int = 3300) -> None:
+                           output_directory: str, log_dir: str,
+                           start_time: float = 0, timeout_sec: float = 3300) -> None:
         # Start timer
         self.job_manager.timeout_sec = timeout_sec
 
@@ -63,7 +64,8 @@ class TemplateSpaceParallelBaseSearch(TemplateSpaceBaseSearch[T]):
             problem=problem, train_dataset1=train_dataset1, train_dataset2=train_dataset2,
             test_dataset1=test_dataset1, test_dataset2=test_dataset2, all_dataset=all_dataset,
             ensemble_tuning_dataset=ensemble_tuning_dataset,
-            output_directory=output_directory, log_dir=log_dir, timeout_sec=timeout_sec
+            output_directory=output_directory, log_dir=log_dir,
+            start_time=start_time, timeout_sec=timeout_sec
         )
 
         # setup the execution history to store the results of each template separately
