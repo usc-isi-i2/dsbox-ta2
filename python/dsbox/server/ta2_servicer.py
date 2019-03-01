@@ -4,6 +4,7 @@ import os
 import pickle
 import random
 import string
+import time
 import typing
 import uuid
 
@@ -181,6 +182,7 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
         Search Solutions call
         Non streaming
         '''
+        self.config.start_time = time.perf_counter()
         self.log_msg(msg="SearchSolutions invoked")
 
         # Workaround for loading in keras graphs multiple times
