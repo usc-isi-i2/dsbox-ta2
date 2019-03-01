@@ -910,6 +910,8 @@ class Controller:
 
         # if the dataset type in the list that we should not split
         if cannot_split:
+            train_return = []
+            test_return = []
             for i in range(n_splits):
                 # just return all dataset to train part
                 train_return.append(dataset)
