@@ -65,3 +65,5 @@ s/d3m.primitives.jhu_primitives.AdjacencySpectralEmbedding/d3m.primitives.data_t
 s/d3m.primitives.jhu_primitives.GaussianClassification/d3m.primitives.data_transformation.adjacency_spectral_embedding.JHU/g
 s/d3m.primitives.cmu.fastlvm.GMM/d3m.primitives.cmu.fastlvm.GMM/g
 s/d3m.primitives.feature_extraction.i3d.umich/d3m.primitives.feature_extraction.i3d.umich/g
+s/d3m.primitives.data_preprocessing.select_fwe.SKlearn/d3m.primitives.feature_selection.select_fwe.SKlearn/g
+s/d3m.primitives.data_preprocessing.variance_threshold.SKlearn/d3m.primitives.feature_selection.variance_threshold.SKlearn/g
