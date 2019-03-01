@@ -6,7 +6,6 @@ import os
 import sys
 import time
 
-import numpy
 from concurrent import futures
 
 from ta3ta2_api import core_pb2_grpc
@@ -21,7 +20,6 @@ from dsbox.controller.config import DsboxConfig
 # from dsbox_dev_setup import path_setup
 # path_setup()
 
-numpy.set_printoptions(threshold=numpy.nan)
 
 _ONE_DAY_IN_SECONDS = 60 * 60 * 24
 PORT = 45042
