@@ -731,28 +731,6 @@ class Controller:
                 self._logger.error("[ERROR] horizontal tuning pipeline failed.")
                 traceback.print_exc()
 
-# each_prediction.at[1, 'inputs'] = self.ensemble_dataset[self.problem_info["res_id"]].loc[1].tolist()
-    # @staticmethod
-    # def generate_configuration_space(template_desc: TemplateDescription, problem: typing.Dict,
-    #                                  dataset: typing.Optional[Dataset]) -> ConfigurationSpace:
-    #     """
-    #     Generate search space
-    #     """
-
-    #     # TODO: Need to update dsbox.planner.common.ontology.D3MOntology and
-    #     # dsbox.planner.common.ontology.D3MPrimitiveLibrary, and integrate with them
-    #     libdir = os.path.join(os.getcwd(), "library")
-    #     # print(libdir)
-    #     mapper_to_primitives = SemanticTypeDict(libdir)
-    #     mapper_to_primitives.read_primitives()
-    #     # print(mapper_to_primitives.mapper)
-    #     # print(mapper_to_primitives.mapper)
-    #     values = mapper_to_primitives.create_configuration_space(template_desc.template)
-    #     # print(template_desc.template.template_nodes.items())
-    #     print("[INFO] Values: {}".format(values))
-    #     # values: typing.Dict[DimensionName, typing.List] = {}
-    #     return SimpleConfigurationSpace(values)
-
     def initialize_from_config_for_evaluation(self, config: DsboxConfig) -> None:
         """
             This function for running ta2_evaluation
@@ -941,7 +919,7 @@ class Controller:
                     hyperparams_split = hyperparams_split.replace({"stratified":False})
                 split_primitive = KFoldDatasetSplitPrimitive(hyperparams = hyperparams_split)
 
-            try: 
+            try:
                 split_primitive.set_training_data(dataset = dataset)
                 split_primitive.fit()
                 # TODO: is it correct here?
@@ -1003,7 +981,7 @@ class Controller:
                             test_return.append(test)
                         else:
                             test_return.append(None)
-                        
+
                     self._logger.info("split done!!!!!!")
                 except Exception:
                     # Do not split stratified shuffle fails
