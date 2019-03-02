@@ -258,7 +258,7 @@ class DistributedJobManager:
         self._timeout_sec = -1
         self.timer.cancel()
 
-    def kill_job_mananger(self):
+    def kill_job_manager(self):
         """
         Safely kills the jobManager and all of its components
         Returns:
@@ -300,7 +300,7 @@ class DistributedJobManager:
 
     def _kill_me(self):
         _logger.warning("search TIMEOUT reached! Killing search Process")
-        self.kill_job_mananger()
+        self.kill_job_manager()
         self.kill_timer()
         os._exit(0)
         # os.kill(os.getpid(), 9)

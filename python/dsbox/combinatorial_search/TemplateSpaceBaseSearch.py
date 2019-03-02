@@ -238,8 +238,11 @@ class TemplateSpaceBaseSearch(typing.Generic[T]):
             # first we just add the candidate as failure to the candidates cache to
             # prevent it from being evaluated again while it is being evaluated
             self.cacheManager.candidate_cache.push_None(candidate=candidate)
-        except:
+        except Exception:
             traceback.print_exc()
             _logger.error(traceback.format_exc())
 
         return True
+
+    def shutdown(self):
+        self.cacheManager.shutdown()
