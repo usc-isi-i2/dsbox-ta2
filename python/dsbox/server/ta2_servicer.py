@@ -115,7 +115,7 @@ communication_value_types = [value_pb2.DATASET_URI, value_pb2.PICKLE_URI, value_
 # _logger.info('    Found {} solutions.'.format(len(self.controller.candidates)))
 # problem = self.controller.problem
 # for solution in self.controller.candidates.values():
-# fitted_pipeline = self.controller.load_fitted_pipeline(request.solution_id)
+# fitted_pipeline = self.controller.load_fitted_pipeline(request.fitted_solution_id)
 
 class TA2Servicer(core_pb2_grpc.CoreServicer):
     '''
@@ -282,10 +282,10 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
 
     def ScoreSolution(self, request, context):
         '''
-        Get the Score Solution request_id associated with the supplied solution_id
+        Get the Score Solution request_id associated with the supplied fitted_solution_id
         Non streaming
         '''
-        self.log_msg(msg="ScoreSolution invoked with solution_id: " + request.solution_id)
+        self.log_msg(msg="ScoreSolution invoked with fitted_solution_id: " + request.fitted_solution_id)
 
         request_id = self.generateId()
         result = ScoreSolutionResponse(
@@ -316,7 +316,7 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
 
         search_solutions_results = []
 
-        fitted_pipeline_id = score_request.solution_id
+        fitted_pipeline_id = score_request.fitted_solution_id
 
         if score_request.inputs is not None:
             dataset_uri = score_request.inputs[0].dataset_uri
@@ -326,7 +326,7 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
         problem = self.controller.get_problem()
         for results in self.search_solution_results.values():
             for solution in results.values():
-                if score_request.solution_id == solution['id']:
+                if score_request.fitted_solution_id == solution['id']:
                     self.log_msg(msg='    Return search solution: {}'.format(solution))
                     fitted_pipeline_id = solution['id']
                     if 'test_metrics' in solution and solution['test_metrics'] is not None:
@@ -357,8 +357,8 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
         Exports a solution for evaluation based on NIST specifications.
 
         '''
-        pipeline_id = request.solution_id
-        self.log_msg(msg=f"SolutionExport invoked with rank {request.rank} solution_id {pipeline_id}")
+        pipeline_id = request.fitted_solution_id
+        self.log_msg(msg=f"SolutionExport invoked with rank {request.rank} fitted_solution_id {pipeline_id}")
         self.controller.export_solution(pipeline_id)
 
         return SolutionExportResponse()
@@ -377,7 +377,7 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
         return ListPrimitivesResponse(primitives=primitives)
 
     def ProduceSolution(self, request, context):
-        self.log_msg(msg="ProduceSolution invoked with request_id " + request.solution_id)
+        self.log_msg(msg="ProduceSolution invoked with request_id " + request.fitted_solution_id)
         self.log_msg(request)
 
         request_id = self.generateId()
@@ -400,7 +400,7 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
         start_time = self.produce_solution[request.request_id]['start']
         self.produce_solution.pop(request.request_id, None)
 
-        fitted_pipeline_id = produce_request.solution_id
+        fitted_pipeline_id = produce_request.fitted_solution_id
 
         # Load dataset
         loader = D3MDatasetLoader()
@@ -471,7 +471,7 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
             yield result
 
     def FitSolution(self, request, context):
-        self.log_msg(msg="FitSolution invoked with request_id " + request.solution_id)
+        self.log_msg(msg="FitSolution invoked with request_id " + request.fitted_solution_id)
         self.log_msg(request)
 
         request_id = self.generateId()
@@ -494,7 +494,7 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
         start_time = self.fit_solution[request.request_id]['start']
         self.fit_solution.pop(request.request_id, None)
 
-        fitted_pipeline_id = fit_request.solution_id
+        fitted_pipeline_id = fit_request.fitted_solution_id
 
         # Load dataset
         loader = D3MDatasetLoader()
@@ -519,7 +519,7 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
                                   end=Timestamp().GetCurrentTime()),
                 steps=[],
                 exposed_outputs=[],
-                solution_id=old_fitted_pipeline.id
+                fitted_solution_id=old_fitted_pipeline.id
             ))
 
         else:
@@ -589,7 +589,7 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
                                   end=timestamp.GetCurrentTime()),
                 steps=steps_progress,
                 exposed_outputs=step_outputs,
-                solution_id=fitted_pipeline.id
+                fitted_solution_id=fitted_pipeline.id
             ))
 
         # Return results
@@ -601,12 +601,12 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
         pass
 
     def DescribeSolution(self, request, context) -> DescribeSolutionResponse:
-        self.log_msg(msg="DescribeSolution invoked with soution_id " + request.solution_id)
+        self.log_msg(msg="DescribeSolution invoked with soution_id " + request.fitted_solution_id)
 
         # Workaround for loading in keras graphs multiple times
         keras_backend.clear_session()
 
-        fitted_pipeline = self.controller.load_fitted_pipeline(request.solution_id)
+        fitted_pipeline = self.controller.load_fitted_pipeline(request.fitted_solution_id)
 
         pipeline = fitted_pipeline.pipeline
 
@@ -1085,7 +1085,7 @@ def to_proto_search_solution_request(problem, fitted_pipeline_id, metrics_result
                           end=timestamp.GetCurrentTime()),
         done_ticks=0, # TODO: Figure out how we want to support this
         all_ticks=0, # TODO: Figure out how we want to support this
-        solution_id=fitted_pipeline_id, # TODO: Populate this with the pipeline id
+        fitted_solution_id=fitted_pipeline_id, # TODO: Populate this with the pipeline id
         internal_score=0,
         # scores=None # Optional so we will not tackle it until needed
         scores=scores
