@@ -8,38 +8,10 @@ import typing
 from d3m import index
 from d3m.container.dataset import SEMANTIC_TYPES
 from d3m.metadata.problem import TaskType, TaskSubtype
-from dsbox.template.template import TemplatePipeline, DSBoxTemplate
+from dsbox.template.template import DSBoxTemplate
 from .template_steps import TemplateSteps
 
 _logger = logging.getLogger(__name__)
-
-
-class TemplateDescription:
-    """
-    Description of templates in the template library.
-
-    Attributes
-    ----------
-    task : TaskType
-        The type task the template handles
-    template: TemplatePipeline
-        The actual template
-    target_step: int
-        The step of the template that extract the ground truth target from
-        the dataset
-    predicted_target_step: int
-        The step of the template generates the predictions
-    """
-
-    def __init__(self, task: TaskType, template: TemplatePipeline,
-                 target_step: int, predicted_target_step: int) -> None:
-        self.task = task
-        self.template = template
-
-        # Instead of having these attributes here, probably should attach
-        # attributes to the template steps
-        self.target_step = target_step
-        self.predicted_target_step = predicted_target_step
 
 
 class TemplateLibrary:
@@ -237,36 +209,6 @@ class TemplateLibrary:
             self.templates.append(self.all_templates[template_name])
         else:
             raise KeyError("Template not found, name: {}".format(template_name))
-
-
-class SemanticTypeDict(object):
-    def __init__(self, libdir):
-        self.pos = libdir
-        self.mapper = {}
-
-    def read_primitives(self) -> None:
-        # jsonPath = os.path.join(libdir, filename)
-        # print(self.pos)
-        user_Defined_Confs = glob.glob(
-            self.pos + "/*_template_semantic_mapping.json")
-        # print(user_Defined_Confs)
-        for u in user_Defined_Confs:
-            with open(u, "r") as cf:
-                print("opened", u)
-                for v in json.load(cf).items():
-                    self.mapper[v[0]] = v[1]
-
-    def create_configuration_space(self, template: TemplatePipeline):
-        definition = {}
-        # for t in TemplatePipeline:
-        #     if isinstance(t, list):
-        steps = template.template_nodes.keys()
-        for s in steps:
-            if template.template_nodes[s].semantic_type in self.mapper.keys():
-                definition[s] = self.mapper[
-                    template.template_nodes[s].semantic_type]
-        # return SimpleConfigurationSpace(definition)
-        return definition
 
 
 ################################################################################################################

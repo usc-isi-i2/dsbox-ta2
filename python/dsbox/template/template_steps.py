@@ -377,14 +377,15 @@ class TemplateSteps:
                     "name": "feature_selector_step",
                     "primitives": [
                         {
-                            "primitive": "d3m.primitives.feature_selection.select_fwe.SKlearn",
-                            "hyperparameters": {
-                                'use_semantic_types': [True],
-                                'add_index_columns': [True],
-                                'return_result': ['new'],
-                                'add_index_columns': [True],
-                                "alpha": [float(x) for x in np.logspace(-4, -1, 6)]
-                            }
+                            # 1 March 2019: select_fwe disappeared from sklearn wrap
+                            # "primitive": "d3m.primitives.feature_selection.select_fwe.SKlearn",
+                            # "hyperparameters": {
+                            #     'use_semantic_types': [True],
+                            #     'add_index_columns': [True],
+                            #     'return_result': ['new'],
+                            #     'add_index_columns': [True],
+                            #     "alpha": [float(x) for x in np.logspace(-4, -1, 6)]
+                            # }
                         },
                         {
                             "primitive": "d3m.primitives.feature_selection.generic_univariate_select.SKlearn",
@@ -408,15 +409,16 @@ class TemplateSteps:
                 {
                     "name": "feature_selector_step",
                     "primitives": [
-                        {
-                            "primitive": "d3m.primitives.feature_selection.select_fwe.SKlearn",
-                            "hyperparameters": {
-                                'use_semantic_types': [True],
-                                'return_result': ['new'],
-                                'add_index_columns': [True],
-                                "alpha": [float(x) for x in np.logspace(-4, -1, 6)]
-                            }
-                        },
+                        # 1 March 2019: select_fwe disappeared from sklearn wrap
+                        # {
+                        #     "primitive": "d3m.primitives.feature_selection.select_fwe.SKlearn",
+                        #     "hyperparameters": {
+                        #         'use_semantic_types': [True],
+                        #         'return_result': ['new'],
+                        #         'add_index_columns': [True],
+                        #         "alpha": [float(x) for x in np.logspace(-4, -1, 6)]
+                        #     }
+                        # },
 
                         {
                             "primitive": "d3m.primitives.feature_selection.generic_univariate_select.SKlearn",

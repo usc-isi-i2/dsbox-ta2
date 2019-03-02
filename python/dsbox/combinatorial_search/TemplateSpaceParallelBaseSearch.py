@@ -253,3 +253,7 @@ class TemplateSpaceParallelBaseSearch(TemplateSpaceBaseSearch[T]):
 
         self._add_report_to_history(kwargs_bundle=kwargs_bundle, report=report)
         return report
+
+    def shutdown(self):
+        super().shutdown()
+        self.job_manager.kill_job_manager()

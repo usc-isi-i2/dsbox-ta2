@@ -89,6 +89,8 @@ def main(config: DsboxConfig):
     time_used = (time.perf_counter() - config.start_time) / 60.0
     print("[INFO] The time used for running program is {:0.2f} minutes.".format(time_used))
 
+    controller.shutdown()
+
     return status.value
 
 

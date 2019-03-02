@@ -136,7 +136,6 @@ class FittedPipeline:
         # change pickling file in runtime to be sampler
         self.runtime.steps_state[0] = sampler_pickle_file
         self.pipeline.replace_step(index=0, replacement_step=sampler_step)
-        
 
     def fit(self, **arguments):
         _logger.debug('Fitting fitted pipeline %s', self.id)
@@ -199,6 +198,9 @@ class FittedPipeline:
             structure['metric_value'] = value
         else:
             _logger.warn("Metric type of the pipeline is unknown, unable to calculate the rank of the pipeline")
+
+        if self.runtime.cross_validation_result:
+            structure['cross_validation'] = self.runtime.cross_validation_result
 
         structure['template_name'] = self.template_name
         structure['template_task'] = self.template_task
