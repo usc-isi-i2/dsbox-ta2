@@ -172,8 +172,6 @@ class TemplateLibrary:
         # horzontalTemplate
         # self.templates.append(HorizontalTemplate)
 
-        # self.templates.append(DefaultTimeseriesRegressionTemplate)
-
         # default tabular templates, encompassing many of the templates below
         self.templates.append(DefaultClassificationTemplate)
         self.templates.append(NaiveBayesClassificationTemplate)
@@ -206,6 +204,7 @@ class TemplateLibrary:
         # Others
         self.templates.append(DefaultTimeseriesCollectionTemplate)
         self.templates.append(TimeSeriesForcastingTestingTemplate)
+        self.templates.append(DefaultTimeseriesRegressionTemplate)
 
         self.templates.append(DefaultLinkPredictionTemplate)
         self.templates.append(SRICommunityDetectionTemplate)
@@ -1694,23 +1693,24 @@ class TemporaryObjectDetectionTemplate(DSBoxTemplate):
             "target": "extract_target_step",  # Name of the step generating the ground truth
             "steps": [
                 {
-                    "name": "denormalize_step",
+                    "name": "denormalize_step", #step 0
                     "primitives": ["d3m.primitives.data_transformation.denormalize.Common"],
                     "inputs": ["template_input"]
                 },
                 {
-                    "name": "to_dataframe_step",
+                    "name": "to_dataframe_step",#step 1
                     "primitives": ["d3m.primitives.data_transformation.dataset_to_dataframe.Common"],
                     "inputs": ["denormalize_step"]
                 },
                 # read X value
                 {
-                    "name": "extract_file_step",
+                    "name": "extract_file_step",#step 2
                     "primitives": [{
                         "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.DataFrameCommon",
                         "hyperparameters":
                             {
                                 'semantic_types': (
+                                    'https://metadata.datadrivendiscovery.org/types/PrimaryKey',
                                     'https://metadata.datadrivendiscovery.org/types/FileName',),
                                 'use_columns': (),
                                 'exclude_columns': ()
@@ -1719,18 +1719,25 @@ class TemporaryObjectDetectionTemplate(DSBoxTemplate):
                     "inputs": ["to_dataframe_step"]
                 },
                 {
-                    "name": "to_tensor_step",
+                    "name": "to_tensor_step", #step 3
                     "primitives": ["d3m.primitives.data_preprocessing.DataFrameToTensor.DSBOX"],
                     "inputs": ["extract_file_step"]
                 },
                 {
-                    "name": "image_processing_step",
-                    "primitives": ["d3m.primitives.feature_extraction.ResNet50ImageFeature.DSBOX"],
+                    "name": "image_processing_step",# step 4
+                    "primitives": [
+                        {
+                            "primitive": "d3m.primitives.feature_extraction.ResNet50ImageFeature.DSBOX",
+                            "hyperparameters": {
+                                'generate_metadata': [True]
+                            }
+                        }
+                    ],
                     "inputs": ["to_tensor_step"]
                 },
                 # read Y value
                 {
-                    "name": "extract_target_step",
+                    "name": "extract_target_step",# step 5
                     "primitives": [{
                         "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.DataFrameCommon",
                         "hyperparameters":
@@ -1745,13 +1752,24 @@ class TemporaryObjectDetectionTemplate(DSBoxTemplate):
                 },
 
                 {
-                    "name": "data_clean_step",
+                    "name": "data_clean_step", # step 6
                     "primitives": ["d3m.primitives.data_cleaning.CleaningFeaturizer.DSBOX"],
                     "inputs": ["extract_target_step"]
                 },
-
                 {
-                    "name": "model_step",
+                    "name": "add_metadata_step", # step 7
+                    "primitives": [{
+                        "primitive": "d3m.primitives.data_transformation.add_semantic_types.DataFrameCommon",
+                        "hyperparameters": 
+                            {
+                                "columns": (0,1,2,3),
+                                "semantic_types":('https://metadata.datadrivendiscovery.org/types/TrueTarget',),
+                            }
+                        }],
+                    "inputs": ["data_clean_step"]
+                },
+                {
+                    "name": "model_step", # step 8
                     "primitives": [
                         {
                             "primitive": "d3m.primitives.regression.random_forest.SKlearn",
@@ -1761,7 +1779,7 @@ class TemporaryObjectDetectionTemplate(DSBoxTemplate):
                             }
                         }
                     ],
-                    "inputs": ["image_processing_step", "data_clean_step"]
+                    "inputs": ["image_processing_step", "add_metadata_step"]
                 },
             ]
         }
@@ -1954,7 +1972,7 @@ class DefaultTimeseriesRegressionTemplate(DSBoxTemplate):
                     "name": "random_forest_step",
                     "primitives": [
                         {
-                            "primitive": "d3m.primitives.classification.random_forest.SKlearn",
+                            "primitive": "d3m.primitives.regression.random_forest.SKlearn",
                             "hyperparameters": {
                                 'add_index_columns': [True],
                                 'use_semantic_types':[True],
@@ -2489,6 +2507,7 @@ class SRIGraphMatchingTemplate(DSBoxTemplate):
 
 
 class SRIVertexNominationTemplate(DSBoxTemplate):
+    # not used for DS01876
     def __init__(self):
         DSBoxTemplate.__init__(self)
         self.template = {
@@ -3557,6 +3576,11 @@ class UU3TestTemplate(DSBoxTemplate):
                     "inputs": ["template_input"]
                 },
                 {
+                    "name": "to_dataframe_step",
+                    "primitives": ["d3m.primitives.data_transformation.dataset_to_dataframe.Common"],
+                    "inputs": ["multi_table_processing_step"]
+                },
+                {
                     "name": "extract_attribute_step",
                     "primitives": [{
                         "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.DataFrameCommon",
@@ -3569,7 +3593,7 @@ class UU3TestTemplate(DSBoxTemplate):
                                 'exclude_columns': ()
                             }
                     }],
-                    "inputs": ["multi_table_processing_step"]
+                    "inputs": ["to_dataframe_step"]
                 },
                 {
                     "name": "extract_target_step",
