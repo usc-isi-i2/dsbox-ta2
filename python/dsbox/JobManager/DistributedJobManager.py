@@ -255,8 +255,12 @@ class DistributedJobManager:
             raise TimeoutError("Timeout reached: {}/{}".format(elapsed_sec, self.timeout_sec))
 
     def reset(self):
+        '''
+        Cancel timer and clear the job queue.
+        '''
         self._timeout_sec = -1
         self.timer.cancel()
+        self._clear_jobs()
 
     def kill_job_manager(self):
         """
@@ -292,6 +296,9 @@ class DistributedJobManager:
 
     def _stop_worker_jobs(self):
         _logger.warning("search TIMEOUT reached! Stopping worker jobs. Actually just clearing the queue.")
+        self._clear_jobs()
+
+    def _clear_jobs(self):
         with self.argument_lock:
             _logger.info(f"Clearing {self.ongoing_jobs} jobs from queue")
             self.ongoing_jobs = 0
