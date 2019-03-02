@@ -2780,21 +2780,27 @@ class CMUClusteringTemplate(DSBoxTemplate):
             "inputType": "table",
             "output": "model_step",
             "steps": [
-                {
-                    "name": "denormalize_step",
-                    "primitives": ["d3m.primitives.data_transformation.denormalize.Common"],
-                    "inputs": ["template_input"]
-                },
+                # {
+                #     "name": "denormalize_step",
+                #     "primitives": ["d3m.primitives.data_transformation.denormalize.Common"],
+                #     "inputs": ["template_input"]
+                # },
                 {
                     "name": "to_dataframe_step",
                     "primitives": ["d3m.primitives.data_transformation.dataset_to_dataframe.Common"],
-                    "inputs": ["denormalize_step"]
+                    "inputs": ["template_input"]
                 },
+                # {
+                #     "name": "column_parser_step",
+                #     "primitives": ["d3m.primitives.data_transformation.column_parser.DataFrameCommon"],
+                #     "inputs": ["to_dataframe_step"]
+                # },
                 {
                     "name": "column_parser_step",
-                    "primitives": ["d3m.primitives.data_transformation.column_parser.DataFrameCommon"],
-                    "inputs": ["to_dataframe_step"]
+                    "primitives": ["d3m.primitives.data_transformation.ToNumeric.DSBOX"],
+                    "inputs":["to_dataframe_step"],
                 },
+
                 {
                     "name": "extract_attribute_step",
                     "primitives": [{
@@ -2811,6 +2817,13 @@ class CMUClusteringTemplate(DSBoxTemplate):
                     "inputs": ["column_parser_step"]
                 },
                 {
+                    "name":"data_clean_step",
+                    "primitives"["d3m.primitives.data_cleaning.imputer.SKlearn"],
+                    "inputs":["extract_attribute_step"]
+                },
+
+
+                {
                     "name": "model_step",
                     "primitives": [
                         {
@@ -2820,7 +2833,7 @@ class CMUClusteringTemplate(DSBoxTemplate):
                             }
                         }
                     ],
-                    "inputs": ["extract_attribute_step"]
+                    "inputs": ["data_clean_step"]
                 }
             ]
         }
