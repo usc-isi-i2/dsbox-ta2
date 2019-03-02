@@ -456,7 +456,7 @@ class Controller:
             start_time=self.config.start_time,
             timeout_sec=self.config.timeout_search,
         )
-        report = self._search_method.search(num_iter=50)
+        report = self._search_method.search(num_iter=500)
 
         if report_ensemble:
             report_ensemble['report'] = report
@@ -553,6 +553,7 @@ class Controller:
         10. test_fitted_pipeline
         11. train
         12. write_training_results
+        13. shutdown
 
         Used by TA3
         1. get_candidates
@@ -1142,6 +1143,12 @@ class Controller:
             self._process_pipeline_submission()
 
         return None
+
+    def shutdown(self):
+        """
+        Gracefully shutdown.
+        """
+        self._search_method.shutdown()
 
     def train(self, *, one_pipeline_only=False) -> Status:
         """
