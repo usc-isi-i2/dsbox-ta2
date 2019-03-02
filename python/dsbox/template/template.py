@@ -534,7 +534,7 @@ class DSBoxTemplate():
     def iocompare(self, i, o):
         try:
             i = i.__args__
-            if o in i:
+            if (o in i) or (i in o):
                 return True
         except:
             if o == i:

@@ -199,7 +199,6 @@ class DsboxConfig:
         self.subpipelines_dir = os.path.join(self.output_dir, 'subpipelines')
         self.pipeline_runs_dir = os.path.join(self.output_dir, 'pipeline_runs')
         self.additional_inputs_dir = os.path.join(self.output_dir, 'additional_inputs')
-
         # DSBox directories
         self.dsbox_output_dir = self.output_dir
         self.pipelines_fitted_dir = os.path.join(self.dsbox_output_dir, 'pipelines_fitted')
@@ -210,7 +209,7 @@ class DsboxConfig:
         for directory in [
                 self.pipelines_ranked_dir, self.pipelines_scored_dir,
                 self.pipelines_searched_dir, self.subpipelines_dir, self.pipeline_runs_dir,
-                self.additional_inputs_dir,
+                self.additional_inputs_dir, self.local_dir,
                 self.dsbox_output_dir, self.pipelines_fitted_dir, self.log_dir, self.dfs_log_dir]:
             if not os.path.exists(directory):
                 os.mkdir(directory)

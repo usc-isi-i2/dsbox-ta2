@@ -10,9 +10,9 @@ import uuid
 from d3m.metadata.pipeline import Pipeline, Resolver, StepBase, PrimitiveStep, SubpipelineStep
 from d3m import exceptions
 
-from dsbox.template.runtime import Runtime
+from dsbox.template.runtime import Runtime,ForkedPdb
 from dsbox.template.template import DSBoxTemplate
-# from dsbox.template.runtime import ForkedPdb
+from dsbox.datapreprocessing.cleaner.splitter import Splitter, SplitterHyperparameter
 
 from .utils import larger_is_better
 
@@ -100,6 +100,44 @@ class FittedPipeline:
         """
         self.metric = metric
 
+    def set_sampler_primitive(self):
+        """
+            Set the placeholder-like primitive DoNothingForDataset (at the first step of the pipeline if have)
+            to the real primitive (splitter) that should store in the pipeline
+        """
+        # ForkedPdb().set_trace()
+        splitter_metadata = Splitter.metadata.query()
+        sampler_primitive_augument= {
+                                      "type": "PRIMITIVE",
+                                      "primitive": {
+                                        "id": splitter_metadata['id'],
+                                        "version": splitter_metadata['version'],
+                                        "python_path": splitter_metadata['python_path'],
+                                        "name": splitter_metadata['name'],
+                                        "digest": splitter_metadata['digest']
+                                      },
+                                      "arguments": {
+                                        "inputs": {
+                                          "type": "CONTAINER",
+                                          "data": "inputs.0"
+                                        }
+                                      },
+                                      "outputs": [
+                                        {
+                                          "id": "produce"
+                                        }
+                                      ]
+                                    }
+        sampler_step = PrimitiveStep.from_json_structure(step_description = sampler_primitive_augument)
+
+        sampler_pickle_file_loc = os.path.join(os.environ["D3MLOCALDIR"], "splitter.pkl")
+        with open(sampler_pickle_file_loc, "rb") as f:
+            sampler_pickle_file = pickle.load(f)
+        # change pickling file in runtime to be sampler
+        self.runtime.steps_state[0] = sampler_pickle_file
+        self.pipeline.replace_step(index=0, replacement_step=sampler_step)
+        
+
     def fit(self, **arguments):
         _logger.debug('Fitting fitted pipeline %s', self.id)
         inputs = arguments['inputs']
@@ -138,6 +176,12 @@ class FittedPipeline:
         subpipeline_dir = os.path.join(folder_loc, subpipelines_subdir)
 
         structure = self.pipeline.to_json_structure()
+        # if we has DoNothingForDataset, we need update pipeline again
+        if structure['steps'][0]['primitive'] ['python_path'] == "d3m.primitives.data_preprocessing.DoNothingForDataset.DSBOX":
+            _logger.info("The pipeline with DoNothingForDataset at step.0 detected.")
+            self.set_sampler_primitive()
+            structure = self.pipeline.to_json_structure()
+            _logger.info("The pipeline with DoNothingForDataset has been replaced to be Splitter.")
 
         # Save pipeline rank
         if self.metric:

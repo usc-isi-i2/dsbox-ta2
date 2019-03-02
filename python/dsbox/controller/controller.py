@@ -12,6 +12,7 @@ import pandas as pd
 import frozendict
 import copy
 import pprint
+import pickle
 
 from d3m.metadata.problem import TaskType
 from d3m.container.pandas import DataFrame as d3m_DataFrame
@@ -846,6 +847,8 @@ class Controller:
         colIndex = targets[0]["colIndex"]
         # dataset_actual = dataset[resID]
 
+        # TODO: update to use D3M's method to accelerate the processing speed
+
         droplist = []
         for i, v in dataset[resID].iterrows():
             if v[colIndex] == "":
@@ -864,7 +867,7 @@ class Controller:
         """
             Split dataset into 2 parts for training and test
         """
-
+        '''
         def _add_meta_data(dataset, res_id, input_part):
             dataset_with_new_meta = copy.copy(dataset)
             dataset_metadata = dict(dataset_with_new_meta.metadata.query(()))
@@ -881,15 +884,12 @@ class Controller:
             dataset_with_new_meta.metadata = dataset_with_new_meta.metadata.update((res_id,), meta)
             # pprint(dict(dataset_with_new_meta.metadata.query((res_id,))))
             return dataset_with_new_meta
-
+        '''
         task_type = self.problem_info[
             "task_type"]  # ['problem']['task_type'].name  # 'classification' 'regression'
         res_id = self.problem_info["res_id"]
         target_index = self.problem_info["target_index"]
         data_type = self.problem_info["data_type"]
-
-        train_return = []
-        test_return = []
 
         cannot_split = False
 
@@ -910,6 +910,8 @@ class Controller:
 
         # if the dataset type in the list that we should not split
         if cannot_split:
+            train_return = []
+            test_return = []
             for i in range(n_splits):
                 # just return all dataset to train part
                 train_return.append(dataset)
@@ -917,9 +919,54 @@ class Controller:
 
         # if the dataset type can be split
         else:
-            if task_type == 'CLASSIFICATION':
-                try:
+            self._logger.info("split start!")
+            train_ratio = 1 - test_size
+            if n_splits == 1:
+                from common_primitives.train_score_split import TrainScoreDatasetSplitPrimitive, Hyperparams as hyper_train_split
+                hyperparams_split = hyper_train_split.defaults()
+                hyperparams_split = hyperparams_split.replace({"train_score_ratio":train_ratio, "shuffle":True})
+                if task_type == 'CLASSIFICATION':
+                    hyperparams_split = hyperparams_split.replace({"stratified":True})
+                else:# if not task_type == "REGRESSION":
+                    hyperparams_split = hyperparams_split.replace({"stratified":False})
+                split_primitive = TrainScoreDatasetSplitPrimitive(hyperparams = hyperparams_split)
 
+            else:
+                from common_primitives.kfold_split import KFoldDatasetSplitPrimitive, Hyperparams as hyper_k_fold
+                hyperparams_split = hyper_k_fold.defaults()
+                hyperparams_split = hyperparams_split.replace({"number_of_folds":n_splits, "shuffle":True})
+                if task_type == 'CLASSIFICATION':
+                    hyperparams_split = hyperparams_split.replace({"stratified":True})
+                else:# if not task_type == "REGRESSION":
+                    hyperparams_split = hyperparams_split.replace({"stratified":False})
+                split_primitive = KFoldDatasetSplitPrimitive(hyperparams = hyperparams_split)
+
+            try: 
+                split_primitive.set_training_data(dataset = dataset)
+                split_primitive.fit()
+                # TODO: is it correct here?
+                query_dataset_list = list(range(n_splits))
+                train_return = split_primitive.produce(inputs = query_dataset_list).value#['learningData']
+                test_return = split_primitive.produce_score_data(inputs = query_dataset_list).value
+
+            except Exception:
+                # Do not split stratified shuffle fails
+                train_return = []
+                test_return = []
+                self._logger.info('Not splitting dataset. Stratified shuffle failed')
+                for i in range(n_splits):
+                    train_return.append(dataset)
+                    test_return.append(None)
+
+            self._logger.info("split done!")
+
+
+            '''
+            # old method (achieved by ourselves) to generate splitted datasets
+
+            if task_type == 'CLASSIFICATION':
+                self._logger.info("split start!!!!!!")
+                try:
                     # Use stratified sample to split the dataset
                     sss = StratifiedShuffleSplit(n_splits=n_splits, test_size=test_size,
                                                  random_state=random_state)
@@ -956,6 +1003,8 @@ class Controller:
                             test_return.append(test)
                         else:
                             test_return.append(None)
+                        
+                    self._logger.info("split done!!!!!!")
                 except Exception:
                     # Do not split stratified shuffle fails
                     self._logger.info('Not splitting dataset. Stratified shuffle failed')
@@ -980,7 +1029,7 @@ class Controller:
                         test_return.append(test)
                     else:
                         test_return.append(None)
-
+            '''
         return train_return, test_return
 
     def test(self) -> Status:
@@ -1172,8 +1221,26 @@ class Controller:
         return Status.OK
 
     def generate_dataset_splits(self):
+
         self.all_dataset = self.remove_empty_targets(self.all_dataset)
         self.all_dataset = self.auto_regress_convert_and_add_metadata(self.all_dataset)
+        from dsbox.datapreprocessing.cleaner.splitter import Splitter, SplitterHyperparameter
+
+        hyper_sampler = SplitterHyperparameter.defaults()
+        sampler = Splitter(hyperparams = hyper_sampler)
+        sampler.set_training_data(inputs = self.all_dataset)
+        sampler.fit()
+        train_split = sampler.produce(inputs = self.all_dataset)
+        self.all_dataset = train_split.value
+
+        # pickle this fitted sampler for furture use in pipelines
+        sampler_pickle_file_loc = os.path.join(os.environ["D3MLOCALDIR"], "splitter.pkl")
+        with open(sampler_pickle_file_loc, "wb") as f:
+            pickle.dump(sampler, f)
+
+        '''
+        # old method here
+
         # runtime.add_target_columns_metadata(self.all_dataset, self.config.problem_metadata)
         res_id = self.problem_info['res_id']
         # check the shape of the dataset
@@ -1343,6 +1410,7 @@ class Controller:
                                                      need_test_dataset=False)
             self.all_dataset = self.all_dataset[0]
             self._logger.info("Random sampling on rows Finished.")
+        '''
 
         # if we need to do ensemble tune, we split one extra time
         if self.do_ensemble_tune or self.do_horizontal_tune:
