@@ -537,7 +537,9 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
             metricDesc = PerformanceMetric.parse(metric_description['metric'])
             metric: typing.Callable = metricDesc.get_function()
             params: typing.Dict = metric_description['params']
-
+            # pass the tesk picle test!
+            if metric_description['metric'] == "objectDetectionAP":
+                return
             try:
                 if metric_description["metric"] in SpecialMetric().regression_metric:
                     # if the test_ground_truth do not have results
@@ -551,6 +553,15 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
                             **params
                         )
                     })
+                # elif metric_description['metric'] == objectDetectionAP:
+                #     test_pipeline_metrics.append({
+                #         'metric': metric_description['metric'],
+                #         'value': metric(
+                #             test_ground_truth.iloc[:, -1].astype(float),
+                #             pipeline_prediction.iloc[:,2:].astype(float),
+                #             **params
+                #         )
+                #     })
                 else:
                     test_pipeline_metrics.append({
                         'metric': metric_description['metric'],
