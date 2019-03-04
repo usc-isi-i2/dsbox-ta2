@@ -1217,6 +1217,7 @@ class Controller:
         from dsbox.datapreprocessing.cleaner.splitter import Splitter, SplitterHyperparameter
 
         hyper_sampler = SplitterHyperparameter.defaults()
+        hyper_sampler = hyper_sampler.replace({"threshold_column_length":100000,"further_reduce_threshold_column_length":100000})
         sampler = Splitter(hyperparams = hyper_sampler)
         sampler.set_training_data(inputs = self.all_dataset)
         sampler.fit()
