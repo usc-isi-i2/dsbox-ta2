@@ -704,8 +704,19 @@ def find_index_column_name_index(dataset, entry_id):
 
 def to_csv_file(dataframe, file_transfer_directory, file_prefix: str, *, index=True) -> str:
     file_path = os.path.join(file_transfer_directory, file_prefix + '.csv')
-    dataframe.to_csv(file_path, index=index)
+    # dataframe.to_csv(file_path, index=index)
+    export_dataframe(dataframe, file_path)
     return file_path
+
+
+def export_dataframe(dataframe: d3m_container.DataFrame, output_file: typing.TextIO = None) -> typing.Optional[str]:
+    '''from d3m.runtime'''
+    column_names = []
+    for column_index in range(len(dataframe.columns)):
+        # We use column name from the DataFrame is metadata does not have it. This allows a bit more compatibility.
+        column_names.append(dataframe.metadata.query_column(column_index).get('name', dataframe.columns[column_index]))
+
+    return dataframe.to_csv(output_file, header=column_names, index=False)
 
 
 def to_pickle_blob(container) -> bytes:

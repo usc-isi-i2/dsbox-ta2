@@ -197,7 +197,7 @@ class Client(object):
 
         if args.basic:
             # Make a set of calls that follow the basic pipeline search
-            search_id = self.basicPipelineSearch(stub, train_problem_desc)
+            search_id = self.basicPipelineSearch(stub, train_problem_desc, test_problem_desc)
             print('Search ID', search_id)
         elif args.complete:
             search_id = self.completePipelineSearch(stub, train_problem_desc, test_problem_desc)
