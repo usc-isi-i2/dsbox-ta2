@@ -821,6 +821,11 @@ class Controller:
         will automatically remove empty targets in training
         """
         problem = self.config.problem_metadata.query(())
+        
+        # do not remove columns for cluster dataset!
+        if problem['about']['taskType'] == "clustering":
+            return dataset
+
         targets = problem["inputs"]["data"][0]["targets"]
         resID = targets[0]["resID"]
         colIndex = targets[0]["colIndex"]
