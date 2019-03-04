@@ -200,6 +200,8 @@ class DSBoxTemplate():
                 "hyperparameters": binding[name]["hyperparameters"],
                 "inputs": fill_in
             }
+            import pdb
+            pdb.set_trace()
             if "runtime" in step:
                 mystep["runtime"] = step["runtime"]
 
