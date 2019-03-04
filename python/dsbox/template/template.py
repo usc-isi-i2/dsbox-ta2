@@ -195,11 +195,26 @@ class DSBoxTemplate():
                               "'s inputs does not match",
                               binding[in_arg][-1]["primitive"],
                               "and there is no converter found")
-            mystep = {
-                "primitive": binding[name]["primitive"],
-                "hyperparameters": binding[name]["hyperparameters"],
-                "inputs": fill_in
-            }
+
+            # temporary fix for CMU clustering tempalte (with special input called "reference")
+            need_add_reference = False
+            for each_primitive in step['primitives']:
+                if 'reference' in each_primitive:
+                    need_add_reference = True
+
+            if need_add_reference:
+                mystep = {
+                    "primitive": binding[name]["primitive"],
+                    "hyperparameters": binding[name]["hyperparameters"],
+                    "reference": step['primitives'][0]['reference'],
+                    "inputs": fill_in
+                }
+            else:
+                mystep = {
+                    "primitive": binding[name]["primitive"],
+                    "hyperparameters": binding[name]["hyperparameters"],
+                    "inputs": fill_in
+                }
             import pdb
             pdb.set_trace()
             if "runtime" in step:

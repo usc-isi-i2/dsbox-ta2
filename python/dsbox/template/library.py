@@ -2842,7 +2842,7 @@ class CMUClusteringTemplate(DSBoxTemplate):
                             "primitive": "d3m.primitives.data_transformation.construct_predictions.DataFrameCommon",
                             "reference": {
                                 "type": "CONTAINER",
-                                "data": "to_dataframe_step"
+                                "data": "steps.0.produce"
                             }
                         }
                     ],
