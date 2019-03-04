@@ -2773,6 +2773,7 @@ class SRIMeanBaselineTemplate(DSBoxTemplate):
 class CMUClusteringTemplate(DSBoxTemplate):
     def __init__(self):
         DSBoxTemplate.__init__(self)
+        self.need_add_reference = True
         self.template = {
             "name": "CMU_Clustering_Template",
             "taskType": TaskType.CLUSTERING.name,
@@ -2803,8 +2804,7 @@ class CMUClusteringTemplate(DSBoxTemplate):
 
                 {
                     "name": "extract_attribute_step", # step 2
-                    "primitives": [
-                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.DataFrameCommon",
+                    "primitives": ["d3m.primitives.data_transformation.extract_columns_by_semantic_types.DataFrameCommon",
                         # "hyperparameters":
                         #     {
                         #         'semantic_types': (

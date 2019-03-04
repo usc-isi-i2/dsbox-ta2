@@ -38,6 +38,8 @@ class DSBoxTemplate():
              "<class 'd3m.container.pandas.DataFrame'>"): "d3m.primitives.data.NDArrayToDataFrame"
         }
         self.description_info = ""
+        self.need_add_reference = False
+
         # Need to be set by subclass inheriting DSBoxTemplate
         # self.template = ""
 
@@ -197,26 +199,13 @@ class DSBoxTemplate():
                               "and there is no converter found")
 
             # temporary fix for CMU clustering tempalte (with special input called "reference")
-            need_add_reference = False
-            for each_primitive in step['primitives']:
-                if 'reference' in each_primitive:
-                    need_add_reference = True
 
-            if need_add_reference:
-                mystep = {
-                    "primitive": binding[name]["primitive"],
-                    "hyperparameters": binding[name]["hyperparameters"],
-                    "reference": step['primitives'][0]['reference'],
-                    "inputs": fill_in
-                }
-            else:
-                mystep = {
-                    "primitive": binding[name]["primitive"],
-                    "hyperparameters": binding[name]["hyperparameters"],
-                    "inputs": fill_in
-                }
-            import pdb
-            pdb.set_trace()
+            mystep = {
+                "primitive": binding[name]["primitive"],
+                "hyperparameters": binding[name]["hyperparameters"],
+                "inputs": fill_in
+            }
+
             if "runtime" in step:
                 mystep["runtime"] = step["runtime"]
 
@@ -308,6 +297,10 @@ class DSBoxTemplate():
                         # argument_type should be fixed type not the type of the data!!
                         name=hyperName, argument_type=self.argmentsmapper["value"],
                         data=hyper[hyperName])
+
+            if self.need_add_reference and primitive_name == 'd3m.primitives.data_transformation.construct_predictions.DataFrameCommon':
+                primitive_step.add_argument("reference",metadata_base.ArgumentType.CONTAINER,"steps.0.produce")
+
             templateIO = binding[step]["inputs"]
 
             # first we need to extract the types of the primtive's input and
