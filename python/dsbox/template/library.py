@@ -2773,12 +2773,13 @@ class SRIMeanBaselineTemplate(DSBoxTemplate):
 class CMUClusteringTemplate(DSBoxTemplate):
     def __init__(self):
         DSBoxTemplate.__init__(self)
+        self.need_add_reference = True
         self.template = {
             "name": "CMU_Clustering_Template",
             "taskType": TaskType.CLUSTERING.name,
             "taskSubtype": "NONE",
             "inputType": "table",
-            "output": "model_step",
+            "output": "output_step",
             "steps": [
                 # {
                 #     "name": "denormalize_step",
@@ -2786,7 +2787,7 @@ class CMUClusteringTemplate(DSBoxTemplate):
                 #     "inputs": ["template_input"]
                 # },
                 {
-                    "name": "to_dataframe_step",
+                    "name": "to_dataframe_step", # step 0
                     "primitives": ["d3m.primitives.data_transformation.dataset_to_dataframe.Common"],
                     "inputs": ["template_input"]
                 },
@@ -2796,29 +2797,28 @@ class CMUClusteringTemplate(DSBoxTemplate):
                 #     "inputs": ["to_dataframe_step"]
                 # },
                 {
-                    "name": "column_parser_step",
-                    "primitives": ["d3m.primitives.data_transformation.ToNumeric.DSBOX"],
+                    "name": "column_parser_step",# step 1
+                    "primitives": ["d3m.primitives.data_transformation.column_parser.DataFrameCommon"],
                     "inputs":["to_dataframe_step"],
                 },
 
                 {
-                    "name": "extract_attribute_step",
-                    "primitives": [{
-                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.DataFrameCommon",
-                        "hyperparameters":
-                            {
-                                'semantic_types': (
-                                    'https://metadata.datadrivendiscovery.org/types/PrimaryKey',
-                                    'https://metadata.datadrivendiscovery.org/types/Attribute',),
-                                'use_columns': (),
-                                'exclude_columns': ()
-                            }
-                    }],
+                    "name": "extract_attribute_step", # step 2
+                    "primitives": ["d3m.primitives.data_transformation.extract_columns_by_semantic_types.DataFrameCommon",
+                        # "hyperparameters":
+                        #     {
+                        #         'semantic_types': (
+                        #             'https://metadata.datadrivendiscovery.org/types/PrimaryKey',
+                        #             'https://metadata.datadrivendiscovery.org/types/Attribute',),
+                        #         'use_columns': (),
+                        #         'exclude_columns': ()
+                        #     }
+                    ],
                     "inputs": ["column_parser_step"]
                 },
                 {
-                    "name":"data_clean_step",
-                    "primitives"["d3m.primitives.data_cleaning.imputer.SKlearn"],
+                    "name":"data_clean_step", # step 3
+                    "primitives":["d3m.primitives.data_cleaning.imputer.SKlearn"],
                     "inputs":["extract_attribute_step"]
                 },
 
@@ -2829,11 +2829,24 @@ class CMUClusteringTemplate(DSBoxTemplate):
                         {
                             "primitive": "d3m.primitives.cmu.fastlvm.GMM",
                             "hyperparameters": {
-                                "k": [(4), (6), (8), (10), (12)]
+                                "k": [(1), (4), (6), (8), (10), (12)]
                             }
                         }
                     ],
                     "inputs": ["data_clean_step"]
+                },
+                {
+                    "name": "output_step",
+                    "primitives": [
+                        {
+                            "primitive": "d3m.primitives.data_transformation.construct_predictions.DataFrameCommon",
+                            "reference": {
+                                "type": "CONTAINER",
+                                "data": "steps.0.produce"
+                            }
+                        }
+                    ],
+                    "inputs": ["model_step"]
                 }
             ]
         }
