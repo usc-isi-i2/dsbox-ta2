@@ -128,8 +128,18 @@ class FittedPipeline:
                                         }
                                       ]
                                     }
-        sampler_step = PrimitiveStep.from_json_structure(step_description = sampler_primitive_augument)
+        sampler_hyperparams_file_loc = os.path.join(os.environ["D3MLOCALDIR"], "splitter.json")
+        with open(sampler_hyperparams_file_loc, "r") as f:
+            sampler_hyperparams_file = json.load(f)
 
+        new_hyper_file = {}
+        for key, value in sampler_hyperparams_file.items():
+            new_hyper_file[key] = {"type":"VALUE",
+                                   "data":value}
+
+        sampler_primitive_augument['hyperparams'] =  new_hyper_file
+
+        sampler_step = PrimitiveStep.from_json_structure(step_description = sampler_primitive_augument)
         sampler_pickle_file_loc = os.path.join(os.environ["D3MLOCALDIR"], "splitter.pkl")
         with open(sampler_pickle_file_loc, "rb") as f:
             sampler_pickle_file = pickle.load(f)

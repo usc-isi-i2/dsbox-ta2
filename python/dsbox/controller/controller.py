@@ -1217,7 +1217,8 @@ class Controller:
         from dsbox.datapreprocessing.cleaner.splitter import Splitter, SplitterHyperparameter
 
         hyper_sampler = SplitterHyperparameter.defaults()
-        hyper_sampler = hyper_sampler.replace({"threshold_column_length":100000,"further_reduce_threshold_column_length":100000})
+        # for test purpose here
+        # hyper_sampler = hyper_sampler.replace({"threshold_column_length":20,"further_reduce_threshold_column_length":20})
         sampler = Splitter(hyperparams = hyper_sampler)
         sampler.set_training_data(inputs = self.all_dataset)
         sampler.fit()
@@ -1228,6 +1229,11 @@ class Controller:
         sampler_pickle_file_loc = os.path.join(os.environ["D3MLOCALDIR"], "splitter.pkl")
         with open(sampler_pickle_file_loc, "wb") as f:
             pickle.dump(sampler, f)
+
+        hyperparams_now = sampler.hyperparams.values_to_json_structure()
+        sampler_hyperparams_file_loc = os.path.join(os.environ["D3MLOCALDIR"], "splitter.json")
+        with open(sampler_hyperparams_file_loc, "w") as f:
+            json.dump(hyperparams_now, f)
 
         '''
         # old method here
