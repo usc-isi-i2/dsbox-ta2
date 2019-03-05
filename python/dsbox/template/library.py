@@ -1364,9 +1364,17 @@ class DefaultTimeSeriesForcastingTemplate(DSBoxTemplate):
 
                 {
                     "name": "random_projection_step",
-                    "primitives": ["d3m.primitives.feature_extraction.RandomProjectionTimeSeriesFeaturization.DSBOX"],
+                    "primitives": [
+                        {
+                            "primitive": "d3m.primitives.feature_extraction.RandomProjectionTimeSeriesFeaturization.DSBOX",
+                            "hyperparameters":{
+                                'generate_metadata':[True],
+                            }
+                        }
+                    ],
                     "inputs": ["timeseries_to_list_step"]
                 },
+
                 {
                     "name": "to_numeric_step",
                     "primitives": ["d3m.primitives.data_transformation.ToNumeric.DSBOX"],
@@ -1556,9 +1564,17 @@ class TimeSeriesForcastingTestingTemplate2(DSBoxTemplate):
 
                 {
                     "name": "random_projection_step",
-                    "primitives": ["d3m.primitives.feature_extraction.RandomProjectionTimeSeriesFeaturization.DSBOX"],
+                    "primitives": [
+                        {
+                            "primitive": "d3m.primitives.feature_extraction.RandomProjectionTimeSeriesFeaturization.DSBOX",
+                            "hyperparameters":{
+                                'generate_metadata':[True],
+                            }
+                        }
+                    ],
                     "inputs": ["timeseries_to_list_step"]
                 },
+                
                 {
                     "name": "profiler_step",
                     "primitives": ["d3m.primitives.schema_discovery.Profiler.DSBOX"],
@@ -1902,7 +1918,14 @@ class DefaultTimeseriesRegressionTemplate(DSBoxTemplate):
 
                 {
                     "name": "random_projection_step",
-                    "primitives": ["d3m.primitives.feature_extraction.RandomProjectionTimeSeriesFeaturization.DSBOX"],
+                    "primitives": [
+                        {
+                            "primitive": "d3m.primitives.feature_extraction.RandomProjectionTimeSeriesFeaturization.DSBOX",
+                            "hyperparameters":{
+                                'generate_metadata':[True],
+                            }
+                        }
+                    ],
                     "inputs": ["timeseries_to_list_step"]
                 },
                 {
