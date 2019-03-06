@@ -3,52 +3,58 @@ import random
 from DistributedJobManager import DistributedJobManager
 
 
-class bar():
-    def __init__(self, a:int):
+class bar:
+    def __init__(self, a: int):
         self.a = a
 
-    def work(self):
-        sl = random.randint(0, 5)
-        print(f"[INFO] sleeping for {sl}")
+    def work(self, work_arg=20):
+        sl = random.randint(0, 10)
+        print(f"[INFO] sleeping for {sl} with args {work_arg}")
         time.sleep(sl)
         print(f"[INFO] I am working on {self.a}")
         return self.a
 
 
-
-class foo():
+class foo:
     def __init__(self):
-        self.m = DistributedJobManager(proc_num=4, timeout=10)
+        self.m = DistributedJobManager(proc_num=20, timeout=10)
         self.b_list = [bar(random.random()) for _ in range(6)]
 
-        self.m.start_workers(foo.job_process)
+        # self.m._start_workers(foo.job_process)
 
-    @staticmethod
-    def job_process(in_val: bar, method: str):
-        print("[INFO] I am job ", in_val)
-        method_to_call = getattr(in_val, method)
-        # time.sleep(input)
-        print(method_to_call)
-        result = method_to_call()
-        return result
+    # @staticmethod
+    # def job_process(in_val: bar, method: str):
+    #     print("[INFO] I am job ", in_val)
+    #     method_to_call = getattr(in_val, method)
+    #     # time.sleep(input)
+    #     print(method_to_call)
+    #     result = method_to_call()
+    #     return result
 
     def run(self):
-        for i in range(10):
+        for i in range(100):
             num = random.choice(self.b_list)
-            jid = self.m.push_job(kwargs={'in_val': num, 'method': 'work'})
+            jid = self.m.push_job(
+                kwargs_bundle={'target_obj': num,
+                               'target_method': 'work',
+                               'kwargs': {'work_arg': 10}}
+            )
             print("[INFO] Job pushed ", (jid, num))
 
         time.sleep(2)
 
         while not self.m.is_idle():
             (num, result) = self.m.pop_job(block=True)
-            print("[INFO] Job popped ", hash(str(num)))
-
+            print(f"[INFO] Job popped {num['target_obj']} -> {result}")
+        # hash(str(num))
+        print("[INFO] Killing job manager")
         self.m.kill_job_mananger()
+        print("[INFO] Done")
+
+        self.m.kill_timer()
 
 
-
-o=foo()
+o = foo()
 o.run()
 # import multiprocessing, time
 #

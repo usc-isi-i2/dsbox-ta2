@@ -32,7 +32,7 @@ steps:
     digest: 10ae3f2acf08c984a8f3dea5ff2145dfd8a93fe75aadb67310bbdc673e8511ce
     id: 4b42ce1e-9b98-4a25-b68e-fad13311eb65
     name: Dataset to DataFrame converter
-    python_path: d3m.primitives.datasets.DatasetToDataFrame
+    python_path: d3m.primitives.data_transformation.dataset_to_dataframe.Common
     version: 0.2.0
   type: PRIMITIVE
 - arguments:
@@ -84,7 +84,7 @@ steps:
     digest: 11d1a5d9e17f9e5be91c39f6f7a9641a4991a2d2a666e407467a7eae99e1774f
     id: d016df89-de62-3c53-87ed-c06bb6a23cde
     name: sklearn.preprocessing.imputation.Imputer
-    python_path: d3m.primitives.sklearn_wrap.SKImputer
+    python_path: d3m.primitives.data_cleaning.imputer.SKlearn
     version: 0.1.0
   type: PRIMITIVE
 - arguments:

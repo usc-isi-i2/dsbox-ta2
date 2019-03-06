@@ -25,7 +25,7 @@ classifer_template_descrptions = template_library.get_templates(TaskType.CLASSIF
 template_descrption = classifer_template_descrptions[0]
 print(template_descrption.template.template_nodes.keys())
 
-space = search.SimpleConfigurationSpace({'modeller' : ['d3m.primitives.sklearn_wrap.SKRandomForestClassifier', 'd3m.primitives.sklearn_wrap.SKSGDClassifier']})
+space = search.SimpleConfigurationSpace({'modeller' : ['d3m.primitives.classification.random_forest.SKlearn', 'd3m.primitives.classification.sgd.SKlearn']})
 
 path = '/nas/home/kyao/dsbox/data/datadrivendiscovery.org/data/seed_datasets_current/38_sick/TRAIN/dataset_TRAIN/datasetDoc.json'
 path = 'file://{path_schema}'.format(path_schema=os.path.abspath(path))

@@ -1,7 +1,6 @@
 import traceback
 import logging
 import time
-import traceback
 import typing
 import random
 from multiprocessing import Pool
@@ -39,6 +38,7 @@ class RandomDimensionalSearch(TemplateSpaceParallelBaseSearch[T]):
                  problem: Metadata, train_dataset1: Dataset,
                  train_dataset2: typing.List[Dataset], test_dataset1: Dataset,
                  test_dataset2: typing.List[Dataset], all_dataset: Dataset,
+                 ensemble_tuning_dataset:Dataset,
                  output_directory: str, log_dir: str, timeout: int = 55, num_proc: int = 4) -> None:
 
         # Use first metric from test
@@ -48,7 +48,7 @@ class RandomDimensionalSearch(TemplateSpaceParallelBaseSearch[T]):
             performance_metrics=performance_metrics,
             problem=problem, train_dataset1=train_dataset1,
             train_dataset2=train_dataset2, test_dataset1=test_dataset1,
-            test_dataset2=test_dataset2, all_dataset=all_dataset,
+            test_dataset2=test_dataset2, all_dataset=all_dataset, ensemble_tuning_dataset = ensemble_tuning_dataset,
             log_dir=log_dir, output_directory=output_directory, timeout=timeout, num_proc=num_proc)
 
     def search_one_iter(self, search: ConfigurationSpaceBaseSearch, max_per_dim: int = 50,) -> None:
@@ -93,24 +93,17 @@ class RandomDimensionalSearch(TemplateSpaceParallelBaseSearch[T]):
             print("-"*50)
             # send all the candidates to the execution Engine
             for conf in new_candidates:
-                # first we just add the candidate as failure to the candidates cache to
-                # prevent it from being evaluated again while it is being evaluated
-                self.cacheManager.candidate_cache.push_None(candidate=conf)
 
                 # push the candidate to the job manager
+                # push the candidate to the job manager
                 self.job_manager.push_job(
-                    {
-                        'confspace_search': search,
-                        'cache': self.cacheManager.primitive_cache,
-                        'candidate': conf,
-                        'dump2disk': True,
-                    })
+                    kwargs_bundle=self._prepare_job_posting(candidate=conf,
+                                                            search=search)
+                )
                 time.sleep(0.1)
 
-            time.sleep(1)
-
             # wait until all the candidates are evaluated
-            self._get_evaluation_results(template_name=search.template.template['name'])
+            self._get_evaluation_results()
 
             base_candidate = self.history.get_best_candidate(search.template.template['name'])
 
@@ -170,8 +163,10 @@ class RandomDimensionalSearch(TemplateSpaceParallelBaseSearch[T]):
             # regenerate the pipeline
             candidate_ = search.configuration_space.get_point(new)
 
-            if not self.cacheManager.candidate_cache.is_hit(candidate_):
+            if self._prepare_candidate_4_eval(candidate=candidate_):
                 new_candidates.append(candidate_)
+            # if not self.cacheManager.candidate_cache.is_hit(candidate_):
+            #     new_candidates.append(candidate_)
 
         return new_candidates
 
@@ -199,7 +194,7 @@ class RandomDimensionalSearch(TemplateSpaceParallelBaseSearch[T]):
             candidate = base_search.configuration_space.get_random_assignment()
 
         # first, then random, then another random
-        for i in range(RandomDimensionalSearch.max_init_trials-1):
+        for i in range(RandomDimensionalSearch.max_init_trials):
             try:
                 report = self.evaluate_blocking(base_search=base_search, candidate=candidate)
                 if report is None:
@@ -207,6 +202,7 @@ class RandomDimensionalSearch(TemplateSpaceParallelBaseSearch[T]):
                 return report
             except:
                 traceback.print_exc()
+                _logger.error(traceback.format_exc())
                 _logger.warning('Initial Pipeline failed, Trying a random pipeline ...')
                 # print("[WARN] Initial Pipeline failed, Trying a random pipeline ...")
                 pprint(candidate)
@@ -215,10 +211,6 @@ class RandomDimensionalSearch(TemplateSpaceParallelBaseSearch[T]):
 
         raise ValueError("No valid initial candidates found")
 
-    def _select_next_template(self, num_iter: int = 2) -> ConfigurationSpaceBaseSearch:
-        for i in range(num_iter):
-            search = random.choice(self.confSpaceBaseSearch)
-            yield search
 
     def search(self, num_iter: int=2) -> typing.Dict:
         """
@@ -232,13 +224,6 @@ class RandomDimensionalSearch(TemplateSpaceParallelBaseSearch[T]):
             the report related to the best template (only the evaluated templates not the whole
             list)
         """
-        # setup the execution history to store the results of each template separately
-        self.setup_exec_history(template_list=self.template_list)
-
-        # start the worker processes
-        self.job_manager.start_workers(target=self._evaluate_template)
-        time.sleep(0.1)
-
         # the actual search goes here
         self._search_templates(num_iter=num_iter)
 
@@ -246,7 +231,7 @@ class RandomDimensionalSearch(TemplateSpaceParallelBaseSearch[T]):
         self.cacheManager.cleanup()
 
         # cleanup job manager
-        self.job_manager.kill_job_mananger()
+        self.job_manager.reset()
 
         return self.history.get_best_history()
 

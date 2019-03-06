@@ -38,7 +38,7 @@ def load_one_pipeline(path) -> tuple:
 
 def load_for_dataset(path, res) -> list:
     '''
-    load all the pipelines under pipeline_path and return a sorted list of them 
+    load all the pipelines under pipeline_path and return a sorted list of them
     '''
 
     res_loc = os.path.join(path, res)
@@ -98,7 +98,7 @@ def create_fitted_pipelines_for_dataset(path, pipelines, log_dir) -> list:
     '''
     result = []
     for p in pipelines:
-        result.append(FittedPipeline.load(folder_loc=path, pipeline_id=p[0], log_dir=log_dir))
+        result.append(FittedPipeline.load(folder_loc=path, fitted_pipeline_id=p[0], log_dir=log_dir))
     return result
 
 

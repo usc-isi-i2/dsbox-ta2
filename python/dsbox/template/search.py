@@ -543,7 +543,7 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
 
     def _use_quick_mode_or_not(self) -> bool:
         '''
-            The function to determine whether to use quick mode or now
+            The function to determine whether to use quick mode or not
             Now it is hard coded
         '''
         for each_type in self.template.template['inputType']:
@@ -579,6 +579,8 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
         # Todo: update ResourceManager to run pipeline:  ResourceManager.add_pipeline(pipeline)
 
         # if in cross validation mode
+
+        # if self.testing_mode == 1:
         if self.testing_mode == 1:
             repeat_times = int(self.validation_config['cross_validation'])
             print("[INFO] Will use cross validation( n =", repeat_times, ") to choose best primitives.")
@@ -603,7 +605,6 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
                 for each in test_metrics:
                     each["value"] = sys.float_info.max
             print("[INFO] Testing finish.!!!")
-
         # if in normal testing mode(including default testing mode with train/test one time each)
         else:
             if self.testing_mode == 2:
@@ -620,7 +621,18 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
                                                  log_dir=self.log_dir, metric_descriptions=self.performance_metrics,
                                                  template = self.template, problem = self.problem)
 
-                fitted_pipeline.fit(cache=cache, inputs=[self.train_dataset2[each_repeat]])
+                try:
+                    fitted_pipeline.fit(cache=cache, inputs=[self.train_dataset2[each_repeat]])
+                except:
+                    from dsbox.template.runtime import ForkedPdb
+                    # ForkedPdb().set_trace()
+                    fitted_pipeline.pipeline.to_json_structure()
+                    structure["unfinished"] = True
+                    pipeline_dir = "/Users/minazuki/Desktop/studies/master/2018Summer/data"
+                    json_loc = os.path.join(pipeline_dir, fitted_pipeline.id + 'unfinished.json')
+                    with open(json_loc, 'w') as out:
+                        json.dump(structure, out)
+
                 # fitted_pipeline.fit(inputs=[self.train_dataset2[each_repeat]])
                 training_ground_truth = get_target_columns(self.train_dataset2[each_repeat], self.problem)
                 training_prediction = fitted_pipeline.get_fit_step_output(self.template.get_output_step_number())
@@ -727,7 +739,7 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
             data = {
                 'fitted_pipeline': fitted_pipeline2,
                 'training_metrics': training_metrics,
-                'cross_validation_metrics': fitted_pipeline2.get_cross_validation_metrics(),
+                'cross_validation_metrics': training_metrics,# fitted_pipeline2.get_cross_validation_metrics(),
                 'test_metrics': training_metrics,
                 'total_runtime': time.time() - start_time
             }
@@ -968,7 +980,7 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
                               test_dataset: Dataset,
                               test_metrics: typing.List,
                               test_ground_truth) -> None:
-        fitted_pipeline, run = FittedPipeline.load(folder_loc=folder_loc, pipeline_id=pipeline_id, log_dir=self.log_dir)
+        fitted_pipeline = FittedPipeline.load(folder_loc=folder_loc, fitted_pipeline_id=pipeline_id, log_dir=self.log_dir)
         results = fitted_pipeline.produce(inputs=[test_dataset])
 
         pipeline_prediction = fitted_pipeline.get_produce_step_output(self.template.get_output_step_number())

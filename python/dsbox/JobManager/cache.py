@@ -1,22 +1,36 @@
-import sys
-import time
-from math import sqrt, log
 import traceback
-import importlib
 import typing
 import copy
 import logging
-from multiprocessing import Pool, current_process, Manager, Lock
+from multiprocessing import Manager
 from dsbox.template.configuration_space import ConfigurationPoint
 from d3m.metadata.pipeline import PrimitiveStep
 from d3m.container.dataset import Dataset
 from d3m.container.pandas import DataFrame
 from d3m.primitive_interfaces.base import PrimitiveBase
 from dsbox.combinatorial_search.search_utils import comparison_metrics
-from multiprocessing import current_process
 
 T = typing.TypeVar("T")
 _logger = logging.getLogger(__name__)
+
+
+class DummyLock:
+    def acquire(self, blocking=True, timeout=-1):
+        pass
+
+    def release(self):
+        pass
+
+
+class DummyManager:
+    def dict(self):
+        return dict()
+
+    def Lock(self):
+        return DummyLock()
+
+    def shutdown(self):
+        pass
 
 
 class CacheManager:
@@ -27,14 +41,17 @@ class CacheManager:
     used in later iterations of search to
     """
 
-    def __init__(self):
+    def __init__(self, is_multiprocessing=False):
         """
         Initializes the manager, and the two cache objects - candidates and primitives - that
         will be used to prevent recalculation and increase performance
         Args:
 
         """
-        self.manager = [Manager()]*2
+        if is_multiprocessing:
+            self.manager = [Manager()]*2
+        else:
+            self.manager = [DummyManager()]*2
 
         self.candidate_cache = CandidateCache(self.manager[0])
 
@@ -46,20 +63,28 @@ class CacheManager:
 
 
         """
-        _logger.info("[INFO] cleanup Cache Manager. candidate_cache:{}".format(len(
-            self.candidate_cache.storage)))
+        _logger.info("Cleanup Cache Manager. candidate_cache:{} primitive_cache:{}".format(
+            len(self.candidate_cache.storage), len(self.primitive_cache.storage)))
+        self.candidate_cache.storage.clear()
+        self.primitive_cache.storage.clear()
+
+    def shutdown(self):
+        '''
+        Shutdown cache manager
+        '''
+        _logger.info("Shutdown Cache Manager. candidate_cache:{} primitive_cache:{}".format(
+            len(self.candidate_cache.storage), len(self.primitive_cache.storage)))
         for m in self.manager:
             m.shutdown()
 
 
 class CandidateCache:
     comparison_metrics = ['cross_validation_metrics', 'test_metrics', 'training_metrics']
+    S_INVALID = "DUMMY"
+    S_VALID = "FULL"
 
-    def __init__(self, manager: Manager=None):
-        if manager is not None:
-            self.storage = manager.dict()
-        else:
-            self.storage = {}
+    def __init__(self, manager):
+        self.storage = manager.dict()
 
     def lookup(self, candidate: ConfigurationPoint[T]) -> typing.Dict:
 
@@ -73,32 +98,79 @@ class CandidateCache:
     def push_None(self, candidate: ConfigurationPoint[T]) -> None:
         result = {
             "configuration": candidate,
+            "status": CandidateCache.S_INVALID,
         }
         self.push(result=result)
 
     def push(self, result: typing.Dict) -> None:
-        assert result is not None and 'configuration' in result, \
-            'invalid push in candidate_cache: {}'.format(result)
+        assert (result is not None and
+                'configuration' in result), 'invalid push in candidate_cache: {}'.format(result)
 
         candidate = result['configuration']
         key = CandidateCache._get_hash(candidate)
 
         update = {}
-        for k in comparison_metrics + ['configuration']:
+        for k in comparison_metrics + ['configuration', 'status']:
             update[k] = copy.deepcopy(result[k]) if k in result else None
         update['id'] = result['fitted_pipeline'].id if 'fitted_pipeline' in result else None
 
         # check the candidate in cache. If duplicate is found the metric values must match
-        if self.is_hit(candidate):
-            match = self.storage[key]
-            for k in comparison_metrics:
-                assert match[k] is None or match[k]['value'] is None or\
-                       update[k]['value'] == match[k]['value'], \
-                       "New value for candidate:" + str(candidate)
+        self._check_update_format(candidate, key, update)
 
         # push the candidate and its value into the cache
-        _logger.info("[INFO] push@Candidate: ({},{})".format(key, update))
+        _logger.info(f"push@Candidate_{update['status']}: ({key})")
+        _logger.debug(f"push@Candidate_{update['status']}: ({key}, {update})")
+        assert 'status' in update
         self.storage[key] = update
+
+    def _check_update_format(self, candidate, key, update):
+        """
+        checks the format of the update dict. If the candidate is already pushed into the cache
+        we need to check the consistency of cache in two cases: 1) if the version that is in
+        cache is the dummy push (push_none) then we need to make sure the format is correct and
+        the status is set to valid. 2) if the candidate is in cache in valid format the results
+        need to be equal (this case should not happen based on current implementation of the
+        search methods as they do not submit pipelines to multiple workers but may happen in
+        future)
+        Args:
+            candidate:
+            key:
+            update:
+
+        Returns:
+
+        """
+        if self.is_hit(candidate):
+            match = self.storage[key]
+            assert match is not None
+            assert match['status'] is not None
+            assert match['configuration'] is not None
+            for k in comparison_metrics:
+                # _logger.debug('_check_update_format: metric={k}')
+                if match['status'] == CandidateCache.S_INVALID:
+                    update['status'] = CandidateCache.S_VALID
+                assert k in match
+                assert k in update
+
+                # _logger.debug('_check_update_format: update[k]={update[k]}')
+                assert update[k] is None or isinstance(update[k], list)
+                assert match[k] is None or isinstance(match[k], list)
+
+                assert match[k] is None or all('value' in m for m in match[k]), f"{match}"
+                assert update[k] is None or all('value' in u for u in update[k]), f"{update}"
+
+                assert (match[k] is None or
+                        all(
+                            m['value'] is None or
+                            u['value'] == m['value'] for (m, u) in zip(match[k], update[k])
+                            )
+                        ), "New value for candidate:" + str(candidate)
+        else:
+            # FIXME I am not sure whether to have this part or not. For now I just throw
+            # exception to be able to catch this situation.
+            if 'status' not in update:
+                assert False
+                update['status'] = CandidateCache.S_VALID
 
     def is_hit(self, candidate: ConfigurationPoint[T]) -> bool:
         return CandidateCache._get_hash(candidate) in self.storage
@@ -123,14 +195,9 @@ class PrimitivesCache:
 
 
     """
-    def __init__(self, manager: Manager=None):
-        if manager is not None:
-            self.storage = manager.dict()
-            self.write_lock = manager.Lock()
-        else:
-            warn("[WARN] dummy Manager")
-            self.storage = {}
-            self.write_lock = Lock()
+    def __init__(self, manager: Manager = DummyManager()):
+        self.storage = manager.dict()
+        self.write_lock = manager.Lock()
 
     def push(self, hash_prefix: int, pipe_step: PrimitiveStep, primitive_arguments: typing.Dict,
              fitting_time: int, model: PrimitiveBase) -> int:
@@ -148,7 +215,7 @@ class PrimitivesCache:
         try:
             if not self.is_hit_key(prim_name=prim_name, prim_hash=prim_hash):
                 self.storage[(prim_name, prim_hash)] = (fitting_time, model)
-                _logger.info(f"[INFO] Push@cache:{prim_name},{prim_hash}")
+                _logger.debug(f"[INFO] Push@cache:{prim_name},{prim_hash}")
                 # print(f"[INFO] Push@cache:{prim_name},{prim_hash}")
                 return 0
             else:
@@ -170,7 +237,7 @@ class PrimitivesCache:
 
     def lookup_key(self, prim_hash: int, prim_name: int) -> typing.Tuple[Dataset, PrimitiveBase]:
         if self.is_hit_key(prim_name=prim_name, prim_hash=prim_hash):
-            _logger.info("[INFO] Hit@cache: {},{}".format(prim_name, prim_hash))
+            _logger.debug("[INFO] Hit@cache: {},{}".format(prim_name, prim_hash))
             # print("[INFO] Hit@cache: {},{}".format(prim_name, prim_hash))
             return self.storage[(prim_name, prim_hash)]
         else:
@@ -209,12 +276,12 @@ class PrimitivesCache:
                f"inputs type not valid {type(primitive_arguments['inputs'])}"
 
         if hash_prefix is None:
-            _logger.info("Primtive cache, hash computed in prefix mode")
+            _logger.debug("Primtive cache, hash computed in prefix mode")
             dataset_value_hash = hash(str(primitive_arguments['inputs']))
         else:
             dataset_value_hash = hash(primitive_arguments['inputs'].values.tobytes())
 
         dataset_hash = hash(str(dataset_value_hash) + dataset_id + dataset_digest)
         prim_hash = hash(str([hyperparam_hash, dataset_hash, hash_prefix]))
-        _logger.info("[INFO] hash: {}, {}".format(prim_name, prim_hash))
+        _logger.debug("[INFO] hash: {}, {}".format(prim_name, prim_hash))
         return prim_name, prim_hash

@@ -1,55 +1,67 @@
 #!/usr/bin/env python
 
+import argparse
+import grpc
 import os
 import sys
-import os.path
+import time
+
+from concurrent import futures
+
+from ta3ta2_api import core_pb2_grpc
 
 # Setup Paths
 PARENTDIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(PARENTDIR)
 
-from dsbox_dev_setup import path_setup
-path_setup()
+from dsbox.server.ta2_servicer import TA2Servicer
+from dsbox.controller.config import DsboxConfig
 
-import time
-import grpc
-import numpy
-import argparse
-from concurrent import futures
+# from dsbox_dev_setup import path_setup
+# path_setup()
 
-from dsbox.planner.common.resource_manager import ResourceManager
-from dsbox.planner.common.data_manager import RawResource
-
-from dsbox.server.controller.core import Core
-from dsbox.server.controller.data_ext import DataExt
-from dsbox.server.controller.dataflow_ext import DataflowExt
-
-import multiprocessing
-from multiprocessing import Pool
-
-numpy.set_printoptions(threshold=numpy.nan)
 
 _ONE_DAY_IN_SECONDS = 60 * 60 * 24
-
-DEFAULT_LIB_DIRECTORY = PARENTDIR + os.sep + "library"
 PORT = 45042
+
 
 def serve():
     parser = argparse.ArgumentParser()
-    parser.add_argument("-l", "--library", dest="library", help="Primitives library directory. [default: %(default)s]", default=DEFAULT_LIB_DIRECTORY)
+    parser.add_argument(
+        '--port', help='TA2 server port', default=PORT)
+    parser.add_argument(
+        '--debug-volume-map', action='append',
+        help="Map config directories, e.g. --debug-volume-map /host/dir/output:/output --debug-volume-map /host/dir/input:/input",
+        default=[])
+    parser.add_argument(
+        '--load-pipeline', help='Load using fitted pipeline ID')
     args = parser.parse_args()
 
-    ResourceManager.EXECUTION_POOL = Pool(multiprocessing.cpu_count())
-    RawResource.LOADING_POOL = Pool(multiprocessing.cpu_count())
+    print(args)
+
+    server_port = args.port
+
+    dir_mapping = {}
+    for entry in args.debug_volume_map:
+        host_dir, container_dir = entry.split(':')
+        dir_mapping[host_dir] = container_dir
+        print('volume: {} to {}'.format(host_dir, container_dir))
+
+    config = DsboxConfig()
+    config.load()
+
+    print(config)
+
+    servicer = TA2Servicer(
+        config=config,
+        directory_mapping=dir_mapping,
+        fitted_pipeline_id=args.load_pipeline)
 
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
-    library = args.library
 
-    Core(library).add_to_server(server)
-    DataExt().add_to_server(server)
-    DataflowExt().add_to_server(server)
+    core_pb2_grpc.add_CoreServicer_to_server(servicer, server)
 
-    server.add_insecure_port('[::]:' + str(PORT))
+    server.add_insecure_port('[::]:' + str(server_port))
     server.start()
 
     try:
@@ -57,6 +69,7 @@ def serve():
             time.sleep(_ONE_DAY_IN_SECONDS)
     except KeyboardInterrupt:
         server.stop(0)
+
 
 if __name__ == '__main__':
     serve()
