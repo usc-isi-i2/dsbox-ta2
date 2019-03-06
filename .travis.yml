@@ -10,6 +10,7 @@ env:
    - D3MCPU=3
    - D3MTIMEOUT=180
 before_install:
+ - echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin registry.datadrivendiscovery.org
  - docker build -f unit_tests/resources/dockerfile -t isi/dsbox_travis unit_tests/resources
 before_script:
  - mkdir $OUTPUT
