@@ -1,34 +1,18 @@
 dist: xenial
-sudo: required
 language: python
-cache: false
 python:
-- 3.6.6
-install:
-  - sudo apt-get update
-  # version is the same.
-  - wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh
-  - bash miniconda.sh -b -p $HOME/miniconda
-  - export PATH="$HOME/miniconda/bin:$PATH"
-  - hash -r
-  - conda config --set always_yes yes --set changeps1 no
-  - conda update -q conda
-  # Useful for debugging any issues with conda
-  - conda info -a
-  - conda create --name ta2-env python=3.6
-  - source activate ta2-env
-  - sudo apt-get install libgnutls28-dev
-  - pip install -e git+https://gitlab.com/kethiayao/d3m@fitted-pipeline#egg=d3m --progress-bar off
-  - pip install -e git+https://gitlab.com/datadrivendiscovery/common-primitives@master#egg=common-primitives --progress-bar off
-  - pip install -e git+https://gitlab.com/datadrivendiscovery/sklearn-wrap@dist#egg=sklearn-wrap --progress-bar off
-  - pip install -e git+https://github.com/usc-isi-i2/dsbox-cleaning@master#egg=dsbox-datacleaning --progress-bar off
-  - pip install -e git+https://github.com/usc-isi-i2/dsbox-featurizer@master#egg=dsbox-featurizer --progress-bar off
-  - pip install -e git+https://github.com/brekelma/dsbox_corex@master#egg=dsbox_corex --progress-bar off
-  - pip install psutil==5.4.7
-
-before_script:
-  - python unit_tests/resources/construct_config.py 38_sick
-  - python python/ta2-search unit_tests/resources/38_sick/search_config.json --timeout 5 --cpus 3 --test unit_tests/resources/38_sick/test_config.json
-
+ - 3.6.6
+services:
+ - docker
+env:
+  global:
+   - OUTPUT=$HOME/ouput
+   - D3mCPU=3
+   - D3MTIMEOUT=180
+before_install:
+ - docker build -f unit_tests/resources/dockerfile -t isi/dsbox_travis unit_tests/resources
+before_script
+ - mkdir $OUTPUT
+ - docker run --entrypoint /user_opt/client.sh --name dsbox_container -e D3MRUN=ta2 -e D3MINPUTDIR=/input -e D3MOUTPUTDIR=/output -e D3MLOCALDIR=/tmp -e D3MSTATICDIR=/static -e D3MPROBLEMPATH=/input/TRAIN/problem_TRAIN/problemDoc.json -e D3MCPU=$D3MCPU -e D3MRAM=50 -e D3MTIMEOUT=$D3MTIMEOUT -v unit_tests/resources/38_sick/TRAIN/problem_TRAIN/problemDoc.json/input -v ${OUTPUT}:/output unit_tests/resources/dockerfile
 script:
-  - python -W ignore -m unittest discover unit_tests/
+ - python -W ignore -m unittest discover unit_tests
