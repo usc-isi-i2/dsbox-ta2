@@ -31,7 +31,7 @@ RUN cd $CODE && pip3 install -e git+https://oauth2:CZkuJ1JxedRAP8Mue3av@gitlab.d
 RUN cd $CODE \
 && git clone https://github.com/usc-isi-i2/dsbox-ta2.git \
 && cd dsbox-ta2 \
-&& pip checkout v2019.1.21 \
+&& git checkout v2019.1.21 \
 && pip install -r requirements.txt
 
 COPY d3mStart.sh /user_opt
