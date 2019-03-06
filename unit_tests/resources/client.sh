@@ -44,3 +44,5 @@ echo "Cleaning up"
 echo "Exiting"
 kill $ta2_pid
 kill -9 $ta2_pid
+
+exit 0
