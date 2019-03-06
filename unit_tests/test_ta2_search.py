@@ -7,9 +7,9 @@ import unittest
 class TestTA2Search(unittest.TestCase):
 
     def setUp(self):
-        # self.output_root_dir = pathlib.Path.home() / 'output'
+        self.output_root_dir = pathlib.Path.home() / 'output'
         # self.output_root_dir = pathlib.Path('/nas/home/kyao/output/docker/seed/uu1_datasmash')
-        self.output_root_dir = pathlib.Path('/nas/home/kyao/output/docker/seed/38_sick')
+        # self.output_root_dir = pathlib.Path('/nas/home/kyao/output/docker/seed/38_sick')
         self.pipelines_scored_dir = self.output_root_dir / 'pipelines_scored'
         self.pipelines_ranked_dir = self.output_root_dir / 'pipelines_ranked'
         self.predictions_dir = self.output_root_dir / 'predictions'
