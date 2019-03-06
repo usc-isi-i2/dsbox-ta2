@@ -99,7 +99,7 @@ class BanditDimensionalSearch(RandomDimensionalSearch, MultiBanditSearch):
     #     self.cacheManager.cleanup()
     #
     #     # cleanup job manager
-    #     self.job_manager.kill_job_mananger()
+    #     self.job_manager.reset()
     #
     #     return self.history.get_best_history()
 

@@ -1,3 +1,8 @@
+import logging
+
+_logger = logging.getLogger(__name__)
+
+
 class TemplateSteps:
 
     '''
@@ -11,19 +16,25 @@ class TemplateSteps:
         '''
         return [
             {
-                "name": "denormalize_step",
-                "primitives": ["d3m.primitives.dsbox.Denormalize"],
+                "name": "sampling_step",
+                "primitives": ["d3m.primitives.data_preprocessing.DoNothingForDataset.DSBOX"],
                 "inputs": ["template_input"]
+            },
+
+            {
+                "name": "denormalize_step",
+                "primitives": ["d3m.primitives.data_transformation.denormalize.Common"],
+                "inputs": ["sampling_step"]
             },
             {
                 "name": "to_dataframe_step",
-                "primitives": ["d3m.primitives.datasets.DatasetToDataFrame"],
+                "primitives": ["d3m.primitives.data_transformation.dataset_to_dataframe.Common"],
                 "inputs": ["denormalize_step"]
             },
             {
                 "name": "extract_attribute_step",
                 "primitives": [{
-                    "primitive": "d3m.primitives.data.ExtractColumnsBySemanticTypes",
+                    "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.DataFrameCommon",
                     "hyperparameters":
                         {
                             'semantic_types': (
@@ -38,48 +49,43 @@ class TemplateSteps:
             },
             {
                 "name": "profiler_step",
-                "primitives": ["d3m.primitives.dsbox.Profiler"],
+                "primitives": ["d3m.primitives.schema_discovery.Profiler.DSBOX"],
                 "inputs": ["extract_attribute_step"]
             },
             {
                 "name": "clean_step",
                 "primitives": [
-                    # "d3m.primitives.dsbox.CleaningFeaturizer",
-                    "d3m.primitives.dsbox.DoNothing",
+                    "d3m.primitives.data_cleaning.CleaningFeaturizer.DSBOX",
+                    # "d3m.primitives.data_preprocessing.DoNothing.DSBOX",
                 ],
                 "inputs": ["profiler_step"]
             },
             {
-                "name": "corex_step",
-                "primitives": [
-                    {
-                        "primitive": "d3m.primitives.dsbox.CorexText",
-                        "hyperparameters":
-                            {
-                            }
-                    },
-                ],
+                "name": "encode_step",
+                "primitives": ["d3m.primitives.data_preprocessing.Encoder.DSBOX"],
                 "inputs": ["clean_step"]
             },
             {
-                "name": "encoder_step",
-                "primitives": [
-                    "d3m.primitives.dsbox.Encoder",
-                    "d3m.primitives.dsbox.DoNothing"
-                ],
-                "inputs": ["corex_step"]
+                "name": "corex_step",
+                "primitives": ["d3m.primitives.feature_construction.corex_text.CorexText"],
+                "inputs": ["encode_step"]
+            },
+            {
+                "name": "to_numeric_step",
+                "primitives": ["d3m.primitives.data_transformation.ToNumeric.DSBOX"],
+                "inputs":["corex_step"],
             },
             {
                 "name": "impute_step",
-                "primitives": ["d3m.primitives.dsbox.MeanImputation"],
-                "inputs": ["encoder_step"]
+                "primitives": ["d3m.primitives.data_preprocessing.MeanImputation.DSBOX"],
+                "inputs": ["to_numeric_step"]
             },
             {
                 "name": "scaler_step",
                 "primitives": [
                     # {
-                    #     "primitive": "d3m.primitives.sklearn_wrap.SKMaxAbsScaler",
-                    #     "hyperparameters": 
+                    #     "primitive": "d3m.primitives.data_preprocessing.max_abs_scaler.SKlearn",
+                    #     "hyperparameters":
                     #     {
                     #         'use_semantic_types':[True],
                     #         'return_result':['new'],
@@ -87,60 +93,55 @@ class TemplateSteps:
                     #     }
                     # },
                     {
-                        "primitive": "d3m.primitives.dsbox.IQRScaler",
+                        "primitive": "d3m.primitives.normalization.IQRScaler.DSBOX",
                         "hyperparameters": {}
                     },
-                    "d3m.primitives.dsbox.DoNothing",
+                    "d3m.primitives.data_preprocessing.DoNothing.DSBOX",
                 ],
                 "inputs": ["impute_step"]
             },
             {
-                "name": "cast_1_step",  # turn columns to float
+                "name": data,
                 "primitives": [
+                    # 19 Feb 2019: Stop using PCA until issue is resolved
+                    # https://gitlab.com/datadrivendiscovery/sklearn-wrap/issues/154
                     # {
-                    #     "primitive": "d3m.primitives.data.CastToType",
-                    #     "hyperparameters": 
-                    #                     {
-                    #                     "type_to_cast": ["float"],
-                    #                     "exclude_columns": (0,),
-                    #                     "use_columns": (0,),
-                    #                     }
+                    #     "primitive": "d3m.primitives.data_transformation.pca.SKlearn",
+                    #     "hyperparameters":
+                    #     {
+                    #         'use_semantic_types': [True],
+                    #         'add_index_columns': [True],
+                    #         'return_result': ['new'],
+                    #         'n_components': [10, 15, 25]
+                    #     }
                     # },
-                    "d3m.primitives.dsbox.DoNothing",
+                    "d3m.primitives.data_preprocessing.DoNothing.DSBOX",
                 ],
                 "inputs": ["scaler_step"]
             },
             {
-                "name": data,
-                "primitives": [
-                    # {
-                    #     "primitive": "d3m.primitives.sklearn_wrap.SKPCA",
-                    #     "hyperparameters":
-                    #     { 
-                    #         'use_semantic_types':[True],
-                    #         'return_result':['new'],
-                    #         'add_index_columns':[True],
-                    #         'n_components': [10, 15, 25]
-                    #     }
-                    # },
-                    "d3m.primitives.dsbox.DoNothing",
-                ],
-                "inputs": ["cast_1_step"]
-            },
-            {
-                "name": target,
+                "name": "pre_"+target,
                 "primitives": [{
-                    "primitive": "d3m.primitives.data.ExtractColumnsBySemanticTypes",
+                    "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.DataFrameCommon",
                     "hyperparameters":
                         {
                             'semantic_types': (
-                                #'https://metadata.datadrivendiscovery.org/types/PrimaryKey',
                                 'https://metadata.datadrivendiscovery.org/types/TrueTarget',),
                             'use_columns': (),
                             'exclude_columns': ()
                         }
                 }],
                 "inputs": ["to_dataframe_step"]
+            },
+            {
+                "name": target,
+                "primitives": [{
+                    "primitive": "d3m.primitives.data_transformation.ToNumeric.DSBOX",
+                    "hyperparameters": {
+                        "drop_non_numeric_columns": [False]
+                    }
+                }],
+                "inputs": ["pre_"+target]
             },
         ]
 
@@ -152,22 +153,30 @@ class TemplateSteps:
         '''
         return [
             {
-                "name": "denormalize_step",
-                "primitives": ["d3m.primitives.dsbox.Denormalize"],
+                "name": "sampling_step",
+                "primitives": ["d3m.primitives.data_preprocessing.DoNothingForDataset.DSBOX"],
                 "inputs": ["template_input"]
             },
             {
+                "name": "denormalize_step",
+                "primitives": [
+                    "d3m.primitives.data_transformation.denormalize.Common"
+                ],
+                "inputs": ["sampling_step"]
+            },
+            {
                 "name": "to_dataframe_step",
-                "primitives": ["d3m.primitives.datasets.DatasetToDataFrame"],
+                "primitives": ["d3m.primitives.data_transformation.dataset_to_dataframe.Common"],
                 "inputs": ["denormalize_step"]
             },
             {
                 "name": "extract_attribute_step",
                 "primitives": [{
-                    "primitive": "d3m.primitives.data.ExtractColumnsBySemanticTypes",
+                    "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.DataFrameCommon",
                     "hyperparameters":
                         {
                             'semantic_types': (
+                                'https://metadata.datadrivendiscovery.org/types/PrimaryKey',
                                 'https://metadata.datadrivendiscovery.org/types/Attribute',),
                             'use_columns': (),
                             'exclude_columns': ()
@@ -177,22 +186,30 @@ class TemplateSteps:
             },
             {
                 "name": "profiler_step",
-                "primitives": ["d3m.primitives.dsbox.Profiler"],
+                "primitives": ["d3m.primitives.schema_discovery.Profiler.DSBOX"],
                 "inputs": ["extract_attribute_step"]
             },
             {
                 "name": "clean_step",
                 "primitives": [
-                    "d3m.primitives.dsbox.CleaningFeaturizer",
-                    "d3m.primitives.dsbox.DoNothing",
+                    "d3m.primitives.data_cleaning.CleaningFeaturizer.DSBOX",
+                    "d3m.primitives.data_preprocessing.DoNothing.DSBOX",
                 ],
                 "inputs": ["profiler_step"]
+            },
+            {
+                "name": "encoder_step",
+                "primitives": [
+                    "d3m.primitives.data_preprocessing.Encoder.DSBOX",
+                    "d3m.primitives.data_preprocessing.DoNothing.DSBOX"
+                ],
+                "inputs": ["clean_step"]
             },
             {
                 "name": "corex_step",
                 "primitives": [
                     {
-                        "primitive": "d3m.primitives.dsbox.CorexText",
+                        "primitive": "d3m.primitives.feature_construction.corex_text.CorexText",
                         "hyperparameters":
                             {
                                 'n_hidden': [5, 10],
@@ -201,59 +218,62 @@ class TemplateSteps:
                             }
                     },
                 ],
-                "inputs": ["clean_step"]
+                "inputs": ["encoder_step"]
             },
+
             {
-                "name": "encoder_step",
-                "primitives": [
-                    "d3m.primitives.dsbox.Encoder",
-                    "d3m.primitives.dsbox.DoNothing"
-                ],
-                "inputs": ["corex_step"]
+                "name": "to_numeric_step",
+                "primitives": ["d3m.primitives.data_transformation.ToNumeric.DSBOX"],
+                "inputs":["corex_step"],
             },
             {
                 "name": "impute_step",
-                "primitives": ["d3m.primitives.dsbox.MeanImputation"],
-                "inputs": ["encoder_step"]
-            },
-            {
-                "name": "scaler_step",
-                "primitives": [
-                    {
-                        "primitive": "d3m.primitives.sklearn_wrap.SKMaxAbsScaler",
-                        "hyperparameters": {}
-                    },
-                    {
-                        "primitive": "d3m.primitives.dsbox.IQRScaler",
-                        "hyperparameters": {}
-                    },
-                    "d3m.primitives.dsbox.DoNothing",
-                ],
-                "inputs": ["impute_step"]
+                "primitives": ["d3m.primitives.data_preprocessing.MeanImputation.DSBOX"],
+                "inputs": ["to_numeric_step"]
             },
             {
                 "name": data,
                 "primitives": [
+                    # Feb 17, 2019: Do not use until issue is resolved
+                    # https://gitlab.com/datadrivendiscovery/sklearn-wrap/issues/153
+                    # {
+                    #     "primitive": "d3m.primitives.data_preprocessing.max_abs_scaler.SKlearn",
+                    #     "hyperparameters": {
+                    #         'add_index_columns': [True],
+                    #         'use_semantic_types': [True],
+                    #     }
+                    # },
                     {
-                        "primitive": "d3m.primitives.data.CastToType",
-                        "hyperparameters": {"type_to_cast": ["float"]}
+                        "primitive": "d3m.primitives.normalization.IQRScaler.DSBOX",
+                        "hyperparameters": {}
                     },
-                    "d3m.primitives.dsbox.DoNothing",
+                    "d3m.primitives.data_preprocessing.DoNothing.DSBOX",
                 ],
-                "inputs": ["scaler_step"]
+                "inputs": ["impute_step"]
             },
             {
-                "name": target,
+                "name": "pre_"+target,
                 "primitives": [{
-                    "primitive": "d3m.primitives.data.ExtractColumnsBySemanticTypes",
+                    "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.DataFrameCommon",
                     "hyperparameters":
                         {
-                            'semantic_types': ('https://metadata.datadrivendiscovery.org/types/TrueTarget',),
+                            'semantic_types': (
+                                'https://metadata.datadrivendiscovery.org/types/TrueTarget',),
                             'use_columns': (),
                             'exclude_columns': ()
                         }
                 }],
                 "inputs": ["to_dataframe_step"]
+            },
+            {
+                "name": target,
+                "primitives": [{
+                    "primitive": "d3m.primitives.data_transformation.ToNumeric.DSBOX",
+                    "hyperparameters": {
+                        "drop_non_numeric_columns": [False]
+                    }
+                }],
+                "inputs": ["pre_"+target]
             },
         ]
 
@@ -265,21 +285,22 @@ class TemplateSteps:
         return [
             {
                 "name": "denormalize_step",
-                "primitives": ["d3m.primitives.dsbox.Denormalize"],
+                "primitives": ["d3m.primitives.data_transformation.denormalize.Common"],
                 "inputs": ["template_input"]
             },
             {
                 "name": "to_dataframe_step",
-                "primitives": ["d3m.primitives.datasets.DatasetToDataFrame"],
+                "primitives": ["d3m.primitives.data_transformation.dataset_to_dataframe.Common"],
                 "inputs": ["denormalize_step"]
             },
             {
                 "name": "extract_attribute_step",
                 "primitives": [{
-                    "primitive": "d3m.primitives.data.ExtractColumnsBySemanticTypes",
+                    "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.DataFrameCommon",
                     "hyperparameters":
                         {
                             'semantic_types': (
+                                'https://metadata.datadrivendiscovery.org/types/PrimaryKey',
                                 'https://metadata.datadrivendiscovery.org/types/Attribute',),
                             'use_columns': (),
                             'exclude_columns': ()
@@ -289,45 +310,39 @@ class TemplateSteps:
             },
             {
                 "name": "profiler_step",
-                "primitives": ["d3m.primitives.dsbox.Profiler"],
+                "primitives": ["d3m.primitives.schema_discovery.Profiler.DSBOX"],
                 "inputs": ["extract_attribute_step"]
             },
             {
                 "name": "clean_step",
                 "primitives": [
-                    "d3m.primitives.dsbox.CleaningFeaturizer",
-                    "d3m.primitives.dsbox.DoNothing",
+                    "d3m.primitives.data_cleaning.CleaningFeaturizer.DSBOX",
+                    "d3m.primitives.data_preprocessing.DoNothing.DSBOX",
                 ],
                 "inputs": ["profiler_step"]
             },
             {
                 "name": "encoder_step",
                 "primitives": [
-                    "d3m.primitives.dsbox.Encoder",
-                    "d3m.primitives.dsbox.Labler"
+                    "d3m.primitives.data_preprocessing.Encoder.DSBOX",
+                    "d3m.primitives.data_cleaning.Labeler.DSBOX"
                 ],
                 "inputs": ["clean_step"]
             },
             {
+                "name": "to_numeric_step",
+                "primitives": ["d3m.primitives.data_transformation.ToNumeric.DSBOX"],
+                "inputs":["encoder_step"],
+            },
+            {
                 "name": "impute_step",
-                "primitives": ["d3m.primitives.dsbox.MeanImputation"],
-                "inputs": ["encoder_step"]
+                "primitives": ["d3m.primitives.data_preprocessing.MeanImputation.DSBOX"],
+                "inputs": ["to_numeric_step"]
             },
             {
-                "name": "cast_step",  # turn columns to float
-                "primitives": [
-                    {
-                        "primitive": "d3m.primitives.data.CastToType",
-                        "hyperparameters": {"type_to_cast": ["float"]}
-                    },
-                    "d3m.primitives.dsbox.DoNothing",
-                ],
-                "inputs": ["impute_step"]
-            },
-            {
-                "name": "extract_target_step",
+                "name": "pre_extract_target_step",
                 "primitives": [{
-                    "primitive": "d3m.primitives.data.ExtractColumnsBySemanticTypes",
+                    "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.DataFrameCommon",
                     "hyperparameters":
                         {
                             'semantic_types': (
@@ -338,10 +353,20 @@ class TemplateSteps:
                 }],
                 "inputs": ["to_dataframe_step"]
             },
+            {
+                "name": "extract_target_step",
+                "primitives": [{
+                    "primitive": "d3m.primitives.data_transformation.ToNumeric.DSBOX",
+                    "hyperparameters": {
+                        "drop_non_numeric_columns": [False]
+                    }
+                }],
+                "inputs": ["pre_extract_target_step"]
+            },
         ]
 
     @staticmethod
-    def dsbox_feature_selector(ptype, first_input='cast_step', second_input='extract_target_step'):
+    def dsbox_feature_selector(ptype, first_input='impute_step', second_input='extract_target_step'):
         import numpy as np
         '''
         dsbox feature selection steps for classification and regression, lead to feature selector steps
@@ -352,26 +377,29 @@ class TemplateSteps:
                     "name": "feature_selector_step",
                     "primitives": [
                         {
-                            "primitive": "d3m.primitives.sklearn_wrap.SKSelectFwe",
-                            "hyperparameters": {
-                            'use_semantic_types':[True],
-                                'return_result':['new'],
-                                'add_index_columns':[True],
-                                "alpha": [float(x) for x in np.logspace(-4, -1, 6)]
-                            }
+                            # 1 March 2019: select_fwe disappeared from sklearn wrap
+                            # "primitive": "d3m.primitives.feature_selection.select_fwe.SKlearn",
+                            # "hyperparameters": {
+                            #     'use_semantic_types': [True],
+                            #     'add_index_columns': [True],
+                            #     'return_result': ['new'],
+                            #     'add_index_columns': [True],
+                            #     "alpha": [float(x) for x in np.logspace(-4, -1, 6)]
+                            # }
                         },
                         {
-                            "primitive": "d3m.primitives.sklearn_wrap.SKGenericUnivariateSelect",
+                            "primitive": "d3m.primitives.feature_selection.generic_univariate_select.SKlearn",
                             "hyperparameters": {
-                                'use_semantic_types':[True],
-                                'return_result':['new'],
-                                'add_index_columns':[True],
+                                'use_semantic_types': [True],
+                                'add_index_columns': [True],
+                                'return_result': ['new'],
+                                'add_index_columns': [True],
                                 "score_func": ["f_regression"],
                                 "mode": ["percentile"],
                                 "param": [5, 7, 10, 15, 30, 50, 75],
                             }
                         },
-                        "d3m.primitives.dsbox.DoNothing"
+                        "d3m.primitives.data_preprocessing.DoNothing.DSBOX"
                     ],
                     "inputs":[first_input, second_input]
                 },
@@ -381,27 +409,28 @@ class TemplateSteps:
                 {
                     "name": "feature_selector_step",
                     "primitives": [
-                        {
-                            "primitive": "d3m.primitives.sklearn_wrap.SKSelectFwe",
-                            "hyperparameters": {
-                            'use_semantic_types':[True],
-                                'return_result':['new'],
-                                'add_index_columns':[True],
-                                "alpha": [float(x) for x in np.logspace(-4, -1, 6)]
-                            }
-                        },
+                        # 1 March 2019: select_fwe disappeared from sklearn wrap
+                        # {
+                        #     "primitive": "d3m.primitives.feature_selection.select_fwe.SKlearn",
+                        #     "hyperparameters": {
+                        #         'use_semantic_types': [True],
+                        #         'return_result': ['new'],
+                        #         'add_index_columns': [True],
+                        #         "alpha": [float(x) for x in np.logspace(-4, -1, 6)]
+                        #     }
+                        # },
 
                         {
-                            "primitive": "d3m.primitives.sklearn_wrap.SKGenericUnivariateSelect",
+                            "primitive": "d3m.primitives.feature_selection.generic_univariate_select.SKlearn",
                             "hyperparameters": {
-                                'use_semantic_types':[True],
-                                'return_result':['new'],
-                                'add_index_columns':[True],
+                                'use_semantic_types': [True],
+                                'return_result': ['new'],
+                                'add_index_columns': [True],
                                 "mode": ["percentile"],
                                 "param": [5, 7, 10, 15, 30, 50, 75],
                             }
                         },
-                        "d3m.primitives.dsbox.DoNothing"
+                        "d3m.primitives.data_preprocessing.DoNothing.DSBOX"
 
                     ],
                     "inputs":[first_input, second_input]
@@ -420,34 +449,47 @@ class TemplateSteps:
                     "name": dim_reduce_name,
                     "primitives": [
                         {
-                            "primitive": "d3m.primitives.dsbox.DoNothing",
+                            "primitive": "d3m.primitives.data_preprocessing.DoNothing.DSBOX",
                         },
+                        # 19 Feb 2019: Stop using PCA until issue is resolved
+                        # https://gitlab.com/datadrivendiscovery/sklearn-wrap/issues/154
+                        # {
+                        #     "primitive": "d3m.primitives.data_transformation.pca.SKlearn",
+                        #     "hyperparameters":
+                        #         {
+                        #             'add_index_columns': [True],
+                        #             'use_semantic_types':[True],
+                        #             'n_components': [(2), (4), (8), (16), (32), (64), (128)], }
+                        # },
                         {
-                            "primitive": "d3m.primitives.sklearn_wrap.SKPCA",
-                            "hyperparameters":
-                                {'n_components': [(2), (4), (8), (16), (32), (64), (128)], }
-                        },
-                        {
-                            "primitive": "d3m.primitives.sklearn_wrap.SKKernelPCA",
+                            "primitive": "d3m.primitives.data_transformation.kernel_pca.SKlearn",
                             "hyperparameters":
                                 {
+                                    'add_index_columns': [True],
+                                    'use_semantic_types':[True],
                                     'n_components': [(2), (4), (8), (16), (32), (64), (128)],
                                     'kernel': [('rbf'), ('sigmoid'), ('cosine')]
                                 }
                         },
                         {
-                            "primitive": "d3m.primitives.sklearn_wrap.SKKernelPCA",
+                            "primitive": "d3m.primitives.data_transformation.kernel_pca.SKlearn",
                             "hyperparameters":
                                 {
+                                    'add_index_columns': [True],
+                                    'use_semantic_types':[True],
                                     'n_components': [(2), (4), (8), (16), (32), (64), (128)],
                                     'kernel': [('poly')],
                                     'degree': [(2), (3), (4)],
                                 }
                         },
                         {
-                            "primitive": "d3m.primitives.sklearn_wrap.SKVarianceThreshold",
+                            "primitive": "d3m.primitives.feature_selection.variance_threshold.SKlearn",
                             "hyperparameters":
-                                {'threshold': [(0.01), (0.01), (0.05), (0.1)], }
+                                {
+                                    'add_index_columns': [True],
+                                    'use_semantic_types':[True],
+                                    'threshold': [(0.01), (0.01), (0.05), (0.1)],
+                                }
                         },
                     ],
                     "inputs": [feature_name]
@@ -464,21 +506,22 @@ class TemplateSteps:
             [
                 {
                     "name": "denormalize_step",
-                    "primitives": ["d3m.primitives.dsbox.Denormalize"],
+                    "primitives": ["d3m.primitives.data_transformation.denormalize.Common"],
                     "inputs": ['template_input']
                 },
                 {
                     "name": "to_dataframe_step",
-                    "primitives": ["d3m.primitives.datasets.DatasetToDataFrame"],
+                    "primitives": ["d3m.primitives.data_transformation.dataset_to_dataframe.Common"],
                     "inputs": ["denormalize_step"]
                 },
                 {
                     "name": attribute_name,
                     "primitives": [{
-                        "primitive": "d3m.primitives.data.ExtractColumnsBySemanticTypes",
+                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.DataFrameCommon",
                         "hyperparameters":
                             {
                                 'semantic_types': (
+                                    'https://metadata.datadrivendiscovery.org/types/PrimaryKey',
                                     'https://metadata.datadrivendiscovery.org/types/Attribute',),
                                 'use_columns': (),
                                 'exclude_columns': ()
@@ -487,17 +530,28 @@ class TemplateSteps:
                     "inputs": ["to_dataframe_step"]
                 },
                 {
-                    "name": target_name,
+                    "name": "pre_"+target_name,
                     "primitives": [{
-                        "primitive": "d3m.primitives.data.ExtractColumnsBySemanticTypes",
+                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.DataFrameCommon",
                         "hyperparameters":
-                            {
-                                'semantic_types': ('https://metadata.datadrivendiscovery.org/types/TrueTarget',),
-                                'use_columns': (),
-                                'exclude_columns': ()
-                            }
+                        {
+                            'semantic_types': (
+                                'https://metadata.datadrivendiscovery.org/types/TrueTarget',),
+                            'use_columns': (),
+                            'exclude_columns': ()
+                        }
                     }],
                     "inputs": ["to_dataframe_step"]
+                },
+                {
+                    "name": target_name,
+                    "primitives": [{
+                        "primitive": "d3m.primitives.data_transformation.ToNumeric.DSBOX",
+                        "hyperparameters": {
+                            "drop_non_numeric_columns": [False]
+                        }
+                    }],
+                    "inputs": ["pre_"+target_name]
                 }
             ]
 
@@ -509,18 +563,18 @@ class TemplateSteps:
                 *TemplateSteps.default_dataparser(target_name=target_name),
                 {
                     "name": "column_parser_step",
-                    "primitives": ["d3m.primitives.data.ColumnParser"],
+                    "primitives": ["d3m.primitives.data_transformation.column_parser.DataFrameCommon"],
                     "inputs": ["extract_attribute_step"]
                 },
                 {
                     "name": attribute_name,
                     "primitives": [
                         {
-                            "primitive": "d3m.primitives.data.CastToType",
-                            "hyperparameters": {"type_to_cast": ["float"]}
+                            "primitive": "d3m.primitives.data_transformation.ToNumeric.DSBOX",
+                            "hyperparameters": {}
                         },
                         {
-                            "primitive": "d3m.primitives.dsbox.DoNothing",
+                            "primitive": "d3m.primitives.data_preprocessing.DoNothing.DSBOX",
                             "hyperparameters": {}
                         }
 
@@ -537,14 +591,14 @@ class TemplateSteps:
                 *TemplateSteps.default_dataparser(target_name=target_name),
                 {
                     "name": "profile_step",
-                    "primitives": ["d3m.primitives.dsbox.Profiler"],
+                    "primitives": ["d3m.primitives.schema_discovery.Profiler.DSBOX"],
                     "inputs": ["extract_attribute_step"]
                 },
                 {
                     "name": clean_name,
                     "primitives": [
-                        "d3m.primitives.dsbox.CleaningFeaturizer",
-                        "d3m.primitives.dsbox.DoNothing"
+                        "d3m.primitives.data_cleaning.CleaningFeaturizer.DSBOX",
+                        "d3m.primitives.data_preprocessing.DoNothing.DSBOX"
                     ],
                     "inputs": ["profile_step"]
                 },
@@ -558,14 +612,14 @@ class TemplateSteps:
                 # TODO the ColumnParser primitive is buggy as it generates arbitrary nan values
                 # {
                 #     "name": "encode_strings_step",
-                #     "primitives": ["d3m.primitives.data.ColumnParser"],
+                #     "primitives": ["d3m.primitives.data_transformation.column_parser.DataFrameCommon"],
                 #     "inputs": [clean_name]
                 # },
                 {
                     "name": "encode_text_step",
                     "primitives": [
                         {
-                            "primitive": "d3m.primitives.dsbox.CorexText",
+                            "primitive": "d3m.primitives.feature_construction.corex_text.CorexText",
                             "hyperparameters":
                                 {
                                     'n_hidden': [(10)],
@@ -575,15 +629,15 @@ class TemplateSteps:
                                     'min_df': [(.02)],
                                 }
                         },
-                        {"primitive": "d3m.primitives.dsbox.DoNothing", },
+                        {"primitive": "d3m.primitives.data_preprocessing.DoNothing.DSBOX", },
                     ],
                     "inputs": [clean_name]
                 },
                 # {
                 #     "name": "encode_unary_step",
                 #     "primitives": [
-                #         {"primitive": "d3m.primitives.dsbox.UnaryEncoder", },
-                #         {"primitive": "d3m.primitives.dsbox.DoNothing", },
+                #         {"primitive": "d3m.primitives.data_preprocessing.UnaryEncoder.DSBOX", },
+                #         {"primitive": "d3m.primitives.data_preprocessing.DoNothing.DSBOX", },
                 #     ],
                 #     "inputs": ["encode_text_step"]
                 # },
@@ -591,24 +645,12 @@ class TemplateSteps:
                     # "name": 'encode_string_step',
                     "name": encoded_name,
                     "primitives": [
-                        {"primitive": "d3m.primitives.dsbox.Encoder", },
-                        {"primitive": "d3m.primitives.dsbox.Labler", },
-                        # {"primitive": "d3m.primitives.dsbox.DoNothing", },
+                        {"primitive": "d3m.primitives.data_preprocessing.Encoder.DSBOX", },
+                        {"primitive": "d3m.primitives.data_cleaning.Labeler.DSBOX", },
+                        # {"primitive": "d3m.primitives.data_preprocessing.DoNothing.DSBOX", },
                     ],
                     "inputs": ["encode_text_step"]
                 },
-
-                # {
-                #     "name": encoded_name,
-                #     "primitives": [{
-                #         "primitive": "d3m.primitives.data.CastToType",
-                #         "hyperparameters":
-                #             {
-                #                 'type_to_cast': ['float','str'],
-                #             }
-                #     }],
-                #     "inputs": ["encode_string_step"]
-                # },
             ]
 
     @staticmethod
@@ -619,19 +661,35 @@ class TemplateSteps:
                 {
                     "name": "base_impute_step",
                     "primitives": [
-                        {"primitive": "d3m.primitives.dsbox.MeanImputation", },
-                        # {"primitive": "d3m.primitives.dsbox.GreedyImputation", },
-                        {"primitive": "d3m.primitives.dsbox.MeanImputation", },
-                        {"primitive": "d3m.primitives.dsbox.IterativeRegressionImputation", },
-                        # {"primitive": "d3m.primitives.dsbox.DoNothing", },
+                        {"primitive": "d3m.primitives.data_preprocessing.MeanImputation.DSBOX", },
+                        # {"primitive": "d3m.primitives.data_preprocessing.GreedyImputation.DSBOX", },
+                        {"primitive": "d3m.primitives.data_preprocessing.MeanImputation.DSBOX", },
+                        {"primitive": "d3m.primitives.data_preprocessing.IterativeRegressionImputation.DSBOX", },
+                        # {"primitive": "d3m.primitives.data_preprocessing.DoNothing.DSBOX", },
                     ],
                     "inputs": [encoded_name]
                 },
                 {
                     "name": impute_name,
                     "primitives": [
-                        {"primitive": "d3m.primitives.sklearn_wrap.SKMaxAbsScaler", },  # IQR always create error
-                        {"primitive": "d3m.primitives.dsbox.DoNothing", },
+                        # Feb 17, 2019: Do not use until issue is resolved
+                        # https://gitlab.com/datadrivendiscovery/sklearn-wrap/issues/153
+                        # {
+                        #     "primitive": "d3m.primitives.data_preprocessing.max_abs_scaler.SKlearn",
+                        #     "hyperparameters": {
+                        #         'use_semantic_types': [True],
+                        #         'add_index_columns': [True],
+                        #     }},
+                        {
+                            "primitive": "d3m.primitives.normalization.IQRScaler.DSBOX",
+                            "hyperparameters": {
+                                "use_semantic_types": [True],
+                                "add_index_columns": [True],
+                            }
+                        },
+
+                        # !!!! KYAO
+                        # {"primitive": "d3m.primitives.data_preprocessing.DoNothing.DSBOX", },
                     ],
                     "inputs": ["base_impute_step"]
                 },
@@ -650,25 +708,31 @@ class TemplateSteps:
                     },
                     "primitives": [{
                         "primitive":
-                            "d3m.primitives.sklearn_wrap.SKRandomForestClassifier",
+                            "d3m.primitives.classification.random_forest.SKlearn",
                         "hyperparameters":
                             {
+                                'use_semantic_types': [True],
+                                'add_index_columns': [True],
                                 'max_depth': [(2), (4), (8)],  # (10), #
                                 'n_estimators': [(2), (5), (10), (20), (30), (40)]
                             }
                     },
                         {
                             "primitive":
-                                "d3m.primitives.sklearn_wrap.SKLinearSVC",
+                                "d3m.primitives.classification.svc.SKlearn",
                             "hyperparameters":
                                 {
+                                    'use_semantic_types': [True],
+                                    'add_index_columns': [True],
                                     'C': [(1), (10), (100)],  # (10), #
                                 }
                     }, {
                             "primitive":
-                                "d3m.primitives.sklearn_wrap.SKMultinomialNB",
+                                "d3m.primitives.classification.multinomial_naive_bayes.SKlearn",
                             "hyperparameters":
                                 {
+                                    'use_semantic_types': [True],
+                                    'add_index_columns': [True],
                                     'alpha': [(1)],
                                 }
                     },
@@ -686,16 +750,54 @@ class TemplateSteps:
                     "name": "model_step",
                     "primitives": [
                         # linear ridge : simplistic linear regression with L2 regularization
-                        {"primitive": "d3m.primitives.sklearn_wrap.SKRidge", },
+                        {
+                            "primitive": "d3m.primitives.regression.ridge.SKlearn",
+                            "hyperparameters":
+                            {
+                                'use_semantic_types': [True],
+                                'add_index_columns': [True],
+                                'alpha': [(1)],
+                            }},
                         # Least-angle regression: (1 / (2 * n_samples)) * |y - Xw|^2_2 + alpha * |w|_1
-                        {"primitive": "d3m.primitives.sklearn_wrap.SKLars", },
+                        {
+                            "primitive": "d3m.primitives.regression.lars.SKlearn",
+                            "hyperparameters":
+                            {
+                                'use_semantic_types': [True],
+                                'add_index_columns': [True],
+                            }},
                         # Nearest Neighbour
-                        {"primitive": "d3m.primitives.sklearn_wrap.SKKNeighborsRegressor", },
+                        {
+                            "primitive": "d3m.primitives.regression.k_neighbors.SKlearn",
+                            "hyperparameters":
+                            {
+                                'use_semantic_types': [True],
+                                'add_index_columns': [True],
+                            }},
                         # Support Vector Regression Method
-                        {"primitive": "d3m.primitives.sklearn_wrap.SKLinearSVR", },
+                        {
+                            "primitive": "d3m.primitives.regression.svr.SKlearn",
+                            "hyperparameters":
+                            {
+                                'use_semantic_types': [True],
+                                'add_index_columns': [True],
+                            }},
 
-                        {"primitive": "d3m.primitives.sklearn_wrap.SKSGDRegressor", },
-                        {"primitive": "d3m.primitives.sklearn_wrap.SKGradientBoostingRegressor", },
+                        {
+                            "primitive": "d3m.primitives.regression.sgd.SKlearn",
+                            "hyperparameters":
+                            {
+                                'use_semantic_types': [True],
+                                'add_index_columns': [True],
+                                'alpha': [(1)],
+                            }},
+                        {
+                            "primitive": "d3m.primitives.regression.gradient_boosting.SKlearn",
+                            "hyperparameters":
+                            {
+                                'use_semantic_types': [True],
+                                'add_index_columns': [True],
+                            }},
                     ],
                     "runtime": {
                         "cross_validation": 10,
@@ -711,7 +813,7 @@ class TemplateSteps:
         g = None
         try:
             g = index.get_primitive(primitive_name).metadata.query()["primitive_code"]["hyperparams"][parameter_name]['structural_type'](definition)
-        except:
-            print("[ERROR] Hyperparameter not valid!")
+        except Exception:
+            _logger.error(f"Hyperparameter not valid for {primitive_name}!")
             pass
         return g
