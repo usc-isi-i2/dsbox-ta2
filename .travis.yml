@@ -6,7 +6,7 @@ services:
  - docker
 env:
   global:
-   - OUTPUT=$HOME/ouput
+   - OUTPUT=$HOME/output
    - D3MCPU=3
    - D3MTIMEOUT=180
 before_install:
@@ -14,6 +14,6 @@ before_install:
  - docker build -f unit_tests/resources/dockerfile -t isi/dsbox_travis unit_tests/resources
 before_script:
  - mkdir $OUTPUT
- - docker run --entrypoint /user_opt/client.sh --name dsbox_container -e D3MRUN=ta2 -e D3MINPUTDIR=/input -e D3MOUTPUTDIR=/output -e D3MLOCALDIR=/tmp -e D3MSTATICDIR=/static -e D3MPROBLEMPATH=/input/TRAIN/problem_TRAIN/problemDoc.json -e D3MCPU=$D3MCPU -e D3MRAM=50 -e D3MTIMEOUT=$D3MTIMEOUT -v unit_tests/resources/38_sick/TRAIN/problem_TRAIN/problemDoc.json/input -v ${OUTPUT}:/output unit_tests/resources/dockerfile
+ - docker run --entrypoint /user_opt/client.sh --name dsbox_container -e D3MRUN=ta2 -e D3MINPUTDIR=/input -e D3MOUTPUTDIR=/output -e D3MLOCALDIR=/tmp -e D3MSTATICDIR=/static -e D3MPROBLEMPATH=/input/TRAIN/problem_TRAIN/problemDoc.json -e D3MCPU=$D3MCPU -e D3MRAM=50 -e D3MTIMEOUT=$D3MTIMEOUT -v $(pwd)/unit_tests/resources/38_sick/:/input -v ${OUTPUT}:/output isi/dsbox_travis:latest
 script:
  - python -W ignore -m unittest discover unit_tests
