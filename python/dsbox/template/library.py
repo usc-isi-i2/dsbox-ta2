@@ -1,6 +1,4 @@
 import copy
-import glob
-import json
 import logging
 import numpy as np
 import typing
@@ -1574,7 +1572,7 @@ class TimeSeriesForcastingTestingTemplate2(DSBoxTemplate):
                     ],
                     "inputs": ["timeseries_to_list_step"]
                 },
-                
+
                 {
                     "name": "profiler_step",
                     "primitives": ["d3m.primitives.schema_discovery.Profiler.DSBOX"],
@@ -1718,7 +1716,7 @@ class TemporaryObjectDetectionTemplate(DSBoxTemplate):
                     "name": "add_metadata_step", # step 7
                     "primitives": [{
                         "primitive": "d3m.primitives.data_transformation.add_semantic_types.DataFrameCommon",
-                        "hyperparameters": 
+                        "hyperparameters":
                             {
                                 "columns": (0,1,2,3),
                                 "semantic_types":('https://metadata.datadrivendiscovery.org/types/TrueTarget',),
@@ -2081,22 +2079,19 @@ class TA1VggImageProcessingRegressionTemplate(DSBoxTemplate):
                     ],
                     "inputs": ["dataframe_to_tensor"]
                 },
-                # 19 Feb 2019: Stop using PCA until issue is resolved
-                # https://gitlab.com/datadrivendiscovery/sklearn-wrap/issues/154
-                # {
-                #     "name": "PCA_step",
-                #     "primitives": [
-                #         {
-                #             "primitive": "d3m.primitives.data_transformation.pca.SKlearn",
-                #             "hyperparameters": {
-                #                 'add_index_columns': [True],
-                #                 'use_semantic_types': [True]
-                #             }
-                #         }
-                #     ],
-                #     "inputs": ["feature_extraction"]
-                # },
-
+                {
+                    "name": "PCA_step",
+                    "primitives": [
+                        {
+                            "primitive": "d3m.primitives.data_transformation.pca.SKlearn",
+                            "hyperparameters": {
+                                'add_index_columns': [True],
+                                'use_semantic_types': [True]
+                            }
+                        }
+                    ],
+                    "inputs": ["feature_extraction"]
+                },
                 {
                     "name": "regressor_step",
                     "primitives": [
@@ -2107,10 +2102,7 @@ class TA1VggImageProcessingRegressionTemplate(DSBoxTemplate):
                             }
                         }
                     ],
-                    # 19 Feb 2019: Stop using PCA until issue is resolved
-                    # https://gitlab.com/datadrivendiscovery/sklearn-wrap/issues/154
-                    # "inputs": ["PCA_step", "extract_target_step"]
-                    "inputs": ["feature_extraction", "extract_target_step"]
+                    "inputs": ["PCA_step", "extract_target_step"]
                 },
             ]
         }
@@ -2189,21 +2181,19 @@ class DefaultImageProcessingRegressionTemplate(DSBoxTemplate):
                     ],
                     "inputs": ["dataframe_to_tensor"]
                 },
-                # 19 Feb 2019: Stop using PCA until issue is resolved
-                # https://gitlab.com/datadrivendiscovery/sklearn-wrap/issues/154
-                # {
-                #     "name": "PCA_step",
-                #     "primitives": [
-                #         {
-                #             "primitive": "d3m.primitives.data_transformation.pca.SKlearn",
-                #             "hyperparameters": {
-                #                 'add_index_columns': [True],
-                #                 'use_semantic_types': [True]
-                #             }
-                #         }
-                #     ],
-                #     "inputs": ["feature_extraction"]
-                # },
+                {
+                    "name": "PCA_step",
+                    "primitives": [
+                        {
+                            "primitive": "d3m.primitives.data_transformation.pca.SKlearn",
+                            "hyperparameters": {
+                                'add_index_columns': [True],
+                                'use_semantic_types': [True]
+                            }
+                        }
+                    ],
+                    "inputs": ["feature_extraction"]
+                },
 
                 {
                     "name": "regressor_step",
@@ -2216,10 +2206,7 @@ class DefaultImageProcessingRegressionTemplate(DSBoxTemplate):
                             }
                         }
                     ],
-                    # 19 Feb 2019: Stop using PCA until issue is resolved
-                    # https://gitlab.com/datadrivendiscovery/sklearn-wrap/issues/154
-                    # "inputs": ["PCA_step", "extract_target_step"]
-                    "inputs": ["feature_extraction", "extract_target_step"]
+                    "inputs": ["PCA_step", "extract_target_step"]
                 },
             ]
         }

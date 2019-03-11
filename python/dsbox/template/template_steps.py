@@ -83,15 +83,15 @@ class TemplateSteps:
             {
                 "name": "scaler_step",
                 "primitives": [
-                    # {
-                    #     "primitive": "d3m.primitives.data_preprocessing.max_abs_scaler.SKlearn",
-                    #     "hyperparameters":
-                    #     {
-                    #         'use_semantic_types':[True],
-                    #         'return_result':['new'],
-                    #         'add_index_columns':[True],
-                    #     }
-                    # },
+                    {
+                        "primitive": "d3m.primitives.data_preprocessing.max_abs_scaler.SKlearn",
+                        "hyperparameters":
+                        {
+                            'use_semantic_types':[True],
+                            'return_result':['new'],
+                            'add_index_columns':[True],
+                        }
+                    },
                     {
                         "primitive": "d3m.primitives.normalization.IQRScaler.DSBOX",
                         "hyperparameters": {}
@@ -103,18 +103,16 @@ class TemplateSteps:
             {
                 "name": data,
                 "primitives": [
-                    # 19 Feb 2019: Stop using PCA until issue is resolved
-                    # https://gitlab.com/datadrivendiscovery/sklearn-wrap/issues/154
-                    # {
-                    #     "primitive": "d3m.primitives.data_transformation.pca.SKlearn",
-                    #     "hyperparameters":
-                    #     {
-                    #         'use_semantic_types': [True],
-                    #         'add_index_columns': [True],
-                    #         'return_result': ['new'],
-                    #         'n_components': [10, 15, 25]
-                    #     }
-                    # },
+                    {
+                        "primitive": "d3m.primitives.data_transformation.pca.SKlearn",
+                        "hyperparameters":
+                        {
+                            'use_semantic_types': [True],
+                            'add_index_columns': [True],
+                            'return_result': ['new'],
+                            'n_components': [10, 15, 25]
+                        }
+                    },
                     "d3m.primitives.data_preprocessing.DoNothing.DSBOX",
                 ],
                 "inputs": ["scaler_step"]
@@ -234,15 +232,13 @@ class TemplateSteps:
             {
                 "name": data,
                 "primitives": [
-                    # Feb 17, 2019: Do not use until issue is resolved
-                    # https://gitlab.com/datadrivendiscovery/sklearn-wrap/issues/153
-                    # {
-                    #     "primitive": "d3m.primitives.data_preprocessing.max_abs_scaler.SKlearn",
-                    #     "hyperparameters": {
-                    #         'add_index_columns': [True],
-                    #         'use_semantic_types': [True],
-                    #     }
-                    # },
+                    {
+                        "primitive": "d3m.primitives.data_preprocessing.max_abs_scaler.SKlearn",
+                        "hyperparameters": {
+                            'add_index_columns': [True],
+                            'use_semantic_types': [True],
+                        }
+                    },
                     {
                         "primitive": "d3m.primitives.normalization.IQRScaler.DSBOX",
                         "hyperparameters": {}
@@ -451,16 +447,14 @@ class TemplateSteps:
                         {
                             "primitive": "d3m.primitives.data_preprocessing.DoNothing.DSBOX",
                         },
-                        # 19 Feb 2019: Stop using PCA until issue is resolved
-                        # https://gitlab.com/datadrivendiscovery/sklearn-wrap/issues/154
-                        # {
-                        #     "primitive": "d3m.primitives.data_transformation.pca.SKlearn",
-                        #     "hyperparameters":
-                        #         {
-                        #             'add_index_columns': [True],
-                        #             'use_semantic_types':[True],
-                        #             'n_components': [(2), (4), (8), (16), (32), (64), (128)], }
-                        # },
+                        {
+                            "primitive": "d3m.primitives.data_transformation.pca.SKlearn",
+                            "hyperparameters":
+                                {
+                                    'add_index_columns': [True],
+                                    'use_semantic_types':[True],
+                                    'n_components': [(2), (4), (8), (16), (32), (64), (128)], }
+                        },
                         {
                             "primitive": "d3m.primitives.data_transformation.kernel_pca.SKlearn",
                             "hyperparameters":
@@ -672,14 +666,13 @@ class TemplateSteps:
                 {
                     "name": impute_name,
                     "primitives": [
-                        # Feb 17, 2019: Do not use until issue is resolved
-                        # https://gitlab.com/datadrivendiscovery/sklearn-wrap/issues/153
-                        # {
-                        #     "primitive": "d3m.primitives.data_preprocessing.max_abs_scaler.SKlearn",
-                        #     "hyperparameters": {
-                        #         'use_semantic_types': [True],
-                        #         'add_index_columns': [True],
-                        #     }},
+                        {
+                            "primitive": "d3m.primitives.data_preprocessing.max_abs_scaler.SKlearn",
+                            "hyperparameters": {
+                                'use_semantic_types': [True],
+                                'add_index_columns': [True],
+                            }
+                        },
                         {
                             "primitive": "d3m.primitives.normalization.IQRScaler.DSBOX",
                             "hyperparameters": {
@@ -687,9 +680,7 @@ class TemplateSteps:
                                 "add_index_columns": [True],
                             }
                         },
-
-                        # !!!! KYAO
-                        # {"primitive": "d3m.primitives.data_preprocessing.DoNothing.DSBOX", },
+                        {"primitive": "d3m.primitives.data_preprocessing.DoNothing.DSBOX", },
                     ],
                     "inputs": ["base_impute_step"]
                 },
