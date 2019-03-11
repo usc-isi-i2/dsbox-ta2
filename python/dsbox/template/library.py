@@ -86,7 +86,7 @@ class TemplateLibrary:
             "Michigan_Video_Classification_Template": MichiganVideoClassificationTemplate,
             "DefaultTimeseriesRegressionTemplate": DefaultTimeseriesRegressionTemplate,
             "TimeSeriesForcastingTestingTemplate": TimeSeriesForcastingTestingTemplate,
-            "TemporaryObjectDetectionTemplate": TemporaryObjectDetectionTemplate
+            "DefaultObjectDetectionTemplate": DefaultObjectDetectionTemplate
         }
 
         if run_single_template:
@@ -188,7 +188,7 @@ class TemplateLibrary:
         self.templates.append(DefaultTimeSeriesForcastingTemplate)
         self.templates.append(CMUClusteringTemplate)
         self.templates.append(MichiganVideoClassificationTemplate)
-        self.templates.append(TemporaryObjectDetectionTemplate)
+        self.templates.append(DefaultObjectDetectionTemplate)
         self.templates.append(JHUVertexNominationTemplate)
         self.templates.append(JHUGraphMatchingTemplate)
 
@@ -1636,11 +1636,11 @@ class TimeSeriesForcastingTestingTemplate2(DSBoxTemplate):
 ################################################################################################################
 
 
-class TemporaryObjectDetectionTemplate(DSBoxTemplate):
+class DefaultObjectDetectionTemplate(DSBoxTemplate):
     def __init__(self):
         DSBoxTemplate.__init__(self)
         self.template = {
-            "name": "TemporaryObjectDetectionTemplate",
+            "name": "DefaultObjectDetectionTemplate",
             "taskType": TaskType.OBJECT_DETECTION.name,
             # See TaskType, range include 'CLASSIFICATION', 'CLUSTERING', 'COLLABORATIVE_FILTERING',
             # 'COMMUNITY_DETECTION', 'GRAPH_CLUSTERING', 'GRAPH_MATCHING', 'LINK_PREDICTION',
@@ -1677,25 +1677,7 @@ class TemporaryObjectDetectionTemplate(DSBoxTemplate):
                     "inputs": ["to_dataframe_step"]
                 },
                 {
-                    "name": "to_tensor_step", #step 3
-                    "primitives": ["d3m.primitives.data_preprocessing.dataframe_to_tensor.DSBOX"],
-                    "inputs": ["extract_file_step"]
-                },
-                {
-                    "name": "image_processing_step",# step 4
-                    "primitives": [
-                        {
-                            "primitive": "d3m.primitives.feature_extraction.resnet50_image_feature.DSBOX",
-                            "hyperparameters": {
-                                'generate_metadata': [True]
-                            }
-                        }
-                    ],
-                    "inputs": ["to_tensor_step"]
-                },
-                # read Y value
-                {
-                    "name": "extract_target_step",# step 5
+                    "name": "extract_target_step",# step 3
                     "primitives": [{
                         "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.DataFrameCommon",
                         "hyperparameters":
@@ -1708,36 +1690,16 @@ class TemporaryObjectDetectionTemplate(DSBoxTemplate):
                     }],
                     "inputs": ["to_dataframe_step"]
                 },
-
                 {
-                    "name": "data_clean_step", # step 6
-                    "primitives": ["d3m.primitives.data_cleaning.cleaning_featurizer.DSBOX"],
-                    "inputs": ["extract_target_step"]
-                },
-                {
-                    "name": "add_metadata_step", # step 7
-                    "primitives": [{
-                        "primitive": "d3m.primitives.data_transformation.add_semantic_types.DataFrameCommon",
-                        "hyperparameters": 
-                            {
-                                "columns": (0,1,2,3),
-                                "semantic_types":('https://metadata.datadrivendiscovery.org/types/TrueTarget',),
-                            }
-                        }],
-                    "inputs": ["data_clean_step"]
-                },
-                {
-                    "name": "model_step", # step 8
+                    "name": "model_step", # step 4
                     "primitives": [
                         {
-                            "primitive": "d3m.primitives.regression.random_forest.SKlearn",
+                            "primitive": "d3m.primitives.feature_extraction.yolo.DSBOX",
                             "hyperparameters": {
-                                'add_index_columns': [True],
-                                'use_semantic_types':[True],
                             }
                         }
                     ],
-                    "inputs": ["image_processing_step", "add_metadata_step"]
+                    "inputs": ["extract_file_step", "extract_target_step"]
                 },
             ]
         }

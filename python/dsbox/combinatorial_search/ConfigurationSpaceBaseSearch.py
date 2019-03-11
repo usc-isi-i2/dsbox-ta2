@@ -654,19 +654,18 @@ def calculate_score(ground_truth: DataFrame, prediction: DataFrame,
         # special design for objectDetectionAP
         if metric_description["metric"] == "objectDetectionAP":
             if ground_truth is not None and prediction is not None:
-                training_image_name_column = ground_truth.iloc[:,
-                                             ground_truth.shape[1] - 2]
-                prediction.insert(loc=0, column='image_name',
-                                           value=training_image_name_column)
-                ground_truth_tosend = ground_truth.iloc[:,
-                                               ground_truth.shape[1] - 2:
-                                               ground_truth.shape[1]]
+                # training_image_name_column = ground_truth.iloc[:,
+                #                              ground_truth.shape[1] - 2]
+                # prediction.insert(loc=0, column='image_name',
+                #                            value=training_image_name_column)
+                ground_truth_to_send = ground_truth.iloc[:, ground_truth.shape[1] - 2: ground_truth.shape[1]]
+                prediction_to_send = prediction.iloc[:, prediction.shape[1] - 2: prediction.shape[1]]
                 result_metrics.append({
                     'column_name': ground_truth.columns[-1],
                     'metric': metric_description['metric'],
                     'value': metric(
-                        ground_truth_tosend.astype(str).values.tolist(),
-                        prediction.astype(str).values.tolist(),
+                        ground_truth_to_send.astype(str).values.tolist(),
+                        prediction_to_send.astype(str).values.tolist(),
                         **params
                     )
                 })
