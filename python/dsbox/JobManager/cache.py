@@ -2,7 +2,7 @@ import traceback
 import typing
 import copy
 import logging
-from multiprocessing import Manager, Lock
+from multiprocessing import Manager
 from dsbox.template.configuration_space import ConfigurationPoint
 from d3m.metadata.pipeline import PrimitiveStep
 from d3m.container.dataset import Dataset
@@ -63,8 +63,17 @@ class CacheManager:
 
 
         """
-        _logger.info("[INFO] cleanup Cache Manager. candidate_cache:{}".format(len(
-            self.candidate_cache.storage)))
+        _logger.info("Cleanup Cache Manager. candidate_cache:{} primitive_cache:{}".format(
+            len(self.candidate_cache.storage), len(self.primitive_cache.storage)))
+        self.candidate_cache.storage.clear()
+        self.primitive_cache.storage.clear()
+
+    def shutdown(self):
+        '''
+        Shutdown cache manager
+        '''
+        _logger.info("Shutdown Cache Manager. candidate_cache:{} primitive_cache:{}".format(
+            len(self.candidate_cache.storage), len(self.primitive_cache.storage)))
         for m in self.manager:
             m.shutdown()
 
@@ -137,11 +146,13 @@ class CandidateCache:
             assert match['status'] is not None
             assert match['configuration'] is not None
             for k in comparison_metrics:
+                # _logger.debug('_check_update_format: metric={k}')
                 if match['status'] == CandidateCache.S_INVALID:
                     update['status'] = CandidateCache.S_VALID
                 assert k in match
                 assert k in update
 
+                # _logger.debug('_check_update_format: update[k]={update[k]}')
                 assert update[k] is None or isinstance(update[k], list)
                 assert match[k] is None or isinstance(match[k], list)
 

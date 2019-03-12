@@ -1,6 +1,5 @@
 import logging
-import os
-import random
+import queue
 import time
 import traceback
 import typing
@@ -44,23 +43,29 @@ class TemplateSpaceParallelBaseSearch(TemplateSpaceBaseSearch[T]):
 
     """
 
-    def __init__(self, template_list: typing.List[DSBoxTemplate],
-                 performance_metrics: typing.List[typing.Dict],
-                 problem: Metadata, train_dataset1: Dataset,
-                 train_dataset2: typing.List[Dataset], test_dataset1: Dataset,
-                 test_dataset2: typing.List[Dataset], all_dataset: Dataset,
-                 ensemble_tuning_dataset: Dataset,
-                 output_directory: str, log_dir: str, timeout: int=55, num_proc: int=4) -> None:
+    def __init__(self, num_proc):
+        super().__init__(is_multiprocessing=True)
+        self.job_manager = DistributedJobManager(proc_num=num_proc)
+        self.timeout_sec = None
 
-        self.job_manager = DistributedJobManager(proc_num=num_proc, timeout=timeout)
+    def initialize_problem(self, template_list: typing.List[DSBoxTemplate],
+                           performance_metrics: typing.List[typing.Dict],
+                           problem: Metadata, train_dataset1: Dataset,
+                           train_dataset2: typing.List[Dataset], test_dataset1: Dataset,
+                           test_dataset2: typing.List[Dataset], all_dataset: Dataset,
+                           ensemble_tuning_dataset: Dataset,
+                           output_directory: str, log_dir: str,
+                           start_time: float = 0, timeout_sec: float = 3300) -> None:
+        # Start timer
+        self.job_manager.timeout_sec = timeout_sec
 
-        TemplateSpaceBaseSearch.__init__(
-            self=self,
+        super().initialize_problem(
             template_list=template_list, performance_metrics=performance_metrics,
             problem=problem, train_dataset1=train_dataset1, train_dataset2=train_dataset2,
             test_dataset1=test_dataset1, test_dataset2=test_dataset2, all_dataset=all_dataset,
-            ensemble_tuning_dataset = ensemble_tuning_dataset,
-            output_directory=output_directory, log_dir=log_dir
+            ensemble_tuning_dataset=ensemble_tuning_dataset,
+            output_directory=output_directory, log_dir=log_dir,
+            start_time=start_time, timeout_sec=timeout_sec
         )
 
         # setup the execution history to store the results of each template separately
@@ -107,12 +112,11 @@ class TemplateSpaceParallelBaseSearch(TemplateSpaceBaseSearch[T]):
         self.cacheManager.cleanup()
 
         # cleanup job manager
-        self.job_manager.kill_job_mananger()
+        self.job_manager.reset()
 
         return self.history.get_best_history()
 
-
-    def _get_evaluation_results(self, max_num: int=float('inf')) -> None:
+    def _get_evaluation_results(self, max_num: int = float('inf')) -> None:
         """
         The process is sleeped on jobManager's result queue until a result is ready, then it pops
         the results and updates history and candidate's cache with it. The method repeats this
@@ -124,16 +128,26 @@ class TemplateSpaceParallelBaseSearch(TemplateSpaceBaseSearch[T]):
         """
         _logger.debug("Waiting for the results")
         counter = 0
-        while (counter < max_num) and (not self.job_manager.is_idle()):
-            # print("[INFO] Sleeping,", counter)
-            _logger.debug(f"Main Process Sleeping:{counter}")
-            (kwargs_bundle, report) = self.job_manager.pop_job(block=True)
-            _logger.warning(f"kwargs: {kwargs_bundle}")
+        try:
+            wait_seconds = self.start_time + self.timeout_sec - time.perf_counter()
+            while (counter < max_num) and (not self.job_manager.is_idle()) and wait_seconds > 15:
+                # print("[INFO] Sleeping,", counter)
+                _logger.info(f"Main Process jobs_completed:{counter}, timeout={wait_seconds}")
+                if wait_seconds > 15:
+                    (kwargs_bundle, report) = self.job_manager.pop_job(block=True, timeout=wait_seconds)
+                    _logger.warning(f"kwargs: {kwargs_bundle}")
 
-            self._add_report_to_history(kwargs_bundle, report)
+                    self._add_report_to_history(kwargs_bundle, report)
 
-            counter += 1
-        _logger.debug("[INFO] No more pending job")
+                counter += 1
+                wait_seconds = self.start_time + self.timeout_sec - time.perf_counter()
+
+            if wait_seconds > 15:
+                _logger.info("No more pending job")
+            else:
+                _logger.info("Timing out. Cannot wait for pending job.")
+        except queue.Empty:
+            _logger.info("Timed out waiting for pending job")
 
     def _push_random_candidates(self, num_iter: int):
         """
@@ -239,3 +253,7 @@ class TemplateSpaceParallelBaseSearch(TemplateSpaceBaseSearch[T]):
 
         self._add_report_to_history(kwargs_bundle=kwargs_bundle, report=report)
         return report
+
+    def shutdown(self):
+        super().shutdown()
+        self.job_manager.kill_job_manager()

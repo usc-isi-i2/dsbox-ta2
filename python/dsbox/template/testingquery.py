@@ -2,8 +2,8 @@ from d3m import exceptions, utils, index
 import numpy as np
 import typing
 primitives = index.search()
-i = (primitives["d3m.primitives.sklearn_wrap.SKGradientBoostingClassifier"].metadata.query()["primitive_code"]["class_type_arguments"]["Inputs"])
-o = (primitives["d3m.primitives.sklearn_wrap.SKGradientBoostingClassifier"].metadata.query()["primitive_code"]["class_type_arguments"]["Outputs"])
+i = (primitives["d3m.primitives.classification.gradient_boosting.SKlearn"].metadata.query()["primitive_code"]["class_type_arguments"]["Inputs"])
+o = (primitives["d3m.primitives.classification.gradient_boosting.SKlearn"].metadata.query()["primitive_code"]["class_type_arguments"]["Outputs"])
 # print(i and o)  # can use it  i and o = i
 print(i == o)
 print(i.__args__)
@@ -13,8 +13,8 @@ print(o in i.__args__)
 # print(len(o))
 # print(type(i))
 # print(type(o))
-# i = (primitives["d3m.primitives.sklearn_wrap.SKGradientBoostingClassifier"].metadata.query()["primitive_code"]["class_type_arguments"]["Inputs"])
-# o = (primitives["d3m.primitives.sklearn_wrap.SKGradientBoostingClassifier"].metadata.query()["primitive_code"]["class_type_arguments"]["Outputs"])
+# i = (primitives["d3m.primitives.classification.gradient_boosting.SKlearn"].metadata.query()["primitive_code"]["class_type_arguments"]["Inputs"])
+# o = (primitives["d3m.primitives.classification.gradient_boosting.SKlearn"].metadata.query()["primitive_code"]["class_type_arguments"]["Outputs"])
 # print(type(i) == typing.Union)
 # print(primitives["d3m.primitives.common_primitives.RandomForestClassifier"].metadata.query())
 # check = np.zeros(shape=(len(primitives), len(primitives)))
@@ -37,7 +37,7 @@ print(o in i.__args__)
 #     print("====outputs====", primitives["d3m.primitives.common_primitives.RandomForestClassifier"].metadata.query()["primitive_code"]["class_type_arguments"]["Outputs"])
 # i, j...
 # print(check)
-# d3m.primitives.sklearn_wrap.SKGradientBoostingClassifier
+# d3m.primitives.classification.gradient_boosting.SKlearn
 # ====inputs==== typing.Union[d3m.container.pandas.DataFrame, d3m.container.numpy.ndarray]
 # ====outputs==== <class 'd3m.container.numpy.ndarray'>
 # d3m.primitives.common_primitives.ImageReader

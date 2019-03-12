@@ -1,0 +1,43 @@
+FROM registry.datadrivendiscovery.org/jpl/docker_images/complete:ubuntu-artful-python36-v2019.2.18-20190228-054439
+
+RUN mkdir -p /user_opt
+RUN mkdir -p /output
+RUN mkdir -p /input
+
+ENV CODE /user_opt/dsbox
+ENV TA2 $CODE/dsbox-ta2/python
+
+RUN pip3 install --upgrade pip
+
+RUN mkdir $CODE
+
+RUN cd $CODE && ls -l
+
+# Already in complete image
+# RUN cd $CODE && pip3 install -e git+https://gitlab.com/datadrivendiscovery/sklearn-wrap@dev-dist#egg=sklearn-wrap
+# RUN cd $CODE && pip3 install -e git+https://gitlab.com/datadrivendiscovery/common-primitives@devel#egg=common-primitives
+RUN cd $CODE && pip3 install -e git+https://gitlab.com/datadrivendiscovery/ta3ta2-api@7c5f8b30c8002042cfb9c1f14629909d430daebc#egg=ta3ta2-api
+
+RUN cd $CODE && pip3 install -e git+https://github.com/usc-isi-i2/dsbox-cleaning@devel#egg=dsbox-datacleaning
+RUN cd $CODE && pip3 install -e git+https://github.com/usc-isi-i2/dsbox-featurizer@devel#egg=dsbox-featurizer
+RUN cd $CODE && pip3 install -e git+https://github.com/brekelma/dsbox_corex#egg=dsbox-corex
+
+# RUN cd $CODE && pip3 install -e git+https://gitlab.com/datadrivendiscovery/dummy-ta3.git#egg=dummy_ta3
+RUN cd $CODE && pip3 install -e git+https://gitlab.com/datadrivendiscovery/dummy-ta3@38b2c34133a65abff175009c92165c004031a9c4#egg=dummy_ta3
+
+# RUN cd $CODE && pip3 install -e git+https://oauth2:CZkuJ1JxedRAP8Mue3av@gitlab.datadrivendiscovery.org/kyao/nist_eval_output_validation_scoring.git#egg=d3m_outputs
+RUN cd $CODE && pip3 install -e git+https://oauth2:CZkuJ1JxedRAP8Mue3av@gitlab.datadrivendiscovery.org/kyao/nist_eval_output_validation_scoring@0b657f5c742501a2915b06d55ef8c90caea96727#egg=d3m_outputs
+
+RUN cd $CODE \
+&& git clone https://github.com/usc-isi-i2/dsbox-ta2.git \
+&& cd dsbox-ta2 \
+&& git checkout development \
+&& pip install -r requirements.txt
+
+COPY d3mStart.sh /user_opt
+COPY client.sh /user_opt
+COPY score-predictions.sh /user_opt
+
+RUN chmod a+x /user_opt/d3mStart.sh /user_opt/client.sh /user_opt/score-predictions.sh
+
+CMD ["/user_opt/d3mStart.sh"]

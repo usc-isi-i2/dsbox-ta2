@@ -1,20 +1,20 @@
 {
   "about": {
-    "problemID": "38_sk_problem_TRAIN",
+    "problemID": "38_sick_problem_TRAIN",
     "problemName": "NULL",
     "taskType": "classification",
     "taskSubType": "binary",
-    "problemVersion": "1.0",
-    "problemSchemaVersion": "3.1.1"
+    "problemVersion": "2.0",
+    "problemSchemaVersion": "3.2.0"
   },
   "inputs": {
     "data": [
       {
-        "datasetID": "38_sk_dataset_TRAIN",
+        "datasetID": "38_sick_dataset_TRAIN",
         "targets": [
           {
             "targetIndex": 0,
-            "resID": "0",
+            "resID": "learningData",
             "colIndex": 30,
             "colName": "Class"
           }

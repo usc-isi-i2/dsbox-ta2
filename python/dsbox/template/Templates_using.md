@@ -246,7 +246,7 @@
 | encode_other_step                          |                                                                   dsbox.Encoder,   dsbox.Labler |
 | impute_step                                |                                        dsbox.MeanImputation,dsbox.IterativeRegressionImputation |
 | scaler_step                                |                                                  sklearn_wrap.SKMaxAbsScaler,   dsbox.DoNothing |
-| model_step                                 | sklearn_wrap.SKRidge, sklearn_wrap.SKLars,   d3m.primitives.sklearn_wrap.SKKNeighborsRegressor, d3m.primitives.sklearn_wrap.SKLinearSVR, d3m.primitives.sklearn_wrap.SKSGDRegressor, d3m.primitives.sklearn_wrap.SKGradientBoostingRegressor|
+| model_step                                 | sklearn_wrap.SKRidge, sklearn_wrap.SKLars,   d3m.primitives.regression.k_neighbors.SKlearn, d3m.primitives.regression.svr.SKlearn, d3m.primitives.regression.sgd.SKlearn, d3m.primitives.regression.gradient_boosting.SKlearn|
 
 
 ## **Large_column_number_with_numerical_only_classification**

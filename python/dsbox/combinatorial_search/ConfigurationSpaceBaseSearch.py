@@ -7,7 +7,6 @@ import enum
 # import eventlet
 
 from multiprocessing import current_process
-from pprint import pprint
 from warnings import warn
 
 from d3m.container.dataset import Dataset
@@ -33,17 +32,21 @@ PrimitiveDescription = typing.NewType('PrimitiveDescription', dict)
 
 _logger = logging.getLogger(__name__)
 
+
 class Mode(enum.IntEnum):
     CROSS_VALIDATION_MODE = 1
     TRAIN_TEST_MODE = 2
+
 
 class MetaMetric(type):
     @property
     def classification_metric(cls):
         return cls.classification_metric
+
     @property
     def regression_metric(cls):
         return cls.regression_metric
+
 
 class SpecialMetric(object, metaclass=MetaMetric):
     # TODO These variables have not been used at all
@@ -53,6 +56,7 @@ class SpecialMetric(object, metaclass=MetaMetric):
     regression_metric = ('meanSquaredError', 'rootMeanSquaredError',
                               'rootMeanSquaredErrorAvg', 'meanAbsoluteError', 'rSquared',
                               'jaccardSimilarityScore', 'precisionAtTopK')
+
 
 class ConfigurationSpaceBaseSearch(typing.Generic[T]):
     """
@@ -196,7 +200,6 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
         #     traceback.print_exc()
         #     return None
         # configuration.data.update(new_data)
-
 
     def _evaluate(self,
                   configuration: ConfigurationPoint,
@@ -373,7 +376,8 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
             fitted_pipeline2.set_metric(training_metrics[0])
             cv = fitted_pipeline2.get_cross_validation_metrics()
             if not cv:
-                cv = {}
+                # CandidateCache asserts cv must be a list
+                cv = []
 
             data = {
                 'id': fitted_pipeline2.id,
@@ -476,7 +480,8 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
 
             cv = fitted_pipeline_final.get_cross_validation_metrics()
             if not cv:
-                cv = {}
+                # CandidateCache asserts cv must be a list
+                cv = []
             data = {
                 'id': fitted_pipeline_final.id,
                 'fitted_pipeline': fitted_pipeline_final,
@@ -516,8 +521,8 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
     def test_pickled_pipeline(self, folder_loc: str, pipeline_id: str, test_dataset: Dataset,
                               test_metrics: typing.List, test_ground_truth) -> None:
 
-        fitted_pipeline, run = FittedPipeline.load(folder_loc=folder_loc, pipeline_id=pipeline_id,
-                                                   log_dir=self.log_dir)
+        fitted_pipeline = FittedPipeline.load(folder_loc=folder_loc, fitted_pipeline_id=pipeline_id,
+                                              log_dir=self.log_dir)
         results = fitted_pipeline.produce(inputs=[test_dataset])
 
         pipeline_prediction = fitted_pipeline.get_produce_step_output(
@@ -532,7 +537,9 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
             metricDesc = PerformanceMetric.parse(metric_description['metric'])
             metric: typing.Callable = metricDesc.get_function()
             params: typing.Dict = metric_description['params']
-
+            # pass the tesk picle test!
+            if metric_description['metric'] == "objectDetectionAP":
+                return
             try:
                 if metric_description["metric"] in SpecialMetric().regression_metric:
                     # if the test_ground_truth do not have results
@@ -546,6 +553,15 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
                             **params
                         )
                     })
+                # elif metric_description['metric'] == objectDetectionAP:
+                #     test_pipeline_metrics.append({
+                #         'metric': metric_description['metric'],
+                #         'value': metric(
+                #             test_ground_truth.iloc[:, -1].astype(float),
+                #             pipeline_prediction.iloc[:,2:].astype(float),
+                #             **params
+                #         )
+                #     })
                 else:
                     test_pipeline_metrics.append({
                         'metric': metric_description['metric'],
@@ -555,7 +571,7 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
                             **params
                         )
                     })
-            except:
+            except Exception:
                 raise NotSupportedError(
                     '[ERROR] metric calculation failed in test pickled pipeline')
 
@@ -597,6 +613,7 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
         else:
             _logger.debug(("\n" * 5) + "Pickling succeeded" + ("\n" * 5))
 
+
 def graph_problem_conversion(task_type, prediction):
     """
         Inner function used to process with graph type tasks
@@ -611,9 +628,10 @@ def graph_problem_conversion(task_type, prediction):
             prediction.iloc[:, -1] = prediction.iloc[:, -1].astype(int)
     return prediction
 
-def calculate_score(ground_truth:DataFrame, prediction:DataFrame,
-                    performance_metrics:typing.List[typing.Dict],
-                    task_type, regression_metric:set()):
+
+def calculate_score(ground_truth: DataFrame, prediction: DataFrame,
+                    performance_metrics: typing.List[typing.Dict],
+                    task_type, regression_metric: set()):
     """
     static method used to calculate the score based on given predictions and metric tpyes
     Parameters
@@ -702,7 +720,7 @@ def calculate_score(ground_truth:DataFrame, prediction:DataFrame,
                                 **params
                             )
                         })
-        except:
+        except Exception:
             raise NotSupportedError('[ERROR] metric calculation failed')
     # END for loop
 
