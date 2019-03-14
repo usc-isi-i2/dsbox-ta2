@@ -106,7 +106,7 @@ class Controller:
             self.template_library = TemplateLibrary(run_single_template=run_single_template_name)
         else:
             self.template_library = TemplateLibrary()
-        self.template: typing.List[DSBoxTemplate] = []
+        self.template_list: typing.List[DSBoxTemplate] = []
         self.max_split_times = 1
 
         # Primitives
@@ -420,7 +420,7 @@ class Controller:
 
     def _run_SerialBaseSearch(self, report_ensemble, *, one_pipeline_only=False):
         self._search_method.initialize_problem(
-            template_list=self.template,
+            template_list=self.template_list,
             performance_metrics=self.config.problem['problem']['performance_metrics'],
             problem=self.config.problem_metadata,
             test_dataset1=self.test_dataset1,
@@ -442,7 +442,7 @@ class Controller:
 
     def _run_ParallelBaseSearch(self, report_ensemble):
         self._search_method.initialize_problem(
-            template_list=self.template,
+            template_list=self.template_list,
             performance_metrics=self.config.problem['problem']['performance_metrics'],
             problem=self.config.problem_metadata,
             test_dataset1=self.test_dataset1,
@@ -467,7 +467,7 @@ class Controller:
     def _run_RandomDimSearch(self, report_ensemble):
         # !! Need to updated
         self._search_method = RandomDimensionalSearch(
-            template_list=self.template,
+            template_list=self.template_list,
             performance_metrics=self.config.problem['problem']['performance_metrics'],
             problem=self.config.problem_metadata,
             test_dataset1=self.test_dataset1,
@@ -491,7 +491,7 @@ class Controller:
     def _run_BanditDimSearch(self, report_ensemble):
         # !! Need to updated
         self._search_method = BanditDimensionalSearch(
-            template_list=self.template,
+            template_list=self.template_list,
             performance_metrics=self.config.problem['problem']['performance_metrics'],
             problem=self.config.problem_metadata,
             test_dataset1=self.test_dataset1,
@@ -516,7 +516,7 @@ class Controller:
     def _run_MultiBanditSearch(self, report_ensemble):
         # !! Need to updated
         self._search_method = MultiBanditSearch(
-            template_list=self.template,
+            template_list=self.template_list,
             performance_metrics=self.config.problem['problem']['performance_metrics'],
             problem=self.config.problem_metadata,
             test_dataset1=self.test_dataset1,
@@ -805,11 +805,11 @@ class Controller:
         return self.config.output_dir, pipeline_load, read_pipeline_id, pipeline_load.runtime
 
     def load_templates(self) -> None:
-        self.template = self.template_library.get_templates(self.config.task_type,
-                                                            self.config.task_subtype,
-                                                            self.taskSourceType)
+        self.template_list = self.template_library.get_templates(self.config.task_type,
+                                                                 self.config.task_subtype,
+                                                                 self.taskSourceType)
         # find the maximum dataset split requirements
-        for each_template in self.template:
+        for each_template in self.template_list:
             for each_step in each_template.template['steps']:
                 if "runtime" in each_step and "test_validation" in each_step["runtime"]:
                     split_times = int(each_step["runtime"]["test_validation"])
@@ -1159,7 +1159,7 @@ class Controller:
         """
         Generate and train pipelines.
         """
-        if not self.template:
+        if not self.template_list:
             return Status.PROBLEM_NOT_IMPLEMENT
 
         self._check_and_set_dataset_metadata()
