@@ -105,7 +105,7 @@ class EnsembleTuningPipeline:
             step_outputs.append(each_step.add_output('output'))
 
         concat_step = pipeline_module.PrimitiveStep({
-            "python_path": "d3m.primitives.dsbox.VerticalConcat",
+            "python_path": "d3m.primitives.data_preprocessing.vertical_concat.DSBOX",
             "id": "dsbox-vertical-concat",
             "version": "1.3.0",
             "name": "DSBox vertically concat"})
@@ -124,7 +124,7 @@ class EnsembleTuningPipeline:
             concat_step_output = each_concact_step.add_output('produce')
 
         vote_step = pipeline_module.PrimitiveStep({
-            "python_path": "d3m.primitives.dsbox.EnsembleVoting",
+            "python_path": "d3m.primitives.data_preprocessing.ensemble_voting.DSBOX",
             "id": "dsbox-ensemble-voting",
             "version": "1.3.0",
             "name": "DSBox ensemble voting"})
@@ -192,7 +192,7 @@ class EnsembleTuningPipeline:
             all_predictions_id = {}
             '''
                 These 3 dictionary saves the correspondinng best pipelines of each model method
-                The key is the model step's name, e.g.: "d3m.primitives.sklearn_wrap.SKSGDClassifier"
+                The key is the model step's name, e.g.: "d3m.primitives.classification.sgd.SKlearn"
                 memo: save the test metric scores
                 all_predicionts: save the detail prediction results on ensemble_dataset
                 all_predicionts_id: save the pipeline id of the best pipelines
@@ -282,7 +282,7 @@ class HorizontalTuningPipeline(EnsembleTuningPipeline):
                  candidate_choose_method: str = 'lastStep',
                  report = None, problem = None,
                  problem_doc_metadata = None,
-                 final_step_primitive: str = "d3m.primitives.sklearn_wrap.SKBernoulliNB"):
+                 final_step_primitive: str = "d3m.primitives.classification.bernoulli_naive_bayes.SKlearn"):
         super().__init__(pipeline_files_dir, log_dir,
                  train_dataset, test_dataset,
                  pids, candidate_choose_method, report,
@@ -306,7 +306,7 @@ class HorizontalTuningPipeline(EnsembleTuningPipeline):
             step_outputs.append(each_step.add_output('output'))
 
         concat_step = pipeline_module.PrimitiveStep({
-            "python_path": "d3m.primitives.dsbox.HorizontalConcat",
+            "python_path": "d3m.primitives.data_preprocessing.horizontal_concat.DSBOX",
             "id": "dsbox-horizontal-concat",
             "version": "1.3.0",
             "name": "DSBox horizontal concat"
@@ -324,7 +324,7 @@ class HorizontalTuningPipeline(EnsembleTuningPipeline):
             # update concat_step_output
             concat_step_output = each_concact_step.add_output('produce')
 
-        encode_res_step = pipeline_module.PrimitiveStep(dict(d3m_index.get_primitive("d3m.primitives.dsbox.Encoder").metadata.query()))
+        encode_res_step = pipeline_module.PrimitiveStep(dict(d3m_index.get_primitive("d3m.primitives.data_preprocessing.encoder.DSBOX").metadata.query()))
         encode_res_step.add_argument(name="inputs", argument_type=pipeline_module.ArgumentType.CONTAINER, data_reference=concat_step_output)
         self.big_pipeline.add_step(encode_res_step)
         encode_res_step_output = encode_res_step.add_output("produce")
@@ -398,15 +398,15 @@ class HorizontalTuningPipeline(EnsembleTuningPipeline):
     def preprocessing_pipeline(self):
         preprocessing_pipeline = pipeline_module.Pipeline('big', context=pipeline_module.PipelineContext.TESTING)
         initial_input = preprocessing_pipeline.add_input(name="inputs")
-        denormalize_step = pipeline_module.PrimitiveStep(dict(d3m_index.get_primitive("d3m.primitives.dsbox.Denormalize").metadata.query()))
+        denormalize_step = pipeline_module.PrimitiveStep(dict(d3m_index.get_primitive("d3m.primitives.normalization.denormalize.DSBOX").metadata.query()))
         denormalize_step.add_argument(name="inputs", argument_type=pipeline_module.ArgumentType.CONTAINER, data_reference=initial_input)
         preprocessing_pipeline.add_step(denormalize_step)
         denormalize_step_output = denormalize_step.add_output('produce')
-        to_dataframe_step = pipeline_module.PrimitiveStep(dict(d3m_index.get_primitive("d3m.primitives.datasets.DatasetToDataFrame").metadata.query()))
+        to_dataframe_step = pipeline_module.PrimitiveStep(dict(d3m_index.get_primitive("d3m.primitives.data_transformation.dataset_to_dataframe.Common").metadata.query()))
         to_dataframe_step.add_argument(name="inputs", argument_type=pipeline_module.ArgumentType.CONTAINER, data_reference=denormalize_step_output)
         preprocessing_pipeline.add_step(to_dataframe_step)
         to_dataframe_step_output = to_dataframe_step.add_output("produce")
-        extract_attribute_step = pipeline_module.PrimitiveStep(dict(d3m_index.get_primitive("d3m.primitives.data.ExtractColumnsBySemanticTypes").metadata.query()))
+        extract_attribute_step = pipeline_module.PrimitiveStep(dict(d3m_index.get_primitive("d3m.primitives.data_transformation.extract_columns_by_semantic_types.DataFrameCommon").metadata.query()))
         extract_attribute_step.add_argument(name="inputs", argument_type=pipeline_module.ArgumentType.CONTAINER, data_reference=to_dataframe_step_output)
         preprocessing_pipeline.add_step(extract_attribute_step)
         extract_attribute_step_output = extract_attribute_step.add_output("produce")
@@ -414,31 +414,31 @@ class HorizontalTuningPipeline(EnsembleTuningPipeline):
                                         'https://metadata.datadrivendiscovery.org/types/PrimaryKey',
                                         'https://metadata.datadrivendiscovery.org/types/Attribute',
                                         ))
-        profiler_step = pipeline_module.PrimitiveStep(dict(d3m_index.get_primitive("d3m.primitives.dsbox.Profiler").metadata.query()))
+        profiler_step = pipeline_module.PrimitiveStep(dict(d3m_index.get_primitive("d3m.primitives.schema_discovery.profiler.DSBOX").metadata.query()))
         profiler_step.add_argument(name="inputs", argument_type=pipeline_module.ArgumentType.CONTAINER, data_reference=extract_attribute_step_output)
         preprocessing_pipeline.add_step(profiler_step)
         profiler_step_output = profiler_step.add_output("produce")
-        clean_step = pipeline_module.PrimitiveStep(dict(d3m_index.get_primitive("d3m.primitives.dsbox.CleaningFeaturizer").metadata.query()))
+        clean_step = pipeline_module.PrimitiveStep(dict(d3m_index.get_primitive("d3m.primitives.data_cleaning.cleaning_featurizer.DSBOX").metadata.query()))
         clean_step.add_argument(name="inputs", argument_type=pipeline_module.ArgumentType.CONTAINER, data_reference=profiler_step_output)
         preprocessing_pipeline.add_step(clean_step)
         clean_step_output = clean_step.add_output("produce")
-        corex_step = pipeline_module.PrimitiveStep(dict(d3m_index.get_primitive("d3m.primitives.dsbox.CorexText").metadata.query()))
+        corex_step = pipeline_module.PrimitiveStep(dict(d3m_index.get_primitive("d3m.primitives.feature_construction.corex_text.CorexText").metadata.query()))
         corex_step.add_argument(name="inputs", argument_type=pipeline_module.ArgumentType.CONTAINER, data_reference=clean_step_output)
         preprocessing_pipeline.add_step(corex_step)
         corex_step_output = corex_step.add_output("produce")
-        encoder_step = pipeline_module.PrimitiveStep(dict(d3m_index.get_primitive("d3m.primitives.dsbox.Encoder").metadata.query()))
+        encoder_step = pipeline_module.PrimitiveStep(dict(d3m_index.get_primitive("d3m.primitives.data_preprocessing.encoder.DSBOX").metadata.query()))
         encoder_step.add_argument(name="inputs", argument_type=pipeline_module.ArgumentType.CONTAINER, data_reference=corex_step_output)
         preprocessing_pipeline.add_step(encoder_step)
         encoder_step_output = encoder_step.add_output("produce")
-        impute_step = pipeline_module.PrimitiveStep(dict(d3m_index.get_primitive("d3m.primitives.dsbox.MeanImputation").metadata.query()))
+        impute_step = pipeline_module.PrimitiveStep(dict(d3m_index.get_primitive("d3m.primitives.data_preprocessing.mean_imputation.DSBOX").metadata.query()))
         impute_step.add_argument(name="inputs", argument_type=pipeline_module.ArgumentType.CONTAINER, data_reference=encoder_step_output)
         preprocessing_pipeline.add_step(impute_step)
         impute_step_output = impute_step.add_output("produce")
-        scalar_step = pipeline_module.PrimitiveStep(dict(d3m_index.get_primitive("d3m.primitives.dsbox.IQRScaler").metadata.query()))
+        scalar_step = pipeline_module.PrimitiveStep(dict(d3m_index.get_primitive("d3m.primitives.normalization.iqr_scaler.DSBOX").metadata.query()))
         scalar_step.add_argument(name="inputs", argument_type=pipeline_module.ArgumentType.CONTAINER, data_reference=impute_step_output)
         preprocessing_pipeline.add_step(scalar_step)
         scalar_step_output = scalar_step.add_output("produce")
-        extract_target_step = pipeline_module.PrimitiveStep(dict(d3m_index.get_primitive("d3m.primitives.data.ExtractColumnsBySemanticTypes").metadata.query()))
+        extract_target_step = pipeline_module.PrimitiveStep(dict(d3m_index.get_primitive("d3m.primitives.data_transformation.extract_columns_by_semantic_types.DataFrameCommon").metadata.query()))
         extract_target_step.add_argument(name="inputs", argument_type=pipeline_module.ArgumentType.CONTAINER, data_reference=to_dataframe_step_output)
         preprocessing_pipeline.add_step(extract_target_step)
         extract_target_step_output = extract_target_step.add_output("produce")
