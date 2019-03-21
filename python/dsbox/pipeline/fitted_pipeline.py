@@ -206,6 +206,8 @@ class FittedPipeline:
             structure['pipeline_rank'] = rank
             structure['metric'] = metric
             structure['metric_value'] = value
+            if "values" in self.metric:
+                structure['k_fold_validation_score'] = self.metric["values"]
         else:
             _logger.warn("Metric type of the pipeline is unknown, unable to calculate the rank of the pipeline")
 

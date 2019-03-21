@@ -592,6 +592,76 @@ class Controller:
             self.ensemble_voting_candidate_choose_method = 'lastStep'
             # self.ensemble_voting_candidate_choose_method = 'resultSimilarity'
 
+    def do_data_augmentation(self, input_all_dataset: Dataset) -> Dataset:
+        """
+            use datamart primitives to do data augmentation on given dataset
+            return the augmented dataset (if success)            
+        """
+
+        query_about = ""
+        augment = self.config.problem["data_augmentation"]
+        for each_augment in augment:
+            if query_about != "":
+                query_about += ", "
+            query_about += ", ".join(each_augment["keywords"]) + ", " + ", ".join(each_augment["domain"])
+
+        can_query_columns = []
+        for each in range(len(self.all_dataset[self.problem_info["res_id"]].columns)):
+            selector = (self.problem_info["res_id"], ALL_ELEMENTS, each)
+            each_column_meta = self.all_dataset.metadata.query(selector)
+            if 'http://schema.org/Text' in each_column_meta["semantic_types"]:
+                can_query_columns.append(each_column_meta['name'])
+
+        if len(can_query_columns) == 0:
+            self._logger.warn("No columns can be augment!")
+            return self.all_dataset
+
+        from dsbox.datapreprocessing.cleaner.datamart_query_from_dataframe import QueryFromDataframe ,QueryFromDataFrameHyperparams
+        query_hyperparams = QueryFromDataFrameHyperparams.defaults()
+        for each_column in can_query_columns:
+            query_json = {
+                "dataset": {
+                    "about": query_about
+                    # Not used for now
+                    # TODO: add NLP to extract more features
+                    # "description": ["FIFA", "worldcup", "Soccer game", "European Cup"]
+                },
+                "required_variables": [
+                    {
+                        "type": "dataframe_columns",
+                        "names": [each_column]
+                    }
+                ]
+                # Not used for now
+                # ,
+                # "desired_variables": [
+                #     {
+                #         "type": "generic_entity",
+                #         "about": "score_winner",
+                #         "variable_syntactic_type": [
+                #             "http://schema.org/Text"
+                #         ]
+                #     }
+                # ]
+            }
+
+            import pdb
+            pdb.set_trace()
+            query_hyperparams = query_hyperparams.replace({"query":query_json})
+            query_primitive = QueryFromDataframe(hyperparams = query_hyperparams)
+            result = query_primitive.produce(inputs = self.all_dataset[self.problem_info["res_id"]])
+            from dsbox.datapreprocessing.cleaner.datamart_augment import DatamartAugmentation ,DatamartAugmentationHyperparams
+            augment_hyperparams = DatamartAugmentationHyperparams.defaults()
+            augment_primitive = DatamartAugmentation(hyperparams = augment_hyperparams)
+            augment_primitive.produce(inputs1 = result.value, inputs2 = self.all_dataset[self.problem_info["res_id"]])
+            '''
+            # used for join
+            for each_result in result:
+                queried_dataframe = each_result.materialize() 
+                right_column_number = queried_dataframe.columns.index(each_column)
+                left_column_number = self.all_dataset[self.problem_info["res_id"]].columns.index(each_column)
+            '''
+
     def add_d3m_index_and_prediction_class_name(self, prediction, from_dataset = None):
         """
             The function to process the prediction results
@@ -746,6 +816,8 @@ class Controller:
         all_dataset_uri = 'file://{}'.format(json_file)
         self.all_dataset = loader.load(dataset_uri=all_dataset_uri)
 
+        if "data_augmentation" in self.config.problem:
+            self.all_dataset = self.do_data_augmentation(self.all_dataset)
         # load templates
         self.load_templates()
 
@@ -1437,8 +1509,13 @@ class Controller:
         # if necessary, we need to make a second split
         if self.max_split_times > 0:
             # make n times of different spliting results
+            if self.max_split_times == 5:
+                test_size = 0.2
+            else:
+                test_size = 0.1
+
             self.train_dataset2, self.test_dataset2 = self.split_dataset(
-                dataset=self.train_dataset1, test_size=0.1, n_splits=self.max_split_times)
+                dataset=self.train_dataset1, test_size=test_size, n_splits=self.max_split_times)
             if len(self.train_dataset2) < 1:
                 self._logger.error(
                     "Some error happend with train_dataset1 split: The length of splitted dataset "
