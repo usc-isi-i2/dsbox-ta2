@@ -99,7 +99,7 @@ class TemplateLibrary:
     def get_templates(self, task: TaskType, subtype: TaskSubtype, taskSourceType: SEMANTIC_TYPES) \
             -> typing.List[DSBoxTemplate]:
         results = []
-        results.append(SRIMeanBaselineTemplate())  # put the meanbaseline here so whatever dataset will have a result
+        # results.append(SRIMeanBaselineTemplate())  # put the meanbaseline here so whatever dataset will have a result
         for template_class in self.templates:
             template = template_class()
             # sourceType refer to d3m/container/dataset.py ("SEMANTIC_TYPES" as line 40-70)
@@ -2696,28 +2696,33 @@ class BBNAudioClassificationTemplate(DSBoxTemplate):
             "inputType": "audio",
             "output": "model_step",
             "steps": [
-                {
-                    "name": "denormalize_step",
-                    "primitives": ["d3m.primitives.data_transformation.denormalize.Common"],
-                    "inputs": ["template_input"]
-                },
-                {
-                    "name": "to_dataframe_step",
-                    "primitives": ["d3m.primitives.data_transformation.dataset_to_dataframe.Common"],
-                    "inputs": ["denormalize_step"]
-                },
+                # {
+                #     "name": "denormalize_step",
+                #     "primitives": ["d3m.primitives.data_transformation.denormalize.Common"],
+                #     "inputs": ["template_input"]
+                # },
+                # {
+                #     "name": "to_dataframe_step",
+                #     "primitives": ["d3m.primitives.data_transformation.dataset_to_dataframe.Common"],
+                #     "inputs": ["denormalize_step"]
+                # },
+                # {
+                #     "name": "readtarget_step",
+                #     "primitives": [{
+                #         "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.DataFrameCommon",
+                #         "hyperparameters":
+                #             {
+                #                 'semantic_types': ('https://metadata.datadrivendiscovery.org/types/TrueTarget',),
+                #                 'use_columns': (),
+                #                 'exclude_columns': ()
+                #             }
+                #     }],
+                #     "inputs": ["to_dataframe_step"]
+                # },
                 {
                     "name": "readtarget_step",
-                    "primitives": [{
-                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.DataFrameCommon",
-                        "hyperparameters":
-                            {
-                                'semantic_types': ('https://metadata.datadrivendiscovery.org/types/TrueTarget',),
-                                'use_columns': (),
-                                'exclude_columns': ()
-                            }
-                    }],
-                    "inputs": ["to_dataframe_step"]
+                    "primitives":["d3m.primitives.bbn.time_series.TargetsReader"],
+                    "inputs": ["template_input"]
                 },
                 {
                     "name": "readaudio_step",
