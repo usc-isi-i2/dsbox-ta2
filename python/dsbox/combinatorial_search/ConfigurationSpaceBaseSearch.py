@@ -210,8 +210,9 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
         start_time = time.time()
         pipeline = self.template.to_pipeline(configuration)
         # Todo: update ResourceManager to run pipeline:  ResourceManager.add_pipeline(pipeline)
-        # initlize repeat_time_level_2
+        # initlize repeat_time_level
         self._repeat_times_level_2 = 1
+        self._repeat_times_level_1 = 1
         # if in cross validation mode
         if self.testing_mode == Mode.CROSS_VALIDATION_MODE:
             self._repeat_times_level_2 = int(self.validation_config['cross_validation'])
@@ -246,8 +247,6 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
             # no need to run inside(level 2 split), run base on level 1 split now!
             if self.testing_mode == Mode.TRAIN_TEST_MODE:
                 self._repeat_times_level_1 = int(self.validation_config['test_validation'])
-            else:
-                self._repeat_times_level_1 = 1
             
             _logger.info("Will use normal train-test mode ( n ={}) to choose best primitives.".format(self._repeat_times_level_2))
 
