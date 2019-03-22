@@ -501,8 +501,8 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
                 _ = fitted_pipeline_final.produce(inputs=[self.test_dataset1])
                 test_prediction3 = fitted_pipeline_final.get_produce_step_output(
                     self.template.get_output_step_number())
-
-                test_metrics3 = calculate_score(test_ground_truth, test_prediction3,
+                test_ground_truth_for_test_pickle = get_target_columns(self.test_dataset1, self.problem)
+                test_metrics3 = calculate_score(test_ground_truth_for_test_pickle, test_prediction3,
                     self.performance_metrics, self.task_type, SpecialMetric().regression_metric)
 
                 _logger.info("Test pickled pipeline. id: {}".format(fitted_pipeline_final.id))
@@ -510,7 +510,7 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
                                            pipeline_id=fitted_pipeline_final.id,
                                            test_dataset=self.test_dataset1,
                                            test_metrics=test_metrics3,
-                                           test_ground_truth=test_ground_truth)
+                                           test_ground_truth=test_ground_truth_for_test_pickle)
 
         # still return the original fitted_pipeline with relation to train_dataset1
         return data
