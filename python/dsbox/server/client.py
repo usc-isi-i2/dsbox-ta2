@@ -52,17 +52,22 @@ logging.basicConfig(level=logging.DEBUG, format='%(asctime)s [%(levelname)s] %(n
 _logger = logging.getLogger(__name__)
 
 
-PRINT_REQUEST = False
+PRINT_REQUEST = True
 dataset_base_path = ''
 daset_docs = {}
 
 
-def config_datasets(use_docker_server) -> typing.List:
+def config_datasets(datasets, use_docker_server) -> typing.List:
     global dataset_base_path, dataset_docs
     if use_docker_server:
         dataset_base_path = '/input/'
+    elif datasets == 'seed_aug':
+        dataset_base_path = '/nfs1/dsbox-repo/data/datasets-v32/seed_datasets_data_augmentation'
+    elif datasets == 'seed':
+        dataset_base_path = '/nfs1/dsbox-repo/data/datasets-v32/seed_datasets_current'
     else:
         dataset_base_path = '/nfs1/dsbox-repo/data/datasets-v32/seed_datasets_current'
+
     print('Using dataset base path:', dataset_base_path)
     dataset_docs = find_dataset_docs(dataset_base_path, _logger)
     return dataset_base_path
@@ -164,6 +169,8 @@ class Client(object):
         parser = argparse.ArgumentParser(description='Dummy TA3 client')
         parser.add_argument('--docker', action='store_true',
                             help='The dataset path deepnds on if server is running on docker or not')
+        parser.add_argument('--seed', action='store_const', const='seed', dest='datasets')
+        parser.add_argument('--seed-aug', action='store_const', const='seed_aug', dest='datasets')
 
         parser.add_argument('--sick', action='store_const', const='38_sick', dest='dataset')
         parser.add_argument('--kids', action='store_const', const='LL0_1100_popularkids', dest='dataset')
@@ -182,7 +189,10 @@ class Client(object):
 
         self.time_bound = args.time_bound
 
-        config_datasets(args.docker)
+        datasets = 'seed'
+        if args.datasets:
+            datasets = 'seed_aug'
+        config_datasets(datasets, args.docker)
         train_problem_desc = get_problem_description(dataset_base_path, args.dataset, 'TRAIN')
         test_problem_desc = get_problem_description(dataset_base_path, args.dataset, 'TEST')
 

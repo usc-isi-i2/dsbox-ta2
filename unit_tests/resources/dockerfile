@@ -18,8 +18,8 @@ RUN cd $CODE && ls -l
 # RUN cd $CODE && pip3 install -e git+https://gitlab.com/datadrivendiscovery/common-primitives@devel#egg=common-primitives
 RUN cd $CODE && pip3 install -e git+https://gitlab.com/datadrivendiscovery/ta3ta2-api@7c5f8b30c8002042cfb9c1f14629909d430daebc#egg=ta3ta2-api
 
-RUN cd $CODE && pip3 install -e git+https://github.com/usc-isi-i2/dsbox-cleaning#egg=dsbox-datacleaning
-RUN cd $CODE && pip3 install -e git+https://github.com/usc-isi-i2/dsbox-featurizer#egg=dsbox-featurizer
+RUN cd $CODE && pip3 install -e git+https://github.com/usc-isi-i2/dsbox-cleaning@devel#egg=dsbox-datacleaning
+RUN cd $CODE && pip3 install -e git+https://github.com/usc-isi-i2/dsbox-featurizer@devel#egg=dsbox-featurizer
 RUN cd $CODE && pip3 install -e git+https://github.com/brekelma/dsbox_corex#egg=dsbox-corex
 
 # RUN cd $CODE && pip3 install -e git+https://gitlab.com/datadrivendiscovery/dummy-ta3.git#egg=dummy_ta3
@@ -31,7 +31,7 @@ RUN cd $CODE && pip3 install -e git+https://oauth2:CZkuJ1JxedRAP8Mue3av@gitlab.d
 RUN cd $CODE \
 && git clone https://github.com/usc-isi-i2/dsbox-ta2.git \
 && cd dsbox-ta2 \
-&& git checkout master \
+&& git checkout development \
 && pip install -r requirements.txt
 
 COPY d3mStart.sh /user_opt
