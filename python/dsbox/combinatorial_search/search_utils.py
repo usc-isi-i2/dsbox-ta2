@@ -3,6 +3,7 @@ import enum
 import operator
 import random
 from d3m.metadata.base import ALL_ELEMENTS
+from common_primitives import utils
 
 comparison_metrics = ['training_metrics', 'cross_validation_metrics', 'test_metrics']
 
@@ -40,6 +41,12 @@ def accumulate(iterable, func=operator.add):
 
 
 def get_target_columns(dataset: 'Dataset', problem_doc_metadata: 'Metadata'):
+
+    main_resource_id, _ = utils.get_tabular_resource(dataset, None, has_hyperparameter=False)
+    targetcol_list = utils.list_columns_with_semantic_types(dataset.metadata, ['https://metadata.datadrivendiscovery.org/types/PrimaryKey','https://metadata.datadrivendiscovery.org/types/TrueTarget'], at=(main_resource_id,))
+    targetcol = dataset[main_resource_id].iloc[:, targetcol_list]
+    # use common primitive's method instead of this old one
+    '''
     targetcol = None
     problem = problem_doc_metadata.query(())["inputs"]["data"]
     datameta = dataset.metadata
@@ -64,10 +71,10 @@ def get_target_columns(dataset: 'Dataset', problem_doc_metadata: 'Metadata'):
     for each in targetlist:
         colIndex_list.append(each)
     colIndex_list.sort()
-
-    targetcol = dataset[resID_list[0]].iloc[:, colIndex_list]
+    '''
+    
     return targetcol
-
+    
 
 class Status(enum.Enum):
     OK = 0

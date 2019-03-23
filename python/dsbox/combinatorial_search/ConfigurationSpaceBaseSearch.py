@@ -4,6 +4,7 @@ import sys
 import time
 import typing
 import enum
+import collections
 # import eventlet
 
 from multiprocessing import current_process
@@ -209,10 +210,12 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
         start_time = time.time()
         pipeline = self.template.to_pipeline(configuration)
         # Todo: update ResourceManager to run pipeline:  ResourceManager.add_pipeline(pipeline)
-
+        # initlize repeat_time_level
+        self._repeat_times_level_2 = 1
+        self._repeat_times_level_1 = 1
         # if in cross validation mode
         if self.testing_mode == Mode.CROSS_VALIDATION_MODE:
-            repeat_times = int(self.validation_config['cross_validation'])
+            self._repeat_times_level_2 = int(self.validation_config['cross_validation'])
             # start training and testing
             fitted_pipeline = FittedPipeline(
                 pipeline=pipeline,
@@ -240,17 +243,17 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
 
         # if in normal testing mode(including default testing mode with train/test one time each)
         else:
+            # update: 2019.3.19
+            # no need to run inside(level 2 split), run base on level 1 split now!
             if self.testing_mode == Mode.TRAIN_TEST_MODE:
-                repeat_times = int(self.validation_config['test_validation'])
-            else:
-                repeat_times = 1
-
-            _logger.info("Will use normal train-test mode ( n ={}) to choose best primitives.".format(repeat_times))
+                self._repeat_times_level_1 = int(self.validation_config['test_validation'])
+            
+            _logger.info("Will use normal train-test mode ( n ={}) to choose best primitives.".format(self._repeat_times_level_2))
 
             training_metrics = []
             test_metrics = []
 
-            for each_repeat in range(repeat_times):
+            for each_repeat in range(self._repeat_times_level_2):
                 # start training and testing
                 fitted_pipeline = FittedPipeline(
                     pipeline=pipeline,
@@ -299,68 +302,13 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
             # print("[INFO] Testing finish.!!!")
 
             if len(training_metrics) > 1:
-                training_value_dict = {}
-                # convert for training matrics
-                for each in training_metrics:
-                    # for condition only one exist?
-                    if type(each) is dict:
-                        if each['column_name'] in training_value_dict:
-                            # if this key exist, we append it
-                            training_value_dict[each['column_name']].append(each['value'])
-                        else:
-                            # otherwise create a new key-value pair
-                            training_value_dict[each['column_name']] = [each['value']]
-                    else:
-                        for each_target in each:
-                            if each_target['column_name'] in training_value_dict:
-                                training_value_dict[each_target['column_name']].append(
-                                    each_target['value'])
-                            else:
-                                training_value_dict[each_target['column_name']] = [
-                                    each_target['value']]
-                # training_metrics part
-
-                training_metrics_new = training_metrics[0]
-                count = 0
-                for (k, v) in training_value_dict.items():
-                    training_metrics_new[count]['value'] = sum(v) / len(v)
-                    training_metrics_new[count]['values'] = v
-                    count += 1
-                training_metrics = [training_metrics_new]
-
+                training_metrics = self.conclude_k_fold_metrics(training_metrics)
             else:
                 if type(training_metrics[0]) is list:
                     training_metrics = training_metrics[0]
 
             if len(test_metrics) > 1:
-                test_value_dict = {}
-                # convert for test matrics
-                for each in test_metrics:
-                    # for condition only one exist?
-                    if type(each) is dict:
-                        if each['column_name'] in test_value_dict:
-                            # if this key exist, we append it
-                            test_value_dict[each['column_name']].append(each['value'])
-                        else:
-                            # otherwise create a new key-value pair
-                            test_value_dict[each['column_name']] = [each['value']]
-                    else:
-                        for each_target in each:
-                            if each_target['column_name'] in test_value_dict:
-                                test_value_dict[each_target['column_name']].append(
-                                    each_target['value'])
-                            else:
-                                test_value_dict[each_target['column_name']] = [each_target['value']]
-
-                # test_metrics part
-                test_metrics_new = test_metrics[0]
-                count = 0
-                for (k, v) in test_value_dict.items():
-                    test_metrics_new[count]['value'] = sum(v) / len(v)
-                    test_metrics_new[count]['values'] = v
-                    count += 1
-                test_metrics = [test_metrics_new]
-
+                test_metrics = self.conclude_k_fold_metrics(test_metrics)
             else:
                 if type(test_metrics[0]) is list:
                     test_metrics = test_metrics[0]
@@ -428,35 +376,82 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
                                            test_ground_truth=get_target_columns(
                                                self.train_dataset2[0], self.problem))
         else:
+            # update v2019.3.17, running k-fold corss validation on level_1 split
             if self.quick_mode:
                 _logger.info("[INFO] Now in quick mode, will skip training with train_dataset1")
                 # if in quick mode, we did not fit the model with dataset_train1 again
                 # just generate the predictions on dataset_test1 directly and get the rank
                 fitted_pipeline2 = fitted_pipeline
+                fitted_pipeline2.produce(inputs=[self.test_dataset1])
+                test_ground_truth = get_target_columns(self.test_dataset1, self.problem)
+                test_prediction = fitted_pipeline2.get_produce_step_output(
+                    self.template.get_output_step_number())
+                test_metrics2 = calculate_score(test_ground_truth, test_prediction,
+                    self.performance_metrics, self.task_type, SpecialMetric().regression_metric)
             else:
                 _logger.info("[INFO] Now in normal mode, will add extra train with train_dataset1")
                 # otherwise train again with dataset_train1 and get the rank
-                fitted_pipeline2 = FittedPipeline(
-                    pipeline=pipeline,
-                    dataset_id=self.train_dataset1.metadata.query(())['id'],
-                    log_dir=self.log_dir,
-                    metric_descriptions=self.performance_metrics,
-                    template=self.template, problem=self.problem)
-                # retrain and compute ranking/metric using self.train_dataset
-                # fitted_pipeline2.fit(inputs = [self.train_dataset1])
-                fitted_pipeline2.fit(cache=cache, inputs=[self.train_dataset1])
 
-            fitted_pipeline2.produce(inputs=[self.test_dataset1])
-            test_ground_truth = get_target_columns(self.test_dataset1, self.problem)
-            test_prediction = fitted_pipeline2.get_produce_step_output(
-                self.template.get_output_step_number())
-            test_metrics2 = calculate_score(test_ground_truth, test_prediction,
-                self.performance_metrics, self.task_type, SpecialMetric().regression_metric)
+                if self._repeat_times_level_1 > 1:
+                    # generate split base on level 1 (do all-dataset level x-fold corss vaidation)
+                    from common_primitives.kfold_split import KFoldDatasetSplitPrimitive, Hyperparams as hyper_k_fold
+                    hyperparams_split = hyper_k_fold.defaults()
+                    hyperparams_split = hyperparams_split.replace({"number_of_folds":self._repeat_times_level_1, "shuffle":True})
+                    if self.task_type == 'CLASSIFICATION':
+                        hyperparams_split = hyperparams_split.replace({"stratified":True})
+                    else:# if not task_type == "REGRESSION":
+                        hyperparams_split = hyperparams_split.replace({"stratified":False})
+                    split_primitive = KFoldDatasetSplitPrimitive(hyperparams = hyperparams_split)
+                    split_primitive.set_training_data(dataset = self.all_dataset)
+                    split_primitive.fit()
+                    query_dataset_list = list(range(self._repeat_times_level_1))
+                    train_return = split_primitive.produce(inputs = query_dataset_list).value#['learningData']
+                    test_return = split_primitive.produce_score_data(inputs = query_dataset_list).value
+
+                    all_test_metrics = []
+                    for i in range(self._repeat_times_level_1):
+                        current_train_dataset = train_return[i]
+                        current_test_dataset = test_return[i]
+                        fitted_pipeline2 = FittedPipeline(
+                            pipeline=pipeline,
+                            dataset_id=current_train_dataset.metadata.query(())['id'],
+                            log_dir=self.log_dir,
+                            metric_descriptions=self.performance_metrics,
+                            template=self.template, problem=self.problem)
+                        # retrain and compute ranking/metric using self.train_dataset
+                        # fitted_pipeline2.fit(inputs = [self.train_dataset1])
+                        fitted_pipeline2.fit(cache=cache, inputs=[current_train_dataset])
+                        fitted_pipeline2.produce(inputs=[current_test_dataset])
+                        test_ground_truth = get_target_columns(current_test_dataset, self.problem)
+                        test_prediction = fitted_pipeline2.get_produce_step_output(self.template.get_output_step_number())
+                        test_metrics_temp = calculate_score(test_ground_truth, test_prediction,
+                            self.performance_metrics, self.task_type, SpecialMetric().regression_metric)
+                        all_test_metrics.append(test_metrics_temp)
+
+                    results = self.conclude_k_fold_metrics(all_test_metrics)
+                    test_metrics2 = results[0]
+                else:
+                    # otherwise still do as previously
+                    fitted_pipeline2 = FittedPipeline(
+                        pipeline=pipeline,
+                        dataset_id=self.train_dataset1.metadata.query(())['id'],
+                        log_dir=self.log_dir,
+                        metric_descriptions=self.performance_metrics,
+                        template=self.template, problem=self.problem)
+                    # retrain and compute ranking/metric using self.train_dataset
+                    # fitted_pipeline2.fit(inputs = [self.train_dataset1])
+                    fitted_pipeline2.fit(cache=cache, inputs=[self.train_dataset1])
+                    fitted_pipeline2.produce(inputs=[self.test_dataset1])
+                    test_ground_truth = get_target_columns(self.test_dataset1, self.problem)
+                    test_prediction = fitted_pipeline2.get_produce_step_output(self.template.get_output_step_number())
+                    test_metrics2 = calculate_score(test_ground_truth, test_prediction,
+                        self.performance_metrics, self.task_type, SpecialMetric().regression_metric)
             # update here:
             # Now new version of d3m runtime don't allow to run ".fit()" again on a given runtime
             #  object second time
             # So here we need to create a new FittedPipeline object to run second time's
             # runtime.fit()
+
             fitted_pipeline_final = FittedPipeline(
                 pipeline=pipeline,
                 dataset_id=self.all_dataset.metadata.query(())['id'],
@@ -465,6 +460,7 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
                 template=self.template, problem=self.problem)
             # set the metric for calculating the rank
             fitted_pipeline_final.set_metric(test_metrics2[0])
+            # end uptdate v2019.3.17
 
             # finally, fit the model with all data and save it
             _logger.info(
@@ -504,8 +500,8 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
                 _ = fitted_pipeline_final.produce(inputs=[self.test_dataset1])
                 test_prediction3 = fitted_pipeline_final.get_produce_step_output(
                     self.template.get_output_step_number())
-
-                test_metrics3 = calculate_score(test_ground_truth, test_prediction3,
+                test_ground_truth_for_test_pickle = get_target_columns(self.test_dataset1, self.problem)
+                test_metrics3 = calculate_score(test_ground_truth_for_test_pickle, test_prediction3,
                     self.performance_metrics, self.task_type, SpecialMetric().regression_metric)
 
                 _logger.info("Test pickled pipeline. id: {}".format(fitted_pipeline_final.id))
@@ -513,10 +509,34 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
                                            pipeline_id=fitted_pipeline_final.id,
                                            test_dataset=self.test_dataset1,
                                            test_metrics=test_metrics3,
-                                           test_ground_truth=test_ground_truth)
+                                           test_ground_truth=test_ground_truth_for_test_pickle)
 
         # still return the original fitted_pipeline with relation to train_dataset1
         return data
+
+    def conclude_k_fold_metrics(self, input_metrics:typing.List):          
+        metric_value_dict = collections.defaultdict(list)
+        # convert for test matrics
+        for each in input_metrics:
+            # for condition only one exist?
+            if type(each) is dict:
+                metric_value_dict[each['column_name']].append(each['value'])
+
+            else:
+                if len(each) > 1:
+                    _logger.error("???Check here please!!!!")
+                for each_target in each:
+                    metric_value_dict[each_target['column_name']].append(each_target['value'])
+
+        # test_metrics part
+        output_metrics_new = input_metrics[0]
+        count = 0
+        for (k, v) in metric_value_dict.items():
+            output_metrics_new[count]['value'] = sum(v) / len(v)
+            output_metrics_new[count]['values'] = v
+            count += 1
+        output_metrics = [output_metrics_new]
+        return output_metrics
 
     def test_pickled_pipeline(self, folder_loc: str, pipeline_id: str, test_dataset: Dataset,
                               test_metrics: typing.List, test_ground_truth) -> None:
@@ -654,19 +674,18 @@ def calculate_score(ground_truth: DataFrame, prediction: DataFrame,
         # special design for objectDetectionAP
         if metric_description["metric"] == "objectDetectionAP":
             if ground_truth is not None and prediction is not None:
-                training_image_name_column = ground_truth.iloc[:,
-                                             ground_truth.shape[1] - 2]
-                prediction.insert(loc=0, column='image_name',
-                                           value=training_image_name_column)
-                ground_truth_tosend = ground_truth.iloc[:,
-                                               ground_truth.shape[1] - 2:
-                                               ground_truth.shape[1]]
+                # training_image_name_column = ground_truth.iloc[:,
+                #                              ground_truth.shape[1] - 2]
+                # prediction.insert(loc=0, column='image_name',
+                #                            value=training_image_name_column)
+                ground_truth_to_send = ground_truth.iloc[:, ground_truth.shape[1] - 2: ground_truth.shape[1]]
+                prediction_to_send = prediction.iloc[:, prediction.shape[1] - 2: prediction.shape[1]]
                 result_metrics.append({
                     'column_name': ground_truth.columns[-1],
                     'metric': metric_description['metric'],
                     'value': metric(
-                        ground_truth_tosend.astype(str).values.tolist(),
-                        prediction.astype(str).values.tolist(),
+                        ground_truth_to_send.astype(str).values.tolist(),
+                        prediction_to_send.astype(str).values.tolist(),
                         **params
                     )
                 })
