@@ -408,8 +408,7 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
         dataset_uri = self._map_directories(dataset_uri)
         dataset = loader.load(dataset_uri=dataset_uri)
 
-        # hack
-        add_true_target(dataset)
+        add_true_target(dataset, self.problem_parsed)
 
         print('Load fitted pipeline', self.config.output_dir, fitted_pipeline_id)
         fitted_pipeline = FittedPipeline.load(fitted_pipeline_id=fitted_pipeline_id, folder_loc=self.config.output_dir, log_dir=self.config.log_dir)
@@ -502,8 +501,7 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
         dataset_uri = self._map_directories(dataset_uri)
         dataset = loader.load(dataset_uri=dataset_uri)
 
-        # hack
-        add_true_target(dataset)
+        add_true_target(dataset, self.problem_parsed)
 
         old_fitted_pipeline = FittedPipeline.load(fitted_pipeline_id=fitted_pipeline_id, folder_loc=self.config.output_dir, log_dir=self.config.log_dir)
 
@@ -659,17 +657,29 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
         return uri
 
 
-def add_true_target(dataset):
+def add_true_target(dataset, problem):
     from d3m.metadata.base import ALL_ELEMENTS as AE
-    rid = find_entry_id(dataset)
-    col_num = dataset.metadata.query((rid, AE))['dimension']['length'] - 1
-    column_metadata = dict(dataset.metadata.query((rid, AE, col_num)))
-    types = column_metadata['semantic_types']
-    types = tuple(x if x != 'https://metadata.datadrivendiscovery.org/types/SuggestedTarget'
-                  else 'https://metadata.datadrivendiscovery.org/types/TrueTarget'
-                  for x in types)
-    column_metadata['semantic_types'] = types
-    dataset.metadata = dataset.metadata.update((rid, AE, col_num), column_metadata)
+    for spec in problem['inputs']:
+        if spec['dataset_id'] == dataset.metadata.query(())['id']:
+            target_rids = [target['resource_id'] for target in spec['targets']]
+            break
+    for rid in dataset.keys():
+        if rid in target_rids:
+            target_index = spec['targets'][target_rids.index(rid)]['column_index']
+        else:
+            target_index = -1
+        for col_num in range(dataset.metadata.query((rid, AE))['dimension']['length']):
+            column_metadata = dict(dataset.metadata.query((rid, AE, col_num)))
+            types = list(column_metadata['semantic_types'])
+            if 'https://metadata.datadrivendiscovery.org/types/SuggestedTarget' in types:
+                types.remove('https://metadata.datadrivendiscovery.org/types/SuggestedTarget')
+            if 'https://metadata.datadrivendiscovery.org/types/TrueTarget' in types:
+                if not col_num == target_index:
+                    types.remove('https://metadata.datadrivendiscovery.org/types/TrueTarget')
+            elif col_num == target_index:
+                types.append('https://metadata.datadrivendiscovery.org/types/TrueTarget')
+            column_metadata['semantic_types'] = tuple(types)
+            dataset.metadata = dataset.metadata.update((rid, AE, col_num), column_metadata)
 
 
 def find_entry_id(dataset):
@@ -1067,11 +1077,11 @@ def to_proto_search_solution_request(problem, fitted_pipeline_id, metrics_result
     for inputs_dict in problem_dict['inputs']:
         for target in inputs_dict['targets']:
             targets.append(ProblemTarget(
-                target_index = target['target_index'],
-                resource_id = target['resource_id'],
-                column_index = target['column_index'],
-                column_name = target['column_name'],
-                clusters_number = target['clusters_number']))
+                target_index=target['target_index'],
+                resource_id=target['resource_id'],
+                column_index=target['column_index'],
+                column_name=target['column_name'],
+                clusters_number=target['clusters_number']))
     score_list = []
     for metric in metrics_result:
         ppm = ProblemPerformanceMetric(metric=d3m_problem.PerformanceMetric.parse(metric['metric']).name)
