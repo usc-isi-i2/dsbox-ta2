@@ -113,7 +113,7 @@ class TemplateSteps:
                             'n_components': [10, 15, 25]
                         }
                     },
-                    "d3m.primitives.data_preprocessing.DoNothing.DSBOX",
+                    "d3m.primitives.data_preprocessing.do_nothing.DSBOX",
                 ],
                 "inputs": ["scaler_step"]
             },
@@ -680,7 +680,7 @@ class TemplateSteps:
                                 "add_index_columns": [True],
                             }
                         },
-                        {"primitive": "d3m.primitives.data_preprocessing.DoNothing.DSBOX", },
+                        {"primitive": "d3m.primitives.data_preprocessing.do_nothing.DSBOX", },
                     ],
                     "inputs": ["base_impute_step"]
                 },

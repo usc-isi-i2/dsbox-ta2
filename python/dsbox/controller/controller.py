@@ -649,9 +649,8 @@ class Controller:
             query_hyperparams = query_hyperparams.replace({"query":query_json})
             query_primitive = QueryFromDataframe(hyperparams = query_hyperparams)
             result = query_primitive.produce(inputs = self.all_dataset)
-            ################################################################################################################
-            # too slow!!!
-            
+            # end query part
+
             from dsbox.datapreprocessing.cleaner.datamart_augment import DatamartAugmentation ,DatamartAugmentationHyperparams
             augment_hyperparams = DatamartAugmentationHyperparams.defaults()
             augment_hyperparams = augment_hyperparams.replace({"join_type":"rltk","joining_columns":"INSTNM"})
@@ -659,8 +658,10 @@ class Controller:
             res = augment_primitive.produce(inputs1 = result.value, inputs2 = self.all_dataset)
             FittedPipeline.need_data_augment = True
 
-
-
+            # save 2 primitives and add it to pipelines during FittedPipeline.save() afterwards
+            self.dump_primitive(query_primitive, "datamart_query")
+            self.dump_primitive(augment_primitive, "datamart_augment")
+            # return the augmented dataset
             return res.value
 
             # # used for join
