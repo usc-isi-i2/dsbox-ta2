@@ -27,6 +27,7 @@ class TemplateLibrary:
 
         self.all_templates = {
             "test_default_classification_template":TestDefaultClassificationTemplate,
+            "data_augment_regression_template":DataAugmentRegressionTemplate,
             "Horizontal_Template": HorizontalTemplate,
             "default_classification_template": DefaultClassificationTemplate,
             "default_regression_template": DefaultRegressionTemplate,
@@ -143,7 +144,8 @@ class TemplateLibrary:
         # self.templates.append(SRIMeanBaselineTemplate)
         # horzontalTemplate
         # self.templates.append(HorizontalTemplate)
-
+        # self.templates.append(DataAugmentRegressionTemplate)
+        
         # default tabular templates, encompassing many of the templates below
         self.templates.append(DefaultClassificationTemplate)
         self.templates.append(NaiveBayesClassificationTemplate)
@@ -206,7 +208,7 @@ class TemplateLibrary:
         # move dsboxClassificationTemplate to last execution because sometimes this template have bugs
         self.templates.append(dsboxClassificationTemplate)
         self.templates.append(dsboxRegressionTemplate)
-
+        
     def _load_single_inline_templates(self, template_name):
         if template_name in self.all_templates:
             self.templates.append(self.all_templates[template_name])
@@ -1049,6 +1051,189 @@ class RegressionWithSelection(DSBoxTemplate):
                              "inputs": ["feature_selector_step", "extract_target_step"]
                          }
                      ]
+        }
+
+    # @override
+    def importance(datset, problem_description):
+        return 7
+
+
+class DataAugmentRegressionTemplate(DSBoxTemplate):
+    def __init__(self):
+        DSBoxTemplate.__init__(self)
+
+        query_json = {
+            "dataset": {
+                "about": 'college scorecard, finance, debt, earnings, government, education, college'
+                # Not used for now
+                # TODO: add NLP to extract more features
+                # "description": ["FIFA", "worldcup", "Soccer game", "European Cup"]
+            },
+            "required_variables": [
+                {
+                    "type": "dataframe_columns",
+                    "names": ['INSTNM']
+                }
+            ]
+            # Not used for now
+            # ,
+            # "desired_variables": [
+            #     {
+            #         "type": "generic_entity",
+            #         "about": "score_winner",
+            #         "variable_syntactic_type": [
+            #             "http://schema.org/Text"
+            #         ]
+            #     }
+            # ]
+        }
+
+        self.template = {
+            "name": "data_augment_regression_template",
+            "taskType": TaskType.REGRESSION.name,
+            "taskSubtype": {TaskSubtype.UNIVARIATE.name, TaskSubtype.MULTIVARIATE.name, "NONE"},
+            # See TaskType, range include 'CLASSIFICATION', 'CLUSTERING', 'COLLABORATIVE_FILTERING',
+            # 'COMMUNITY_DETECTION', 'GRAPH_CLUSTERING', 'GRAPH_MATCHING', 'LINK_PREDICTION',
+            # 'REGRESSION', 'TIME_SERIES_FORECASTING', 'VERTEX_NOMINATION'
+            "inputType": "table",  # See SEMANTIC_TYPES.keys() for range of values
+            "output": "model_step",  # Name of the final step generating the prediction
+            "target": "extract_target_step",  # Name of the step generating the ground truth
+            "steps": [
+                {
+                    "name": "datamart_query",
+                    "primitives": [{
+                        "primitive": "d3m.primitives.data_augmentation.datamart_query.DSBOX",
+                        "hyperparameters":
+                            {
+                                "query":query_json
+                            }
+                    }],
+                    "inputs": ["template_input"]
+                },
+                {
+                    "name": "datamart_augment",
+                    "primitives": [{
+                        "primitive": "d3m.primitives.data_augmentation.datamart_augmentation.DSBOX",
+                        "hyperparameters":
+                            {
+                                "join_type":["rltk"],
+                                "joining_columns":["INSTNM"],
+                            }
+                    }],
+                    "inputs": ["datamart_query", "template_input"]
+                },
+
+
+            {
+                "name": "denormalize_step",
+                "primitives": ["d3m.primitives.data_transformation.denormalize.Common"],
+                "inputs": ["datamart_augment"]
+            },
+            {
+                "name": "to_dataframe_step",
+                "primitives": ["d3m.primitives.data_transformation.dataset_to_dataframe.Common"],
+                "inputs": ["denormalize_step"]
+            },
+            {
+                "name": "extract_attribute_step",
+                "primitives": [{
+                    "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.DataFrameCommon",
+                    "hyperparameters":
+                        {
+                            'semantic_types': (
+                                'https://metadata.datadrivendiscovery.org/types/PrimaryKey',
+                                'https://metadata.datadrivendiscovery.org/types/Attribute',),
+                            'use_columns': (),
+                            'exclude_columns': ()
+                        }
+                }],
+                "inputs": ["to_dataframe_step"]
+            },
+            {
+                "name": "extract_target_step",
+                "primitives": [{
+                    "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.DataFrameCommon",
+                    "hyperparameters":
+                        {
+                            'semantic_types': (
+                                'https://metadata.datadrivendiscovery.org/types/PrimaryKey',
+                                'https://metadata.datadrivendiscovery.org/types/Attribute',),
+                            'use_columns': (),
+                            'exclude_columns': ()
+                        }
+                }],
+                "inputs": ["to_dataframe_step"]
+            },
+            {
+                "name": "target_process_step",
+                "primitives": [{
+                    "primitive": "d3m.primitives.data_transformation.to_numeric.DSBOX",
+                    "hyperparameters": {
+                        "drop_non_numeric_columns": [False]
+                    }
+                }],
+                "inputs": ["extract_target_step"]
+            },
+            {
+                "name": "profile_step",
+                "primitives": ["d3m.primitives.schema_discovery.profiler.DSBOX"],
+                "inputs": ["extract_attribute_step"]
+            },
+            {
+                "name": "clean_step",
+                "primitives": [
+                    "d3m.primitives.data_cleaning.cleaning_featurizer.DSBOX",
+                    "d3m.primitives.data_preprocessing.do_nothing.DSBOX"
+                ],
+                "inputs": ["profile_step"]
+            },
+            {
+                "name": "encode_text_step",
+                "primitives": [
+                    {
+                        "primitive": "d3m.primitives.feature_construction.corex_text.CorexText",
+                        "hyperparameters":
+                            {
+                                'n_hidden': [(10)],
+                                'threshold': [(500)],
+                                'n_grams': [(1)],
+                                'max_df': [(.9)],
+                                'min_df': [(.02)],
+                            }
+                    },
+                ],
+                "inputs": ["clean_step"]
+            },
+            {
+                "name": "encoder_step",
+                "primitives": [
+                    "d3m.primitives.data_preprocessing.encoder.DSBOX",
+                    "d3m.primitives.data_cleaning.labeler.DSBOX"
+                ],
+                "inputs": ["encode_text_step"]
+            },
+            {
+                "name": "impute_step",
+                "primitives": ["d3m.primitives.data_preprocessing.mean_imputation.DSBOX"],
+                "inputs": ["encode_text_step"]
+            },
+            {
+                "name": "model_step",
+                "primitives": [
+                    {
+                        "primitive" : "d3m.primitives.regression.gradient_boosting.SKlearn",
+                        "hyperparameters":
+                            {
+                                'use_semantic_types': [True],
+                                'add_index_columns': [True],
+                            }
+                    },
+                ],
+                "inputs": ["encode_text_step", "target_process_step"]
+            },
+
+
+            ]
         }
 
     # @override

@@ -290,9 +290,39 @@ class DSBoxTemplate():
                 raise exceptions.InvalidArgumentValueError("Error, can't find the primitive : ",
                                                            primitive_name)
 
+            if primitive_name == "d3m.primitives.data_augmentation.datamart_augmentation.DSBOX":
+                hyper = binding[step]["hyperparameters"]
+                primitive_step.add_argument("inputs1",metadata_base.ArgumentType.CONTAINER,"steps.0.produce")
+                primitive_step.add_argument("inputs2",metadata_base.ArgumentType.CONTAINER, templateinput)
+                for hyperName in hyper.keys():
+                    primitive_step.add_hyperparameter(
+                        # argument_type should be fixed type not the type of the data!!
+                        name=hyperName, argument_type=self.argmentsmapper["value"],
+                        data=hyper[hyperName])
+                # pre v2019.1.21
+                pipeline.add_step(primitive_step)
+                primitive_step.add_output("produce")
+                outputs[step] = f'steps.{primitive_step.index}.produce'
+                continue
+
+            if primitive_name == "d3m.primitives.data_augmentation.datamart_query.DSBOX":
+                primitive_step.add_argument("inputs",metadata_base.ArgumentType.CONTAINER, templateinput)
+                hyper = binding[step]["hyperparameters"]
+                for hyperName in hyper.keys():
+                    primitive_step.add_hyperparameter(
+                        # argument_type should be fixed type not the type of the data!!
+                        name=hyperName, argument_type=self.argmentsmapper["value"],
+                        data=hyper[hyperName])
+                # pre v2019.1.21
+                pipeline.add_step(primitive_step)
+                primitive_step.add_output("produce")
+                outputs[step] = f'steps.{primitive_step.index}.produce'
+                continue
+
+
             if binding[step]["hyperparameters"] != {}:
                 hyper = binding[step]["hyperparameters"]
-                for hyperName in hyper:
+                for hyperName in hyper.keys():
                     primitive_step.add_hyperparameter(
                         # argument_type should be fixed type not the type of the data!!
                         name=hyperName, argument_type=self.argmentsmapper["value"],
@@ -300,6 +330,8 @@ class DSBoxTemplate():
 
             if self.need_add_reference and primitive_name == 'd3m.primitives.data_transformation.construct_predictions.DataFrameCommon':
                 primitive_step.add_argument("reference",metadata_base.ArgumentType.CONTAINER,"steps.0.produce")
+
+
 
             templateIO = binding[step]["inputs"]
 
@@ -340,7 +372,7 @@ class DSBoxTemplate():
                         "primitive": description,
                         "hyperparameters": {}
                     })
-                # one primitive with hyperparamters
+                # one primitive with hyperparameters
                 elif isinstance(description, dict):
                     value_step += self.description_to_configuration(description)
                 # list of primitives
@@ -364,13 +396,21 @@ class DSBoxTemplate():
         value = []
         # if the desciption is an dictionary:
         # it maybe a primitive with hyperparameters
+        # 2019.3.25 update: Because the query of datamart is different,
+        #                   We use dict as a hyperparameter, we have to do some special change here
+        if description["primitive"] == "d3m.primitives.data_augmentation.datamart_query.DSBOX":
+            value.append({
+                    "primitive": description["primitive"],
+                    "hyperparameters": description["hyperparameters"],
+                })
+            return value
+            
         if "primitive" not in description:
             print("Error: Wrong format of the configuration space data: "
                   "No primitive name found!")
         else:
             if "hyperparameters" not in description:
                 description["hyperparameters"] = {}
-
             # go through the hypers and if anyone has empty value just remove it
             hyperDict = dict(filter(lambda kv: len(kv[1]) > 0,
                                     description["hyperparameters"].items()))
@@ -383,7 +423,7 @@ class DSBoxTemplate():
                 hyperDict.items()
             ))
 
-            # iterate through all combinations of the hyperparamters and add
+            # iterate through all combinations of the hyperparameters and add
             # each as a separate configuration point to the space
             for hyper in _product_dict(hyperDict):
                 value.append({

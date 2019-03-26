@@ -46,6 +46,10 @@ class FittedPipeline:
 
     # Static volume for data need by d3m primitives
     static_volume_dir: str = None
+    # control parameters to let pipeline generator know whether we need add splitter
+    need_splitter = False 
+     # control parameters to let pipeline generator know whether we need add data mart related primitives
+    need_data_augment = False
 
     def __init__(self, pipeline: Pipeline, dataset_id: str, log_dir: str, *, id: str = None,
                  metric_descriptions: typing.List = [], template: DSBoxTemplate = None,
@@ -100,34 +104,37 @@ class FittedPipeline:
         """
         self.metric = metric
 
-    def set_sampler_primitive(self):
+    def set_sampler_primitive(self, primitive_name):
         """
-            Set the placeholder-like primitive DoNothingForDataset (at the first step of the pipeline if have)
-            to the real primitive (splitter) that should store in the pipeline
+            Add extra primitives, usually it should be 
+            "d3m.primitives.data_preprocessing.do_nothing_for_dataset.DSBOX" or/and
+            "d3m.primitives.data_augmentation.datamart_query.DSBOX" or/and 
+            "d3m.primitives.data_augmentation.datamart_augmentation.DSBOX"
         """
         # ForkedPdb().set_trace()
-        splitter_metadata = Splitter.metadata.query()
-        sampler_primitive_augument= {
-                                      "type": "PRIMITIVE",
-                                      "primitive": {
-                                        "id": splitter_metadata['id'],
-                                        "version": splitter_metadata['version'],
-                                        "python_path": splitter_metadata['python_path'],
-                                        "name": splitter_metadata['name'],
-                                        "digest": splitter_metadata['digest']
-                                      },
-                                      "arguments": {
-                                        "inputs": {
-                                          "type": "CONTAINER",
-                                          "data": "inputs.0"
+        if primitive_name == "splitter":
+            primitive_metadata = Splitter.metadata.query()
+            sampler_primitive_augument= {
+                                          "type": "PRIMITIVE",
+                                          "primitive": {
+                                            "id": primitive_metadata['id'],
+                                            "version": primitive_metadata['version'],
+                                            "python_path": primitive_metadata['python_path'],
+                                            "name": primitive_metadata['name'],
+                                            "digest": primitive_metadata['digest']
+                                          },
+                                          "arguments": {
+                                            "inputs": {
+                                              "type": "CONTAINER",
+                                              "data": "inputs.0"
+                                            }
+                                          },
+                                          "outputs": [
+                                            {
+                                              "id": "produce"
+                                            }
+                                          ]
                                         }
-                                      },
-                                      "outputs": [
-                                        {
-                                          "id": "produce"
-                                        }
-                                      ]
-                                    }
         sampler_hyperparams_file_loc = os.path.join(os.environ["D3MLOCALDIR"], "splitter.json")
         with open(sampler_hyperparams_file_loc, "r") as f:
             sampler_hyperparams_file = json.load(f)
@@ -186,11 +193,18 @@ class FittedPipeline:
 
         structure = self.pipeline.to_json_structure()
         # if we has DoNothingForDataset, we need update pipeline again
-        if structure['steps'][0]['primitive'] ['python_path'] == "d3m.primitives.data_preprocessing.DoNothingForDataset.DSBOX":
-            _logger.info("The pipeline with DoNothingForDataset at step.0 detected.")
-            self.set_sampler_primitive()
+        if FittedPipeline.need_splitter:
+            _logger.info("The Splitter primitive will be added")
+            self.add_extra_primitive("splitter")
             structure = self.pipeline.to_json_structure()
             _logger.info("The pipeline with DoNothingForDataset has been replaced to be Splitter.")
+
+        if FittedPipeline.need_data_augment:
+            pass
+            _logger.info("Calling of datamart primitives detected!")
+            self.add_extra_primitive("datamart")
+            structure = self.pipeline.to_json_structure()
+            _logger.info("The datamart relating primitives has been added at the first of the pipeline.")
 
         # Save pipeline rank
         if self.metric:
