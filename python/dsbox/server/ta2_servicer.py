@@ -659,10 +659,17 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
 
 def add_true_target(dataset, problem):
     from d3m.metadata.base import ALL_ELEMENTS as AE
+
+    # Get target resource ids
     for spec in problem['inputs']:
         if spec['dataset_id'] == dataset.metadata.query(())['id']:
             target_rids = [target['resource_id'] for target in spec['targets']]
             break
+
+    # Client is using old dataset version (<3.2). Change '0' to 'learningData'
+    if 'learningData' not in target_rids and '0' in target_rids:
+        target_rids = [rid if not rid == '0' else 'learningData' for rid in target_rids]
+
     for rid in dataset.keys():
         if rid in target_rids:
             target_index = spec['targets'][target_rids.index(rid)]['column_index']
