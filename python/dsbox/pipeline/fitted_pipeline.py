@@ -12,7 +12,6 @@ from d3m import exceptions
 
 from dsbox.template.runtime import Runtime,ForkedPdb
 from dsbox.template.template import DSBoxTemplate
-from dsbox.datapreprocessing.cleaner.splitter import Splitter, SplitterHyperparameter
 
 from .utils import larger_is_better
 
@@ -90,9 +89,8 @@ class FittedPipeline:
         self.runtime.set_metric_descriptions(self.metric_descriptions)
 
         self.metric: typing.Dict = {}
-
         self.auxiliary: typing.Dict = {}
-
+        self._datamart_query_step_location = 0
         _logger.debug('Creating fitted pipeline %s', self.id)
 
     def _set_fitted(self, fitted_pipe: typing.List[StepBase]) -> None:
@@ -104,55 +102,119 @@ class FittedPipeline:
         """
         self.metric = metric
 
-    def set_sampler_primitive(self, primitive_name):
+    def get_primitive_augment(self, primitive_name) -> typing.Dict:
+        if primitive_name == "splitter":
+            from dsbox.datapreprocessing.cleaner.splitter import Splitter, SplitterHyperparameter
+            primitive_metadata = Splitter.metadata.query()
+
+        elif primitive_name == "datamart_query":
+            from dsbox.datapreprocessing.cleaner.datamart_query_from_dataframe import QueryFromDataframe, QueryFromDataFrameHyperparams
+            primitive_metadata = QueryFromDataframe.metadata.query()
+
+        elif primitive_name == "datamart_augmentation":
+            from dsbox.datapreprocessing.cleaner.datamart_augment import DatamartAugmentation, DatamartAugmentationHyperparams
+            primitive_metadata = DatamartAugmentation.metadata.query()
+
+        primitive_augument= {
+                              "type": "PRIMITIVE",
+                              "primitive": {
+                                "id": primitive_metadata['id'],
+                                "version": primitive_metadata['version'],
+                                "python_path": primitive_metadata['python_path'],
+                                "name": primitive_metadata['name'],
+                                "digest": primitive_metadata['digest']
+                              },
+                              "arguments": {
+                                "inputs": {
+                                  "type": "CONTAINER",
+                                  "data": "inputs.0"
+                                }
+                              },
+                              "outputs": [
+                                {
+                                  "id": "produce"
+                                }
+                              ]
+                            }
+
+        # special type of augment
+        if primitive_name == "datamart_augmentation":
+            primitive_augument["arguments"] = {
+                                      "inputs1": {
+                                          "type": "CONTAINER",
+                                          "data": "steps."+str(self._datamart_query_step_location)+".produce"
+                                        },
+                                        "inputs2": {
+                                          "type": "CONTAINER",
+                                          "data": "inputs.0"
+                                        }
+                                    }
+        return primitive_augument
+
+
+    def add_extra_primitive(self, primitive_name:str, location_number:int):
         """
             Add extra primitives, usually it should be 
             "d3m.primitives.data_preprocessing.do_nothing_for_dataset.DSBOX" or/and
             "d3m.primitives.data_augmentation.datamart_query.DSBOX" or/and 
             "d3m.primitives.data_augmentation.datamart_augmentation.DSBOX"
         """
-        # ForkedPdb().set_trace()
-        if primitive_name == "splitter":
-            primitive_metadata = Splitter.metadata.query()
-            sampler_primitive_augument= {
-                                          "type": "PRIMITIVE",
-                                          "primitive": {
-                                            "id": primitive_metadata['id'],
-                                            "version": primitive_metadata['version'],
-                                            "python_path": primitive_metadata['python_path'],
-                                            "name": primitive_metadata['name'],
-                                            "digest": primitive_metadata['digest']
-                                          },
-                                          "arguments": {
-                                            "inputs": {
-                                              "type": "CONTAINER",
-                                              "data": "inputs.0"
-                                            }
-                                          },
-                                          "outputs": [
-                                            {
-                                              "id": "produce"
-                                            }
-                                          ]
-                                        }
-        sampler_hyperparams_file_loc = os.path.join(os.environ["D3MLOCALDIR"], "splitter.json")
-        with open(sampler_hyperparams_file_loc, "r") as f:
-            sampler_hyperparams_file = json.load(f)
+        
+        primitive_augument = self.get_primitive_augment(primitive_name)
 
+        hyperparams_file_loc = os.path.join(os.environ["D3MLOCALDIR"], primitive_name+".json")
+        with open(hyperparams_file_loc, "r") as f:
+            hyperparams_file = json.load(f)
         new_hyper_file = {}
-        for key, value in sampler_hyperparams_file.items():
+        for key, value in hyperparams_file.items():
             new_hyper_file[key] = {"type":"VALUE",
                                    "data":value}
+        primitive_augument['hyperparams'] =  new_hyper_file
 
-        sampler_primitive_augument['hyperparams'] =  new_hyper_file
+        primitive_pickle_file_loc = os.path.join(os.environ["D3MLOCALDIR"], primitive_name+".pkl")
+        with open(primitive_pickle_file_loc, "rb") as f:
+            primitive_pickle_file = pickle.load(f)
 
-        sampler_step = PrimitiveStep.from_json_structure(step_description = sampler_primitive_augument)
-        sampler_pickle_file_loc = os.path.join(os.environ["D3MLOCALDIR"], "splitter.pkl")
-        with open(sampler_pickle_file_loc, "rb") as f:
-            sampler_pickle_file = pickle.load(f)
-        # change pickling file in runtime to be sampler
-        self.runtime.steps_state[0] = sampler_pickle_file
-        self.pipeline.replace_step(index=0, replacement_step=sampler_step)
+        structure = self.pipeline.to_json_structure()
+
+        # update output reference
+        output_step_reference = structure["outputs"] # it should look like "steps.11.produce"
+        for i, each_output_step_reference in enumerate(output_step_reference):
+            each_output_step_reference_split = each_output_step_reference["data"].split(".")
+            each_output_step_reference_split[1] = str(int(each_output_step_reference_split[1]) + 1)
+            structure["outputs"][i]["data"] = ".".join(each_output_step_reference_split)
+
+        # add the step in corresponding position
+        detail_steps = structure["steps"]
+        detail_steps.insert(location_number, primitive_augument)
+        for i in range(location_number+1, len(detail_steps)):
+            each_step = detail_steps[i]
+            if "arguments" in each_step:
+                for each_argument_key in each_step["arguments"].keys():
+                    argument_target = each_step["arguments"][each_argument_key]["data"]
+                    if argument_target == "inputs.0" and "denormalize" in each_step["primitive"]["python_path"]:
+                        argument_target_new = "steps.0.produce"
+                    else:
+                        argument_target_list = argument_target.split(".")
+                        if int(argument_target_list[1]) >= location_number:
+                            argument_target_list[1] = str(int(argument_target_list[1]) + 1)
+                            argument_target_new = ".".join(argument_target_list)
+                        each_step["arguments"][each_argument_key]["data"] = argument_target_new
+            # update each_step
+            detail_steps[i] = each_step
+        # update original structure
+        structure["steps"] = detail_steps
+        # update cracked Pipeline from new structure
+        self.pipeline = Pipeline.from_json_structure(structure)
+        # ForkedPdb().set_trace()
+        # add into runtime
+        self.runtime.steps_state.insert(location_number, primitive_pickle_file)
+        steps_state_old = self.runtime.steps_state
+        # generate new runtime
+        self.runtime = Runtime(self.pipeline, fitted_pipeline_id=self.id,
+                                 volumes_dir=FittedPipeline.static_volume_dir, log_dir=self.log_dir)
+        self.runtime.steps_state = steps_state_old
+        
 
     def fit(self, **arguments):
         _logger.debug('Fitting fitted pipeline %s', self.id)
@@ -195,14 +257,14 @@ class FittedPipeline:
         # if we has DoNothingForDataset, we need update pipeline again
         if FittedPipeline.need_splitter:
             _logger.info("The Splitter primitive will be added")
-            self.add_extra_primitive("splitter")
+            self.add_extra_primitive("splitter", 0)
             structure = self.pipeline.to_json_structure()
             _logger.info("The pipeline with DoNothingForDataset has been replaced to be Splitter.")
 
         if FittedPipeline.need_data_augment:
-            pass
             _logger.info("Calling of datamart primitives detected!")
-            self.add_extra_primitive("datamart")
+            self.add_extra_primitive("datamart_query", 0)
+            self.add_extra_primitive("datamart_augmentation", 1)
             structure = self.pipeline.to_json_structure()
             _logger.info("The datamart relating primitives has been added at the first of the pipeline.")
 
@@ -245,7 +307,7 @@ class FittedPipeline:
         # save the pipeline with json format
         json_loc = os.path.join(pipeline_dir, self.pipeline.id + '.json')
         with open(json_loc, 'w') as out:
-            json.dump(structure, out)
+            json.dump(structure, out, separators=(',', ':'),indent=4)
 
         # save subpipelines if exists
         for each_step in self.pipeline.steps:
@@ -270,7 +332,7 @@ class FittedPipeline:
 
                 if need_save:
                     with open(json_loc, 'w') as out:
-                        json.dump(subpipeline_structure, out)
+                        json.dump(subpipeline_structure, out, separators=(',', ':'),indent=4)
 
     def save(self, folder_loc: str, pipeline_schema_subdir: str = 'pipelines_scored',
                              subpipelines_subdir: str = 'subpipelines', pipelines_fitted_subdir: str = 'pipelines_fitted') -> None:

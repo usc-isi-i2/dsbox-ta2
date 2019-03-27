@@ -145,7 +145,7 @@ class TemplateLibrary:
         # horzontalTemplate
         # self.templates.append(HorizontalTemplate)
         # self.templates.append(DataAugmentRegressionTemplate)
-        
+
         # default tabular templates, encompassing many of the templates below
         self.templates.append(DefaultClassificationTemplate)
         self.templates.append(NaiveBayesClassificationTemplate)
@@ -208,7 +208,7 @@ class TemplateLibrary:
         # move dsboxClassificationTemplate to last execution because sometimes this template have bugs
         self.templates.append(dsboxClassificationTemplate)
         self.templates.append(dsboxRegressionTemplate)
-        
+
     def _load_single_inline_templates(self, template_name):
         if template_name in self.all_templates:
             self.templates.append(self.all_templates[template_name])
@@ -1099,35 +1099,10 @@ class DataAugmentRegressionTemplate(DSBoxTemplate):
             "output": "model_step",  # Name of the final step generating the prediction
             "target": "extract_target_step",  # Name of the step generating the ground truth
             "steps": [
-                {
-                    "name": "datamart_query",
-                    "primitives": [{
-                        "primitive": "d3m.primitives.data_augmentation.datamart_query.DSBOX",
-                        "hyperparameters":
-                            {
-                                "query":query_json
-                            }
-                    }],
-                    "inputs": ["template_input"]
-                },
-                {
-                    "name": "datamart_augment",
-                    "primitives": [{
-                        "primitive": "d3m.primitives.data_augmentation.datamart_augmentation.DSBOX",
-                        "hyperparameters":
-                            {
-                                "join_type":["rltk"],
-                                "joining_columns":["INSTNM"],
-                            }
-                    }],
-                    "inputs": ["datamart_query", "template_input"]
-                },
-
-
             {
                 "name": "denormalize_step",
                 "primitives": ["d3m.primitives.data_transformation.denormalize.Common"],
-                "inputs": ["datamart_augment"]
+                "inputs": ["template_input"]
             },
             {
                 "name": "to_dataframe_step",
@@ -1156,8 +1131,7 @@ class DataAugmentRegressionTemplate(DSBoxTemplate):
                     "hyperparameters":
                         {
                             'semantic_types': (
-                                'https://metadata.datadrivendiscovery.org/types/PrimaryKey',
-                                'https://metadata.datadrivendiscovery.org/types/Attribute',),
+                                'https://metadata.datadrivendiscovery.org/types/TrueTarget',),
                             'use_columns': (),
                             'exclude_columns': ()
                         }
@@ -1182,7 +1156,6 @@ class DataAugmentRegressionTemplate(DSBoxTemplate):
             {
                 "name": "clean_step",
                 "primitives": [
-                    "d3m.primitives.data_cleaning.cleaning_featurizer.DSBOX",
                     "d3m.primitives.data_preprocessing.do_nothing.DSBOX"
                 ],
                 "inputs": ["profile_step"]
@@ -1207,7 +1180,6 @@ class DataAugmentRegressionTemplate(DSBoxTemplate):
             {
                 "name": "encoder_step",
                 "primitives": [
-                    "d3m.primitives.data_preprocessing.encoder.DSBOX",
                     "d3m.primitives.data_cleaning.labeler.DSBOX"
                 ],
                 "inputs": ["encode_text_step"]

@@ -620,6 +620,7 @@ class Controller:
         query_hyperparams = QueryFromDataFrameHyperparams.defaults()
 
         for each_column in can_query_columns:
+            # TODO: now we only use the first results!!! Consider do multiple test with different query
             query_json = {
                 "dataset": {
                     "about": query_about
@@ -660,7 +661,7 @@ class Controller:
 
             # save 2 primitives and add it to pipelines during FittedPipeline.save() afterwards
             self.dump_primitive(query_primitive, "datamart_query")
-            self.dump_primitive(augment_primitive, "datamart_augment")
+            self.dump_primitive(augment_primitive, "datamart_augmentation")
             # return the augmented dataset
             return res.value
 
