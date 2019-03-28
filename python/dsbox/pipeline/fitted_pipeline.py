@@ -53,7 +53,7 @@ class FittedPipeline:
     def __init__(self, pipeline: Pipeline, dataset_id: str, log_dir: str, *, id: str = None,
                  metric_descriptions: typing.List = [], template: DSBoxTemplate = None,
                  template_name: str = None, template_task: str = None, template_subtask: str = None,
-                 problem=None) -> None:
+                 problem=None, extra_primitive = None) -> None:
 
         # these two are mandatory
         # TODO add the check
@@ -79,7 +79,7 @@ class FittedPipeline:
             self.id = str(uuid.uuid4())
         else:
             self.id = id
-
+        self.extra_primitive = extra_primitive
         self.log_dir = log_dir
 
         self.runtime = Runtime(pipeline, fitted_pipeline_id=self.id, template_name=self.template_name,
@@ -255,13 +255,14 @@ class FittedPipeline:
 
         structure = self.pipeline.to_json_structure()
         # if we has DoNothingForDataset, we need update pipeline again
-        if FittedPipeline.need_splitter:
+        if self.extra_primitive and "splitter" in self.extra_primitive:
             _logger.info("The Splitter primitive will be added")
             self.add_extra_primitive("splitter", 0)
             structure = self.pipeline.to_json_structure()
             _logger.info("The pipeline with DoNothingForDataset has been replaced to be Splitter.")
 
-        if FittedPipeline.need_data_augment:
+        # ForkedPdb().set_trace()
+        if self.extra_primitive and "data_augment" in self.extra_primitive:
             _logger.info("Calling of datamart primitives detected!")
             self.add_extra_primitive("datamart_query", 0)
             self.add_extra_primitive("datamart_augmentation", 1)

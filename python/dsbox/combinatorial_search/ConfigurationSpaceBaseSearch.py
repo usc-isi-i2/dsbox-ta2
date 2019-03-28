@@ -85,7 +85,7 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
                  test_dataset2: typing.List[Dataset], all_dataset: Dataset,
                  ensemble_tuning_dataset: Dataset,
                  performance_metrics: typing.List[typing.Dict], output_directory: str,
-                 log_dir: str, ) -> None:
+                 log_dir: str, extra_primitive = None) -> None:
 
         self.template = template
         self.task_type = self.template.template["taskType"]
@@ -99,6 +99,7 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
         self.test_dataset1 = test_dataset1
         self.test_dataset2 = test_dataset2
         self.all_dataset = all_dataset
+        self.extra_primitive = extra_primitive
         if ensemble_tuning_dataset:
             self.do_ensemble_tuning = True
             self.ensemble_tuning_dataset = ensemble_tuning_dataset
@@ -222,7 +223,7 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
                 dataset_id=self.train_dataset1.metadata.query(())['id'],
                 log_dir=self.log_dir,
                 metric_descriptions=self.performance_metrics,
-                template=self.template, problem=self.problem)
+                template=self.template, problem=self.problem, extra_primitive = self.extra_primitive)
 
             fitted_pipeline.fit(cache=cache, inputs=[self.train_dataset1])
 
@@ -260,7 +261,7 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
                     dataset_id=self.train_dataset2[each_repeat].metadata.query(())['id'],
                     log_dir=self.log_dir,
                     metric_descriptions=self.performance_metrics,
-                    template=self.template, problem=self.problem)
+                    template=self.template, problem=self.problem, extra_primitive = self.extra_primitive)
 
                 fitted_pipeline.fit(cache=cache, inputs=[self.train_dataset2[each_repeat]])
                 # fitted_pipeline.fit(inputs=[self.train_dataset2[each_repeat]])
@@ -417,7 +418,7 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
                             dataset_id=current_train_dataset.metadata.query(())['id'],
                             log_dir=self.log_dir,
                             metric_descriptions=self.performance_metrics,
-                            template=self.template, problem=self.problem)
+                            template=self.template, problem=self.problem, extra_primitive = self.extra_primitive)
                         # retrain and compute ranking/metric using self.train_dataset
                         # fitted_pipeline2.fit(inputs = [self.train_dataset1])
                         fitted_pipeline2.fit(cache=cache, inputs=[current_train_dataset])
@@ -437,7 +438,7 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
                         dataset_id=self.train_dataset1.metadata.query(())['id'],
                         log_dir=self.log_dir,
                         metric_descriptions=self.performance_metrics,
-                        template=self.template, problem=self.problem)
+                        template=self.template, problem=self.problem, extra_primitive = self.extra_primitive)
                     # retrain and compute ranking/metric using self.train_dataset
                     # fitted_pipeline2.fit(inputs = [self.train_dataset1])
                     fitted_pipeline2.fit(cache=cache, inputs=[self.train_dataset1])
@@ -457,7 +458,7 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
                 dataset_id=self.all_dataset.metadata.query(())['id'],
                 log_dir=self.log_dir,
                 metric_descriptions=self.performance_metrics,
-                template=self.template, problem=self.problem)
+                template=self.template, problem=self.problem, extra_primitive = self.extra_primitive)
             # set the metric for calculating the rank
             fitted_pipeline_final.set_metric(test_metrics2[0])
             # end uptdate v2019.3.17

@@ -80,6 +80,7 @@ class Controller:
         self.all_dataset: Dataset = None
         self.ensemble_dataset: Dataset = None
         self.taskSourceType: typing.Set[str] = set()  # str from SEMANTIC_TYPES
+        self.extra_primitive = set()
 
         # Dataset limits
         self.threshold_column_length = 300
@@ -432,7 +433,8 @@ class Controller:
             output_directory=self.config.output_dir,
             log_dir=self.config.log_dir,
             start_time=self.config.start_time,
-            timeout_sec=self.config.timeout_search
+            timeout_sec=self.config.timeout_search,
+            extra_primitive=self.extra_primitive,
         )
         # report = self._search_method.search(num_iter=50)
         report = self._search_method.search(num_iter=self.config.serial_search_iterations, one_pipeline_only=one_pipeline_only)
@@ -455,6 +457,7 @@ class Controller:
             log_dir=self.config.log_dir,
             start_time=self.config.start_time,
             timeout_sec=self.config.timeout_search,
+            extra_primitive=self.extra_primitive,
         )
         report = self._search_method.search(num_iter=500)
 
@@ -480,6 +483,7 @@ class Controller:
             log_dir=self.config.log_dir,
             num_proc=self.config.cpu,
             timeout=self.config.timeout_search,
+            extra_primitive=self.extra_primitive,
         )
         report = self._search_method.search(num_iter=10)
         if report_ensemble:
@@ -505,6 +509,7 @@ class Controller:
             num_proc=self.config.cpu,
             start_time=self.config.start_time,
             timeout=self.config.timeout_search,
+            extra_primitive=self.extra_primitive,
         )
         report = self._search_method.search(num_iter=5)
         if report_ensemble:
@@ -530,6 +535,7 @@ class Controller:
             num_proc=self.config.cpu,
             start_time=self.config.start_time,
             timeout=self.config.timeout_search,
+            extra_primitive=self.extra_primitive,
         )
         report = self._search_method.search(num_iter=30)
         if report_ensemble:
@@ -657,7 +663,7 @@ class Controller:
             augment_hyperparams = augment_hyperparams.replace({"join_type":"rltk","joining_columns":"INSTNM"})
             augment_primitive = DatamartAugmentation(hyperparams = augment_hyperparams)
             res = augment_primitive.produce(inputs1 = result.value, inputs2 = self.all_dataset)
-            FittedPipeline.need_data_augment = True
+            self.extra_primitive.add("data_augment")
 
             # save 2 primitives and add it to pipelines during FittedPipeline.save() afterwards
             self.dump_primitive(query_primitive, "datamart_query")
@@ -1483,7 +1489,7 @@ class Controller:
         sampler.fit()
         train_split = sampler.produce(inputs = self.all_dataset)
         if self.all_dataset != train_split.value:
-            FittedPipeline.need_splitter = True
+            self.extra_primitive.add("splitter")
         self.all_dataset = train_split.value
 
         # pickle this fitted sampler for furture use in pipelines

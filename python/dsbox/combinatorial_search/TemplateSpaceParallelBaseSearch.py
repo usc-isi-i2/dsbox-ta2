@@ -54,6 +54,7 @@ class TemplateSpaceParallelBaseSearch(TemplateSpaceBaseSearch[T]):
                            train_dataset2: typing.List[Dataset], test_dataset1: Dataset,
                            test_dataset2: typing.List[Dataset], all_dataset: Dataset,
                            ensemble_tuning_dataset: Dataset,
+                           extra_primitive:typing.Set[str],
                            output_directory: str, log_dir: str,
                            start_time: float = 0, timeout_sec: float = 3300) -> None:
         # Start timer
@@ -64,6 +65,7 @@ class TemplateSpaceParallelBaseSearch(TemplateSpaceBaseSearch[T]):
             problem=problem, train_dataset1=train_dataset1, train_dataset2=train_dataset2,
             test_dataset1=test_dataset1, test_dataset2=test_dataset2, all_dataset=all_dataset,
             ensemble_tuning_dataset=ensemble_tuning_dataset,
+            extra_primitive=extra_primitive,
             output_directory=output_directory, log_dir=log_dir,
             start_time=start_time, timeout_sec=timeout_sec
         )

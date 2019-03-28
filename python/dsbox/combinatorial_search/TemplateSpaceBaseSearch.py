@@ -50,6 +50,7 @@ class TemplateSpaceBaseSearch(typing.Generic[T]):
                            train_dataset2: typing.List[Dataset], test_dataset1: Dataset,
                            test_dataset2: typing.List[Dataset], all_dataset: Dataset,
                            ensemble_tuning_dataset: Dataset,
+                           extra_primitive:typing.Set[str],
                            output_directory: str, log_dir: str,
                            start_time: float = 0,
                            timeout_sec: float = -1) -> None:
@@ -69,6 +70,7 @@ class TemplateSpaceBaseSearch(typing.Generic[T]):
                     test_dataset1=test_dataset1, test_dataset2=test_dataset2,
                     all_dataset=all_dataset, performance_metrics=performance_metrics,
                     ensemble_tuning_dataset=ensemble_tuning_dataset,
+                    extra_primitive = extra_primitive,
                     output_directory=output_directory, log_dir=log_dir
                 ),
                 zip(template_list, self.configuration_space_list)

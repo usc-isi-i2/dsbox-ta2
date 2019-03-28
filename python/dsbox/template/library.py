@@ -1062,32 +1062,6 @@ class DataAugmentRegressionTemplate(DSBoxTemplate):
     def __init__(self):
         DSBoxTemplate.__init__(self)
 
-        query_json = {
-            "dataset": {
-                "about": 'college scorecard, finance, debt, earnings, government, education, college'
-                # Not used for now
-                # TODO: add NLP to extract more features
-                # "description": ["FIFA", "worldcup", "Soccer game", "European Cup"]
-            },
-            "required_variables": [
-                {
-                    "type": "dataframe_columns",
-                    "names": ['INSTNM']
-                }
-            ]
-            # Not used for now
-            # ,
-            # "desired_variables": [
-            #     {
-            #         "type": "generic_entity",
-            #         "about": "score_winner",
-            #         "variable_syntactic_type": [
-            #             "http://schema.org/Text"
-            #         ]
-            #     }
-            # ]
-        }
-
         self.template = {
             "name": "data_augment_regression_template",
             "taskType": TaskType.REGRESSION.name,
