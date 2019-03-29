@@ -660,7 +660,7 @@ class Controller:
 
             from dsbox.datapreprocessing.cleaner.datamart_augment import DatamartAugmentation ,DatamartAugmentationHyperparams
             augment_hyperparams = DatamartAugmentationHyperparams.defaults()
-            augment_hyperparams = augment_hyperparams.replace({"join_type":"rltk","joining_columns":"INSTNM"})
+            augment_hyperparams = augment_hyperparams.replace({"join_type":"rltk","joining_columns":each_column,"duplicate_rows_process_method":"average"})
             augment_primitive = DatamartAugmentation(hyperparams = augment_hyperparams)
             res = augment_primitive.produce(inputs1 = result.value, inputs2 = self.all_dataset)
             self.extra_primitive.add("data_augment")
@@ -669,6 +669,10 @@ class Controller:
             self.dump_primitive(query_primitive, "datamart_query")
             self.dump_primitive(augment_primitive, "datamart_augmentation")
             # return the augmented dataset
+            original_shape = self.all_dataset[self.problem_info["res_id"]].shape
+            augmented_shape = res.value[self.problem_info["res_id"]].shape
+            self._logger.info("The original dataset shape is (" + str(original_shape[0]) + ", " + str(original_shape[1]) + ")")
+            self._logger.info("The augmented dataset shape is (" + str(augmented_shape[0]) + ", " + str(augmented_shape[1]) + ")")
             return res.value
 
             # # used for join
