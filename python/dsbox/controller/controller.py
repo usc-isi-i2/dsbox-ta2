@@ -938,12 +938,12 @@ class Controller:
         """
         try:
             # pickle this fitted sampler for furture use in pipelines
-            sampler_pickle_file_loc = os.path.join(os.environ["D3MLOCALDIR"], save_file_name+".pkl")
+            sampler_pickle_file_loc = os.path.join(os.environ["D3MLOCALDIR"], self.config.problem['id']+save_file_name+".pkl")
             with open(sampler_pickle_file_loc, "wb") as f:
                 pickle.dump(target_primitive, f)
 
             hyperparams_now = target_primitive.hyperparams.values_to_json_structure()
-            sampler_hyperparams_file_loc = os.path.join(os.environ["D3MLOCALDIR"], save_file_name+".json")
+            sampler_hyperparams_file_loc = os.path.join(os.environ["D3MLOCALDIR"], self.config.problem['id']+save_file_name+".json")
             with open(sampler_hyperparams_file_loc, "w") as f:
                 json.dump(hyperparams_now, f)
             return True

@@ -182,7 +182,7 @@ class FittedPipeline:
 
         primitive_augument = self.get_primitive_augment(primitive_name, input_names)
 
-        hyperparams_file_loc = os.path.join(os.environ["D3MLOCALDIR"], primitive_name+".json")
+        hyperparams_file_loc = os.path.join(os.environ["D3MLOCALDIR"], self.dataset_id+primitive_name+".json")
         with open(hyperparams_file_loc, "r") as f:
             hyperparams_file = json.load(f)
         new_hyper_file = {}
@@ -191,7 +191,7 @@ class FittedPipeline:
                                    "data":value}
         primitive_augument['hyperparams'] =  new_hyper_file
 
-        primitive_pickle_file_loc = os.path.join(os.environ["D3MLOCALDIR"], primitive_name+".pkl")
+        primitive_pickle_file_loc = os.path.join(os.environ["D3MLOCALDIR"], self.dataset_id+primitive_name+".pkl")
         with open(primitive_pickle_file_loc, "rb") as f:
             primitive_pickle_file = pickle.load(f)
 
