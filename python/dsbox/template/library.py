@@ -144,8 +144,8 @@ class TemplateLibrary:
         # self.templates.append(SRIMeanBaselineTemplate)
         # horzontalTemplate
         # self.templates.append(HorizontalTemplate)
-        self.templates.append(DataAugmentRegressionTemplate)
-        '''
+        # self.templates.append(DataAugmentRegressionTemplate)
+        
         # default tabular templates, encompassing many of the templates below
         self.templates.append(DefaultClassificationTemplate)
         self.templates.append(NaiveBayesClassificationTemplate)
@@ -208,7 +208,7 @@ class TemplateLibrary:
         # move dsboxClassificationTemplate to last execution because sometimes this template have bugs
         self.templates.append(dsboxClassificationTemplate)
         self.templates.append(dsboxRegressionTemplate)
-        '''
+        
     def _load_single_inline_templates(self, template_name):
         if template_name in self.all_templates:
             self.templates.append(self.all_templates[template_name])
