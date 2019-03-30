@@ -16,14 +16,9 @@ class TemplateSteps:
         '''
         return [
             {
-                "name": "denormalize_step",
-                "primitives": ["d3m.primitives.data_transformation.denormalize.Common"],
-                "inputs": ["template_input"]
-            },
-            {
                 "name": "to_dataframe_step",
                 "primitives": ["d3m.primitives.data_transformation.dataset_to_dataframe.Common"],
-                "inputs": ["denormalize_step"]
+                "inputs": ["template_input"]
             },
             {
                 "name": "extract_attribute_step",
@@ -145,16 +140,9 @@ class TemplateSteps:
         '''
         return [
             {
-                "name": "denormalize_step",
-                "primitives": [
-                    "d3m.primitives.data_transformation.denormalize.Common"
-                ],
-                "inputs": ["template_input"]
-            },
-            {
                 "name": "to_dataframe_step",
                 "primitives": ["d3m.primitives.data_transformation.dataset_to_dataframe.Common"],
-                "inputs": ["denormalize_step"]
+                "inputs": ["template_input"]
             },
             {
                 "name": "extract_attribute_step",
@@ -269,14 +257,9 @@ class TemplateSteps:
         '''
         return [
             {
-                "name": "denormalize_step",
-                "primitives": ["d3m.primitives.data_transformation.denormalize.Common"],
-                "inputs": ["template_input"]
-            },
-            {
                 "name": "to_dataframe_step",
                 "primitives": ["d3m.primitives.data_transformation.dataset_to_dataframe.Common"],
-                "inputs": ["denormalize_step"]
+                "inputs": ["template_input"]
             },
             {
                 "name": "extract_attribute_step",
@@ -488,14 +471,9 @@ class TemplateSteps:
         return \
             [
                 {
-                    "name": "denormalize_step",
-                    "primitives": ["d3m.primitives.data_transformation.denormalize.Common"],
-                    "inputs": ['template_input']
-                },
-                {
                     "name": "to_dataframe_step",
                     "primitives": ["d3m.primitives.data_transformation.dataset_to_dataframe.Common"],
-                    "inputs": ["denormalize_step"]
+                    "inputs": ["template_input"]
                 },
                 {
                     "name": attribute_name,

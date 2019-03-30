@@ -144,8 +144,8 @@ class TemplateLibrary:
         # self.templates.append(SRIMeanBaselineTemplate)
         # horzontalTemplate
         # self.templates.append(HorizontalTemplate)
-        # self.templates.append(DataAugmentRegressionTemplate)
-
+        self.templates.append(DataAugmentRegressionTemplate)
+        '''
         # default tabular templates, encompassing many of the templates below
         self.templates.append(DefaultClassificationTemplate)
         self.templates.append(NaiveBayesClassificationTemplate)
@@ -208,7 +208,7 @@ class TemplateLibrary:
         # move dsboxClassificationTemplate to last execution because sometimes this template have bugs
         self.templates.append(dsboxClassificationTemplate)
         self.templates.append(dsboxRegressionTemplate)
-
+        '''
     def _load_single_inline_templates(self, template_name):
         if template_name in self.all_templates:
             self.templates.append(self.all_templates[template_name])
@@ -1074,14 +1074,9 @@ class DataAugmentRegressionTemplate(DSBoxTemplate):
             "target": "extract_target_step",  # Name of the step generating the ground truth
             "steps": [
             {
-                "name": "denormalize_step",
-                "primitives": ["d3m.primitives.data_transformation.denormalize.Common"],
-                "inputs": ["template_input"]
-            },
-            {
                 "name": "to_dataframe_step",
                 "primitives": ["d3m.primitives.data_transformation.dataset_to_dataframe.Common"],
-                "inputs": ["denormalize_step"]
+                "inputs": ["template_input"]
             },
             {
                 "name": "extract_attribute_step",
@@ -1245,14 +1240,9 @@ class Large_column_number_with_numerical_only_classification(DSBoxTemplate):
             "target": "extract_target_step",  # Name of the step generating the ground truth
             "steps": [
                 {
-                    "name": "denormalize_step",
-                    "primitives": ["d3m.primitives.data_transformation.denormalize.Common"],
-                    "inputs": ["template_input"]
-                },
-                {
                     "name": "to_dataframe_step",
                     "primitives": ["d3m.primitives.data_transformation.dataset_to_dataframe.Common"],
-                    "inputs": ["denormalize_step"]
+                    "inputs": ["template_input"]
                 },
                 {
                     "name": "extract_attribute_step",
@@ -1329,14 +1319,9 @@ class Large_column_number_with_numerical_only_regression(DSBoxTemplate):
             "target": "extract_target_step",  # Name of the step generating the ground truth
             "steps": [
                 {
-                    "name": "denormalize_step",
-                    "primitives": ["d3m.primitives.data_transformation.denormalize.Common"],
-                    "inputs": ["template_input"]
-                },
-                {
                     "name": "to_dataframe_step",
                     "primitives": ["d3m.primitives.data_transformation.dataset_to_dataframe.Common"],
-                    "inputs": ["denormalize_step"]
+                    "inputs": ["template_input"]
                 },
                 {
                     "name": "extract_attribute_step",
@@ -1426,16 +1411,10 @@ class DefaultTimeSeriesForcastingTemplate(DSBoxTemplate):
             "output": "model_step",  # Name of the final step generating the prediction
             "target": "extract_target_step",  # Name of the step generating the ground truth
             "steps": [
-
-                {
-                    "name": "denormalize_step",
-                    "primitives": ["d3m.primitives.data_transformation.denormalize.Common"],
-                    "inputs": ["template_input"]
-                },
                 {
                     "name": "to_dataframe_step",
                     "primitives": ["d3m.primitives.data_transformation.dataset_to_dataframe.Common"],
-                    "inputs": ["denormalize_step"]
+                    "inputs": ["template_input"]
                 },
                 # read Y value
                 {
@@ -1550,14 +1529,9 @@ class TimeSeriesForcastingTestingTemplate(DSBoxTemplate):
             "target": "extract_target_step",  # Name of the step generating the ground truth
             "steps": [
                 {
-                    "name": "denormalize_step",
-                    "primitives": ["d3m.primitives.data_transformation.denormalize.Common"],
-                    "inputs": ["template_input"]
-                },
-                {
                     "name": "to_dataframe_step",
                     "primitives": ["d3m.primitives.data_transformation.dataset_to_dataframe.Common"],
-                    "inputs": ["denormalize_step"]
+                    "inputs": ["template_input"]
                 },
                 {
                     "name": "extract_attribute_step",
@@ -1653,14 +1627,9 @@ class TimeSeriesForcastingTestingTemplate2(DSBoxTemplate):
             "target": "extract_target_step",  # Name of the step generating the ground truth
             "steps": [
                 {
-                    "name": "denormalize_step",
-                    "primitives": ["d3m.primitives.data_transformation.denormalize.Common"],
-                    "inputs": ["template_input"]
-                },
-                {
                     "name": "to_dataframe_step",
                     "primitives": ["d3m.primitives.data_transformation.dataset_to_dataframe.Common"],
-                    "inputs": ["denormalize_step"]
+                    "inputs": ["template_input"]
                 },
                 {
                     "name": "extract_attribute_step",
@@ -1785,14 +1754,9 @@ class DefaultObjectDetectionTemplate(DSBoxTemplate):
             "target": "extract_target_step",  # Name of the step generating the ground truth
             "steps": [
                 {
-                    "name": "denormalize_step", #step 0
-                    "primitives": ["d3m.primitives.data_transformation.denormalize.Common"],
-                    "inputs": ["template_input"]
-                },
-                {
                     "name": "to_dataframe_step",#step 1
                     "primitives": ["d3m.primitives.data_transformation.dataset_to_dataframe.Common"],
-                    "inputs": ["denormalize_step"]
+                    "inputs": ["template_input"]
                 },
                 # read X value
                 {
@@ -1862,14 +1826,9 @@ class DefaultVideoClassificationTemplate(DSBoxTemplate):
             "target": "extract_target_step",  # Name of the step generating the ground truth
             "steps": [
                 {
-                    "name": "denormalize_step", #step 0
-                    "primitives": ["d3m.primitives.data_transformation.denormalize.Common"],
-                    "inputs": ["template_input"]
-                },
-                {
                     "name": "to_dataframe_step",#step 1
                     "primitives": ["d3m.primitives.data_transformation.dataset_to_dataframe.Common"],
-                    "inputs": ["denormalize_step"]
+                    "inputs": ["template_input"]
                 },
                 # read X value
                 {
@@ -1958,16 +1917,10 @@ class DefaultTimeseriesCollectionTemplate(DSBoxTemplate):
             "output": "random_forest_step",  # Name of the final step generating the prediction
             "target": "extract_target_step",  # Name of the step generating the ground truth
             "steps": [
-
-                {
-                    "name": "denormalize_step",
-                    "primitives": ["d3m.primitives.data_transformation.denormalize.Common"],
-                    "inputs": ["template_input"]
-                },
                 {
                     "name": "to_dataframe_step",
                     "primitives": ["d3m.primitives.data_transformation.dataset_to_dataframe.Common"],
-                    "inputs": ["denormalize_step"]
+                    "inputs": ["template_input"]
                 },
                 # read Y value
                 {
@@ -2051,16 +2004,10 @@ class DefaultTimeseriesRegressionTemplate(DSBoxTemplate):
             "output": "random_forest_step",  # Name of the final step generating the prediction
             "target": "extract_target_step",  # Name of the step generating the ground truth
             "steps": [
-
-                {
-                    "name": "denormalize_step",
-                    "primitives": ["d3m.primitives.data_transformation.denormalize.Common"],
-                    "inputs": ["template_input"]
-                },
                 {
                     "name": "to_dataframe_step",
                     "primitives": ["d3m.primitives.data_transformation.dataset_to_dataframe.Common"],
-                    "inputs": ["denormalize_step"]
+                    "inputs": ["template_input"]
                 },
                 # read Y value
                 {
@@ -2223,14 +2170,9 @@ class TA1VggImageProcessingRegressionTemplate(DSBoxTemplate):
             "target": "extract_target_step",  # Name of the step generating the ground truth
             "steps": [
                 {
-                    "name": "denormalize_step",
-                    "primitives": ["d3m.primitives.data_transformation.denormalize.Common"],
-                    "inputs": ["template_input"]
-                },
-                {
                     "name": "to_dataframe_step",
                     "primitives": ["d3m.primitives.data_transformation.dataset_to_dataframe.Common"],
-                    "inputs": ["denormalize_step"]
+                    "inputs": ["template_input"]
                 },
                 # read Y value
                 {
@@ -2317,16 +2259,10 @@ class DefaultImageProcessingRegressionTemplate(DSBoxTemplate):
             "output": "regressor_step",  # Name of the final step generating the prediction
             "target": "extract_target_step",  # Name of the step generating the ground truth
             "steps": [
-
-                {
-                    "name": "denormalize_step",
-                    "primitives": ["d3m.primitives.data_transformation.denormalize.Common"],
-                    "inputs": ["template_input"]
-                },
                 {
                     "name": "to_dataframe_step",
                     "primitives": ["d3m.primitives.data_transformation.dataset_to_dataframe.Common"],
-                    "inputs": ["denormalize_step"]
+                    "inputs": ["template_input"]
                 },
                 # read Y value
                 {
@@ -2552,14 +2488,9 @@ class DefaultLinkPredictionTemplate(DSBoxTemplate):
             "output": "model_step",
             "steps": [
                 {
-                    "name": "denormalize_step",
-                    "primitives": ["d3m.primitives.data_transformation.denormalize.Common"],
-                    "inputs": ["template_input"]
-                },
-                {
                     "name": "to_dataframe_step",
                     "primitives": ["d3m.primitives.data_transformation.dataset_to_dataframe.Common"],
-                    "inputs": ["denormalize_step"]
+                    "inputs": ["template_input"]
                 },
                 {
                     "name": "extract_attribute_step",
@@ -2990,11 +2921,6 @@ class CMUClusteringTemplate(DSBoxTemplate):
             "inputType": "table",
             "output": "output_step",
             "steps": [
-                # {
-                #     "name": "denormalize_step",
-                #     "primitives": ["d3m.primitives.data_transformation.denormalize.Common"],
-                #     "inputs": ["template_input"]
-                # },
                 {
                     "name": "to_dataframe_step", # step 0
                     "primitives": ["d3m.primitives.data_transformation.dataset_to_dataframe.Common"],
@@ -3084,14 +3010,9 @@ class MichiganVideoClassificationTemplate(DSBoxTemplate):
             "target": "extract_target_step",  # Name of the step generating the ground truth
             "steps": [
                 {
-                    "name": "denormalize_step",
-                    "primitives": ["d3m.primitives.data_transformation.denormalize.Common"],
-                    "inputs": ["template_input"]
-                },
-                {
                     "name": "to_dataframe_step",
                     "primitives": ["d3m.primitives.data_transformation.dataset_to_dataframe.Common"],
-                    "inputs": ["denormalize_step"]
+                    "inputs": ["template_input"]
                 },
                 {
                     "name": "extract_target_step",
@@ -3162,14 +3083,9 @@ class TA1ClassificationTemplate1(DSBoxTemplate):
             "target": "extract_target_step",  # Name of the step generating the ground truth
             "steps": [
                 {
-                    "name": "denormalize_step",
-                    "primitives": ["d3m.primitives.data_transformation.denormalize.Common"],
-                    "inputs": ["template_input"]
-                },
-                {
                     "name": "to_dataframe_step",
                     "primitives": ["d3m.primitives.data_transformation.dataset_to_dataframe.Common"],
-                    "inputs": ["denormalize_step"]
+                    "inputs": ["template_input"]
                 },
                 {
                     "name": "extract_attribute_step",
@@ -3332,14 +3248,9 @@ class TA1Classification_3(DSBoxTemplate):
             "target": "extract_target_step",  # Name of the step generating the ground truth
             "steps": [
                 {
-                    "name": "denormalize_step",
-                    "primitives": ["d3m.primitives.data_transformation.denormalize.Common"],
-                    "inputs": ["template_input"]
-                },
-                {
                     "name": "to_dataframe_step",
                     "primitives": ["d3m.primitives.data_transformation.dataset_to_dataframe.Common"],
-                    "inputs": ["denormalize_step"]
+                    "inputs": ["template_input"]
                 },
                 {
                     "name": "extract_attribute_step",
@@ -3440,14 +3351,9 @@ class MuxinTA1ClassificationTemplate1(DSBoxTemplate):
             "target": "extract_target_step",  # Name of the step generating the ground truth
             "steps": [
                 {
-                    "name": "denormalize_step",
-                    "primitives": ["d3m.primitives.data_transformation.denormalize.Common"],
-                    "inputs": ["template_input"]
-                },
-                {
                     "name": "to_dataframe_step",
                     "primitives": ["d3m.primitives.data_transformation.dataset_to_dataframe.Common"],
-                    "inputs": ["denormalize_step"]
+                    "inputs": ["template_input"]
                 },
                 {
                     "name": "extract_attribute_step",
@@ -3548,14 +3454,9 @@ class MuxinTA1ClassificationTemplate2(DSBoxTemplate):
             "target": "extract_target_step",  # Name of the step generating the ground truth
             "steps": [
                 {
-                    "name": "denormalize_step",
-                    "primitives": ["d3m.primitives.data_transformation.denormalize.Common"],
-                    "inputs": ["template_input"]
-                },
-                {
                     "name": "to_dataframe_step",
                     "primitives": ["d3m.primitives.data_transformation.dataset_to_dataframe.Common"],
-                    "inputs": ["denormalize_step"]
+                    "inputs": ["template_input"]
                 },
                 {
                     "name": "extract_attribute_step",
@@ -3644,14 +3545,9 @@ class MuxinTA1ClassificationTemplate3(DSBoxTemplate):
             "target": "extract_target_step",  # Name of the step generating the ground truth
             "steps": [
                 {
-                    "name": "denormalize_step",
-                    "primitives": ["d3m.primitives.data_transformation.denormalize.Common"],
-                    "inputs": ["template_input"]
-                },
-                {
                     "name": "to_dataframe_step",
                     "primitives": ["d3m.primitives.data_transformation.dataset_to_dataframe.Common"],
-                    "inputs": ["denormalize_step"]
+                    "inputs": ["template_input"]
                 },
                 {
                     "name": "extract_attribute_step",
@@ -3932,14 +3828,9 @@ class HorizontalTemplate(DSBoxTemplate): #This template only generate processed 
             "target": "extract_target_step",  # Name of the step generating the ground truth
             "steps": [
                 {
-                    "name": "denormalize_step",
-                    "primitives": ["d3m.primitives.data_transformation.denormalize.Common"],
-                    "inputs": ["template_input"]
-                },
-                {
                     "name": "to_dataframe_step",
                     "primitives": ["d3m.primitives.data_transformation.dataset_to_dataframe.Common"],
-                    "inputs": ["denormalize_step"]
+                    "inputs": ["template_input"]
                 },
                 {
                     "name": "extract_attribute_step",

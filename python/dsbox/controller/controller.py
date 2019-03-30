@@ -603,7 +603,6 @@ class Controller:
             use datamart primitives to do data augmentation on given dataset
             return the augmented dataset (if success)            
         """
-
         query_about = ""
         augment = self.config.problem["data_augmentation"]
         for each_augment in augment:
@@ -660,7 +659,7 @@ class Controller:
 
             from dsbox.datapreprocessing.cleaner.datamart_augment import DatamartAugmentation ,DatamartAugmentationHyperparams
             augment_hyperparams = DatamartAugmentationHyperparams.defaults()
-            augment_hyperparams = augment_hyperparams.replace({"join_type":"rltk","joining_columns":each_column,"duplicate_rows_process_method":"average"})
+            augment_hyperparams = augment_hyperparams.replace({"join_type":"rltk", "joining_columns":each_column, "duplicate_rows_process_method":"average"})
             augment_primitive = DatamartAugmentation(hyperparams = augment_hyperparams)
             res = augment_primitive.produce(inputs1 = result.value, inputs2 = self.all_dataset)
             self.extra_primitive.add("data_augment")
@@ -1012,7 +1011,15 @@ class Controller:
         json_file = os.path.abspath(self.config.dataset_schema_files[0])
         all_dataset_uri = 'file://{}'.format(json_file)
         self.all_dataset = loader.load(dataset_uri=all_dataset_uri)
-
+        # first apply denormalize on input dataset
+        from common_primitives.denormalize import Hyperparams as hyper_denormalize, DenormalizePrimitive
+        denormalize_hyperparams = hyper_denormalize.defaults()
+        denormalize_primitive = DenormalizePrimitive(hyperparams = denormalize_hyperparams)
+        self.all_dataset = denormalize_primitive.produce(inputs = self.all_dataset).value
+        self.extra_primitive.add("denormalize")
+        self.dump_primitive(denormalize_primitive, "denormalize")
+        # import pdb
+        # pdb.set_trace()
         if "data_augmentation" in self.config.problem:
             self.all_dataset = self.do_data_augmentation(self.all_dataset)
         # load templates

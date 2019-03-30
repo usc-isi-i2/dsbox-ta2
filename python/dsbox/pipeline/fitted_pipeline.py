@@ -91,6 +91,7 @@ class FittedPipeline:
         self.metric: typing.Dict = {}
         self.auxiliary: typing.Dict = {}
         self._datamart_query_step_location = 0
+        self.location_offset = 0
         _logger.debug('Creating fitted pipeline %s', self.id)
 
     def _set_fitted(self, fitted_pipe: typing.List[StepBase]) -> None:
@@ -102,18 +103,26 @@ class FittedPipeline:
         """
         self.metric = metric
 
-    def get_primitive_augment(self, primitive_name) -> typing.Dict:
+    def get_primitive_augment(self, primitive_name:str , input_names:typing.List[str]) -> typing.Dict:
+        """
+            Base on the given primitive name and corresponding inputs_names
+            Return the dict type primitive augment for adding in pipeline
+        """
         if primitive_name == "splitter":
             from dsbox.datapreprocessing.cleaner.splitter import Splitter, SplitterHyperparameter
             primitive_metadata = Splitter.metadata.query()
 
         elif primitive_name == "datamart_query":
-            from dsbox.datapreprocessing.cleaner.datamart_query_from_dataframe import QueryFromDataframe, QueryFromDataFrameHyperparams
+            from dsbox.datapreprocessing.cleaner.datamart_query_from_dataframe import QueryFromDataframe
             primitive_metadata = QueryFromDataframe.metadata.query()
 
         elif primitive_name == "datamart_augmentation":
-            from dsbox.datapreprocessing.cleaner.datamart_augment import DatamartAugmentation, DatamartAugmentationHyperparams
+            from dsbox.datapreprocessing.cleaner.datamart_augment import DatamartAugmentation
             primitive_metadata = DatamartAugmentation.metadata.query()
+
+        elif primitive_name == "denormalize":
+            from common_primitives.denormalize import DenormalizePrimitive
+            primitive_metadata = DenormalizePrimitive.metadata.query()
 
         primitive_augument= {
                               "type": "PRIMITIVE",
@@ -127,7 +136,7 @@ class FittedPipeline:
                               "arguments": {
                                 "inputs": {
                                   "type": "CONTAINER",
-                                  "data": "inputs.0"
+                                  "data": input_names[0] #"inputs.0"
                                 }
                               },
                               "outputs": [
@@ -142,25 +151,36 @@ class FittedPipeline:
             primitive_augument["arguments"] = {
                                       "inputs1": {
                                           "type": "CONTAINER",
-                                          "data": "steps."+str(self._datamart_query_step_location)+".produce"
+                                          "data":  input_names[0] #"steps."+str(self._datamart_query_step_location)+".produce"
                                         },
                                         "inputs2": {
                                           "type": "CONTAINER",
-                                          "data": "inputs.0"
+                                          "data":  input_names[1]#"inputs.0"
                                         }
                                     }
         return primitive_augument
 
 
-    def add_extra_primitive(self, primitive_name:str, location_number:int):
+    def add_extra_primitive(self, primitive_name:str, location_number:int) -> None:
         """
             Add extra primitives, usually it should be 
-            "d3m.primitives.data_preprocessing.do_nothing_for_dataset.DSBOX" or/and
-            "d3m.primitives.data_augmentation.datamart_query.DSBOX" or/and 
+            "d3m.primitives.data_transformation.denormalize.Common"             or
+            "d3m.primitives.data_preprocessing.do_nothing_for_dataset.DSBOX"    or
+            "d3m.primitives.data_augmentation.datamart_query.DSBOX"             or 
             "d3m.primitives.data_augmentation.datamart_augmentation.DSBOX"
         """
-        
-        primitive_augument = self.get_primitive_augment(primitive_name)
+        if location_number == 0:
+            input_names = ["inputs.0"]
+        else:
+            input_names = ["steps."+str(location_number - 1)+".produce"]
+        if primitive_name == "datamart_augmentation":
+            if location_number >= 2:
+                input_names = ["steps."+str(location_number - 1)+".produce", "steps."+str(location_number - 2)+".produce"]
+            if location_number == 1: # which should not occur any more
+                _logger.warn("detect DatamartAugmentation primitive was added in second step, which should not happen!")
+                input_names = ["steps."+str(location_number - 1)+".produce", "inputs.0"]
+
+        primitive_augument = self.get_primitive_augment(primitive_name, input_names)
 
         hyperparams_file_loc = os.path.join(os.environ["D3MLOCALDIR"], primitive_name+".json")
         with open(hyperparams_file_loc, "r") as f:
@@ -192,7 +212,7 @@ class FittedPipeline:
             if "arguments" in each_step:
                 for each_argument_key in each_step["arguments"].keys():
                     argument_target = each_step["arguments"][each_argument_key]["data"]
-                    if argument_target == "inputs.0" and "denormalize" in each_step["primitive"]["python_path"]:
+                    if argument_target == "inputs.0":# and "denormalize" in each_step["primitive"]["python_path"]:
                         argument_target_new = "steps.0.produce"
                     else:
                         argument_target_list = argument_target.split(".")
@@ -233,7 +253,7 @@ class FittedPipeline:
 
     def get_fit_step_output(self, step_number: int = 0):
         #return self.runtime.fit_outputs[step_number]
-        # TODO: should here always be 0?
+        # TODO: check is it always to be 0 here?
         # return self.runtime.fit_outputs[0]
         return self.runtime.fit_outputs.values['outputs.0']
 
@@ -256,18 +276,23 @@ class FittedPipeline:
         structure = self.pipeline.to_json_structure()
         # if we has DoNothingForDataset, we need update pipeline again
         if self.extra_primitive and "splitter" in self.extra_primitive:
-            _logger.info("The Splitter primitive will be added")
-            self.add_extra_primitive("splitter", 0)
+            self.add_extra_primitive("splitter", self.location_offset)
             structure = self.pipeline.to_json_structure()
-            _logger.info("The pipeline with DoNothingForDataset has been replaced to be Splitter.")
+            _logger.info("Primitive Splitter has been added to pipeline.")
+            self.location_offset += 1
+
+        if self.extra_primitive and "denormalize" in self.extra_primitive:
+            self.add_extra_primitive("denormalize", self.location_offset)
+            structure = self.pipeline.to_json_structure()
+            _logger.info("Primitive Denormalize has been added to pipeline.")
+            self.location_offset += 1
 
         # ForkedPdb().set_trace()
         if self.extra_primitive and "data_augment" in self.extra_primitive:
-            _logger.info("Calling of datamart primitives detected!")
-            self.add_extra_primitive("datamart_query", 0)
-            self.add_extra_primitive("datamart_augmentation", 1)
+            self.add_extra_primitive("datamart_query", self.location_offset)
+            self.add_extra_primitive("datamart_augmentation", self.location_offset + 1)
             structure = self.pipeline.to_json_structure()
-            _logger.info("The datamart relating primitives has been added at the first of the pipeline.")
+            _logger.info("Primitive datamartQuery and DatamartAugmentation has been added to pipeline.")
 
         # Save pipeline rank
         if self.metric:
