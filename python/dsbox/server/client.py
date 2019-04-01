@@ -207,7 +207,8 @@ class Client(object):
             self.describeSolution(stub, solution_id)
         elif args.produce:
             solution_id = args.produce
-            self.basicProduceSolution(stub, solution_id, train_problem_desc)
+            # self.basicProduceSolution(stub, solution_id, train_problem_desc)
+            self.basicProduceSolution(stub, solution_id, test_problem_desc)
         elif args.fit:
             solution_id = args.fit
             self.basicFitSolution(stub, solution_id, train_problem_desc)
