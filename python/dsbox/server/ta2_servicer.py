@@ -21,9 +21,9 @@ from pprint import pprint
 
 
 import d3m
+import d3m.container as d3m_container
 import d3m.metadata.base as mbase
 import d3m.metadata.problem as d3m_problem
-import d3m.container as d3m_container
 
 from d3m.container.dataset import D3MDatasetLoader
 from d3m.metadata.pipeline import Pipeline, PrimitiveStep, SubpipelineStep
@@ -184,6 +184,7 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
         '''
         self.config.start_time = time.perf_counter()
         self.log_msg(msg="SearchSolutions invoked")
+        self.log_msg(request)
 
         # Workaround for loading in keras graphs multiple times
         keras_backend.clear_session()
@@ -629,7 +630,8 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
     def LoadFittedSolution(self, request, context):
         _logger.error("LoadFittedSolution not yet implemented")
 
-    def log_msg(self, msg):
+    @classmethod
+    def log_msg(cls, msg):
         '''
         Handy method for generating pipeline trace logs
         '''
@@ -658,35 +660,49 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
 
 
 def add_true_target(dataset, problem):
-    from d3m.metadata.base import ALL_ELEMENTS as AE
-
     # Get target resource ids
+    success = False
     for spec in problem['inputs']:
-        if spec['dataset_id'] == dataset.metadata.query(())['id']:
-            target_rids = [target['resource_id'] for target in spec['targets']]
-            break
+        # if spec['dataset_id'] == dataset.metadata.query(())['id']:
+        target_rids = [target['resource_id'] for target in spec['targets']]
+        target_cols = [target['column_index'] for target in spec['targets']]
+    success |= add_true_target_base(dataset, target_rids, target_cols)
+    if not success:
+        # Maybe client is using old dataset version (<3.2). Change '0' to 'learningData'
+        if 'learningData' not in target_rids and '0' in target_rids:
+            TA2Servicer.log_msg('Trying old dataset format to add true target...')
+            target_rids = [rid if not rid == '0' else 'learningData' for rid in target_rids]
+            success |= add_true_target_base(dataset, target_rids, target_cols)
 
-    # Client is using old dataset version (<3.2). Change '0' to 'learningData'
-    if 'learningData' not in target_rids and '0' in target_rids:
-        target_rids = [rid if not rid == '0' else 'learningData' for rid in target_rids]
+    if success:
+        TA2Servicer.log_msg('Added true target')
+    else:
+        TA2Servicer.log_msg('Failed to add true target')
 
+
+def add_true_target_base(dataset, target_rids, target_cols) -> bool:
+    added_true_target = False
     for rid in dataset.keys():
         if rid in target_rids:
-            target_index = spec['targets'][target_rids.index(rid)]['column_index']
+            target_index = target_cols[target_rids.index(rid)]
         else:
             target_index = -1
-        for col_num in range(dataset.metadata.query((rid, AE))['dimension']['length']):
-            column_metadata = dict(dataset.metadata.query((rid, AE, col_num)))
+        for col_num in range(dataset.metadata.query((rid, mbase.ALL_ELEMENTS))['dimension']['length']):
+            column_metadata = dict(dataset.metadata.query((rid, mbase.ALL_ELEMENTS, col_num)))
             types = list(column_metadata['semantic_types'])
             if 'https://metadata.datadrivendiscovery.org/types/SuggestedTarget' in types:
                 types.remove('https://metadata.datadrivendiscovery.org/types/SuggestedTarget')
             if 'https://metadata.datadrivendiscovery.org/types/TrueTarget' in types:
                 if not col_num == target_index:
                     types.remove('https://metadata.datadrivendiscovery.org/types/TrueTarget')
+                else:
+                    added_true_target = True
             elif col_num == target_index:
                 types.append('https://metadata.datadrivendiscovery.org/types/TrueTarget')
+                added_true_target = True
             column_metadata['semantic_types'] = tuple(types)
-            dataset.metadata = dataset.metadata.update((rid, AE, col_num), column_metadata)
+            dataset.metadata = dataset.metadata.update((rid, mbase.ALL_ELEMENTS, col_num), column_metadata)
+    return added_true_target
 
 
 def find_entry_id(dataset):
