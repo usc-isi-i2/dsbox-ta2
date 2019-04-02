@@ -1139,8 +1139,7 @@ class Large_column_number_with_numerical_only_classification(DSBoxTemplate):
                     "primitives": [{
                         "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.DataFrameCommon",
                         "hyperparameters":
-                            {'semantic_types': ('https://metadata.datadrivendiscovery.org/types/Target',
-                                                'https://metadata.datadrivendiscovery.org/types/SuggestedTarget',),
+                            {'semantic_types': ('https://metadata.datadrivendiscovery.org/types/TrueTarget',),
                              'use_columns': (),
                              'exclude_columns': ()
                              }
@@ -1223,8 +1222,7 @@ class Large_column_number_with_numerical_only_regression(DSBoxTemplate):
                     "primitives": [{
                         "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.DataFrameCommon",
                         "hyperparameters":
-                            {'semantic_types': ('https://metadata.datadrivendiscovery.org/types/Target',
-                                                'https://metadata.datadrivendiscovery.org/types/SuggestedTarget',),
+                            {'semantic_types': ('https://metadata.datadrivendiscovery.org/types/TrueTarget',),
                              'use_columns': (),
                              'exclude_columns': ()
                              }
@@ -1309,8 +1307,7 @@ class DefaultTimeSeriesForcastingTemplate(DSBoxTemplate):
                     "primitives": [{
                         "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.DataFrameCommon",
                         "hyperparameters":
-                            {'semantic_types': ('https://metadata.datadrivendiscovery.org/types/Target',
-                                                'https://metadata.datadrivendiscovery.org/types/SuggestedTarget',),
+                            {'semantic_types': ('https://metadata.datadrivendiscovery.org/types/TrueTarget',),
                              'use_columns': (),
                              'exclude_columns': ()
                              }
@@ -1460,8 +1457,7 @@ class TimeSeriesForcastingTestingTemplate(DSBoxTemplate):
                     "primitives": [{
                         "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.DataFrameCommon",
                         "hyperparameters":
-                            {'semantic_types': ('https://metadata.datadrivendiscovery.org/types/Target',
-                                                'https://metadata.datadrivendiscovery.org/types/SuggestedTarget',),
+                            {'semantic_types': ('https://metadata.datadrivendiscovery.org/types/TrueTarget',),
                              'use_columns': (),
                              'exclude_columns': ()
                              }
@@ -1574,7 +1570,7 @@ class TimeSeriesForcastingTestingTemplate2(DSBoxTemplate):
                     ],
                     "inputs": ["timeseries_to_list_step"]
                 },
-                
+
                 {
                     "name": "profiler_step",
                     "primitives": ["d3m.primitives.schema_discovery.Profiler.DSBOX"],
@@ -1718,7 +1714,7 @@ class TemporaryObjectDetectionTemplate(DSBoxTemplate):
                     "name": "add_metadata_step", # step 7
                     "primitives": [{
                         "primitive": "d3m.primitives.data_transformation.add_semantic_types.DataFrameCommon",
-                        "hyperparameters": 
+                        "hyperparameters":
                             {
                                 "columns": (0,1,2,3),
                                 "semantic_types":('https://metadata.datadrivendiscovery.org/types/TrueTarget',),
@@ -1783,8 +1779,7 @@ class DefaultTimeseriesCollectionTemplate(DSBoxTemplate):
                     "primitives": [{
                         "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.DataFrameCommon",
                         "hyperparameters":
-                            {'semantic_types': ('https://metadata.datadrivendiscovery.org/types/Target',
-                                                'https://metadata.datadrivendiscovery.org/types/SuggestedTarget',),
+                            {'semantic_types': ('https://metadata.datadrivendiscovery.org/types/TrueTarget',),
                              'use_columns': (),
                              'exclude_columns': ()
                              }
@@ -1876,8 +1871,7 @@ class DefaultTimeseriesRegressionTemplate(DSBoxTemplate):
                     "primitives": [{
                         "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.DataFrameCommon",
                         "hyperparameters":
-                            {'semantic_types': ('https://metadata.datadrivendiscovery.org/types/Target',
-                                                'https://metadata.datadrivendiscovery.org/types/SuggestedTarget',),
+                            {'semantic_types': ('https://metadata.datadrivendiscovery.org/types/TrueTarget',),
                              'use_columns': (),
                              'exclude_columns': ()
                              }
@@ -1991,8 +1985,7 @@ class UCHITimeSeriesClassificationTemplate(DSBoxTemplate):
                 #         "hyperparameters":
                 #             {
                 #                 'semantic_types': (
-                #                 'https://metadata.datadrivendiscovery.org/types/Target',
-                #                 'https://metadata.datadrivendiscovery.org/types/SuggestedTarget',),
+                #                 'https://metadata.datadrivendiscovery.org/types/TrueTarget',),
                 #                 'use_columns': (),
                 #                 'exclude_columns': ()
                 #             }
@@ -2046,8 +2039,7 @@ class TA1VggImageProcessingRegressionTemplate(DSBoxTemplate):
                     "primitives": [{
                         "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.DataFrameCommon",
                         "hyperparameters":
-                            {'semantic_types': ('https://metadata.datadrivendiscovery.org/types/Target',
-                                                'https://metadata.datadrivendiscovery.org/types/SuggestedTarget',),
+                            {'semantic_types': ('https://metadata.datadrivendiscovery.org/types/TrueTarget',),
                              'use_columns': (),
                              'exclude_columns': ()
                              }
@@ -2148,8 +2140,7 @@ class DefaultImageProcessingRegressionTemplate(DSBoxTemplate):
                     "primitives": [{
                         "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.DataFrameCommon",
                         "hyperparameters":
-                            {'semantic_types': ('https://metadata.datadrivendiscovery.org/types/Target',
-                                                'https://metadata.datadrivendiscovery.org/types/SuggestedTarget',),
+                            {'semantic_types': ('https://metadata.datadrivendiscovery.org/types/TrueTarget',),
                              'use_columns': (),
                              'exclude_columns': ()
                              }
