@@ -411,7 +411,6 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
 
         add_true_target(dataset, self.problem_parsed)
 
-        print('Load fitted pipeline', self.config.output_dir, fitted_pipeline_id)
         fitted_pipeline = FittedPipeline.load(fitted_pipeline_id=fitted_pipeline_id, folder_loc=self.config.output_dir, log_dir=self.config.log_dir)
         fitted_pipeline.produce(inputs=[dataset])
 
