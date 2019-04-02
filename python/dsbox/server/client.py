@@ -298,6 +298,8 @@ class Client(object):
                 log_msg(scoreSolutionResultsResponse)
                 i += 1
 
+            self.basicProduceSolution(stub, solution_id, test_problem)
+
         if end_search:
             self.endSearchSolutions(stub, search_id)
 
