@@ -614,7 +614,8 @@ class Controller:
         for each in range(len(self.all_dataset[self.problem_info["res_id"]].columns)):
             selector = (self.problem_info["res_id"], ALL_ELEMENTS, each)
             each_column_meta = self.all_dataset.metadata.query(selector)
-            if 'http://schema.org/Text' in each_column_meta["semantic_types"]:
+            if 'http://schema.org/Text' in each_column_meta["semantic_types"] or \
+            "https://metadata.datadrivendiscovery.org/types/CategoricalData" in each_column_meta["semantic_types"]:
                 can_query_columns.append(each_column_meta['name'])
 
         if len(can_query_columns) == 0:
@@ -624,6 +625,8 @@ class Controller:
         from dsbox.datapreprocessing.cleaner.datamart_query_from_dataframe import QueryFromDataframe ,QueryFromDataFrameHyperparams
         query_hyperparams = QueryFromDataFrameHyperparams.defaults()
 
+        # import pdb
+        # pdb.set_trace()
         for each_column in can_query_columns:
             # TODO: now we only use the first results!!! Consider do multiple test with different query
             query_json = {
@@ -938,12 +941,13 @@ class Controller:
         """
         try:
             # pickle this fitted sampler for furture use in pipelines
-            sampler_pickle_file_loc = os.path.join(os.environ["D3MLOCALDIR"], self.config.problem['id']+save_file_name+".pkl")
+            name = self.all_dataset.metadata.query(())['id']
+            sampler_pickle_file_loc = os.path.join(os.environ["D3MLOCALDIR"], name+save_file_name+".pkl")
             with open(sampler_pickle_file_loc, "wb") as f:
                 pickle.dump(target_primitive, f)
 
             hyperparams_now = target_primitive.hyperparams.values_to_json_structure()
-            sampler_hyperparams_file_loc = os.path.join(os.environ["D3MLOCALDIR"], self.config.problem['id']+save_file_name+".json")
+            sampler_hyperparams_file_loc = os.path.join(os.environ["D3MLOCALDIR"], name+save_file_name+".json")
             with open(sampler_hyperparams_file_loc, "w") as f:
                 json.dump(hyperparams_now, f)
             return True
@@ -1018,9 +1022,7 @@ class Controller:
         self.all_dataset = denormalize_primitive.produce(inputs = self.all_dataset).value
         self.extra_primitive.add("denormalize")
         self.dump_primitive(denormalize_primitive, "denormalize")
-        # import pdb
-        # pdb.set_trace()
-        if "data_augmentation" in self.config.problem:
+        if "data_augmentation" in self.config.problem.keys():
             self.all_dataset = self.do_data_augmentation(self.all_dataset)
         # load templates
         self.load_templates()

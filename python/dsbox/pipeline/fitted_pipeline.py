@@ -161,7 +161,7 @@ class FittedPipeline:
         return primitive_augument
 
 
-    def add_extra_primitive(self, primitive_name:str, location_number:int) -> None:
+    def add_extra_primitive(self, primitive_name:typing.List[str], location_number:int) -> None:
         """
             Add extra primitives, usually it should be 
             "d3m.primitives.data_transformation.denormalize.Common"             or
@@ -169,66 +169,70 @@ class FittedPipeline:
             "d3m.primitives.data_augmentation.datamart_query.DSBOX"             or 
             "d3m.primitives.data_augmentation.datamart_augmentation.DSBOX"
         """
-        if location_number == 0:
-            input_names = ["inputs.0"]
-        else:
-            input_names = ["steps."+str(location_number - 1)+".produce"]
-        if primitive_name == "datamart_augmentation":
-            if location_number >= 2:
-                input_names = ["steps."+str(location_number - 1)+".produce", "steps."+str(location_number - 2)+".produce"]
-            if location_number == 1: # which should not occur any more
-                _logger.warn("detect DatamartAugmentation primitive was added in second step, which should not happen!")
-                input_names = ["steps."+str(location_number - 1)+".produce", "inputs.0"]
-
-        primitive_augument = self.get_primitive_augment(primitive_name, input_names)
-
-        hyperparams_file_loc = os.path.join(os.environ["D3MLOCALDIR"], self.dataset_id+primitive_name+".json")
-        with open(hyperparams_file_loc, "r") as f:
-            hyperparams_file = json.load(f)
-        new_hyper_file = {}
-        for key, value in hyperparams_file.items():
-            new_hyper_file[key] = {"type":"VALUE",
-                                   "data":value}
-        primitive_augument['hyperparams'] =  new_hyper_file
-
-        primitive_pickle_file_loc = os.path.join(os.environ["D3MLOCALDIR"], self.dataset_id+primitive_name+".pkl")
-        with open(primitive_pickle_file_loc, "rb") as f:
-            primitive_pickle_file = pickle.load(f)
-
         structure = self.pipeline.to_json_structure()
+        for each_primitive_name in primitive_name:
+            # considering adding datamart query and augment must be add in the same time
+            # we should support adding multiple primitives in once
+            if location_number == 0:
+                input_names = ["inputs.0"]
+            else:
+                input_names = ["steps."+str(location_number - 1)+".produce"]
+            if each_primitive_name == "datamart_augmentation":
+                if location_number >= 2:
+                    input_names = ["steps."+str(location_number - 1)+".produce", "steps."+str(location_number - 2)+".produce"]
+                if location_number == 1: # which should not occur any more
+                    _logger.warn("detect DatamartAugmentation primitive was added in second step, which should not happen!")
+                    input_names = ["steps."+str(location_number - 1)+".produce", "inputs.0"]
 
-        # update output reference
-        output_step_reference = structure["outputs"] # it should look like "steps.11.produce"
-        for i, each_output_step_reference in enumerate(output_step_reference):
-            each_output_step_reference_split = each_output_step_reference["data"].split(".")
-            each_output_step_reference_split[1] = str(int(each_output_step_reference_split[1]) + 1)
-            structure["outputs"][i]["data"] = ".".join(each_output_step_reference_split)
+            primitive_augument = self.get_primitive_augment(each_primitive_name, input_names)
 
-        # add the step in corresponding position
-        detail_steps = structure["steps"]
-        detail_steps.insert(location_number, primitive_augument)
-        for i in range(location_number+1, len(detail_steps)):
-            each_step = detail_steps[i]
-            if "arguments" in each_step:
-                for each_argument_key in each_step["arguments"].keys():
-                    argument_target = each_step["arguments"][each_argument_key]["data"]
-                    if argument_target == "inputs.0":# and "denormalize" in each_step["primitive"]["python_path"]:
-                        argument_target_new = "steps.0.produce"
-                    else:
-                        argument_target_list = argument_target.split(".")
-                        if int(argument_target_list[1]) >= location_number:
-                            argument_target_list[1] = str(int(argument_target_list[1]) + 1)
-                            argument_target_new = ".".join(argument_target_list)
-                        each_step["arguments"][each_argument_key]["data"] = argument_target_new
-            # update each_step
-            detail_steps[i] = each_step
-        # update original structure
-        structure["steps"] = detail_steps
+            hyperparams_file_loc = os.path.join(os.environ["D3MLOCALDIR"], self.dataset_id+each_primitive_name+".json")
+            with open(hyperparams_file_loc, "r") as f:
+                hyperparams_file = json.load(f)
+            new_hyper_file = {}
+            for key, value in hyperparams_file.items():
+                new_hyper_file[key] = {"type":"VALUE",
+                                       "data":value}
+            primitive_augument['hyperparams'] =  new_hyper_file
+
+            # update output reference
+            output_step_reference = structure["outputs"] # it should look like "steps.11.produce"
+            for i, each_output_step_reference in enumerate(output_step_reference):
+                each_output_step_reference_split = each_output_step_reference["data"].split(".")
+                each_output_step_reference_split[1] = str(int(each_output_step_reference_split[1]) + 1)
+                structure["outputs"][i]["data"] = ".".join(each_output_step_reference_split)
+
+            # add the step in corresponding position
+            detail_steps = structure["steps"]
+            detail_steps.insert(location_number, primitive_augument)
+            for i in range(location_number+1, len(detail_steps)):
+                each_step = detail_steps[i]
+                if "arguments" in each_step:
+                    for each_argument_key in each_step["arguments"].keys():
+                        argument_target = each_step["arguments"][each_argument_key]["data"]
+                        if argument_target == "inputs.0":# and "denormalize" in each_step["primitive"]["python_path"]:
+                            argument_target_new = "steps.0.produce"
+                            each_step["arguments"][each_argument_key]["data"] = argument_target_new
+                        else:
+                            argument_target_list = argument_target.split(".")
+                            if int(argument_target_list[1]) >= location_number or i == location_number+1:
+                                argument_target_list[1] = str(int(argument_target_list[1]) + 1)
+                                argument_target_new = ".".join(argument_target_list)
+                                each_step["arguments"][each_argument_key]["data"] = argument_target_new
+                # update each_step
+                detail_steps[i] = each_step
+            # update original structure
+            structure["steps"] = detail_steps
+            # add into runtime
+            primitive_pickle_file_loc = os.path.join(os.environ["D3MLOCALDIR"], self.dataset_id+each_primitive_name+".pkl")
+            with open(primitive_pickle_file_loc, "rb") as f:
+                primitive_pickle_file = pickle.load(f)
+            self.runtime.steps_state.insert(location_number, primitive_pickle_file)
+            location_number += 1
+
         # update cracked Pipeline from new structure
         self.pipeline = Pipeline.from_json_structure(structure)
         # ForkedPdb().set_trace()
-        # add into runtime
-        self.runtime.steps_state.insert(location_number, primitive_pickle_file)
         steps_state_old = self.runtime.steps_state
         # generate new runtime
         self.runtime = Runtime(self.pipeline, fitted_pipeline_id=self.id,
@@ -276,21 +280,20 @@ class FittedPipeline:
         structure = self.pipeline.to_json_structure()
         # if we has DoNothingForDataset, we need update pipeline again
         if self.extra_primitive and "splitter" in self.extra_primitive:
-            self.add_extra_primitive("splitter", self.location_offset)
+            self.add_extra_primitive(["splitter"], self.location_offset)
             structure = self.pipeline.to_json_structure()
             _logger.info("Primitive Splitter has been added to pipeline.")
             self.location_offset += 1
 
         if self.extra_primitive and "denormalize" in self.extra_primitive:
-            self.add_extra_primitive("denormalize", self.location_offset)
+            self.add_extra_primitive(["denormalize"], self.location_offset)
             structure = self.pipeline.to_json_structure()
             _logger.info("Primitive Denormalize has been added to pipeline.")
             self.location_offset += 1
 
         # ForkedPdb().set_trace()
         if self.extra_primitive and "data_augment" in self.extra_primitive:
-            self.add_extra_primitive("datamart_query", self.location_offset)
-            self.add_extra_primitive("datamart_augmentation", self.location_offset + 1)
+            self.add_extra_primitive(["datamart_query", "datamart_augmentation"], self.location_offset)
             structure = self.pipeline.to_json_structure()
             _logger.info("Primitive datamartQuery and DatamartAugmentation has been added to pipeline.")
 
