@@ -553,6 +553,7 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
         test_pipeline_metrics2 = calculate_score(test_ground_truth, pipeline_prediction,
             self.performance_metrics, self.task_type, SpecialMetric().regression_metric)
 
+        '''
         test_pipeline_metrics = list()
         for metric_description in self.performance_metrics:
             metricDesc = PerformanceMetric.parse(metric_description['metric'])
@@ -595,9 +596,9 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
             except Exception:
                 raise NotSupportedError(
                     '[ERROR] metric calculation failed in test pickled pipeline')
-
+        '''
         _logger.info(f'=== original:{test_metrics}')
-        _logger.info(f'=== test:{test_pipeline_metrics}')
+        # _logger.info(f'=== test:{test_pipeline_metrics}')
         _logger.info(f'=== test2:{test_pipeline_metrics2}')
 
         pairs = zip(test_metrics, test_pipeline_metrics2)
@@ -607,7 +608,7 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
                 {
                     'id': fitted_pipeline.id,
                     'test__metric': test_metrics,
-                    'pickled_pipeline__metric': test_pipeline_metrics
+                    'pickled_pipeline__metric': test_pipeline_metrics2
                 }
             )
             print("\n" * 5)
@@ -617,7 +618,7 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
                 {
                     'id': fitted_pipeline.id,
                     'test__metric': test_metrics,
-                    'pickled_pipeline__metric': test_pipeline_metrics
+                    'pickled_pipeline__metric': test_pipeline_metrics2
                 },
             )
             print(
@@ -627,7 +628,7 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
                     {
                         'id': fitted_pipeline.id,
                         'test__metric': test_metrics,
-                        'pickled_pipeline__metric': test_pipeline_metrics
+                        'pickled_pipeline__metric': test_pipeline_metrics2
                     })
             )
             print("\n" * 5)
@@ -669,8 +670,8 @@ def calculate_score(ground_truth: DataFrame, prediction: DataFrame,
 
     for metric_description in performance_metrics:
         metricDesc = PerformanceMetric.parse(metric_description['metric'])
-        metric: typing.Callable = metricDesc.get_function()
         params: typing.Dict = metric_description['params']
+        metric: typing.Callable = metricDesc.get_class()(**params)
 
         # special design for objectDetectionAP
         if metric_description["metric"] == "objectDetectionAP":
@@ -681,14 +682,18 @@ def calculate_score(ground_truth: DataFrame, prediction: DataFrame,
                 #                            value=training_image_name_column)
                 ground_truth_to_send = ground_truth.iloc[:, ground_truth.shape[1] - 2: ground_truth.shape[1]]
                 prediction_to_send = prediction.iloc[:, prediction.shape[1] - 2: prediction.shape[1]]
+                if prediction_to_send['d3mIndex'].dtype.name != ground_truth_to_send['d3mIndex'].dtype.name:
+                    ground_truth_to_send = ground_truth_to_send['d3mIndex'].astype(str)
+                    prediction_to_send = prediction_to_send['d3mIndex'].astype(str)
+
+                # truth = ground_truth_to_send.astype(str).values.tolist()
+                # predictions = prediction_to_send.astype(str).values.tolist()
+                value = metric.score(ground_truth_to_send, prediction_to_send)
+
                 result_metrics.append({
                     'column_name': ground_truth.columns[-1],
                     'metric': metric_description['metric'],
-                    'value': metric(
-                        ground_truth_to_send.astype(str).values.tolist(),
-                        prediction_to_send.astype(str).values.tolist(),
-                        **params
-                    )
+                    'value': value
                 })
             return result_metrics
         # END special design for objectDetectionAP
@@ -702,44 +707,38 @@ def calculate_score(ground_truth: DataFrame, prediction: DataFrame,
                     # for the condition that ground_truth have index but
                     # prediction don't have
                     target_amount = len(prediction.columns)
+                    # TODO: we also need to add d3mIndex if prediction don't have here
+
                 else:
                     target_amount = len(prediction.columns) - 1
+                    if prediction['d3mIndex'].dtype.name != ground_truth['d3mIndex'].dtype.name:
+                        ground_truth['d3mIndex'] = ground_truth['d3mIndex'].astype(str)
+                        prediction['d3mIndex'] = prediction['d3mIndex'].astype(str)
 
                 ground_truth_amount = len(ground_truth.columns) - 1
 
                 if not (ground_truth_amount == target_amount):
                     print('predicition columns :', prediction.columns)
                     print('Ground truth columns:', ground_truth.columns)
+                    raise ValueError("Ground truth's amount and prediction's amount does not match")
                 #     from runtime import ForkedPdb
                 #     ForkedPdb().set_trace()
-
-                assert ground_truth_amount == target_amount, \
-                    "[ERROR] Truth and prediction does not match"
 
                 if do_regression_mode:
                     # regression mode require the targets must be float
                     for each_column in range(-target_amount, 0, 1):
-                        result_metrics.append({
-                            'column_name': ground_truth.columns[each_column],
-                            'metric': metric_description['metric'],
-                            'value': metric(
-                                ground_truth.iloc[:, each_column].astype(float),
-                                prediction.iloc[:, each_column].astype(float),
-                                **params
-                            )
-                        })
-                else:
-                    # for other modes, we can treat the predictions as str
-                    for each_column in range(- target_amount, 0, 1):
-                        result_metrics.append({
-                            'column_name': ground_truth.columns[each_column],
-                            'metric': metric_description['metric'],
-                            'value': metric(
-                                ground_truth.iloc[:, each_column].astype(str),
-                                prediction.iloc[:, each_column].astype(str),
-                                **params
-                            )
-                        })
+                        prediction.iloc[:,each_column] = prediction['d3mIndex'].astype(float)
+
+                # update 2019.4.12, now d3m v2019.4.4 have new metric function, we have to change like this
+                ground_truth_d3m_index_column_index = ground_truth.columns.tolist().index("d3mIndex")
+                prediction_d3m_index_column_index = prediction.columns.tolist().index("d3mIndex")
+                for each_column in range(-target_amount, 0, 1):
+                    result_metrics.append({
+                        'column_name': ground_truth.columns[each_column],
+                        'metric': metric_description['metric'],
+                        'value': metric.score(ground_truth.iloc[:,[ground_truth_d3m_index_column_index,each_column]],
+                                              prediction.iloc[:,[prediction_d3m_index_column_index,each_column]])
+                    })
         except Exception:
             raise NotSupportedError('[ERROR] metric calculation failed')
     # END for loop
