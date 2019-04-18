@@ -93,7 +93,7 @@ class TemplateSteps:
                 "name": data,
                 "primitives": [
                     {
-                        "primitive": "d3m.primitives.data_transformation.pca.SKlearn",
+                        "primitive": "d3m.primitives.feature_extraction.pca.SKlearn",
                         "hyperparameters":
                         {
                             'use_semantic_types': [True],
@@ -420,7 +420,7 @@ class TemplateSteps:
                             "primitive": "d3m.primitives.data_preprocessing.do_nothing.DSBOX",
                         },
                         {
-                            "primitive": "d3m.primitives.data_transformation.pca.SKlearn",
+                            "primitive": "d3m.primitives.feature_extraction.pca.SKlearn",
                             "hyperparameters":
                                 {
                                     'add_index_columns': [True],
