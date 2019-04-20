@@ -1,8 +1,9 @@
-import time
+import argparse
 import os
 import psutil
 import signal
 import sys
+import time
 import traceback
 
 from dsbox.controller.controller import Controller
@@ -38,7 +39,7 @@ class StderrLogger(object):
         self.log.flush()
 
 
-def main(config: DsboxConfig):
+def main(config: DsboxConfig, debug_mode=False):
     controller = Controller(development_mode=False)
     controller.initialize(config)
     config.start_time = time.perf_counter()
@@ -73,11 +74,12 @@ def main(config: DsboxConfig):
 
     timeout = config.timeout
 
-    if timeout > 0:
-        signal.signal(signal.SIGALRM, force_exit)
-        signal.alarm(timeout)
-    else:
-        raise Exception('Negative timeout {}'.format(timeout))
+    if not debug_mode:
+        if timeout > 0:
+            signal.signal(signal.SIGALRM, force_exit)
+            signal.alarm(timeout)
+        else:
+            raise Exception('Negative timeout {}'.format(timeout))
 
     print("[INFO] Now in training process")
     controller.initialize_from_config_for_evaluation(config)
@@ -96,6 +98,12 @@ def main(config: DsboxConfig):
 
 if __name__ == "__main__":
 
+    parser = argparse.ArgumentParser(
+        description="Perform a TA2 search run. The configuration of the run is specified through shell environment variables.")
+    parser.add_argument('--debug', action='store_true',
+                        help="Debug mode. Turn off timemout forced exit")
+    args = parser.parse_args()
+
     config = DsboxConfig()
     config.load()
 
@@ -109,7 +117,7 @@ if __name__ == "__main__":
     sys.stdout = StdoutLogger(f)
     sys.stderr = StderrLogger(f)
 
-    result = main(config)
+    result = main(config, args.debug)
     sys.stdout = orig_stdout
     sys.stderr = orig_stderr
 
