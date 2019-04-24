@@ -145,7 +145,7 @@ class TemplateLibrary:
         # horzontalTemplate
         # self.templates.append(HorizontalTemplate)
         # self.templates.append(DataAugmentRegressionTemplate)
-        
+
         # default tabular templates, encompassing many of the templates below
         self.templates.append(DefaultClassificationTemplate)
         self.templates.append(NaiveBayesClassificationTemplate)
@@ -193,7 +193,7 @@ class TemplateLibrary:
         self.templates.append(DefaultTimeSeriesForcastingTemplate)
         self.templates.append(CMUClusteringTemplate)
         self.templates.append(MichiganVideoClassificationTemplate)
-        
+
         self.templates.append(JHUVertexNominationTemplate)
         self.templates.append(JHUGraphMatchingTemplate)
 
@@ -208,7 +208,7 @@ class TemplateLibrary:
         # move dsboxClassificationTemplate to last execution because sometimes this template have bugs
         self.templates.append(dsboxClassificationTemplate)
         self.templates.append(dsboxRegressionTemplate)
-        
+
     def _load_single_inline_templates(self, template_name):
         if template_name in self.all_templates:
             self.templates.append(self.all_templates[template_name])
@@ -2219,7 +2219,7 @@ class TA1VggImageProcessingRegressionTemplate(DSBoxTemplate):
                     "name": "PCA_step",
                     "primitives": [
                         {
-                            "primitive": "d3m.primitives.feature_extraction.pca.SKlearn",
+                            "primitive": "d3m.primitives.data_transformation.pca.SKlearn",
                             "hyperparameters": {
                                 'add_index_columns': [True],
                                 'use_semantic_types': [True]
@@ -2315,7 +2315,7 @@ class DefaultImageProcessingRegressionTemplate(DSBoxTemplate):
                     "name": "PCA_step",
                     "primitives": [
                         {
-                            "primitive": "d3m.primitives.feature_extraction.pca.SKlearn",
+                            "primitive": "d3m.primitives.data_transformation.pca.SKlearn",
                             "hyperparameters": {
                                 'add_index_columns': [True],
                                 'use_semantic_types': [True]
