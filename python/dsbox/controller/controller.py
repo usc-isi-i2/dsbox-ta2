@@ -16,6 +16,7 @@ import pickle
 
 from d3m.metadata.problem import TaskType
 from d3m.container.pandas import DataFrame as d3m_DataFrame
+from d3m.container.list import List
 from d3m.container.dataset import Dataset, D3MDatasetLoader
 from d3m.exceptions import InvalidArgumentValueError
 from d3m.metadata.base import Metadata, DataMetadata, ALL_ELEMENTS
@@ -603,6 +604,10 @@ class Controller:
             use datamart primitives to do data augmentation on given dataset
             return the augmented dataset (if success)            
         """
+        from common_primitives.dataset_to_dataframe import Hyperparams as hyper_ds_to_df, DatasetToDataFramePrimitive
+        ds_to_df_hyperparams = hyper_ds_to_df.defaults()
+        ds_to_df_primitive = DatasetToDataFramePrimitive(hyperparams = ds_to_df_hyperparams)
+        suppied_dataframe = ds_to_df_primitive.produce(inputs=self.all_dataset).value
         query_about = ""
         augment = self.config.problem["data_augmentation"]
         for each_augment in augment:
@@ -611,9 +616,9 @@ class Controller:
             query_about += ", ".join(each_augment["keywords"]) + ", " + ", ".join(each_augment["domain"])
 
         can_query_columns = []
-        for each in range(len(self.all_dataset[self.problem_info["res_id"]].columns)):
-            selector = (self.problem_info["res_id"], ALL_ELEMENTS, each)
-            each_column_meta = self.all_dataset.metadata.query(selector)
+        for each in range(len(suppied_dataframe.columns)):
+            selector = (ALL_ELEMENTS, each)
+            each_column_meta = suppied_dataframe.metadata.query(selector)
             if 'http://schema.org/Text' in each_column_meta["semantic_types"] or \
             "https://metadata.datadrivendiscovery.org/types/CategoricalData" in each_column_meta["semantic_types"]:
                 can_query_columns.append(each_column_meta['name'])
@@ -622,60 +627,85 @@ class Controller:
             self._logger.warn("No columns can be augment!")
             return self.all_dataset
 
-        from dsbox.datapreprocessing.cleaner.datamart_query_from_dataframe import QueryFromDataframe ,QueryFromDataFrameHyperparams
-        query_hyperparams = QueryFromDataFrameHyperparams.defaults()
-
+        from datamart import entries_new 
+        datamart_unit = entries_new.D3MDatamart()
         # import pdb
         # pdb.set_trace()
-        for each_column in can_query_columns:
-            # TODO: now we only use the first results!!! Consider do multiple test with different query
-            query_json = {
-                "dataset": {
-                    "about": query_about
-                    # Not used for now
-                    # TODO: add NLP to extract more features
-                    # "description": ["FIFA", "worldcup", "Soccer game", "European Cup"]
-                },
-                "required_variables": [
-                    {
-                        "type": "dataframe_columns",
-                        "names": [each_column]
-                    }
-                ]
-                # Not used for now
-                # ,
-                # "desired_variables": [
-                #     {
-                #         "type": "generic_entity",
-                #         "about": "score_winner",
-                #         "variable_syntactic_type": [
-                #             "http://schema.org/Text"
-                #         ]
-                #     }
-                # ]
-            }
+        all_results = []
+        # for each_column in can_query_columns:
+        #     # TODO: now we only use the first results!!! Consider do multiple test with different query
+        #     query_json = {
+        #         "dataset": {
+        #             "about": query_about
+        #             # Not used for now
+        #             # TODO: add NLP to extract more features
+        #             # "description": ["FIFA", "worldcup", "Soccer game", "European Cup"]
+        #         },
+        #         "required_variables": [
+        #             {
+        #                 "type": "dataframe_columns",
+        #                 "names": [each_column]
+        #             }
+        #         ]
+        #         # Not used for now
+        #         # ,
+        #         # "desired_variables": [
+        #         #     {
+        #         #         "type": "generic_entity",
+        #         #         "about": "score_winner",
+        #         #         "variable_syntactic_type": [
+        #         #             "http://schema.org/Text"
+        #         #         ]
+        #         #     }
+        #         # ]
+        #     }
 
-            query_hyperparams = query_hyperparams.replace({"query":query_json})
-            query_primitive = QueryFromDataframe(hyperparams = query_hyperparams)
-            result = query_primitive.produce(inputs = self.all_dataset)
-            # end query part
+        all_results.extend(datamart_unit.search_with_data(query=None, supplied_data=self.all_dataset))
+        # end query part
 
-            from dsbox.datapreprocessing.cleaner.datamart_augment import DatamartAugmentation ,DatamartAugmentationHyperparams
-            augment_hyperparams = DatamartAugmentationHyperparams.defaults()
-            augment_hyperparams = augment_hyperparams.replace({"join_type":"rltk", "joining_columns":each_column, "duplicate_rows_process_method":"average"})
-            augment_primitive = DatamartAugmentation(hyperparams = augment_hyperparams)
-            res = augment_primitive.produce(inputs1 = result.value, inputs2 = self.all_dataset)
-            self.extra_primitive.add("data_augment")
+            # from dsbox.datapreprocessing.cleaner.datamart_augment import DatamartAugmentation ,DatamartAugmentationHyperparams
+            # augment_hyperparams = DatamartAugmentationHyperparams.defaults()
+            # augment_hyperparams = augment_hyperparams.replace({"join_type":"rltk", "joining_columns":each_column, "duplicate_rows_process_method":"average"})
+            # augment_primitive = DatamartAugmentation(hyperparams = augment_hyperparams)
+            # res = augment_primitive.produce(inputs1 = result.value, inputs2 = self.all_dataset)
+            # self.extra_primitive.add("data_augment")
+        # import pdb
+        # pdb.set_trace()
+        all_results.sort(key=lambda x: x.score, reverse=True)
 
-            # save 2 primitives and add it to pipelines during FittedPipeline.save() afterwards
-            self.dump_primitive(query_primitive, "datamart_query")
-            self.dump_primitive(augment_primitive, "datamart_augmentation")
-            # return the augmented dataset
-            original_shape = self.all_dataset[self.problem_info["res_id"]].shape
-            augmented_shape = res.value[self.problem_info["res_id"]].shape
-            self._logger.info("The original dataset shape is (" + str(original_shape[0]) + ", " + str(original_shape[1]) + ")")
-            self._logger.info("The augmented dataset shape is (" + str(augmented_shape[0]) + ", " + str(augmented_shape[1]) + ")")
-            return res.value
+        # res = best_result.augment(supplied_data=suppied_dataframe)
+        all_serach_results = List()
+        for each in all_results:
+            result_config = each.serialize()
+            all_serach_results.append(result_config)
+
+        from dsbox.datapreprocessing.cleaner.datamart_augment import DatamartAugmentation ,DatamartAugmentationHyperparams
+        from dsbox.datapreprocessing.cleaner.datamart_download import DatamartDownload ,DatamartDownloadHyperparams
+        augment_hyperparams = DatamartAugmentationHyperparams.defaults()
+        augment_hyperparams = augment_hyperparams.replace({"search_result":all_serach_results})
+        download_hyperparams = DatamartDownloadHyperparams.defaults()
+        download_hyperparams = download_hyperparams.replace({"search_result":all_serach_results[0]})
+        download_primitive = DatamartDownload(hyperparams = download_hyperparams)
+        augment_primitive = DatamartAugmentation(hyperparams = augment_hyperparams)
+        import pdb
+        pdb.set_trace()
+        download_result = download_primitive.produce(inputs=self.all_dataset).value
+        augment_result = augment_primitive.produce(inputs=self.all_dataset).value
+
+        self.extra_primitive.add("augment")
+        self.dump_primitive(augment_primitive, "augment")
+        return augment_result
+
+
+            # # save 2 primitives and add it to pipelines during FittedPipeline.save() afterwards
+            # self.dump_primitive(query_primitive, "datamart_query")
+            # self.dump_primitive(augment_primitive, "datamart_augmentation")
+            # # return the augmented dataset
+            # original_shape = self.all_dataset[self.problem_info["res_id"]].shape
+            # augmented_shape = res.value[self.problem_info["res_id"]].shape
+            # self._logger.info("The original dataset shape is (" + str(original_shape[0]) + ", " + str(original_shape[1]) + ")")
+            # self._logger.info("The augmented dataset shape is (" + str(augmented_shape[0]) + ", " + str(augmented_shape[1]) + ")")
+            # return res.value
 
             # # used for join
             # for each_result in result:
@@ -686,7 +716,7 @@ class Controller:
             ################################################################################################################
 
             # for now use temporary method adapt from rltk
-            '''
+        """
             import rltk
             class left(rltk.AutoGeneratedRecord):
                 pass
@@ -841,7 +871,7 @@ class Controller:
             # update problem doc metadata
             self.config.problem_metadata = self.config.problem_metadata.update((), problem)
             return augmented_dataset
-            '''
+        """
 
     def add_d3m_index_and_prediction_class_name(self, prediction, from_dataset = None):
         """
