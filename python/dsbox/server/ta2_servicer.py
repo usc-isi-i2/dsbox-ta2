@@ -21,9 +21,9 @@ from pprint import pprint
 
 
 import d3m
+import d3m.container as d3m_container
 import d3m.metadata.base as mbase
 import d3m.metadata.problem as d3m_problem
-import d3m.container as d3m_container
 
 from d3m.container.dataset import D3MDatasetLoader
 from d3m.metadata.pipeline import Pipeline, PrimitiveStep, SubpipelineStep
@@ -184,6 +184,7 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
         '''
         self.config.start_time = time.perf_counter()
         self.log_msg(msg="SearchSolutions invoked")
+        self.log_msg(request)
 
         # Workaround for loading in keras graphs multiple times
         keras_backend.clear_session()
@@ -215,7 +216,9 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
         # })
 
         # convert to seconds
-        self.config.timeout = request.time_bound * 60
+        self.config.timeout = request.time_bound_search * 60
+
+        # TODO: !!!! what to do with request.time_bound_run???
 
         self.config.dataset_schema_files = dataset_uris
         self.config.set_problem(problem_json_dict, problem_parsed)
@@ -257,7 +260,7 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
             problem_config = self.search_solution[request.search_id]
 
             self.controller.initialize_from_ta3(problem_config)
-            status = self.controller.train()
+            _ = self.controller.train()
 
             candidates = self.controller.get_candidates()
             self.search_solution_results[request.search_id] = candidates
@@ -408,8 +411,7 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
         dataset_uri = self._map_directories(dataset_uri)
         dataset = loader.load(dataset_uri=dataset_uri)
 
-        # hack
-        add_true_target(dataset)
+        add_true_target(dataset, self.problem_parsed)
 
         print('Load fitted pipeline', self.config.output_dir, fitted_pipeline_id)
         fitted_pipeline = FittedPipeline.load(fitted_pipeline_id=fitted_pipeline_id, folder_loc=self.config.output_dir, log_dir=self.config.log_dir)
@@ -502,8 +504,7 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
         dataset_uri = self._map_directories(dataset_uri)
         dataset = loader.load(dataset_uri=dataset_uri)
 
-        # hack
-        add_true_target(dataset)
+        add_true_target(dataset, self.problem_parsed)
 
         old_fitted_pipeline = FittedPipeline.load(fitted_pipeline_id=fitted_pipeline_id, folder_loc=self.config.output_dir, log_dir=self.config.log_dir)
 
@@ -631,7 +632,8 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
     def LoadFittedSolution(self, request, context):
         _logger.error("LoadFittedSolution not yet implemented")
 
-    def log_msg(self, msg):
+    @classmethod
+    def log_msg(cls, msg):
         '''
         Handy method for generating pipeline trace logs
         '''
@@ -659,17 +661,50 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
         return uri
 
 
-def add_true_target(dataset):
-    from d3m.metadata.base import ALL_ELEMENTS as AE
-    rid = find_entry_id(dataset)
-    col_num = dataset.metadata.query((rid, AE))['dimension']['length'] - 1
-    column_metadata = dict(dataset.metadata.query((rid, AE, col_num)))
-    types = column_metadata['semantic_types']
-    types = tuple(x if x != 'https://metadata.datadrivendiscovery.org/types/SuggestedTarget'
-                  else 'https://metadata.datadrivendiscovery.org/types/TrueTarget'
-                  for x in types)
-    column_metadata['semantic_types'] = types
-    dataset.metadata = dataset.metadata.update((rid, AE, col_num), column_metadata)
+def add_true_target(dataset, problem):
+    # Get target resource ids
+    success = False
+    for spec in problem['inputs']:
+        # if spec['dataset_id'] == dataset.metadata.query(())['id']:
+        target_rids = [target['resource_id'] for target in spec['targets']]
+        target_cols = [target['column_index'] for target in spec['targets']]
+    success |= add_true_target_base(dataset, target_rids, target_cols)
+    if not success:
+        # Maybe client is using old dataset version (<3.2). Change '0' to 'learningData'
+        if 'learningData' not in target_rids and '0' in target_rids:
+            TA2Servicer.log_msg('Trying old dataset format to add true target...')
+            target_rids = [rid if not rid == '0' else 'learningData' for rid in target_rids]
+            success |= add_true_target_base(dataset, target_rids, target_cols)
+
+    if success:
+        TA2Servicer.log_msg('Added true target')
+    else:
+        TA2Servicer.log_msg('Failed to add true target')
+
+
+def add_true_target_base(dataset, target_rids, target_cols) -> bool:
+    added_true_target = False
+    for rid in dataset.keys():
+        if rid in target_rids:
+            target_index = target_cols[target_rids.index(rid)]
+        else:
+            target_index = -1
+        for col_num in range(dataset.metadata.query((rid, mbase.ALL_ELEMENTS))['dimension']['length']):
+            column_metadata = dict(dataset.metadata.query((rid, mbase.ALL_ELEMENTS, col_num)))
+            types = list(column_metadata['semantic_types'])
+            if 'https://metadata.datadrivendiscovery.org/types/SuggestedTarget' in types:
+                types.remove('https://metadata.datadrivendiscovery.org/types/SuggestedTarget')
+            if 'https://metadata.datadrivendiscovery.org/types/TrueTarget' in types:
+                if not col_num == target_index:
+                    types.remove('https://metadata.datadrivendiscovery.org/types/TrueTarget')
+                else:
+                    added_true_target = True
+            elif col_num == target_index:
+                types.append('https://metadata.datadrivendiscovery.org/types/TrueTarget')
+                added_true_target = True
+            column_metadata['semantic_types'] = tuple(types)
+            dataset.metadata = dataset.metadata.update((rid, mbase.ALL_ELEMENTS, col_num), column_metadata)
+    return added_true_target
 
 
 def find_entry_id(dataset):
@@ -784,11 +819,10 @@ def problem_to_dict(problem) -> typing.Dict:
     description: typing.Dict[str, typing.Any] = {
         'schema': d3m_problem.PROBLEM_SCHEMA_VERSION,
         'problem': {
-            'id': problem.problem.id,
-            # "problemVersion" is required by the schema, but we want to be compatible with problem
-            # descriptions which do not adhere to the schema.
-            'version': problem.problem.version,
-            'name': problem.problem.name,
+            # id, version and name fields removed in ta3ta2 api version v2019.4.11
+            # 'id': problem.problem.id,
+            # 'version': problem.problem.version,
+            # 'name': problem.problem.name,
             'task_type': d3m_problem.TaskType(problem.problem.task_type),
             'task_subtype': d3m_problem.TaskSubtype(problem.problem.task_subtype),
             'performance_metrics': performance_metrics
@@ -845,12 +879,9 @@ def problem_to_json(problem) -> typing.Dict:
 
     description: typing.Dict[str, typing.Any] = {
         'about': {
-            'problemSchemaVersion': problem.problem.version,
-            'problemID': problem.problem.id,
-            # "problemVersion" is required by the schema, but we want to be compatible with problem
-            # descriptions which do not adhere to the schema.
-            # 'version': problem.problem.version,
-            'problemName': problem.problem.name,
+            # 'problemSchemaVersion': problem.problem.version,
+            # 'problemID': problem.problem.id,
+            # 'problemName': problem.problem.name,
             'taskType': d3m_problem.TaskType(problem.problem.task_type).unparse(),
             'taskSubtype': d3m_problem.TaskSubtype(problem.problem.task_subtype).unparse(),
         }
@@ -1067,11 +1098,11 @@ def to_proto_search_solution_request(problem, fitted_pipeline_id, metrics_result
     for inputs_dict in problem_dict['inputs']:
         for target in inputs_dict['targets']:
             targets.append(ProblemTarget(
-                target_index = target['target_index'],
-                resource_id = target['resource_id'],
-                column_index = target['column_index'],
-                column_name = target['column_name'],
-                clusters_number = target['clusters_number']))
+                target_index=target['target_index'],
+                resource_id=target['resource_id'],
+                column_index=target['column_index'],
+                column_name=target['column_name'],
+                clusters_number=target['clusters_number']))
     score_list = []
     for metric in metrics_result:
         ppm = ProblemPerformanceMetric(metric=d3m_problem.PerformanceMetric.parse(metric['metric']).name)
@@ -1082,7 +1113,8 @@ def to_proto_search_solution_request(problem, fitted_pipeline_id, metrics_result
         score_list.append(Score(
             metric=ppm,
             fold=0,
-            targets=targets,
+            # Targets removed in v2019.4.11
+            # targets=targets,
             value=Value(raw=to_proto_value_raw(metric['value']))))
     scores = []
     scores.append(
@@ -1137,7 +1169,8 @@ def to_proto_score_solution_request(problem, fitted_pipeline_id, metrics_result)
         score_list.append(Score(
             metric=ppm,
             fold=0,
-            targets=targets,
+            # Targets removed in v2019.4.11
+            # targets=targets,
             value=Value(raw=to_proto_value_raw(metric['value']))))
     result = GetScoreSolutionResultsResponse(
         progress=Progress(state=core_pb2.COMPLETED,
