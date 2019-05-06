@@ -154,6 +154,9 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
         # maps produce solution id to produce solution request
         self.produce_solution: typing.Dict = {}
 
+        # Use own Random instance. The system instance gets reset elsewhere, which causes randomly generated id to repeat.
+        self.random = random.Random()
+
         self._search_cache = {}
 
         if fitted_pipeline_id:
@@ -478,7 +481,9 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
             'request': request,
             'start': Timestamp().GetCurrentTime()
         }
-        return FitSolutionResponse(request_id=request_id)
+        response = FitSolutionResponse(request_id=request_id)
+        self.log_msg(response)
+        return response
 
     def GetFitSolutionResults(self, request, context):
         self.log_msg(msg="GetFitSolutionResults invoked with request_id " + request.request_id)
@@ -643,7 +648,7 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
         '''
         Convenience method for generating 22 character id's
         '''
-        return ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(22))
+        return ''.join(self.random.choice(string.ascii_uppercase + string.digits) for _ in range(22))
 
     def _map_directories(self, uri):
         '''
