@@ -9,6 +9,7 @@ import uuid
 
 from d3m.metadata.pipeline import Pipeline, Resolver, StepBase, PrimitiveStep, SubpipelineStep
 from d3m import exceptions
+from d3m import utils as d3m_utils
 
 from dsbox.template.runtime import Runtime,ForkedPdb
 from dsbox.template.template import DSBoxTemplate
@@ -333,6 +334,9 @@ class FittedPipeline:
         else:
             _logger.warn("Problem type of the pipeline is unknown, unable to save problem taskType / taskSubtype")
 
+        # update from d3m v2019.5.8: update digest to ensure the digest value is correct
+        updated_digest = d3m_utils.compute_digest(Pipeline._canonical_pipeline_description(structure))
+        structure['digest'] = updated_digest
         # save the pipeline with json format
         json_loc = os.path.join(pipeline_dir, self.pipeline.id + '.json')
         with open(json_loc, 'w') as out:

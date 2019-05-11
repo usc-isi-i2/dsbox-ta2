@@ -604,6 +604,13 @@ class Controller:
             use datamart primitives to do data augmentation on given dataset
             return the augmented dataset (if success)            
         """
+        from dsbox.datapreprocessing.cleaner.wikifier import WikifierHyperparams ,Wikifier
+        wikifier_hyperparams = WikifierHyperparams.defaults()
+        # wikifier_hyperparams = wikifier_hyperparams.replace({"use_columns":(1,)})
+        wikifier_primitive = Wikifier(hyperparams = wikifier_hyperparams)
+        self.all_dataset = wikifier_primitive.produce(inputs = self.all_dataset).value
+
+        
         from common_primitives.dataset_to_dataframe import Hyperparams as hyper_ds_to_df, DatasetToDataFramePrimitive
         ds_to_df_hyperparams = hyper_ds_to_df.defaults()
         ds_to_df_primitive = DatasetToDataFramePrimitive(hyperparams = ds_to_df_hyperparams)

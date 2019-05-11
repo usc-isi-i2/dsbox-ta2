@@ -15,6 +15,7 @@ from d3m.container.pandas import DataFrame
 from d3m.exceptions import NotSupportedError
 from d3m.metadata.base import Metadata
 from d3m.metadata.problem import PerformanceMetric
+from d3m.utils import AbstractMetaclass
 from dsbox.JobManager.cache import PrimitivesCache
 from dsbox.combinatorial_search.search_utils import get_target_columns
 from dsbox.pipeline.fitted_pipeline import FittedPipeline
@@ -108,7 +109,7 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
             self.ensemble_tuning_dataset = None
 
         self.performance_metrics = list(map(
-            lambda d: {'metric': d['metric'].unparse(), 'params': d['params']},
+            lambda d: {'metric': d['metric'].unparse(), 'params': d.get('params', None)},
             performance_metrics
         ))
 
@@ -671,17 +672,25 @@ def calculate_score(ground_truth: DataFrame, prediction: DataFrame,
     for metric_description in performance_metrics:
         metricDesc = PerformanceMetric.parse(metric_description['metric'])
         params: typing.Dict = metric_description['params']
-        metric: typing.Callable = metricDesc.get_class()(**params)
+        if params:
+            metric: typing.Callable = metricDesc.get_class()(**params)
+        else:
+            _logger.warning("No params given!")
+            metric = metricDesc.get_class()
+        # updated for d3m v2019.5.8: we need to instantiate the metric class first if it was not done yet
+        if type(metric) is AbstractMetaclass:
+            metric = metric()
 
         # special design for objectDetectionAP
         if metric_description["metric"] == "objectDetectionAP":
+            
             if ground_truth is not None and prediction is not None:
                 # training_image_name_column = ground_truth.iloc[:,
                 #                              ground_truth.shape[1] - 2]
                 # prediction.insert(loc=0, column='image_name',
                 #                            value=training_image_name_column)
                 ground_truth_to_send = ground_truth.iloc[:, ground_truth.shape[1] - 2: ground_truth.shape[1]]
-                prediction_to_send = prediction.iloc[:, prediction.shape[1] - 2: prediction.shape[1]]
+                prediction_to_send = prediction# .iloc[:, prediction.shape[1] - 2: prediction.shape[1]]
                 if prediction_to_send['d3mIndex'].dtype.name != ground_truth_to_send['d3mIndex'].dtype.name:
                     ground_truth_to_send = ground_truth_to_send['d3mIndex'].astype(str)
                     prediction_to_send = prediction_to_send['d3mIndex'].astype(str)
@@ -732,12 +741,13 @@ def calculate_score(ground_truth: DataFrame, prediction: DataFrame,
                 # update 2019.4.12, now d3m v2019.4.4 have new metric function, we have to change like this
                 ground_truth_d3m_index_column_index = ground_truth.columns.tolist().index("d3mIndex")
                 prediction_d3m_index_column_index = prediction.columns.tolist().index("d3mIndex")
+
                 for each_column in range(-target_amount, 0, 1):
                     result_metrics.append({
                         'column_name': ground_truth.columns[each_column],
                         'metric': metric_description['metric'],
-                        'value': metric.score(ground_truth.iloc[:,[ground_truth_d3m_index_column_index,each_column]],
-                                              prediction.iloc[:,[prediction_d3m_index_column_index,each_column]])
+                        'value': metric.score(truth=ground_truth.iloc[:,[ground_truth_d3m_index_column_index,each_column]],
+                                              predictions=prediction.iloc[:,[prediction_d3m_index_column_index,each_column]])
                     })
         except Exception:
             raise NotSupportedError('[ERROR] metric calculation failed')

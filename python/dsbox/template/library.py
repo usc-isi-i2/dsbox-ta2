@@ -4,13 +4,17 @@ import numpy as np
 import typing
 
 from d3m import index
-from d3m.container.dataset import SEMANTIC_TYPES
+from d3m.container.dataset import D3M_ROLE_CONSTANTS_TO_SEMANTIC_TYPES, D3M_RESOURCE_TYPE_CONSTANTS_TO_SEMANTIC_TYPES, D3M_COLUMN_TYPE_CONSTANTS_TO_SEMANTIC_TYPES
 from d3m.metadata.problem import TaskType, TaskSubtype
 from dsbox.template.template import DSBoxTemplate
 from .template_steps import TemplateSteps
 
 _logger = logging.getLogger(__name__)
 
+# for d3m V2019.5.8: new SEMANTIC_TYPES need to be finished like this
+SEMANTIC_TYPES = D3M_ROLE_CONSTANTS_TO_SEMANTIC_TYPES.copy()
+SEMANTIC_TYPES.update(D3M_RESOURCE_TYPE_CONSTANTS_TO_SEMANTIC_TYPES)
+SEMANTIC_TYPES.update(D3M_COLUMN_TYPE_CONSTANTS_TO_SEMANTIC_TYPES)
 
 class TemplateLibrary:
     """
@@ -1766,7 +1770,7 @@ class DefaultObjectDetectionTemplate(DSBoxTemplate):
                         "hyperparameters":
                             {
                                 'semantic_types': (
-                                    'https://metadata.datadrivendiscovery.org/types/PrimaryKey',
+                                    'https://metadata.datadrivendiscovery.org/types/PrimaryMultiKey',
                                     'https://metadata.datadrivendiscovery.org/types/FileName',),
                                 'use_columns': (),
                                 'exclude_columns': ()
@@ -2219,7 +2223,7 @@ class TA1VggImageProcessingRegressionTemplate(DSBoxTemplate):
                     "name": "PCA_step",
                     "primitives": [
                         {
-                            "primitive": "d3m.primitives.data_transformation.pca.SKlearn",
+                            "primitive": "d3m.primitives.feature_extraction.pca.SKlearn",
                             "hyperparameters": {
                                 'add_index_columns': [True],
                                 'use_semantic_types': [True]
@@ -2315,7 +2319,7 @@ class DefaultImageProcessingRegressionTemplate(DSBoxTemplate):
                     "name": "PCA_step",
                     "primitives": [
                         {
-                            "primitive": "d3m.primitives.data_transformation.pca.SKlearn",
+                            "primitive": "d3m.primitives.feature_extraction.pca.SKlearn",
                             "hyperparameters": {
                                 'add_index_columns': [True],
                                 'use_semantic_types': [True]
