@@ -730,7 +730,7 @@ class UMASSClassificationTemplate(DSBoxTemplate):
                              "primitives": "d3m.primitives.classification.multilabel_classifier.DSBOX",
                              "inputs": ["data, target"]
                          }
-                     ]   
+                     ]
         }
 
     # @override
@@ -2334,7 +2334,7 @@ class TA1VggImageProcessingRegressionTemplate(DSBoxTemplate):
                     "name": "PCA_step",
                     "primitives": [
                         {
-                            "primitive": "d3m.primitives.data_transformation.pca.SKlearn",
+                            "primitive": "d3m.primitives.feature_extraction.pca.SKlearn",
                             "hyperparameters": {
                                 'add_index_columns': [True],
                                 'use_semantic_types': [True]
@@ -2430,7 +2430,7 @@ class DefaultImageProcessingRegressionTemplate(DSBoxTemplate):
                     "name": "PCA_step",
                     "primitives": [
                         {
-                            "primitive": "d3m.primitives.data_transformation.pca.SKlearn",
+                            "primitive": "d3m.primitives.feature_extraction.pca.SKlearn",
                             "hyperparameters": {
                                 'add_index_columns': [True],
                                 'use_semantic_types': [True]
