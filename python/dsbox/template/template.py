@@ -396,6 +396,12 @@ class DSBoxTemplate():
         value = []
         # if the desciption is an dictionary:
         # it maybe a primitive with hyperparameters
+
+        if "primitive" not in description:
+            print("Error: Wrong format of the configuration space data: "
+                  "No primitive name found!")
+            return value
+
         # 2019.3.25 update: Because the query of datamart is different,
         #                   We use dict as a hyperparameter, we have to do some special change here
         if description["primitive"] == "d3m.primitives.data_augmentation.datamart_query.DSBOX":
@@ -404,32 +410,29 @@ class DSBoxTemplate():
                     "hyperparameters": description["hyperparameters"],
                 })
             return value
-            
-        if "primitive" not in description:
-            print("Error: Wrong format of the configuration space data: "
-                  "No primitive name found!")
-        else:
-            if "hyperparameters" not in description:
-                description["hyperparameters"] = {}
-            # go through the hypers and if anyone has empty value just remove it
-            hyperDict = dict(filter(lambda kv: len(kv[1]) > 0,
-                                    description["hyperparameters"].items()))
 
-            # go through the hyper values for single tuples and convert them
-            # to a list with single tuple element
-            hyperDict = dict(map(
-                lambda kv:
-                (kv[0], [kv[1]]) if isinstance(kv[1], tuple) else (kv[0], kv[1]),
-                hyperDict.items()
-            ))
+        if "hyperparameters" not in description:
+            description["hyperparameters"] = {}
 
-            # iterate through all combinations of the hyperparameters and add
-            # each as a separate configuration point to the space
-            for hyper in _product_dict(hyperDict):
-                value.append({
-                    "primitive": description["primitive"],
-                    "hyperparameters": hyper,
-                })
+        # go through the hypers and if anyone has empty value just remove it
+        hyperDict = dict(filter(lambda kv: len(kv[1]) > 0,
+                                description["hyperparameters"].items()))
+
+        # go through the hyper values for single tuples and convert them
+        # to a list with single tuple element
+        hyperDict = dict(map(
+            lambda kv:
+            (kv[0], [kv[1]]) if isinstance(kv[1], tuple) else (kv[0], kv[1]),
+            hyperDict.items()
+        ))
+
+        # iterate through all combinations of the hyperparameters and add
+        # each as a separate configuration point to the space
+        for hyper in _product_dict(hyperDict):
+            value.append({
+                "primitive": description["primitive"],
+                "hyperparameters": hyper,
+            })
         return value
 
     def get_target_step_number(self):
