@@ -501,7 +501,7 @@ class Runtime(runtime_base.Runtime):
                 return results
             average_metrics[name] = sum(values) / len(values)
 
-        for metric_description in self.validation_metrics:
+        for metric_description in validation_metrics:
             result_by_metric = {}
             result_by_metric['metric'] = metric_description['metric']
             result_by_metric['value'] = average_metrics[metric_description['metric']]
