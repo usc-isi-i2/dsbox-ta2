@@ -18,6 +18,7 @@ from d3m.primitive_interfaces import base
 from d3m import exceptions
 from multiprocessing import current_process
 from dsbox.JobManager.cache import PrimitivesCache
+from dsbox.template.utils import calculate_score, SpecialMetric
 
 _logger = logging.getLogger(__name__)
 
@@ -86,7 +87,7 @@ class Runtime(runtime_base.Runtime):
             self, pipeline: pipeline_module.Pipeline,  hyperparams: typing.Sequence = None,
             *,
             problem_description: typing.Dict = None, context: metadata_base.Context = metadata_base.Context.TESTING,
-            random_seed: int = 0, volumes_dir: str = None, is_standard_pipeline: bool = False,
+            task_type:str=None, random_seed: int = 0, volumes_dir: str = None, is_standard_pipeline: bool = False,
             environment: pipeline_run_module.RuntimeEnvironment = None,
             users: typing.Sequence[pipeline_run_module.User] = None,
             fitted_pipeline_id: str = None, template_name: str = '', log_dir: str = None
@@ -114,7 +115,7 @@ class Runtime(runtime_base.Runtime):
         self.produce_outputs = None
         self.timing = {}
         self.timing["total_time_used"] = 0.0
-
+        self.task_type = task_type
         self.use_cache = True
         # self.timing["total_time_used_without_cache"] = 0.0
 
@@ -424,6 +425,7 @@ class Runtime(runtime_base.Runtime):
                         kf = KFold(n_splits=cv, shuffle=True, random_state=seed)
 
                     num = 0.0
+
                     for k, (train, test) in enumerate(kf.split(X, y)):
                         try:
                             # !!!
@@ -439,7 +441,7 @@ class Runtime(runtime_base.Runtime):
                             model = primitive(hyperparams=primitive_hyperparams(
                                 primitive_hyperparams.defaults(), **custom_hyperparams))
                         except Exception:
-                            print(
+                            _logger(
                                 "******************\n[ERROR]Hyperparameters unsuccesfully set - "
                                 "using defaults")
                             model = primitive(
@@ -476,15 +478,25 @@ class Runtime(runtime_base.Runtime):
                             ypred = model.produce(**validation_test).value
 
                             num = num + 1.0
+                            
+                            # if task type not given, take a guess
+                            if self.task_type == "":
+                                self._guess_task_type()
 
-                            targets['ground_truth'].append(testY)
-                            targets['prediction'].append(ypred)
-                            for metric_description in self.metric_descriptions:
-                                metricDesc = problem.PerformanceMetric.parse(metric_description['metric'])
-                                metric: typing.Callable = metricDesc.get_function()
-                                params: typing.Dict = metric_description['params']
-                                validation_metrics[metric_description['metric']].append(
-                                    metric(testY, ypred, **params))
+                            if 'd3mIndex' not in testY.columns:
+                                testY.insert(0,'d3mIndex' ,testX['d3mIndex'].copy())
+                            if 'd3mIndex' not in ypred.columns:
+                                ypred.insert(0,'d3mIndex' ,testX['d3mIndex'].copy())
+                            # update 2019.5.13: use calculate_score method instead from ConfigurationSpaceBaseSearch
+                            metric_score = calculate_score(ground_truth=testY, prediction=ypred, performance_metrics=self.metric_descriptions, task_type=self.task_type, regression_metric=SpecialMetric().regression_metric)
+                            # targets['ground_truth'].append(testY)
+                            # targets['prediction'].append(ypred)
+                            for metric_description in metric_score:
+                            #     metricDesc = problem.PerformanceMetric.parse(metric_description['metric'])
+                            #     metric: typing.Callable = metricDesc.get_function()
+                            #     params: typing.Dict = metric_description['params']
+                                validation_metrics[metric_description['metric']].append(metric_description['value'])
+                            # validation_metrics.append(metric_score)
 
                         except Exception as e:
                             sys.stderr.write(
@@ -515,6 +527,13 @@ class Runtime(runtime_base.Runtime):
                           result['metric'], str(['%.4f' % x for x in result['values']]))
 
         return results
+
+    def _guess_task_type(self):
+        for each in self.metric_descriptions:
+            if 'error' in each['metric']:
+                self.task_type = "REGRESSION"
+            else:
+                self.task_type = "CLASSIFICATION"
 
     def fit(self, inputs: typing.Sequence[typing.Any], **arguments: typing.Any) -> runtime_base.Result:
         """

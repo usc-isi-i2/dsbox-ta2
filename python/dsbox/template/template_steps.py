@@ -428,7 +428,7 @@ class TemplateSteps:
                                     'n_components': [(2), (4), (8), (16), (32), (64), (128)], }
                         },
                         {
-                            "primitive": "d3m.primitives.data_transformation.kernel_pca.SKlearn",
+                            "primitive": "d3m.primitives.feature_extraction.kernel_pca.SKlearn",
                             "hyperparameters":
                                 {
                                     'add_index_columns': [True],
@@ -438,7 +438,7 @@ class TemplateSteps:
                                 }
                         },
                         {
-                            "primitive": "d3m.primitives.data_transformation.kernel_pca.SKlearn",
+                            "primitive": "d3m.primitives.feature_extraction.kernel_pca.SKlearn",
                             "hyperparameters":
                                 {
                                     'add_index_columns': [True],
