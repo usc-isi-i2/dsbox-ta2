@@ -161,7 +161,8 @@ class TemplateLibrary:
         # self.templates.append(ExtraTreesClassificationTemplate)
         # self.templates.append(GradientBoostingClassificationTemplate)
 
-        # takes too long to run self.templates.append(SVCClassificationTemplate)
+        # takes too long to run 
+        self.templates.append(SVCClassificationTemplate)
 
         # new tabular regression
         self.templates.append(RandomForestRegressionTemplate)
@@ -259,7 +260,7 @@ class DefaultClassificationTemplate(DSBoxTemplate):
                          {
                              "name": "model_step",
                              "runtime": {
-                                 "test_validation": 5,
+                                 "cross_validation": 5,
                                  "stratified": True
                              },
                              "primitives": [
@@ -343,7 +344,7 @@ class TestDefaultClassificationTemplate(DSBoxTemplate):
                          {
                              "name": "model_step",
                              "runtime": {
-                                 "test_validation": 5,
+                                 "cross_validation": 5,
                                  "stratified": True
                              },
                              "primitives": [
@@ -423,7 +424,7 @@ class NaiveBayesClassificationTemplate(DSBoxTemplate):
                 {
                     "name": "model_step",
                     "runtime": {
-                        "test_validation": 5,
+                        "cross_validation": 5,
                         "stratified": True
                     },
                     "primitives": [
@@ -487,7 +488,7 @@ class RandomForestClassificationTemplate(DSBoxTemplate):
                 {
                     "name": "model_step",
                     "runtime": {
-                        "test_validation": 5,
+                        "cross_validation": 5,
                         "stratified": True
                     },
                     "primitives": [
@@ -535,7 +536,7 @@ class ExtraTreesClassificationTemplate(DSBoxTemplate):
                 {
                     "name": "model_step",
                     "runtime": {
-                        "test_validation": 5,
+                        "cross_validation": 5,
                         "stratified": True
                     },
                     "primitives": [
@@ -583,7 +584,7 @@ class GradientBoostingClassificationTemplate(DSBoxTemplate):
                 {
                     "name": "model_step",
                     "runtime": {
-                        "test_validation": 5,
+                        "cross_validation": 5,
                         "stratified": True
                     },
                     "primitives": [
@@ -630,7 +631,7 @@ class SVCClassificationTemplate(DSBoxTemplate):
                 {
                     "name": "model_step",
                     "runtime": {
-                        "test_validation": 5,
+                        "cross_validation": 5,
                         "stratified": True
                     },
                     "primitives": [
@@ -805,7 +806,7 @@ class DefaultRegressionTemplate(DSBoxTemplate):
                 {
                     "name": "model_step",
                     "runtime": {
-                        "test_validation": 5,
+                        "cross_validation": 5,
                         "stratified": False
                     },
                     "primitives": [
@@ -881,7 +882,7 @@ class SVRRegressionTemplate(DSBoxTemplate):
                 {
                     "name": "model_step",
                     "runtime": {
-                        "test_validation": 5,
+                        "cross_validation": 5,
                         "stratified": True
                     },
                     "primitives": [
@@ -925,7 +926,7 @@ class GradientBoostingRegressionTemplate(DSBoxTemplate):
                 {
                     "name": "model_step",
                     "runtime": {
-                        "test_validation": 5,
+                        "cross_validation": 5,
                     },
                     "primitives": [
                         {
@@ -970,7 +971,7 @@ class ExtraTreesRegressionTemplate(DSBoxTemplate):
                 {
                     "name": "model_step",
                     "runtime": {
-                        "test_validation": 5,
+                        "cross_validation": 5,
                     },
                     "primitives": [
                         {
@@ -1016,7 +1017,7 @@ class RandomForestRegressionTemplate(DSBoxTemplate):
                 {
                     "name": "model_step",
                     "runtime": {
-                        "test_validation": 5,
+                        "cross_validation": 5,
                     },
                     "primitives": [
                         {
@@ -2486,7 +2487,7 @@ class DefaultTextClassificationTemplate(DSBoxTemplate):
                 {
                     "name": "model_step",
                     "runtime": {
-                        "test_validation": 5,
+                        "cross_validation": 5,
                         "stratified": True
                     },
                     "primitives": [
@@ -2551,7 +2552,7 @@ class DefaultTextRegressionTemplate(DSBoxTemplate):
                 {
                     "name": "model_step",
                     "runtime": {
-                        "test_validation": 5,
+                        "cross_validation": 5,
                     },
                     "primitives": [
                         {
@@ -3259,7 +3260,7 @@ class TA1ClassificationTemplate1(DSBoxTemplate):
                 {
                     "name": "model_step",
                     # "runtime": {
-                    #     "test_validation": 5,
+                    #     "cross_validation": 5,
                     #     "stratified": True
                     # },
                     "primitives": [{
@@ -3329,7 +3330,7 @@ class TA1Classification_2(DSBoxTemplate):
                 {
                     "name": "model_step",
                     "runtime": {
-                        "test_validation": 5,
+                        "cross_validation": 5,
                         "stratified": True
                     },
                     "primitives": [
@@ -3444,7 +3445,7 @@ class TA1Classification_3(DSBoxTemplate):
                             }
                         }],
                     "runtime": {
-                        "test_validation": 5,
+                        "cross_validation": 5,
                         "stratified": False
                     },
                     "inputs": ["corex_step", "extract_target_step"]
@@ -3534,7 +3535,7 @@ class MuxinTA1ClassificationTemplate1(DSBoxTemplate):
                     "name": "model_step",
                     "runtime": {
                         "cross_validation": 2,
-                        # "test_validation":1,
+                        # "cross_validation":1,
                         "stratified": True
                     },
                     "primitives": [
@@ -3638,7 +3639,7 @@ class MuxinTA1ClassificationTemplate2(DSBoxTemplate):
                         }
                     ],
                     "runtime": {
-                        "test_validation": 5,
+                        "cross_validation": 5,
                         "stratified": False
                     },
                     "inputs": ["impute_step", "extract_target_step"]
@@ -3734,7 +3735,7 @@ class MuxinTA1ClassificationTemplate3(DSBoxTemplate):
                         }
                     ],
                     "runtime": {
-                        "test_validation": 5,
+                        "cross_validation": 5,
                         "stratified": False
                     },
                     "inputs": ["impute_step", "extract_target_step"]

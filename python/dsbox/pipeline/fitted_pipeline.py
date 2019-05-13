@@ -84,7 +84,7 @@ class FittedPipeline:
         self.log_dir = log_dir
 
         self.runtime = Runtime(pipeline, fitted_pipeline_id=self.id, template_name=self.template_name,
-                               volumes_dir=FittedPipeline.static_volume_dir, log_dir=self.log_dir)
+                               volumes_dir=FittedPipeline.static_volume_dir, log_dir=self.log_dir, task_type=self.template_task)
 
         self.metric_descriptions = list(metric_descriptions)
         self.runtime.set_metric_descriptions(self.metric_descriptions)

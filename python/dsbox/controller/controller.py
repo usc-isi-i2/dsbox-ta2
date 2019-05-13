@@ -694,8 +694,8 @@ class Controller:
         download_hyperparams = download_hyperparams.replace({"search_result":all_serach_results[0]})
         download_primitive = DatamartDownload(hyperparams = download_hyperparams)
         augment_primitive = DatamartAugmentation(hyperparams = augment_hyperparams)
-        import pdb
-        pdb.set_trace()
+        # import pdb
+        # pdb.set_trace()
         download_result = download_primitive.produce(inputs=self.all_dataset).value
         augment_result = augment_primitive.produce(inputs=self.all_dataset).value
 
@@ -1474,6 +1474,7 @@ class Controller:
         """
         Generate and train pipelines.
         """
+        logging.getLogger("d3m").setLevel(logging.ERROR)
         if not self.template:
             return Status.PROBLEM_NOT_IMPLEMENT
 
