@@ -604,41 +604,44 @@ class Controller:
             use datamart primitives to do data augmentation on given dataset
             return the augmented dataset (if success)
         """
-        from dsbox.datapreprocessing.cleaner.wikifier import WikifierHyperparams ,Wikifier
-        wikifier_hyperparams = WikifierHyperparams.defaults()
-        # wikifier_hyperparams = wikifier_hyperparams.replace({"use_columns":(1,)})
-        wikifier_primitive = Wikifier(hyperparams = wikifier_hyperparams)
-        self.all_dataset = wikifier_primitive.produce(inputs = self.all_dataset).value
+        try:
+            from dsbox.datapreprocessing.cleaner.wikifier import WikifierHyperparams ,Wikifier
+            wikifier_hyperparams = WikifierHyperparams.defaults()
+            # wikifier_hyperparams = wikifier_hyperparams.replace({"use_columns":(1,)})
+            wikifier_primitive = Wikifier(hyperparams = wikifier_hyperparams)
+            self.all_dataset = wikifier_primitive.produce(inputs = self.all_dataset).value
 
-        
-        from common_primitives.dataset_to_dataframe import Hyperparams as hyper_ds_to_df, DatasetToDataFramePrimitive
-        ds_to_df_hyperparams = hyper_ds_to_df.defaults()
-        ds_to_df_primitive = DatasetToDataFramePrimitive(hyperparams = ds_to_df_hyperparams)
-        suppied_dataframe = ds_to_df_primitive.produce(inputs=self.all_dataset).value
-        query_about = ""
-        augment = self.config.problem["data_augmentation"]
-        for each_augment in augment:
-            if query_about != "":
-                query_about += ", "
-            query_about += ", ".join(each_augment["keywords"]) + ", " + ", ".join(each_augment["domain"])
+            
+            from common_primitives.dataset_to_dataframe import Hyperparams as hyper_ds_to_df, DatasetToDataFramePrimitive
+            ds_to_df_hyperparams = hyper_ds_to_df.defaults()
+            ds_to_df_primitive = DatasetToDataFramePrimitive(hyperparams = ds_to_df_hyperparams)
+            suppied_dataframe = ds_to_df_primitive.produce(inputs=self.all_dataset).value
+            query_about = ""
+            augment = self.config.problem["data_augmentation"]
+            for each_augment in augment:
+                if query_about != "":
+                    query_about += ", "
+                query_about += ", ".join(each_augment["keywords"]) + ", " + ", ".join(each_augment["domain"])
 
-        can_query_columns = []
-        for each in range(len(suppied_dataframe.columns)):
-            selector = (ALL_ELEMENTS, each)
-            each_column_meta = suppied_dataframe.metadata.query(selector)
-            if 'http://schema.org/Text' in each_column_meta["semantic_types"] or \
-            "https://metadata.datadrivendiscovery.org/types/CategoricalData" in each_column_meta["semantic_types"]:
-                can_query_columns.append(each_column_meta['name'])
+            can_query_columns = []
+            for each in range(len(suppied_dataframe.columns)):
+                selector = (ALL_ELEMENTS, each)
+                each_column_meta = suppied_dataframe.metadata.query(selector)
+                if 'http://schema.org/Text' in each_column_meta["semantic_types"] or \
+                "https://metadata.datadrivendiscovery.org/types/CategoricalData" in each_column_meta["semantic_types"]:
+                    can_query_columns.append(each_column_meta['name'])
 
-        if len(can_query_columns) == 0:
-            self._logger.warn("No columns can be augment!")
-            return self.all_dataset
+            if len(can_query_columns) == 0:
+                self._logger.warn("No columns can be augment!")
+                return self.all_dataset
 
-        from datamart import entries_new
-        datamart_unit = entries_new.D3MDatamart()
-        # import pdb
-        # pdb.set_trace()
-        all_results = []
+            from datamart import entries_new
+            datamart_unit = entries_new.D3MDatamart()
+            # import pdb
+            # pdb.set_trace()
+            all_results = []
+        except:
+            return
         # for each_column in can_query_columns:
         #     # TODO: now we only use the first results!!! Consider do multiple test with different query
         #     query_json = {
