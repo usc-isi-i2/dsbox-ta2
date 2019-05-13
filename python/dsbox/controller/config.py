@@ -120,8 +120,8 @@ class DsboxConfig:
         self._timeout = value
         self.timeout_search = max(self._timeout - 180, int(self._timeout * 0.8))
 
-    def load(self):
-        self._load_d3m_environment()
+    def load(self, ta2ta3_mode: bool = False):
+        self._load_d3m_environment(ta2ta3_mode)
         self._load_dsbox()
         self._setup()
 
@@ -131,7 +131,7 @@ class DsboxConfig:
         self.problem_metadata = metadata_base.Metadata(self.problem_doc)
         self._load_problem_rest()
 
-    def _load_d3m_environment(self):
+    def _load_d3m_environment(self, ta2ta3_mode: bool):
         '''
         Get D3M environmental variable values.
         '''
@@ -143,12 +143,17 @@ class DsboxConfig:
         self.problem_schema = os.environ['D3MPROBLEMPATH']
         self.cpu = int(os.environ['D3MCPU'])
         self.ram = os.environ['D3MRAM']
-        self.timeout = int(os.environ['D3MTIMEOUT'])
+        if ta2ta3_mode:
+            # Timeout should not be used in ta2ta3_mode. Set to a large number
+            self.timeout = 9999999
+            print(f'In ta2ta3_mode, set timeout to {self.timeout}')
+        else:
+            self.timeout = int(os.environ['D3MTIMEOUT'])
 
     def _load_dsbox(self):
         self._load_logging()
-        self.search_method = 'parallel'
-        # self.search_method = 'serial'
+        # self.search_method = 'parallel'
+        self.search_method = 'serial'
 
     def _setup(self):
         self._define_create_output_dirs()

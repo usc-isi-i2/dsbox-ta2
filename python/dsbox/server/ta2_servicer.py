@@ -154,6 +154,9 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
         # maps produce solution id to produce solution request
         self.produce_solution: typing.Dict = {}
 
+        # Use own Random instance. The system instance gets reset elsewhere, which causes randomly generated id to repeat.
+        self.random = random.Random()
+
         self._search_cache = {}
 
         if fitted_pipeline_id:
@@ -413,7 +416,6 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
 
         add_true_target(dataset, self.problem_parsed)
 
-        print('Load fitted pipeline', self.config.output_dir, fitted_pipeline_id)
         fitted_pipeline = FittedPipeline.load(fitted_pipeline_id=fitted_pipeline_id, folder_loc=self.config.output_dir, log_dir=self.config.log_dir)
         fitted_pipeline.produce(inputs=[dataset])
 
@@ -481,7 +483,9 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
             'request': request,
             'start': Timestamp().GetCurrentTime()
         }
-        return FitSolutionResponse(request_id=request_id)
+        response = FitSolutionResponse(request_id=request_id)
+        self.log_msg(response)
+        return response
 
     def GetFitSolutionResults(self, request, context):
         self.log_msg(msg="GetFitSolutionResults invoked with request_id " + request.request_id)
@@ -646,7 +650,7 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
         '''
         Convenience method for generating 22 character id's
         '''
-        return ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(22))
+        return ''.join(self.random.choice(string.ascii_uppercase + string.digits) for _ in range(22))
 
     def _map_directories(self, uri):
         '''
@@ -1081,7 +1085,7 @@ def to_proto_pipeline(pipeline: Pipeline, id: str = None) -> PipelineDescription
     )
 
 
-def to_proto_search_solution_request(problem, fitted_pipeline_id, metrics_result) -> typing.List[GetSearchSolutionsResultsResponse]:
+def to_proto_search_solution_request(problem, fitted_pipeline_id, metrics_result) -> GetSearchSolutionsResultsResponse:
 
     # search_solutions_results = []
 
@@ -1104,8 +1108,10 @@ def to_proto_search_solution_request(problem, fitted_pipeline_id, metrics_result
                 column_name=target['column_name'],
                 clusters_number=target['clusters_number']))
     score_list = []
+    internal_score = np.nan
     for metric in metrics_result:
-        ppm = ProblemPerformanceMetric(metric=d3m_problem.PerformanceMetric.parse(metric['metric']).name)
+        performance_matric: d3m_problem.PerformanceMetric = d3m_problem.PerformanceMetric.parse(metric['metric'])
+        ppm = ProblemPerformanceMetric(metric=performance_matric.name)
         if 'k' in metric:
             ppm = metric['k']
         if 'pos_label' in metric:
@@ -1116,6 +1122,10 @@ def to_proto_search_solution_request(problem, fitted_pipeline_id, metrics_result
             # Targets removed in v2019.4.11
             # targets=targets,
             value=Value(raw=to_proto_value_raw(metric['value']))))
+        if internal_score is np.nan:
+            # Return the first metric as the internal score
+            internal_score = performance_matric.normalize(metric['value'])
+
     scores = []
     scores.append(
         SolutionSearchScore(
@@ -1129,15 +1139,15 @@ def to_proto_search_solution_request(problem, fitted_pipeline_id, metrics_result
         done_ticks=0, # TODO: Figure out how we want to support this
         all_ticks=0, # TODO: Figure out how we want to support this
         solution_id=fitted_pipeline_id, # TODO: Populate this with the pipeline id
-        internal_score=0,
-        # scores=None # Optional so we will not tackle it until needed
+        # internal_score is between 0.0 and 1.0, where 1.0 is the highest score
+        internal_score=internal_score,
         scores=scores
     )
 
     return result
 
 
-def to_proto_score_solution_request(problem, fitted_pipeline_id, metrics_result) -> typing.List[GetSearchSolutionsResultsResponse]:
+def to_proto_score_solution_request(problem, fitted_pipeline_id, metrics_result) -> GetScoreSolutionResultsResponse:
 
     # search_solutions_results = []
 

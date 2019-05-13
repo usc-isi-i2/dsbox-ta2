@@ -260,10 +260,14 @@ class Runtime(runtime_base.Runtime):
                 # push the model to cache
                 self.cache.push_key(prim_name=prim_name, prim_hash=prim_hash, model=model,
                                     fitting_time=fitting_time)
+
+                self._check_primitive_output(this_step, self.data_values)
+
                 # log fitting results
                 for output_id in this_step.outputs:
                     output_data_reference = 'steps.{i}.{output_id}'.format(i=this_step.index, output_id=output_id)
                 self._log_fitted_step(self.cache, output_data_reference, this_step, self.data_values)
+
             # END processing part for FIT Phase
 
         elif self.phase == metadata_base.PipelineRunPhase.PRODUCE:
@@ -280,6 +284,16 @@ class Runtime(runtime_base.Runtime):
         # add up the timing
         self.timing["total_time_used"] += (time.time() - time_start)
         _logger.debug(f"   done primitive: {this_step.primitive.metadata.query()['name']}")
+
+    def _check_primitive_output(self, primitive_step, primitives_outputs):
+        for output_id in primitive_step.outputs:
+            output_data_reference = 'steps.{i}.{output_id}'.format(i=primitive_step.index, output_id=output_id)
+            output = primitives_outputs[output_data_reference]
+            if isinstance(output, DataFrame):
+                row_size, col_size = primitives_outputs[output_data_reference].shape
+                for col in range(col_size):
+                    if len(output.metadata.query((metadata_base.ALL_ELEMENTS, col))) == 0:
+                        _logger.warning(f'Incomplete metadata at col {col}. Primitive={primitive_step.primitive}')
 
     def _log_fitted_step(self, cache, output_data_reference, primitive_step, primitives_outputs):
         '''
@@ -487,6 +501,7 @@ class Runtime(runtime_base.Runtime):
                         except Exception as e:
                             sys.stderr.write(
                                 "ERROR: cross_validation {}: {}\n".format(primitive, e))
+                            _logger.error("ERROR: cross_validation {}: {}\n".format(primitive, e))
                             # traceback.print_exc(e)
 
         if num == 0:
@@ -498,7 +513,7 @@ class Runtime(runtime_base.Runtime):
                 return results
             average_metrics[name] = sum(values) / len(values)
 
-        for metric_description in self.metric_descriptions:
+        for metric_description in validation_metrics:
             result_by_metric = {}
             result_by_metric['metric'] = metric_description['metric']
             result_by_metric['value'] = average_metrics[metric_description['metric']]

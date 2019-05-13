@@ -217,7 +217,8 @@ class Client(object):
             self.describeSolution(stub, solution_id)
         elif args.produce:
             solution_id = args.produce
-            self.basicProduceSolution(stub, solution_id, train_problem_desc)
+            # self.basicProduceSolution(stub, solution_id, train_problem_desc)
+            self.basicProduceSolution(stub, solution_id, test_problem_desc)
         elif args.fit:
             solution_id = args.fit
             self.basicFitSolution(stub, solution_id, train_problem_desc)
@@ -306,6 +307,8 @@ class Client(object):
                 _logger.info("State of solution for run %s is %s" % (str(i), str(scoreSolutionResultsResponse.progress.state)))
                 log_msg(scoreSolutionResultsResponse)
                 i += 1
+
+            self.basicProduceSolution(stub, solution_id, test_problem)
 
         if end_search:
             self.endSearchSolutions(stub, search_id)

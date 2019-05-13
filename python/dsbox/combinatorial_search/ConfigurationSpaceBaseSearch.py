@@ -228,7 +228,7 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
             # no need to run inside(level 2 split), run base on level 1 split now!
             if self.testing_mode == Mode.TRAIN_TEST_MODE:
                 self._repeat_times_level_1 = int(self.validation_config['test_validation'])
-            
+
             _logger.info("Will use normal train-test mode ( n ={}) to choose best primitives.".format(self._repeat_times_level_2))
 
             training_metrics = []
@@ -495,7 +495,7 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
         # still return the original fitted_pipeline with relation to train_dataset1
         return data
 
-    def conclude_k_fold_metrics(self, input_metrics:typing.List):          
+    def conclude_k_fold_metrics(self, input_metrics:typing.List):
         metric_value_dict = collections.defaultdict(list)
         # convert for test matrics
         for each in input_metrics:
@@ -614,3 +614,4 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
             print("\n" * 5)
         else:
             _logger.debug(("\n" * 5) + "Pickling succeeded" + ("\n" * 5))
+            
