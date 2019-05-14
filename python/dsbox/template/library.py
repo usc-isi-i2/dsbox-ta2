@@ -1487,7 +1487,7 @@ class TESTINGTemplate(DSBoxTemplate): # this is a template from succeed pipeline
                         {
                             "primitive": "d3m.primitives.data_transformation.update_semantic_types.DatasetCommon",
                             "hyperparameters": {
-                                "add_columns": (1, 2, 3, 4, 5),
+                                "add_columns": [(1), (2), (3), (4), (5)],
                                 "add_tpyes": ("https://metadata.datadrivendiscovery.org/types/CategoricalData",),
                                 "resource_id": ("learningData")
                             }
@@ -1514,7 +1514,7 @@ class TESTINGTemplate(DSBoxTemplate): # this is a template from succeed pipeline
                     "inputs": ["denormalize_step"]
                 },
                 {
-                    "name": "column_parer_step", # step 3
+                    "name": "column_parser_step", # step 3
                     "primitives": [
                         {
                             "primitive": "d3m.primitives.data_transformation.column_parser.DataFrameCommon"
@@ -1569,7 +1569,7 @@ class TESTINGTemplate(DSBoxTemplate): # this is a template from succeed pipeline
                             "primitive": "d3m.primitives.regression.gradient_boosting.SKlearn",
                             "hyperparameters": {
                                 "return_result": ("replace"),
-                                "use_semanctic_types": (True),
+                                "use_semanctic_types": [(True)],
                             }
                         }
                     ],
