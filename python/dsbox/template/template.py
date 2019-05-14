@@ -219,8 +219,8 @@ class DSBoxTemplate():
         else:
             arguments_train = primitive.primitive.metadata.query()['primitive_code']['instance_methods'][
                 'set_training_data']['arguments']
-            arguments_produce = set(primitive.primitive.metadata.query()['primitive_code']['instance_methods'][
-                'produce']['arguments'])
+            arguments_produce = primitive.primitive.metadata.query()['primitive_code']['instance_methods'][
+                'produce']['arguments']
 
             arguments = []
             added = set()
