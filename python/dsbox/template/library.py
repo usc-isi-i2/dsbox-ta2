@@ -109,7 +109,7 @@ class TemplateLibrary:
     def get_templates(self, task: TaskType, subtype: TaskSubtype, taskSourceType: SEMANTIC_TYPES) \
             -> typing.List[DSBoxTemplate]:
         results = []
-        # results.append(SRIMeanBaselineTemplate())  # put the meanbaseline here so whatever dataset will have a result
+        results.append(SRIMeanBaselineTemplate())  # put the meanbaseline here so whatever dataset will have a result
         for template_class in self.templates:
             template = template_class()
             # sourceType refer to d3m/container/dataset.py ("SEMANTIC_TYPES" as line 40-70)
@@ -3081,7 +3081,7 @@ class SRIMeanBaselineTemplate(DSBoxTemplate):
             "steps": [
                 {
                     "name": "model_step",
-                    "primitives": ["d3m.primitives.sri.baseline.MeanBaseline"],
+                    "primitives": ["d3m.primitives.classification.gaussian_classification.MeanBaseline"],
                     "inputs": ["template_input"]
 
                 }
