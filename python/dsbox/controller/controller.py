@@ -90,7 +90,7 @@ class Controller:
         # hard coded unsplit dataset type
         # TODO: check whether "speech" type should be put into this list or not
         self.data_type_cannot_split = ["graph", "edgeList", "audio"]
-        self.task_type_can_split = ["CLASSIFICATION", "REGRESSION", "TIME_SERIES_FORECASTING"]
+        self.task_type_can_split = ["CLASSIFICATION", "REGRESSION"]
 
         # !!! hard code here
         # TODO: add if statement to determine it
@@ -152,40 +152,46 @@ class Controller:
         """
         The function used to change the metadata of the target predictions to be "TrueTarget"
         """
-        # TODO: Should use self.config.problem to set TrueTarget
-
         resource_id = self.config.problem['inputs'][0]['targets'][0]['resource_id']
+        target_column_id = self.config.problem['inputs'][0]['targets'][0]['column_index']
+        column_semantic_types = list(set(self.all_dataset.metadata.query((resource_id, ALL_ELEMENTS, target_column_id))['semantic_types']).union({
+            'https://metadata.datadrivendiscovery.org/types/Target',
+            'https://metadata.datadrivendiscovery.org/types/TrueTarget'
+            }))
+        self.all_dataset.metadata = self.all_dataset.metadata.update(
+            (resource_id, ALL_ELEMENTS, target_column_id), {'semantic_types': column_semantic_types})
+        return
         # Need to make sure the Target and TrueTarget column semantic types are set
-        if self.config.task_type == TaskType.CLASSIFICATION or self.config.task_type == TaskType.REGRESSION:
+        # if self.config.task_type == TaskType.CLASSIFICATION or self.config.task_type == TaskType.REGRESSION:
 
-            # start from last column, since typically target is the last column
-            for index in range(
-                    self.all_dataset.metadata.query((resource_id, ALL_ELEMENTS))['dimension']['length'] - 1,
-                    -1, -1):
-                column_semantic_types = self.all_dataset.metadata.query(
-                    (resource_id, ALL_ELEMENTS, index))['semantic_types']
-                if ('https://metadata.datadrivendiscovery.org/types/Target' in column_semantic_types
-                        and 'https://metadata.datadrivendiscovery.org/types/TrueTarget' in
-                        column_semantic_types):
-                    return
+        #     # start from last column, since typically target is the last column
+        #     for index in range(
+        #             self.all_dataset.metadata.query((resource_id, ALL_ELEMENTS))['dimension']['length'] - 1,
+        #             -1, -1):
+        #         column_semantic_types = self.all_dataset.metadata.query(
+        #             (resource_id, ALL_ELEMENTS, index))['semantic_types']
+        #         if ('https://metadata.datadrivendiscovery.org/types/Target' in column_semantic_types
+        #                 and 'https://metadata.datadrivendiscovery.org/types/TrueTarget' in
+        #                 column_semantic_types):
+        #             return
 
-            # If not set, use sugested target column
-            for index in range(
-                    self.all_dataset.metadata.query((resource_id, ALL_ELEMENTS))['dimension']['length'] - 1,
-                    -1, -1):
-                column_semantic_types = self.all_dataset.metadata.query(
-                    (resource_id, ALL_ELEMENTS, index))['semantic_types']
-                if 'https://metadata.datadrivendiscovery.org/types/SuggestedTarget' in \
-                        column_semantic_types:
-                    column_semantic_types = list(column_semantic_types) + [
-                        'https://metadata.datadrivendiscovery.org/types/Target',
-                        'https://metadata.datadrivendiscovery.org/types/TrueTarget']
-                    self.all_dataset.metadata = self.all_dataset.metadata.update(
-                        (resource_id, ALL_ELEMENTS, index), {'semantic_types': column_semantic_types})
-                    return
+        #     # If not set, use sugested target column
+        #     for index in range(
+        #             self.all_dataset.metadata.query((resource_id, ALL_ELEMENTS))['dimension']['length'] - 1,
+        #             -1, -1):
+        #         column_semantic_types = self.all_dataset.metadata.query(
+        #             (resource_id, ALL_ELEMENTS, index))['semantic_types']
+        #         if 'https://metadata.datadrivendiscovery.org/types/SuggestedTarget' in \
+        #                 column_semantic_types:
+        #             column_semantic_types = list(column_semantic_types) + [
+        #                 'https://metadata.datadrivendiscovery.org/types/Target',
+        #                 'https://metadata.datadrivendiscovery.org/types/TrueTarget']
+        #             self.all_dataset.metadata = self.all_dataset.metadata.update(
+        #                 (resource_id, ALL_ELEMENTS, index), {'semantic_types': column_semantic_types})
+        #             return
 
-            raise InvalidArgumentValueError(
-                'At least one column should have semantic type SuggestedTarget')
+        #     raise InvalidArgumentValueError(
+        #         'At least one column should have semantic type SuggestedTarget')
 
     # def _create_output_directory(self, config):
     #     """
