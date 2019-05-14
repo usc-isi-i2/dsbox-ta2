@@ -6,6 +6,7 @@ import typing
 
 import d3m.metadata.base as metadata_base
 from d3m.metadata.problem import parse_problem_description
+# from d3m.metadata.problem import Problem
 
 
 class DsboxConfig:
@@ -169,6 +170,7 @@ class DsboxConfig:
         with open(os.path.abspath(self.problem_schema)) as file:
             self.problem_doc = json.load(file)
         self.problem = parse_problem_description(os.path.abspath(self.problem_schema))
+        # self.problem = Problem.load()
         self.problem_metadata = metadata_base.Metadata(self.problem_doc)
         self._load_problem_rest()
 
@@ -224,10 +226,10 @@ class DsboxConfig:
         Config logging level.
 
         Example:
-            export DSBOX_LOGGING_LEVEL="dsbox=WARNING:dsbox.controller=DEBUG:console_logging_level=WARNING:file_logging_level=DEBUG"
+            export DSBOX_LOGGING_LEVEL="dsbox=WARNING:dsbox.template.runtime=DEBUG:console_logging_level=WARNING:file_logging_level=DEBUG"
 
-            All classes under 'dsbox*' hierarchy log at WARNING level, except 'dsbox.controller*' log at DEBUG level.
-            Console handler at WARNING level. File handler at DEBUG level
+            All classes under 'dsbox*' hierarchy log at WARNING level, except 'dsbox.template.runtime.*' log at DEBUG level.
+            Console handler at WARNING level. File handler at DEBUG level.
         '''
 
         LEVELS = ('DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL')
