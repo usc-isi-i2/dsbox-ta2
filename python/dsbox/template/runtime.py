@@ -427,6 +427,13 @@ class Runtime(runtime_base.Runtime):
                     else:
                         kf = KFold(n_splits=cv, shuffle=True, random_state=seed)
 
+                    try:
+                        temp = kf
+                        temp.__next__()
+                    except:
+                        _logger.error("Stratified failed, use KFold instead.")
+                        kf = KFold(n_splits=cv, shuffle=True, random_state=seed)
+
                     num = 0.0
 
                     for k, (train, test) in enumerate(kf.split(X, y)):

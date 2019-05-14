@@ -276,12 +276,16 @@ def calculate_score(ground_truth: DataFrame, prediction: DataFrame,
                 if do_regression_mode:
                     # regression mode require the targets must be float
                     for each_column in range(-target_amount, 0, 1):
-                        prediction.iloc[:,each_column] = prediction['d3mIndex'].astype(float)
-
+                        prediction.iloc[:,each_column] = prediction.iloc[:,each_column].astype(float)
+                else:
+                    for each_column in range(-target_amount, 0, 1):
+                        prediction.iloc[:,each_column] = prediction.iloc[:,each_column].astype(str)
                 # update 2019.4.12, now d3m v2019.4.4 have new metric function, we have to change like this
                 ground_truth_d3m_index_column_index = ground_truth.columns.tolist().index("d3mIndex")
                 prediction_d3m_index_column_index = prediction.columns.tolist().index("d3mIndex")
                 for each_column in range(-target_amount, 0, 1):
+                    import pdb
+                    pdb.set_trace()
                     result_metrics.append({
                         'column_name': ground_truth.columns[each_column],
                         'metric': metric_description['metric'],

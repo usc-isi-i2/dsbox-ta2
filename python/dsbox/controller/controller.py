@@ -21,6 +21,7 @@ from d3m.container.dataset import Dataset, D3MDatasetLoader
 from d3m.exceptions import InvalidArgumentValueError
 from d3m.metadata.base import Metadata, DataMetadata, ALL_ELEMENTS
 from d3m.metadata.problem import TaskSubtype, parse_problem_description
+from d3m.base import utils as d3m_utils
 
 from dsbox.pipeline.fitted_pipeline import FittedPipeline
 from dsbox.pipeline.ensemble_tuning import EnsembleTuningPipeline, HorizontalTuningPipeline
@@ -1542,12 +1543,14 @@ class Controller:
         sampler.set_training_data(inputs = self.all_dataset)
         sampler.fit()
         train_split = sampler.produce(inputs = self.all_dataset)
-        if self.all_dataset != train_split.value:
-            self.extra_primitive.add("splitter")
-        self.all_dataset = train_split.value
 
-        # pickle this fitted sampler for furture use in pipelines
-        self.dump_primitive(sampler,"splitter")
+        _, original_df = d3m_utils.get_tabular_resource(dataset=self.all_dataset, resource_id=None)
+        _, split_df = d3m_utils.get_tabular_resource(dataset=train_split.value, resource_id=None)
+        if original_df.shape != split_df.shape:
+            self.extra_primitive.add("splitter")
+            self.all_dataset = train_split.value
+            # pickle this fitted sampler for furture use in pipelines
+            self.dump_primitive(sampler,"splitter")
 
         '''
         # old method here
