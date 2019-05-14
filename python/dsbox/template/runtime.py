@@ -478,7 +478,7 @@ class Runtime(runtime_base.Runtime):
                             ypred = model.produce(**validation_test).value
 
                             num = num + 1.0
-                            
+
                             # if task type not given, take a guess
                             if self.task_type == "":
                                 self._guess_task_type()
@@ -515,10 +515,10 @@ class Runtime(runtime_base.Runtime):
 
         for metric_description in validation_metrics:
             result_by_metric = {}
-            result_by_metric['metric'] = metric_description['metric']
-            result_by_metric['value'] = average_metrics[metric_description['metric']]
-            result_by_metric['values'] = validation_metrics[metric_description['metric']]
-            result_by_metric['targets'] = targets[metric_description['metric']]
+            result_by_metric['metric'] = metric_description
+            result_by_metric['value'] = average_metrics[metric_description]
+            result_by_metric['values'] = validation_metrics[metric_description]
+            result_by_metric['targets'] = targets[metric_description]
             results.append(result_by_metric)
 
         for result in results:

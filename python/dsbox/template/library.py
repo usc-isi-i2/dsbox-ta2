@@ -58,7 +58,8 @@ class TemplateLibrary:
             "extra_trees_regression_template": ExtraTreesRegressionTemplate,
             "gradient_boosting_regression_template": GradientBoostingRegressionTemplate,
             "svr_regression_template": SVRRegressionTemplate,
-
+            "Testing_template": TESTINGTemplate, # template from elastic search
+            "Alpha_Zero_template": AlphaZeroEvalTemplate, # template from elastic search
             # older templates
             "dsbox_classification_template": dsboxClassificationTemplate,
             "dsbox_regression_template": dsboxRegressionTemplate,
@@ -173,6 +174,8 @@ class TemplateLibrary:
         self.templates.append(RandomForestRegressionTemplate)
         self.templates.append(ExtraTreesRegressionTemplate)
         self.templates.append(GradientBoostingRegressionTemplate)
+        self.templates.append(AlphaZeroEvalTemplate)
+        self.templates.append(TESTINGTemplate)
         # takes too long to run self.templates.append(SVRRegressionTemplate)
 
         # text templates, but also support tabular data
@@ -322,10 +325,6 @@ class DefaultClassificationTemplate(DSBoxTemplate):
                      ]
         }
 
-    # @override
-    def importance(datset, problem_description):
-        return 7
-
 
 class TestDefaultClassificationTemplate(DSBoxTemplate):
     # By Kyao
@@ -406,9 +405,6 @@ class TestDefaultClassificationTemplate(DSBoxTemplate):
                      ]
         }
 
-    # @override
-    def importance(datset, problem_description):
-        return 7
 
 
 # a template encompassing several NB methods
@@ -471,11 +467,6 @@ class NaiveBayesClassificationTemplate(DSBoxTemplate):
             ]
         }
 
-    # @override
-    def importance(datset, problem_description):
-        return 7
-
-
 class RandomForestClassificationTemplate(DSBoxTemplate):
     def __init__(self):
         DSBoxTemplate.__init__(self)
@@ -518,10 +509,6 @@ class RandomForestClassificationTemplate(DSBoxTemplate):
                 }
             ]
         }
-
-    # @override
-    def importance(datset, problem_description):
-        return 7
 
 
 class ExtraTreesClassificationTemplate(DSBoxTemplate):
@@ -567,11 +554,6 @@ class ExtraTreesClassificationTemplate(DSBoxTemplate):
             ]
         }
 
-    # @override
-    def importance(datset, problem_description):
-        return 7
-
-
 class GradientBoostingClassificationTemplate(DSBoxTemplate):
     def __init__(self):
         DSBoxTemplate.__init__(self)
@@ -614,10 +596,6 @@ class GradientBoostingClassificationTemplate(DSBoxTemplate):
             ]
         }
 
-    # @override
-    def importance(datset, problem_description):
-        return 7
-
 
 class SVCClassificationTemplate(DSBoxTemplate):
     def __init__(self):
@@ -658,10 +636,6 @@ class SVCClassificationTemplate(DSBoxTemplate):
                 }
             ]
         }
-
-    # @override
-    def importance(datset, problem_description):
-        return 7
 
 
 class ClassificationWithSelection(DSBoxTemplate):
@@ -712,10 +686,6 @@ class ClassificationWithSelection(DSBoxTemplate):
             ]
         }
 
-    # @override
-    def importance(datset, problem_description):
-        return 7
-
 
 class UMASSClassificationTemplate(DSBoxTemplate):
     def __init__(self):
@@ -742,11 +712,6 @@ class UMASSClassificationTemplate(DSBoxTemplate):
                          }
                      ]
         }
-
-    # @override
-    def importance(datset, problem_description):
-        return 7
-
 
 
 class dsboxClassificationTemplate(DSBoxTemplate):
@@ -781,10 +746,6 @@ class dsboxClassificationTemplate(DSBoxTemplate):
                                                 target_name='extract_target_step'),
             ]
         }
-
-    # @override
-    def importance(datset, problem_description):
-        return 7
 
 
 ################################################################################################################
@@ -865,11 +826,6 @@ class DefaultRegressionTemplate(DSBoxTemplate):
             ]
         }
 
-    # @override
-    def importance(datset, problem_description):
-        return 7
-
-
 class SVRRegressionTemplate(DSBoxTemplate):
     def __init__(self):
         DSBoxTemplate.__init__(self)
@@ -908,11 +864,6 @@ class SVRRegressionTemplate(DSBoxTemplate):
                 }
             ]
         }
-
-    # @override
-    def importance(datset, problem_description):
-        return 7
-
 
 class GradientBoostingRegressionTemplate(DSBoxTemplate):
     def __init__(self):
@@ -953,11 +904,6 @@ class GradientBoostingRegressionTemplate(DSBoxTemplate):
                 }
             ]
         }
-
-    # @override
-    def importance(datset, problem_description):
-        return 7
-
 
 class ExtraTreesRegressionTemplate(DSBoxTemplate):
     def __init__(self):
@@ -1000,10 +946,6 @@ class ExtraTreesRegressionTemplate(DSBoxTemplate):
             ]
         }
 
-    # @override
-    def importance(datset, problem_description):
-        return 7
-
 
 class RandomForestRegressionTemplate(DSBoxTemplate):
     def __init__(self):
@@ -1045,10 +987,6 @@ class RandomForestRegressionTemplate(DSBoxTemplate):
                 }
             ]
         }
-
-    # @override
-    def importance(datset, problem_description):
-        return 7
 
 
 class RegressionWithSelection(DSBoxTemplate):
@@ -1096,11 +1034,6 @@ class RegressionWithSelection(DSBoxTemplate):
                          }
                      ]
         }
-
-    # @override
-    def importance(datset, problem_description):
-        return 7
-
 
 class DataAugmentRegressionTemplate(DSBoxTemplate):
     def __init__(self):
@@ -1221,9 +1154,6 @@ class DataAugmentRegressionTemplate(DSBoxTemplate):
             ]
         }
 
-    # @override
-    def importance(datset, problem_description):
-        return 7
 
 
 class dsboxRegressionTemplate(DSBoxTemplate):
@@ -1259,9 +1189,6 @@ class dsboxRegressionTemplate(DSBoxTemplate):
             ]
         }
 
-    # @override
-    def importance(datset, problem_description):
-        return 7
 
 
 ################################################################################################################
@@ -1345,10 +1272,6 @@ class Large_column_number_with_numerical_only_classification(DSBoxTemplate):
             ]
         }
 
-    # @override
-    def importance(datset, problem_description):
-        return 7
-
 
 class Large_column_number_with_numerical_only_regression(DSBoxTemplate):
     def __init__(self):
@@ -1429,11 +1352,241 @@ class Large_column_number_with_numerical_only_regression(DSBoxTemplate):
             ]
         }
 
-    # @override
-    def importance(datset, problem_description):
-        return 7
+class AlphaZeroEvalTemplate(DSBoxTemplate): # this is a template from succeed pipeline for uu2 dataset
+    def __init__(self):
+        DSBoxTemplate.__init__(self)
+        self.template = {
+            "name": "Alpha_Zero_template",
+            "taskSubtype": {TaskSubtype.UNIVARIATE.name, TaskSubtype.MULTIVARIATE.name},
+            "taskType": TaskType.REGRESSION.name,
+            # See TaskType, range include 'CLASSIFICATION', 'CLUSTERING', 'COLLABORATIVE_FILTERING',
+            # 'COMMUNITY_DETECTION', 'GRAPH_CLUSTERING', 'GRAPH_MATCHING', 'LINK_PREDICTION',
+            # 'REGRESSION', 'TIME_SERIES_FORECASTING', 'VERTEX_NOMINATION'
+            "inputType": "table",  # See SEMANTIC_TYPES.keys() for range of values
+            "output": "construct_prediction_step",  # Name of the final step generating the prediction
+            "target": "extract_target_step",  # Name of the step generating the ground truth
+            "steps":[
+                {
+                    "name": "denormalize_step", # step 0
+                    "primitives": ["d3m.primitives.data_transformation.denormalize.Common"],
+                    "inputs": ["template_input"]
+                },
+                {
+                    "name": "to_dataframe_step", # step 1
+                    "primitives": ["d3m.primitives.data_transformation.dataset_to_dataframe.Common"],
+                    "inputs": ["denormalize_step"]
+                },
+                {
+                    "name": "column_parser_step", # step 2
+                    "primitives": ["d3m.primitives.data_transformation.column_parser.DataFrameCommon"],
+                    "inputs": ["to_dataframe_step"]
+                },
+                {
+                    "name": "extract_attribute_step", # step 3
+                    "primitives": [
+                        {
+                            "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.DataFrameCommon",
+                            "hyperparameters": {
+                                    'semantic_types': ('https://metadata.datadrivendiscovery.org/types/Attribute',),
+                                    'use_columns': (),
+                                    'exclude_columns': ()
+                                }
+                        }
+                    ],
+                    "inputs": ["column_parser_step"]
+                },
+                {
+                    "name": "encoder_step", # step 4
+                    "primitives": [
+                        {
+                            "primitive": "d3m.primitives.data_transformation.one_hot_encoder.SKlearn",
+                            "hyperparameters":{
+                                "handle_unknown": ("ignore",)
+                            }
+                        }
+                    ],
+                    "inputs": ["extract_attribute_step"]
+                },
+                {
+                    "name": "cast_step", # step 5
+                    "primitives": [
+                        {
+                            "primitive": "d3m.primitives.data_transformation.cast_to_type.Common",
+                            "hyperparameters":{
+                                "type_to_case": ("float",)
+                            }
+                        }
+                    ],
+                    "inputs": ["encoder_step"]
+                },
+                {
+                    "name": "extract_target_step", # step 6
+                    "primitives": [
+                        {
+                            "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.DataFrameCommon",
+                            "hyperparameters": {
+                                    'semantic_types': (
+                                        'https://metadata.datadrivendiscovery.org/types/Target',
+                                        'https://metadata.datadrivendiscovery.org/types/SuggestedTarget'
+                                    ),
+                                    'use_columns': (),
+                                    'exclude_columns': ()
+                            }
+                        }
+                    ],
+                    "inputs":["column_parser_step"]
+                },
+                {
+                    "name": "cast_step_target", # step 7
+                    "primitives": [
+                        {
+                            "primitive": "d3m.primitives.data_transformation.cast_to_type.Common"
+                        }
+                    ],
+                    "inputs": ["extract_target_step"]
+                },
+                {
+                    "name": "model_step", # step 8
+                    "primitives":[
+                        {
+                            "primitive": "d3m.primitives.regression.ridge.SKlearn"
+                        }
+                    ],
+                    "inputs": ["cast_step", "cast_step_target"]
+                },
+                {
+                    "name": "construct_prediction_step",
+                    "primitives": [
+                        {
+                            "primitive": "d3m.primitives.data_transformation.construct_predictions.DataFrameCommon",
+                        }
+                    ],
+                    "inputs": ["model_step", "column_parser_step"]
+                }
+            ]
+        }
 
 
+class TESTINGTemplate(DSBoxTemplate): # this is a template from succeed pipeline for uu3 dataset
+    def __init__(self):
+        DSBoxTemplate.__init__(self)
+        self.template = {
+            "name": "Testing_template",
+            "taskSubtype": {TaskSubtype.UNIVARIATE.name, TaskSubtype.MULTIVARIATE.name},
+            "taskType": TaskType.REGRESSION.name,
+            # See TaskType, range include 'CLASSIFICATION', 'CLUSTERING', 'COLLABORATIVE_FILTERING',
+            # 'COMMUNITY_DETECTION', 'GRAPH_CLUSTERING', 'GRAPH_MATCHING', 'LINK_PREDICTION',
+            # 'REGRESSION', 'TIME_SERIES_FORECASTING', 'VERTEX_NOMINATION'
+            "inputType": "table",  # See SEMANTIC_TYPES.keys() for range of values
+            "output": "construct_prediction_step",  # Name of the final step generating the prediction
+            "target": "extract_target_step",  # Name of the step generating the ground truth
+            "steps": [
+                {
+                    "name": "update_semantic_step", # step 0
+                    "primitives": [
+                        {
+                            "primitive": "d3m.primitives.data_transformation.update_semantic_types.DatasetCommon",
+                            "hyperparameters": {
+                                "add_columns": (1, 2, 3, 4, 5),
+                                "add_tpyes": ("https://metadata.datadrivendiscovery.org/types/CategoricalData",),
+                                "resource_id": ("learningData")
+                            }
+                        }
+                    ],
+                    "inputs": ["template_input"]
+                },
+                {
+                    "name": "denormalize_step", # step 1
+                    "primitives": [
+                        {
+                            "primitive": "d3m.primitives.data_transformation.denormalize.Common"
+                        }
+                    ],
+                    "inputs": ["update_semantic_step"]
+                },
+                {
+                    "name": "to_dataframe_step", # step 2
+                    "primitives": [
+                        {
+                            "primitive": "d3m.primitives.data_transformation.dataset_to_dataframe.Common"
+                        }
+                    ],
+                    "inputs": ["denormalize_step"]
+                },
+                {
+                    "name": "column_parer_step", # step 3
+                    "primitives": [
+                        {
+                            "primitive": "d3m.primitives.data_transformation.column_parser.DataFrameCommon"
+                        }
+                    ],
+                    "inputs": ["to_dataframe_step"]
+                },
+                {
+                    "name": "extract_attribute_step", # step 4
+                    "primitives":[
+                        {
+                            "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.DataFrameCommon",
+                            "hyperparameters": {
+                                    'semantic_types': ('https://metadata.datadrivendiscovery.org/types/Attribute',),
+                                    'use_columns': (),
+                                    'exclude_columns': ()
+                                }
+                        }
+                    ],
+                    "inputs": ["column_parser_step"]
+                },
+                {
+                    "name": "extract_target_step", # step 5
+                    "primitives": [
+                        {
+                            "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.DataFrameCommon",
+                            "hyperparameters": {
+                                    'semantic_types': (
+                                        'https://metadata.datadrivendiscovery.org/types/Target',
+                                        'https://metadata.datadrivendiscovery.org/types/SuggestedTarget'
+                                    ),
+                                    'use_columns': (),
+                                    'exclude_columns': ()
+                                }
+                        }
+                    ],
+                    "inputs": ["column_parser_step"]
+                },
+                {
+                    "name": "impute_step", # step 6
+                    "primitives": [
+                        {
+                            "primitive": "d3m.primitives.data_cleaning.imputer.SKlearn",
+                        }
+                    ],
+                    "inputs": ["extract_attribute_step"]
+                },
+                {
+                    "name": "model_step", # step 7
+                    "primitives": [
+                        {
+                            "primitive": "d3m.primitives.regression.gradient_boosting.SKlearn",
+                            "hyperparameters": {
+                                "return_result": ("replace"),
+                                "use_semanctic_types": (True),
+                            }
+                        }
+                    ],
+                    "inputs": ["impute_step", "extract_target_step"]
+                },
+                {
+                    "name": "construct_predict_step",
+                    "primitives": [
+                        {
+                            "primitive": "d3m.primitives.data_transformation.construct_predictions.DataFrameCommon",
+                        }
+                    ],
+                    "inputs": ["model_step", "to_dataframe_step"]
+                }
+
+            ]
+        }
 ################################################################################################################
 #####################################   TimeSeriesForcasting Templates  ########################################
 ################################################################################################################
@@ -1550,10 +1703,6 @@ class DefaultTimeSeriesForcastingTemplate(DSBoxTemplate):
             ]
         }
 
-    # @override
-    def importance(datset, problem_description):
-        return 7
-
 class ARIMATemplate(DSBoxTemplate):
     def __init__(self):
         DSBoxTemplate.__init__(self)
@@ -1628,13 +1777,6 @@ class ARIMATemplate(DSBoxTemplate):
                 },
             ]
         }
-
-    # @override
-    def importance(datset, problem_description):
-        return 7
-
-
-
 
 class TimeSeriesForcastingTestingTemplate(DSBoxTemplate):
     def __init__(self):
@@ -1722,12 +1864,6 @@ class TimeSeriesForcastingTestingTemplate(DSBoxTemplate):
                 },
             ]
         }
-
-    # @override
-    def importance(datset, problem_description):
-        return 7
-
-
 '''
 This template cannot run because of our templates' "input"/"output" schema
 '''
@@ -1850,11 +1986,6 @@ class TimeSeriesForcastingTestingTemplate2(DSBoxTemplate):
             ]
         }
 
-    # @override
-    def importance(datset, problem_description):
-        return 7
-
-
 ################################################################################################################
 #####################################   ObjectDetectionTemplates   #############################################
 ################################################################################################################
@@ -1922,11 +2053,6 @@ class DefaultObjectDetectionTemplate(DSBoxTemplate):
                 },
             ]
         }
-
-    # @override
-    def importance(datset, problem_description):
-        return 7
-
 ################################################################################################################
 #####################################   VideoClassificationTemplate   #############################################
 ################################################################################################################
@@ -2015,9 +2141,6 @@ class DefaultVideoClassificationTemplate(DSBoxTemplate):
             ]
         }
 
-    # @override
-    def importance(datset, problem_description):
-        return 7
 
 ################################################################################################################
 #####################################   TimeSeriesProblemsTemplates   ##########################################
@@ -2107,10 +2230,6 @@ class DefaultTimeseriesCollectionTemplate(DSBoxTemplate):
                 },
             ]
         }
-
-    # @override
-    def importance(datset, problem_description):
-        return 7
 
 
 class DefaultTimeseriesRegressionTemplate(DSBoxTemplate):
@@ -2207,11 +2326,6 @@ class DefaultTimeseriesRegressionTemplate(DSBoxTemplate):
             ]
         }
 
-    # @override
-    def importance(datset, problem_description):
-        return 7
-
-
 '''
 This template never working because templates "input", "outputs" schema
 '''
@@ -2264,11 +2378,6 @@ class UCHITimeSeriesClassificationTemplate(DSBoxTemplate):
                 }
             ]
         }
-
-    # @override
-    def importance(datset, problem_description):
-        return 7
-
 
 ################################################################################################################
 #####################################   ImageProblemsTemplates   ###############################################
@@ -2359,9 +2468,6 @@ class TA1VggImageProcessingRegressionTemplate(DSBoxTemplate):
                 },
             ]
         }
-
-    def importance(datset, problem_description):
-        return 7
 
 
 class DefaultImageProcessingRegressionTemplate(DSBoxTemplate):
@@ -2456,11 +2562,6 @@ class DefaultImageProcessingRegressionTemplate(DSBoxTemplate):
                 },
             ]
         }
-
-    def importance(datset, problem_description):
-        return 7
-
-
 ################################################################################################################
 #####################################   TextProblemsTemplates   ################################################
 ################################################################################################################
@@ -2526,10 +2627,6 @@ class DefaultTextClassificationTemplate(DSBoxTemplate):
             ]
         }
 
-    # @override
-    def importance(datset, problem_description):
-        return 7
-
 
 class DefaultTextRegressionTemplate(DSBoxTemplate):
     def __init__(self):
@@ -2579,10 +2676,6 @@ class DefaultTextRegressionTemplate(DSBoxTemplate):
                 }
             ]
         }
-
-    # @override
-    def importance(datset, problem_description):
-        return 7
 
 
 ################################################################################################################
@@ -2661,10 +2754,6 @@ class DefaultLinkPredictionTemplate(DSBoxTemplate):
             ]
         }
 
-    def importance(datset, problem_description):
-        return 7
-
-
 class SRIGraphMatchingTemplate(DSBoxTemplate):
     def __init__(self):
         DSBoxTemplate.__init__(self)
@@ -2695,8 +2784,6 @@ class SRIGraphMatchingTemplate(DSBoxTemplate):
             ]
         }
 
-    def importance(dataset, problem_description):
-        return 7
 
 
 class SRIVertexNominationTemplate(DSBoxTemplate):
@@ -2725,9 +2812,6 @@ class SRIVertexNominationTemplate(DSBoxTemplate):
             ]
         }
 
-    def importance(datset, problem_description):
-        return 7
-
 
 class SRICollaborativeFilteringTemplate(DSBoxTemplate):
     def __init__(self):
@@ -2747,10 +2831,6 @@ class SRICollaborativeFilteringTemplate(DSBoxTemplate):
                 }
             ]
         }
-
-    def importance(dataset, problem_description):
-        return 7
-
 
 class SRICommunityDetectionTemplate(DSBoxTemplate):
     def __init__(self):
@@ -2775,10 +2855,6 @@ class SRICommunityDetectionTemplate(DSBoxTemplate):
                 }
             ]
         }
-
-    def importance(dataset, problem_description):
-        return 7
-
 
 '''
 JHU needs R supports and their primitives seem to be failing in pickling
@@ -2820,10 +2896,6 @@ class JHUVertexNominationTemplate(DSBoxTemplate):
             ]
         }
 
-    def importance(datset, problem_description):
-        return 7
-
-
 class JHUGraphMatchingTemplate(DSBoxTemplate):
     def __init__(self):
         DSBoxTemplate.__init__(self)
@@ -2841,11 +2913,6 @@ class JHUGraphMatchingTemplate(DSBoxTemplate):
                 }
             ]
         }
-
-    def importance(datset, problem_description):
-        return 7
-
-
 ################################################################################################################
 #####################################   AudioClassificationTemplate   ##########################################
 ################################################################################################################
@@ -2989,10 +3056,6 @@ class BBNAudioClassificationTemplate(DSBoxTemplate):
             ]
         }
 
-    def importance(datset, problem_description):
-        return 7
-
-
 ################################################################################################################
 #####################################   SRIMeanbaselineTemplate   ##############################################
 ################################################################################################################
@@ -3017,10 +3080,6 @@ class SRIMeanBaselineTemplate(DSBoxTemplate):
             ]
         }
 
-    def importance(dataset, problem_description):
-        return 10
-
-
 ################################################################################################################
 #####################################   ClusteringTemplate   ###################################################
 ################################################################################################################
@@ -3042,11 +3101,6 @@ class CMUClusteringTemplate(DSBoxTemplate):
                     "primitives": ["d3m.primitives.data_transformation.dataset_to_dataframe.Common"],
                     "inputs": ["template_input"]
                 },
-                # {
-                #     "name": "column_parser_step",
-                #     "primitives": ["d3m.primitives.data_transformation.column_parser.DataFrameCommon"],
-                #     "inputs": ["to_dataframe_step"]
-                # },
                 {
                     "name": "column_parser_step",# step 1
                     "primitives": ["d3m.primitives.data_transformation.column_parser.DataFrameCommon"],
@@ -3055,30 +3109,14 @@ class CMUClusteringTemplate(DSBoxTemplate):
 
                 {
                     "name": "extract_attribute_step", # step 2
-                    "primitives": ["d3m.primitives.data_transformation.extract_columns_by_semantic_types.DataFrameCommon",
-                        # "hyperparameters":
-                        #     {
-                        #         'semantic_types': (
-                        #             'https://metadata.datadrivendiscovery.org/types/PrimaryKey',
-                        #             'https://metadata.datadrivendiscovery.org/types/Attribute',),
-                        #         'use_columns': (),
-                        #         'exclude_columns': ()
-                        #     }
-                    ],
+                    "primitives": ["d3m.primitives.data_transformation.extract_columns_by_semantic_types.DataFrameCommon"],
                     "inputs": ["column_parser_step"]
                 },
                 {
-                    "name":"data_clean_step", # step 3
-                    "primitives":["d3m.primitives.data_cleaning.imputer.SKlearn"],
-                    "inputs":["extract_attribute_step"]
-                },
-
-
-                {
-                    "name": "model_step",
+                    "name": "model_step", # step 3
                     "primitives": [
                         {
-                            "primitive": "d3m.primitives.cmu.fastlvm.GMM",
+                            "primitive": "d3m.primitives.regression.cover_tree.Fastlvm",
                             "hyperparameters": {
                                 "k": [(1), (4), (6), (8), (10), (12)]
                             }
@@ -3091,19 +3129,12 @@ class CMUClusteringTemplate(DSBoxTemplate):
                     "primitives": [
                         {
                             "primitive": "d3m.primitives.data_transformation.construct_predictions.DataFrameCommon",
-                            "reference": {
-                                "type": "CONTAINER",
-                                "data": "steps.0.produce"
-                            }
                         }
                     ],
-                    "inputs": ["model_step"]
+                    "inputs": ["model_step", "column_parser_step"]
                 }
             ]
         }
-
-    def importance(datset, problem_description):
-        return 7
 
 
 ################################################################################################################
@@ -3177,10 +3208,6 @@ class MichiganVideoClassificationTemplate(DSBoxTemplate):
                 },
             ]
         }
-
-    # @override
-    def importance(datset, problem_description):
-        return 7
 
 
 ################################################################################################################
@@ -3277,10 +3304,6 @@ class TA1ClassificationTemplate1(DSBoxTemplate):
             ]
         }
 
-    # @override
-    def importance(datset, problem_description):
-        return 7
-
 
 class TA1Classification_2(DSBoxTemplate):
     def __init__(self):
@@ -3347,9 +3370,6 @@ class TA1Classification_2(DSBoxTemplate):
         # pprint.pprint(self.template)
         # exit(1)
 
-    # @override
-    def importance(datset, problem_description):
-        return 7
 
 
 class TA1Classification_3(DSBoxTemplate):
@@ -3451,10 +3471,6 @@ class TA1Classification_3(DSBoxTemplate):
 
     # @override
 
-    def importance(datset, problem_description):
-        return 7
-
-
 class MuxinTA1ClassificationTemplate1(DSBoxTemplate):
     def __init__(self):
         DSBoxTemplate.__init__(self)
@@ -3554,10 +3570,6 @@ class MuxinTA1ClassificationTemplate1(DSBoxTemplate):
 
     # @override
 
-    def importance(datset, problem_description):
-        return 7
-
-
 class MuxinTA1ClassificationTemplate2(DSBoxTemplate):
     def __init__(self):
         DSBoxTemplate.__init__(self)
@@ -3642,11 +3654,6 @@ class MuxinTA1ClassificationTemplate2(DSBoxTemplate):
                 }
             ]
         }
-
-    # @override
-
-    def importance(datset, problem_description):
-        return 7
 
 
 class MuxinTA1ClassificationTemplate3(DSBoxTemplate):
@@ -3739,11 +3746,6 @@ class MuxinTA1ClassificationTemplate3(DSBoxTemplate):
             ]
         }
 
-    # @override
-
-    def importance(datset, problem_description):
-        return 7
-
 '''
 # unfinished!
 class DefaultImageClassificationWithCNNTemplate(DSBoxTemplate):
@@ -3831,10 +3833,6 @@ class DefaultImageClassificationWithCNNTemplate(DSBoxTemplate):
                 }
             ]
         }
-
-    # @override
-    def importance(datset, problem_description):
-        return 7
 '''
 
 class UU3TestTemplate(DSBoxTemplate):
@@ -3922,9 +3920,6 @@ class UU3TestTemplate(DSBoxTemplate):
             ]
         }
 
-    # @override
-    def importance(datset, problem_description):
-        return 7
 
 
 ################################################################################################################

@@ -52,22 +52,6 @@ class DSBoxTemplate():
     def __repr__(self):
         return self.__str__()
 
-    def add_stepcheck(self):
-        check = np.zeros(shape=(len(self.primitive), len(self.primitive))).astype(int)
-        for i, v in enumerate(self.primitive.keys()):
-            inputs = self.primitive[v].metadata.query()["primitive_code"]["class_type_arguments"][
-                "Inputs"]
-            for j, u in enumerate(self.primitive.keys()):
-                outputs = self.primitive[u].metadata.query()["primitive_code"]["class_type_arguments"]["Outputs"]
-                try:
-                    inp = inputs.__args__
-                    if outputs in inp:
-                        check[i][j] = 1
-                except Exception:
-                    if inputs == outputs:
-                        check[i][j] = 1
-        self.stepcheck = check
-
     def to_pipeline(self, configuration_point: ConfigurationPoint) -> Pipeline:
         """
         converts the configuration point to the executable pipeline based on
@@ -226,23 +210,33 @@ class DSBoxTemplate():
 
     def bind_primitive_IO(self, primitive: PrimitiveStep, *templateIO):
         # print(templateIO)
-        if len(templateIO) > 0:
+        if len(templateIO) == 1:
             primitive.add_argument(
                 name="inputs",
                 argument_type=metadata_base.ArgumentType.CONTAINER,
                 data_reference=templateIO[0])
-
-        if len(templateIO) > 1:
-            arguments = primitive.primitive.metadata.query()['primitive_code']['instance_methods'][
+        # if len(templateIO) > 1:
+        else:
+            arguments_train = primitive.primitive.metadata.query()['primitive_code']['instance_methods'][
                 'set_training_data']['arguments']
-            if "outputs" in arguments:
-                # Some primitives (e.g. GreedyImputer) require "outputs", while others do
-                # not (e.g. MeanImputer)
-                primitive.add_argument("outputs", metadata_base.ArgumentType.CONTAINER,
-                                       templateIO[1])
-        if len(templateIO) > 2:
-            raise exceptions.InvalidArgumentValueError(
-                "Should be less than 3 arguments!")
+            arguments_produce = set(primitive.primitive.metadata.query()['primitive_code']['instance_methods'][
+                'produce']['arguments'])
+
+            arguments = []
+            added = set()
+            for t in arguments_train:
+                arguments.append(t)
+                added.add(t)
+            for p in arguments_produce:
+                if p not in added and p != 'timeout' and p != 'iterations':
+                    arguments.append(t)
+                    added.add(t)
+            for index, argument in enumerate(arguments):
+                primitive.add_argument(
+                    name = argument,
+                    argument_type = metadata_base.ArgumentType.CONTAINER,
+                    data_reference = templateIO[index]
+                )
 
     def _to_pipeline(self, binding, sequence) -> Pipeline:
         """
@@ -330,7 +324,6 @@ class DSBoxTemplate():
 
             if self.need_add_reference and primitive_name == 'd3m.primitives.data_transformation.construct_predictions.DataFrameCommon':
                 primitive_step.add_argument("reference",metadata_base.ArgumentType.CONTAINER,"steps.0.produce")
-
 
 
             templateIO = binding[step]["inputs"]
