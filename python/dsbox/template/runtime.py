@@ -339,11 +339,14 @@ class Runtime(runtime_base.Runtime):
                 if isinstance(primitives_outputs[output_data_reference], DataFrame):
                     try:
                         primitives_outputs[output_data_reference][:MAX_DUMP_SIZE].to_csv(debug_file)
-                        metadata_filepath = debug_file + '_meta'
-                        with open(metadata_filepath, 'w') as out:
-                            primitives_outputs[output_data_reference].metadata.pretty_print(handle=out)
                     except Exception:
                         pass
+                try:
+                    metadata_filepath = debug_file + '_meta'
+                    with open(metadata_filepath, 'w') as out:
+                        primitives_outputs[output_data_reference].metadata.pretty_print(handle=out)
+                except Exception:
+                    pass
 
     def _log_produce_step(self, output_data_reference, primitive_step, primitives_outputs):
         '''
