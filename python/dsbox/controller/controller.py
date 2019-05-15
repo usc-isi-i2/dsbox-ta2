@@ -940,47 +940,51 @@ class Controller:
 
     def auto_regress_convert_and_add_metadata(self, dataset: Dataset):
         """
-        Add metadata to the dataset from problem_doc_metadata
-        If the dataset is timeseriesforecasting, do auto convert for timeseriesforecasting prob
-        Paramters
-        ---------
-        dataset
-            Dataset
-        problem_doc_metadata:
-            Metadata about the problemDoc
+        Muxin said it is useless, just keep it for now
         """
-        problem = self.config.problem_metadata.query(())
-        targets = problem["inputs"]["data"][0]["targets"]
-        for each_target in range(len(targets)):
-            resID = targets[each_target]["resID"]
-            colIndex = targets[each_target]["colIndex"]
-            if problem["about"]["taskType"] == "timeSeriesForecasting" or problem["about"][
-                "taskType"] == "regression":
-                dataset[resID].iloc[:, colIndex] = pd.to_numeric(dataset[resID].iloc[:, colIndex],
-                                                                 downcast="float", errors="coerce")
-                meta = dict(dataset.metadata.query((resID, ALL_ELEMENTS, colIndex)))
-                meta["structural_type"] = float
-                dataset.metadata = dataset.metadata.update((resID, ALL_ELEMENTS, colIndex), meta)
+        return dataset
+        # """
+        # Add metadata to the dataset from problem_doc_metadata
+        # If the dataset is timeseriesforecasting, do auto convert for timeseriesforecasting prob
+        # Paramters
+        # ---------
+        # dataset
+        #     Dataset
+        # problem_doc_metadata:
+        #     Metadata about the problemDoc
+        # """
+        # problem = self.config.problem_metadata.query(())
+        # targets = problem["inputs"]["data"][0]["targets"]
+        # for each_target in range(len(targets)):
+        #     resID = targets[each_target]["resID"]
+        #     colIndex = targets[each_target]["colIndex"]
+        #     if problem["about"]["taskType"] == "timeSeriesForecasting" or problem["about"][
+        #         "taskType"] == "regression":
+        #         dataset[resID].iloc[:, colIndex] = pd.to_numeric(dataset[resID].iloc[:, colIndex],
+        #                                                          downcast="float", errors="coerce")
+        #         meta = dict(dataset.metadata.query((resID, ALL_ELEMENTS, colIndex)))
+        #         meta["structural_type"] = float
+        #         dataset.metadata = dataset.metadata.update((resID, ALL_ELEMENTS, colIndex), meta)
 
-        for data in self.config.problem_metadata.query(())['inputs']['data']:
-            targets = data['targets']
-            for target in targets:
-                semantic_types = list(dataset.metadata.query(
-                    (target['resID'], ALL_ELEMENTS, target['colIndex'])).get(
-                    'semantic_types', []))
+        # for data in self.config.problem_metadata.query(())['inputs']['data']:
+        #     targets = data['targets']
+        #     for target in targets:
+        #         semantic_types = list(dataset.metadata.query(
+        #             (target['resID'], ALL_ELEMENTS, target['colIndex'])).get(
+        #             'semantic_types', []))
 
-                if 'https://metadata.datadrivendiscovery.org/types/Target' not in semantic_types:
-                    semantic_types.append('https://metadata.datadrivendiscovery.org/types/Target')
-                    dataset.metadata = dataset.metadata.update(
-                        (target['resID'], ALL_ELEMENTS, target['colIndex']),
-                        {'semantic_types': semantic_types})
+        #         if 'https://metadata.datadrivendiscovery.org/types/Target' not in semantic_types:
+        #             semantic_types.append('https://metadata.datadrivendiscovery.org/types/Target')
+        #             dataset.metadata = dataset.metadata.update(
+        #                 (target['resID'], ALL_ELEMENTS, target['colIndex']),
+        #                 {'semantic_types': semantic_types})
 
-                if 'https://metadata.datadrivendiscovery.org/types/TrueTarget' not in semantic_types:
-                    semantic_types.append('https://metadata.datadrivendiscovery.org/types/TrueTarget')
-                    dataset.metadata = dataset.metadata.update(
-                        (target['resID'], ALL_ELEMENTS, target['colIndex']),
-                        {'semantic_types': semantic_types})
-            return dataset
+        #         if 'https://metadata.datadrivendiscovery.org/types/TrueTarget' not in semantic_types:
+        #             semantic_types.append('https://metadata.datadrivendiscovery.org/types/TrueTarget')
+        #             dataset.metadata = dataset.metadata.update(
+        #                 (target['resID'], ALL_ELEMENTS, target['colIndex']),
+        #                 {'semantic_types': semantic_types})
+        #     return dataset
 
     def dump_primitive(self, target_primitive, save_file_name) -> bool:
         """
@@ -1062,6 +1066,7 @@ class Controller:
         json_file = os.path.abspath(self.config.dataset_schema_files[0])
         all_dataset_uri = 'file://{}'.format(json_file)
         self.all_dataset = loader.load(dataset_uri=all_dataset_uri)
+        self._check_and_set_dataset_metadata()
         # first apply denormalize on input dataset
         from common_primitives.denormalize import Hyperparams as hyper_denormalize, DenormalizePrimitive
         denormalize_hyperparams = hyper_denormalize.defaults()
@@ -1352,7 +1357,6 @@ class Controller:
 
         self._logger.info("[INFO] testing data")
 
-        self.all_dataset = self.auto_regress_convert_and_add_metadata(self.all_dataset)
         run_test.produce(inputs=[self.all_dataset])
 
         # try:
@@ -1409,7 +1413,6 @@ class Controller:
         # pprint(self.test_dataset.head())
 
         # pipeline_load.runtime.produce(inputs=[self.test_dataset])
-        self.all_dataset = self.auto_regress_convert_and_add_metadata(self.all_dataset)
         # runtime.add_target_columns_metadata(self.all_dataset, self.config.problem_metadata)
         run_test.produce(inputs=[self.all_dataset])
 
@@ -1488,7 +1491,6 @@ class Controller:
         if not self.template:
             return Status.PROBLEM_NOT_IMPLEMENT
 
-        self._check_and_set_dataset_metadata()
         self.generate_dataset_splits()
 
         # FIXME) come up with a better way to implement this part. The fork does not provide a way
@@ -1539,7 +1541,6 @@ class Controller:
     def generate_dataset_splits(self):
 
         self.all_dataset = self.remove_empty_targets(self.all_dataset)
-        self.all_dataset = self.auto_regress_convert_and_add_metadata(self.all_dataset)
         from dsbox.datapreprocessing.cleaner.splitter import Splitter, SplitterHyperparameter
 
         hyper_sampler = SplitterHyperparameter.defaults()

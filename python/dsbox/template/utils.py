@@ -284,8 +284,6 @@ def calculate_score(ground_truth: DataFrame, prediction: DataFrame,
                 ground_truth_d3m_index_column_index = ground_truth.columns.tolist().index("d3mIndex")
                 prediction_d3m_index_column_index = prediction.columns.tolist().index("d3mIndex")
                 for each_column in range(-target_amount, 0, 1):
-                    import pdb
-                    pdb.set_trace()
                     result_metrics.append({
                         'column_name': ground_truth.columns[each_column],
                         'metric': metric_description['metric'],
