@@ -136,6 +136,10 @@ class DsboxConfig:
         '''
         Get D3M environmental variable values.
         '''
+        for key, value in os.environ.items():
+            if 'D3M' in key:
+                print(f'{key}={value}')
+
         self.d3m_run = os.environ['D3MRUN']
         self.input_dir = os.environ['D3MINPUTDIR']
         self.output_dir = os.environ['D3MOUTPUTDIR']
@@ -145,7 +149,7 @@ class DsboxConfig:
             self.cpu = int(os.environ['D3MCPU'])
         else:
             import multiprocessing
-            self.cpu = multiprocessing.cpu_count() -1
+            self.cpu = multiprocessing.cpu_count() - 1
         if self.cpu < 1:
             self.cpu = 1
         if 'D3MRAM' in os.environ:
@@ -166,8 +170,6 @@ class DsboxConfig:
                 self.problem_schema = os.environ['D3MPROBLEMPATH']
             else:
                 print('D3MPROBLEMPATH environment variable not defined.')
-
-
 
     def _load_dsbox(self):
         self._load_logging()
