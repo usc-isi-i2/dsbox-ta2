@@ -187,6 +187,8 @@ class DsboxConfig:
             self.serial_search_iterations = 30
 
     def _load_problem(self):
+        if self.problem_schema == '':
+            return
         with open(os.path.abspath(self.problem_schema)) as file:
             self.problem_doc = json.load(file)
         self.problem = parse_problem_description(os.path.abspath(self.problem_schema))
