@@ -109,7 +109,7 @@ class TemplateLibrary:
     def get_templates(self, task: TaskType, subtype: TaskSubtype, taskSourceType: SEMANTIC_TYPES) \
             -> typing.List[DSBoxTemplate]:
         results = []
-        # results.append(SRIMeanBaselineTemplate())  # put the meanbaseline here so whatever dataset will have a result
+        results.append(SRIMeanBaselineTemplate())  # put the meanbaseline here so whatever dataset will have a result
         for template_class in self.templates:
             template = template_class()
             # sourceType refer to d3m/container/dataset.py ("SEMANTIC_TYPES" as line 40-70)
@@ -2777,10 +2777,10 @@ class SRIGraphMatchingTemplate(DSBoxTemplate):
                     "name": "model_step",
                     "primitives": [
                         {
-                            "primitive": "d3m.primitives.sri.psl.GraphMatchingLinkPrediction",
+                            "primitive": "d3m.primitives.link_prediction.graph_matching_link_prediction.GraphMatchingLinkPrediction",
                             "hyperparameters": {
                                 "link_prediction_hyperparams": [(TemplateSteps.class_hyperparameter_generator(
-                                    "d3m.primitives.sri.psl.GraphMatchingLinkPrediction", "link_prediction_hyperparams",
+                                    "d3m.primitives.link_prediction.graph_matching_link_prediction.GraphMatchingLinkPrediction", "link_prediction_hyperparams",
                                     {"truth_threshold": 0.0000001, "psl_options": "", "psl_temp_dir": "/tmp/psl/run",
                                      "postgres_db_name": "psl_d3m", "admm_iterations": 1000, "max_threads": 0,
                                      "jvm_memory": 0.75, "prediction_column": "match"}))]
@@ -2807,13 +2807,13 @@ class SRIVertexNominationTemplate(DSBoxTemplate):
             "steps": [
                 {
                     "name": "parse_step",
-                    "primitives": ["d3m.primitives.sri.graph.VertexNominationParser"],
+                    "primitives": ["d3m.primitives.data_transformation.vertex_nomination_parser.VertexNominationParser"],
                     "inputs": ["template_input"]
 
                 },
                 {
                     "name": "model_step",
-                    "primitives": ["d3m.primitives.sri.psl.VertexNomination"],
+                    "primitives": ["d3m.primitives.classification.vertex_nomination.VertexNomination"],
                     "inputs": ["parse_step"]
 
                 }
@@ -2833,7 +2833,7 @@ class SRICollaborativeFilteringTemplate(DSBoxTemplate):
             "steps": [
                 {
                     "name": "model_step",
-                    "primitives": ["d3m.primitives.sri.psl.CollaborativeFilteringLinkPrediction"],
+                    "primitives": ["d3m.primitives.link_prediction.collaborative_filtering_link_prediction.CollaborativeFilteringLinkPrediction"],
                     "inputs": ["template_input"]
 
                 }
@@ -2852,13 +2852,13 @@ class SRICommunityDetectionTemplate(DSBoxTemplate):
             "steps": [
                 {
                     "name": "parser_step",
-                    "primitives": ["d3m.primitives.sri.graph.CommunityDetectionParser"],
+                    "primitives": ["d3m.primitives.community_detection.community_detection_parser.CommunityDetectionParse"],
                     "inputs": ["template_input"]
 
                 },
                 {
                     "name": "model_step",
-                    "primitives": ["d3m.primitives.sri.psl.CommunityDetection"],
+                    "primitives": ["d3m.primitives.classification.community_detection.CommunityDetection"],
                     "inputs": ["parser_step"]
                 }
             ]
@@ -3081,7 +3081,7 @@ class SRIMeanBaselineTemplate(DSBoxTemplate):
             "steps": [
                 {
                     "name": "model_step",
-                    "primitives": ["d3m.primitives.sri.baseline.MeanBaseline"],
+                    "primitives": ["d3m.primitives.classification.gaussian_classification.MeanBaseline"],
                     "inputs": ["template_input"]
 
                 }

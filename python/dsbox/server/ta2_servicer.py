@@ -388,8 +388,8 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
 
         request_id = self.generateId()
         self.produce_solution[request_id] = {
-            'request' : request,
-            'start' : Timestamp().GetCurrentTime()
+            'request': request,
+            'start': Timestamp().GetCurrentTime()
         }
         return ProduceSolutionResponse(request_id=request_id)
 
@@ -745,7 +745,8 @@ def to_csv_file(dataframe, file_transfer_directory, file_prefix: str, *, index=T
     file_path = os.path.join(file_transfer_directory, file_prefix + '.csv')
     # dataframe.to_csv(file_path, index=index)
     export_dataframe(dataframe, file_path)
-    return file_path
+    file_uri = 'file://' + file_path
+    return file_uri
 
 
 def export_dataframe(dataframe: d3m_container.DataFrame, output_file: typing.TextIO = None) -> typing.Optional[str]:

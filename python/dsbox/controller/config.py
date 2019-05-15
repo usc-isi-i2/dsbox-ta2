@@ -141,8 +141,15 @@ class DsboxConfig:
         self.output_dir = os.environ['D3MOUTPUTDIR']
         self.local_dir = os.environ['D3MLOCALDIR']
         self.static_dir = os.environ['D3MSTATICDIR']
-        self.cpu = int(os.environ['D3MCPU'])
-        self.ram = os.environ['D3MRAM']
+        if 'D3MCPU' in os.environ:
+            self.cpu = int(os.environ['D3MCPU'])
+        else:
+            import multiprocessing
+            self.cpu = multiprocessing.cpu_count() -1
+        if self.cpu < 1:
+            self.cpu = 1
+        if 'D3MRAM' in os.environ:
+            self.ram = os.environ['D3MRAM']
         if ta2ta3_mode:
             # Timeout should not be used in ta2ta3_mode. Set to a large number
             self.timeout = 9999999
@@ -150,8 +157,17 @@ class DsboxConfig:
             if 'D3MPROBLEMPATH' in os.environ:
                 self.problem_schema = os.environ['D3MPROBLEMPATH']
         else:
-            self.timeout = int(os.environ['D3MTIMEOUT'])
-            self.problem_schema = os.environ['D3MPROBLEMPATH']
+            if 'D3MTIMEOUT' in os.environ:
+                self.timeout = int(os.environ['D3MTIMEOUT'])
+            else:
+                self.timeout = 9999999
+                print('D3MTIMEOUT environment variable not defined. Setting to a large value')
+            if 'D3MPROBLEMPATH' in os.environ:
+                self.problem_schema = os.environ['D3MPROBLEMPATH']
+            else:
+                print('D3MPROBLEMPATH environment variable not defined.')
+
+
 
     def _load_dsbox(self):
         self._load_logging()
