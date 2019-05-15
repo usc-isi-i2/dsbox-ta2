@@ -1113,8 +1113,19 @@ class Controller:
             self.all_dataset = loader.load(dataset_uri='file://{}'.format(json_file))
         self._check_and_set_dataset_metadata()
 
-        # Templates
+        # first apply denormalize on input dataset
+        from common_primitives.denormalize import Hyperparams as hyper_denormalize, DenormalizePrimitive
+        denormalize_hyperparams = hyper_denormalize.defaults()
+        denormalize_primitive = DenormalizePrimitive(hyperparams = denormalize_hyperparams)
+        self.all_dataset = denormalize_primitive.produce(inputs = self.all_dataset).value
+        self.extra_primitive.add("denormalize")
+        self.dump_primitive(denormalize_primitive, "denormalize")
+        if "data_augmentation" in self.config.problem.keys():
+            self.all_dataset = self.do_data_augmentation(self.all_dataset)
+        # load templates
         self.load_templates()
+
+
 
     def load_pipe_runtime(self):
         dir = os.path.expanduser(self.config.output_dir + '/pipelines_fitted')
