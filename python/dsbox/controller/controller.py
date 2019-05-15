@@ -1548,6 +1548,7 @@ class Controller:
             self._logger.info("Starting horizontal tuning")
             self.horizontal_tuning("d3m.primitives.sklearn_wrap.SKBernoulliNB")
 
+        self.write_training_results()
         return Status.OK
 
     def generate_dataset_splits(self):
