@@ -618,7 +618,7 @@ class Controller:
             wikifier_primitive = Wikifier(hyperparams = wikifier_hyperparams)
             self.all_dataset = wikifier_primitive.produce(inputs = self.all_dataset).value
 
-            
+
             from common_primitives.dataset_to_dataframe import Hyperparams as hyper_ds_to_df, DatasetToDataFramePrimitive
             ds_to_df_hyperparams = hyper_ds_to_df.defaults()
             ds_to_df_primitive = DatasetToDataFramePrimitive(hyperparams = ds_to_df_hyperparams)
@@ -1111,6 +1111,7 @@ class Controller:
         else:
             json_file = os.path.abspath(json_file)
             self.all_dataset = loader.load(dataset_uri='file://{}'.format(json_file))
+        self._check_and_set_dataset_metadata()
 
         # Templates
         self.load_templates()
