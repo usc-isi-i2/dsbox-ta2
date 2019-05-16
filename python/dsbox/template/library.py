@@ -163,6 +163,7 @@ class TemplateLibrary:
         self.templates.append(DefaultRegressionTemplate)
 
         # new tabular classification
+        # Muxin said it was already included in DefaultClassification
         # self.templates.append(RandomForestClassificationTemplate)
         # self.templates.append(ExtraTreesClassificationTemplate)
         # self.templates.append(GradientBoostingClassificationTemplate)
@@ -176,7 +177,8 @@ class TemplateLibrary:
         self.templates.append(GradientBoostingRegressionTemplate)
         self.templates.append(AlphaZeroEvalTemplate)
         self.templates.append(TESTINGTemplate)
-        # takes too long to run self.templates.append(SVRRegressionTemplate)
+        # takes too long to run 
+        # self.templates.append(SVRRegressionTemplate)
 
         # text templates, but also support tabular data
         self.templates.append(DefaultTextClassificationTemplate)
@@ -191,6 +193,7 @@ class TemplateLibrary:
         self.templates.append(DefaultObjectDetectionTemplate)
         self.templates.append(DefaultVideoClassificationTemplate)
         # self.templates.append(DefaultImageClassificationWithCNNTemplate)
+        self.templates.append(TA1VggImageProcessingRegressionTemplate)
 
         # Others
         self.templates.append(DefaultTimeseriesCollectionTemplate)
