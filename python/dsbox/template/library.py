@@ -2073,7 +2073,7 @@ class DefaultVideoClassificationTemplate(DSBoxTemplate):
     def __init__(self):
         DSBoxTemplate.__init__(self)
         self.template = {
-            "name": "DefaultObjectDetectionTemplate",
+            "name": "DefaultVideoClassificationTemplate",
             "taskType": TaskType.CLASSIFICATION.name,
             # See TaskType, range include 'CLASSIFICATION', 'CLUSTERING', 'COLLABORATIVE_FILTERING',
             # 'COMMUNITY_DETECTION', 'GRAPH_CLUSTERING', 'GRAPH_MATCHING', 'LINK_PREDICTION',
@@ -2129,7 +2129,7 @@ class DefaultVideoClassificationTemplate(DSBoxTemplate):
                             {
                                 "primitive": "d3m.primitives.feature_extraction.inceptionV3_image_feature.DSBOX",
                                 "hyperparameters": {
-                                    "use_limitation":[True, False],
+                                    "use_limitation":[(True), (False)],
                                 }
                             }
 
@@ -2142,8 +2142,8 @@ class DefaultVideoClassificationTemplate(DSBoxTemplate):
                         {
                             "primitive": "d3m.primitives.feature_extraction.lstm.DSBOX",
                             "hyperparameters": {
-                                "LSTM_units":[512,1024,2048],
-                                "epochs":[10,100,1000],
+                                "LSTM_units":[512, 1024, 2048],
+                                "epochs":[10, 100, 1000],
                             }
                         }
                     ],
