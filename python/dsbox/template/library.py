@@ -3164,7 +3164,7 @@ class MichiganVideoClassificationTemplate(DSBoxTemplate):
             # 'REGRESSION', 'TIME_SERIES_FORECASTING', 'VERTEX_NOMINATION'
             "taskSubtype": TaskSubtype.MULTICLASS.name,
             "inputType": "video",  # See SEMANTIC_TYPES.keys() for range of values
-            "output": "model_step",  # Name of the final step generating the prediction
+            "output": "construct_prediction_step",  # Name of the final step generating the prediction
             "target": "extract_target_step",  # Name of the step generating the ground truth
             "steps": [
                 {
@@ -3193,7 +3193,7 @@ class MichiganVideoClassificationTemplate(DSBoxTemplate):
                 },
                 {
                     "name": "featurize_step",
-                    "primitives": ["d3m.primitives.feature_extraction.i3d.umich"],
+                    "primitives": ["d3m.primitives.feature_extraction.i3d.Umich"],
                     "inputs": ["read_video_step"]
 
                 },
@@ -3217,6 +3217,15 @@ class MichiganVideoClassificationTemplate(DSBoxTemplate):
                         }],
                     "inputs": ["convert_step", "extract_target_step"]
                 },
+                {
+                    "name": "construct_prediction_step",
+                    "primitives": [
+                        {
+                            "primitive": "d3m.primitives.data_transformation.construct_predictions.DataFrameCommon",
+                        }
+                    ],
+                    "inputs": ["model_step", "to_dataframe_step"]
+                }
             ]
         }
 
