@@ -229,8 +229,8 @@ class DSBoxTemplate():
                 added.add(t)
             for p in arguments_produce:
                 if p not in added and p != 'timeout' and p != 'iterations':
-                    arguments.append(t)
-                    added.add(t)
+                    arguments.append(p)
+                    added.add(p)
             for index, argument in enumerate(arguments):
                 primitive.add_argument(
                     name = argument,
