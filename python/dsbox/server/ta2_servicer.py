@@ -104,7 +104,9 @@ logging.getLogger('').setLevel(logging_level)
 
 _logger = logging.getLogger(__name__)
 
-communication_value_types = [value_pb2.DATASET_URI, value_pb2.PICKLE_URI, value_pb2.PICKLE_BLOB, value_pb2.CSV_URI]
+communication_value_types = [value_pb2.DATASET_URI, value_pb2.CSV_URI, value_pb2.RAW]
+
+# value_pb2.PICKLE_URI, value_pb2.PICKLE_BLOB
 
 
 # self.controller = Controller()
@@ -379,7 +381,10 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
     def ListPrimitives(self, request, context):
         primitives = []
         for python_path in d3m.index.search():
-            primitives.append(to_proto_primitive(d3m.index.get_primitive(python_path)))
+            try:
+                primitives.append(to_proto_primitive(d3m.index.get_primitive(python_path)))
+            except Exception:
+                pass
         return ListPrimitivesResponse(primitives=primitives)
 
     def ProduceSolution(self, request, context):
