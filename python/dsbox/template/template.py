@@ -1,10 +1,9 @@
 import copy
-import numpy as np
 
 from itertools import product
 from pprint import pprint
 
-from d3m import exceptions, utils, index as d3m_index
+from d3m import container, exceptions, utils, index as d3m_index
 from d3m.metadata import base as metadata_base
 from d3m.metadata.pipeline import Pipeline, PrimitiveStep
 from .configuration_space import SimpleConfigurationSpace, ConfigurationPoint
@@ -89,8 +88,7 @@ class DSBoxTemplate():
 
         # binding = configuration_point
         binding, sequence = self.add_intermediate_type_casting(ioconf)
-        # print("[INFO] Binding:")
-        # pprint(binding)
+
         return self._to_pipeline(binding, sequence)
 
     def add_inputs_to_confPonit(self,
@@ -138,6 +136,9 @@ class DSBoxTemplate():
                 if in_arg == "template_input":
                     continue
 
+                # if list, assume it's okay
+                if in_primitive_value is container.List and type(in_arg) is list:
+                    continue
                 # Check if the input name is valid and available in template
                 if in_arg not in binding:
                     print("[ERROR] step {} input {} is not available!".format(step_num, in_arg))
@@ -208,7 +209,7 @@ class DSBoxTemplate():
                 return True
         return False
 
-    def bind_primitive_IO(self, primitive: PrimitiveStep, *templateIO):
+    def bind_primitive_IO(self, primitive: PrimitiveStep, templateIO):
         # print(templateIO)
         if len(templateIO) == 1:
             primitive.add_argument(
@@ -253,8 +254,7 @@ class DSBoxTemplate():
         # print(sequence)
         # print("[INFO] list:",list(map(str, metadata_base.Context)))
         pipeline = Pipeline(name=self.template['name'] + ":" + str(id(binding)),
-                            context=metadata_base.Context.PRETRAINING,
-                            description=self.description_info)  # 'PRETRAINING'
+                            description=self.description_info)
         templateinput = pipeline.add_input("input dataset")
 
         # save temporary output for another step to take as input
@@ -325,16 +325,20 @@ class DSBoxTemplate():
             if self.need_add_reference and primitive_name == 'd3m.primitives.data_transformation.construct_predictions.DataFrameCommon':
                 primitive_step.add_argument("reference",metadata_base.ArgumentType.CONTAINER,"steps.0.produce")
 
-
-            templateIO = binding[step]["inputs"]
-
             # first we need to extract the types of the primtive's input and
             # the generators's output type.
             # then we need to compare those and in case we have different
             # types, add the intermediate type caster in the pipeline
             # print(outputs)
-            self.bind_primitive_IO(primitive_step,
-                                   *map(lambda io: outputs[io], templateIO))
+            step_parameters = binding[step]["inputs"]
+            step_arguments = []
+            for parameter in step_parameters:
+                if type(parameter) is list:
+                    argument = [outputs[subparam] for subparam in parameter]
+                else:
+                    argument = outputs[parameter]
+                step_arguments.append(argument)
+            self.bind_primitive_IO(primitive_step, step_arguments)
             pipeline.add_step(primitive_step)
             # pre v2019.1.21
             # outputs[step] = primitive_step.add_output("produce")
@@ -354,7 +358,7 @@ class DSBoxTemplate():
         conf_space = {}
         for each_step in steps:
             name = each_step["name"]
-            values = []
+            values: list = []
 
             # description: typing.Dict
             for description in each_step["primitives"]:
