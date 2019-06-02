@@ -1,8 +1,9 @@
 import copy
 import logging
-import numpy as np
+import numpy as np  # type: ignore
 import typing
 
+import d3m
 from d3m import index
 
 from d3m.metadata.problem import TaskType, TaskSubtype
@@ -11,7 +12,6 @@ from .template_steps import TemplateSteps
 
 _logger = logging.getLogger(__name__)
 
-import d3m
 if d3m.__version__ == "2019.4.4":
     from .utils import SEMANTIC_TYPES
 else:
@@ -21,6 +21,7 @@ else:
     SEMANTIC_TYPES.update(D3M_RESOURCE_TYPE_CONSTANTS_TO_SEMANTIC_TYPES)
     SEMANTIC_TYPES.update(D3M_COLUMN_TYPE_CONSTANTS_TO_SEMANTIC_TYPES)
 
+
 class TemplateLibrary:
     """
     Library of template pipelines
@@ -28,7 +29,7 @@ class TemplateLibrary:
 
     def __init__(self, library_dir: str = None, run_single_template: str = "") -> None:
         self.templates: typing.List[typing.Type[DSBoxTemplate]] = []
-        self.primitive: typing.Dict = index.search()
+        self.primitive: typing.Sequence[str] = index.search()
 
         self.library_dir = library_dir
         if self.library_dir is None:
@@ -106,9 +107,9 @@ class TemplateLibrary:
         else:
             self._load_inline_templates()
 
-    def get_templates(self, task: TaskType, subtype: TaskSubtype, taskSourceType: SEMANTIC_TYPES) \
+    def get_templates(self, task: TaskType, subtype: TaskSubtype, taskSourceType: typing.Set) \
             -> typing.List[DSBoxTemplate]:
-        results = []
+        results: typing.List[DSBoxTemplate] = []
         results.append(SRIMeanBaselineTemplate())  # put the meanbaseline here so whatever dataset will have a result
         for template_class in self.templates:
             template = template_class()
@@ -168,7 +169,7 @@ class TemplateLibrary:
         # self.templates.append(ExtraTreesClassificationTemplate)
         # self.templates.append(GradientBoostingClassificationTemplate)
 
-        # takes too long to run 
+        # takes too long to run
         self.templates.append(SVCClassificationTemplate)
 
         # new tabular regression
@@ -177,7 +178,7 @@ class TemplateLibrary:
         self.templates.append(GradientBoostingRegressionTemplate)
         self.templates.append(AlphaZeroEvalTemplate)
         self.templates.append(TESTINGTemplate)
-        # takes too long to run 
+        # takes too long to run
         # self.templates.append(SVRRegressionTemplate)
 
         # text templates, but also support tabular data
@@ -409,9 +410,8 @@ class TestDefaultClassificationTemplate(DSBoxTemplate):
         }
 
 
-
-# a template encompassing several NB methods
 class NaiveBayesClassificationTemplate(DSBoxTemplate):
+    '''A template encompassing several NB methods'''
     def __init__(self):
         DSBoxTemplate.__init__(self)
         self.template = {
@@ -469,6 +469,7 @@ class NaiveBayesClassificationTemplate(DSBoxTemplate):
                 }
             ]
         }
+
 
 class RandomForestClassificationTemplate(DSBoxTemplate):
     def __init__(self):
@@ -556,6 +557,7 @@ class ExtraTreesClassificationTemplate(DSBoxTemplate):
                 }
             ]
         }
+
 
 class GradientBoostingClassificationTemplate(DSBoxTemplate):
     def __init__(self):
@@ -829,6 +831,7 @@ class DefaultRegressionTemplate(DSBoxTemplate):
             ]
         }
 
+
 class SVRRegressionTemplate(DSBoxTemplate):
     def __init__(self):
         DSBoxTemplate.__init__(self)
@@ -867,6 +870,7 @@ class SVRRegressionTemplate(DSBoxTemplate):
                 }
             ]
         }
+
 
 class GradientBoostingRegressionTemplate(DSBoxTemplate):
     def __init__(self):
@@ -907,6 +911,7 @@ class GradientBoostingRegressionTemplate(DSBoxTemplate):
                 }
             ]
         }
+
 
 class ExtraTreesRegressionTemplate(DSBoxTemplate):
     def __init__(self):
@@ -1038,6 +1043,7 @@ class RegressionWithSelection(DSBoxTemplate):
                      ]
         }
 
+
 class DataAugmentRegressionTemplate(DSBoxTemplate):
     def __init__(self):
         DSBoxTemplate.__init__(self)
@@ -1129,7 +1135,7 @@ class DataAugmentRegressionTemplate(DSBoxTemplate):
             {
                 "name": "encoder_step",
                 "primitives": [
-                    "d3m.primitives.data_cleaning.labeler.DSBOX"
+                    "d3m.primitives.data_cleaning.label_encoder.DSBOX"
                 ],
                 "inputs": ["encode_text_step"]
             },
@@ -1156,7 +1162,6 @@ class DataAugmentRegressionTemplate(DSBoxTemplate):
 
             ]
         }
-
 
 
 class dsboxRegressionTemplate(DSBoxTemplate):
@@ -1252,7 +1257,7 @@ class Large_column_number_with_numerical_only_classification(DSBoxTemplate):
                 # },
                 {
                     "name": "encode2_step",
-                    "primitives": ["d3m.primitives.data_cleaning.labeler.DSBOX"],
+                    "primitives": ["d3m.primitives.data_cleaning.label_encoder.DSBOX"],
                     "inputs": ["extract_attribute_step"]
                 },
                 {
@@ -1331,7 +1336,7 @@ class Large_column_number_with_numerical_only_regression(DSBoxTemplate):
 
                 {
                     "name": "encode2_step",
-                    "primitives": ["d3m.primitives.data_cleaning.labeler.DSBOX"],
+                    "primitives": ["d3m.primitives.data_cleaning.label_encoder.DSBOX"],
                     "inputs": ["extract_attribute_step"]
                 },
                 {
@@ -1354,6 +1359,7 @@ class Large_column_number_with_numerical_only_regression(DSBoxTemplate):
                 },
             ]
         }
+
 
 class AlphaZeroEvalTemplate(DSBoxTemplate): # this is a template from succeed pipeline for uu2 dataset
     def __init__(self):
@@ -3348,7 +3354,7 @@ class TA1Classification_2(DSBoxTemplate):
                 },
                 {
                     "name": "encoder_step",
-                    "primitives": ["d3m.primitives.data_cleaning.labeler.DSBOX"],
+                    "primitives": ["d3m.primitives.data_cleaning.label_encoder.DSBOX"],
                     "inputs": ["corex_step"]
                 },
                 {
@@ -3456,7 +3462,7 @@ class TA1Classification_3(DSBoxTemplate):
                 },
                 {
                     "name": "label_step",
-                    "primitives": ["d3m.primitives.data_cleaning.labeler.DSBOX"],
+                    "primitives": ["d3m.primitives.data_cleaning.label_encoder.DSBOX"],
                     "inputs": ["impute_step"]
                 },
                 {
