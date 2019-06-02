@@ -1,8 +1,9 @@
 import typing
 import logging
+
+from d3m import metrics, exceptions
 from d3m.container import DataFrame
 from d3m.metadata.problem import PerformanceMetric
-from d3m.utils import AbstractMetaclass
 
 
 _logger = logging.getLogger(__name__)
@@ -39,7 +40,7 @@ def calculate_score(ground_truth: DataFrame, prediction: DataFrame,
 
         # special design for objectDetectionAP
         if metric_description["metric"] == "objectDetectionAP":
-            
+
             if ground_truth is not None and prediction is not None:
                 # training_image_name_column = ground_truth.iloc[:,
                 #                              ground_truth.shape[1] - 2]
@@ -80,8 +81,8 @@ def calculate_score(ground_truth: DataFrame, prediction: DataFrame,
                     prediction.insert(0,'d3mIndex' ,ground_truth['d3mIndex'].copy())
                 else:
                     target_amount = len(prediction.columns) - 1
-                
-                if prediction['d3mIndex'].dtype.name != ground_truth['d3mIndex'].dtype.name:       
+
+                if prediction['d3mIndex'].dtype.name != ground_truth['d3mIndex'].dtype.name:
                     ground_truth['d3mIndex'] = ground_truth['d3mIndex'].astype(str).copy()
                     prediction['d3mIndex'] = prediction['d3mIndex'].astype(str).copy()
 
@@ -199,10 +200,9 @@ SEMANTIC_TYPES = {
 }
 
 
-
 def calculate_score(ground_truth: DataFrame, prediction: DataFrame,
                     performance_metrics: typing.List[typing.Dict],
-                    task_type, regression_metric: set()):
+                    task_type, regression_metric: set):
     """
     static method used to calculate the score based on given predictions and metric tpyes
     Parameters
@@ -220,7 +220,7 @@ def calculate_score(ground_truth: DataFrame, prediction: DataFrame,
     for metric_description in performance_metrics:
         metricDesc = PerformanceMetric.parse(metric_description['metric'])
         params: typing.Dict = metric_description['params']
-        metric: typing.Callable = metricDesc.get_class()(**params)
+        metric: metrics.Metric = metricDesc.get_class()() if params is None else metricDesc.get_class()(**params)
 
         # special design for objectDetectionAP
         if metric_description["metric"] == "objectDetectionAP":
@@ -291,7 +291,7 @@ def calculate_score(ground_truth: DataFrame, prediction: DataFrame,
                                               prediction.iloc[:,[prediction_d3m_index_column_index,each_column]])
                     })
         except Exception:
-            raise NotSupportedError('[ERROR] metric calculation failed')
+            raise exceptions.NotSupportedError('[ERROR] metric calculation failed')
     # END for loop
 
     if len(result_metrics) > target_amount:
