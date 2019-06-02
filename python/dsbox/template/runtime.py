@@ -111,7 +111,7 @@ class Runtime(runtime_base.Runtime):
         self.template_name = template_name
         self.fit_outputs = None
         self.log_dir = log_dir
-        self.metric_descriptions = None
+        self.metric_descriptions: typing.List[typing.Dict] = []
         self.produce_outputs = None
         self.timing = {}
         self.timing["total_time_used"] = 0.0

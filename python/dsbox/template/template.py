@@ -1,4 +1,5 @@
 import copy
+import typing
 
 from itertools import product
 from pprint import pprint
@@ -40,7 +41,7 @@ class DSBoxTemplate():
         self.need_add_reference = False
 
         # Need to be set by subclass inheriting DSBoxTemplate
-        # self.template = ""
+        self.template = {}
 
     def __str__(self):
         if hasattr(self, 'template') and 'name' in getattr(self, 'template'):
@@ -101,7 +102,7 @@ class DSBoxTemplate():
 
     def add_intermediate_type_casting(
             self, configuration_point: ConfigurationPoint) \
-            -> ConfigurationPoint:
+            -> typing.List:  # list of ConfigurationPoint and list
         """
         This method parses the information in the template and adds the
         necessary type casting primitives in the pipeline. These type
