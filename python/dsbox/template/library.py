@@ -78,6 +78,10 @@ class TemplateLibrary:
             "TA1VggImageProcessingRegressionTemplate": TA1VggImageProcessingRegressionTemplate,
             "Default_LinkPrediction_Template": DefaultLinkPredictionTemplate,
 
+            # graph
+            "ISI_graph_norm_clf": ISIGraphNormClf,
+            "ISI_gcn": ISI_GCN,
+            
             # text
             "default_text_classification_template": DefaultTextClassificationTemplate,
             "default_text_regression_template": DefaultTextRegressionTemplate,
@@ -216,6 +220,9 @@ class TemplateLibrary:
         self.templates.append(JHUVertexNominationTemplate)
         self.templates.append(JHUGraphMatchingTemplate)
 
+        self.templates.append(ISIGraphNormClf)
+        self.templates.append(ISI_GCN)
+        
         # templates used for datasets with a large number of columns
         self.templates.append(Large_column_number_with_numerical_only_classification)
         self.templates.append(Large_column_number_with_numerical_only_regression)
@@ -4048,3 +4055,184 @@ class HorizontalTemplate(DSBoxTemplate): #This template only generate processed 
                 # },
             ]
         }
+
+class ISIGraphNormClf(DSBoxTemplate):
+    def __init__(self):
+        DSBoxTemplate.__init__(self)
+        self.template = {
+            "name": "ISI_graph_norm_clf",
+            "taskType": {TaskType.COLLABORATIVE_FILTERING.name, TaskType.VERTEX_NOMINATION.name, TaskType.COMMUNITY_DETECTION.name, TaskType.LINK_PREDICTION.name},
+            "taskSubtype": {"NONE", TaskSubtype.NONOVERLAPPING.name, TaskSubtype.OVERLAPPING.name},
+            #"taskSubtype": "NONE",                                                                                                                                                                              
+            #"inputType": "table",                                                                                                                                                                               
+            "inputType": {"graph","table"},
+            "output": "model_step",
+            "steps": [
+                {
+                    "name": "readgraph_step",
+                    "primitives": [
+                        "d3m.primitives.data_transformation.normalize_graphs.Common"
+                        #"d3m.primitives.data_preprocessing.largest_connected_component.JHU"                                                                                                                     
+                    ],
+                    "inputs": ["template_input"]
+                },
+                {
+                    "name": "extract_graph_tables",#_learning",                                                                                                                                                  
+                    "primitives": ["d3m.primitives.data_transformation.graph_to_edge_list.DSBOX"],
+                    "inputs": ["readgraph_step"]
+                },
+                {
+                    "name": "to_learning_dataframe",
+                    "primitives": ["d3m.primitives.data_transformation.dataset_to_dataframe.Common"],
+                    "inputs": ["template_input"]
+                },
+                              {
+                    "name": "extract_target_step",
+                    "primitives": [{
+                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.DataFrameCommon",
+                        "hyperparameters":
+                            {
+                                'semantic_types': ('https://metadata.datadrivendiscovery.org/types/TrueTarget',
+                                                   'https://metadata.datadrivendiscovery.org/types/SuggestedTarget'),
+                                                   #'https://metadata.datadrivendiscovery.org/types/PrimaryKey'),                                                                                                
+                                'use_columns': (),#'d3mIndex'),                                                                                                                                                  
+                                'exclude_columns': ()#[[1]]                                                                                                                                                      
+                            }
+                    }],
+                    "inputs": ["to_learning_dataframe"]#_learning"]  
+                    },
+                    {
+                    "name": "embedding_step",
+                    "primitives": [
+                        "d3m.primitives.feature_construction.graph_transformer.SDNE"
+                    ],
+                    "hyperparameters": {
+                        "return_list": [False]
+                    },
+                    "inputs": ["extract_graph_tables"]#["to_dataframe_nodes", "to_dataframe_edges"] #["readgraph_step"]                                                                                        
+                },
+                {
+                     "name": "model_step",
+                     "primitives": [{
+                     "primitive": "d3m.primitives.classification.random_forest.SKlearn",
+                     "hyperparameters": {
+                         # 'bootstrap': [True, False],                                                                                                                                                     
+                         'max_depth': [15, 30, None],
+                         'min_samples_leaf': [1, 2, 4],
+                         'min_samples_split': [2, 5, 10],
+                         'max_features': ['auto', 'sqrt'],
+                         'n_estimators': [10, 50, 100],
+                         'add_index_columns': [True],
+                         'use_semantic_types':[False],
+                         'error_on_no_input':[True],
+                         #'exclude_input_columns': [[1]]                                                                                                                                                   
+                         #'exclude_output_columns': ['nodeID']                                                                                                                                             
+                         }
+                     }
+                    ],
+                #{                                                                                                                                                                                             
+                #    "name": "model_step",                                                                                                                                                                     
+                #    "primitives": [                                                                                                                                                                           
+
+                #                                                                                                                                                                                              
+                #        #"d3m.primitives.classification.gaussian_classification.JHU"                                                                                                                          
+                #    ],                                                                                                                                                                                        
+                #        "d3m.primitives.classification.gaussian_classification.JHU"                                                                                                                           
+                #    ],                                                                                                                                                                                        
+                    "inputs": ["embedding_step", "extract_target_step"]
+                }
+            ]
+        }
+      
+        
+        
+class ISI_GCN(DSBoxTemplate):
+    def __init__(self):
+        DSBoxTemplate.__init__(self)
+        self.template = {
+	    "name": "ISI_gcn",
+            "taskType": {TaskType.COLLABORATIVE_FILTERING.name, TaskType.VERTEX_NOMINATION.name, TaskType.COMMUNITY_DETECTION.name, TaskType.LINK_PREDICTION.name},
+            "taskSubtype": {"NONE", TaskSubtype.NONOVERLAPPING.name, TaskSubtype.OVERLAPPING.name},
+            #"taskSubtype": "NONE",                                                                                                                                                                              
+            #"inputType": "table",                                                                                                                                                                               
+            "inputType": {"graph", "table"},
+	        "output": "model_step",
+            "steps": [
+                {
+		    "name": "readgraph_step",
+                    "primitives": [
+                        "d3m.primitives.data_transformation.normalize_graphs.Common"
+                        #"d3m.primitives.data_preprocessing.largest_connected_component.JHU"                                                                                                                     
+                    ],
+                    "inputs": ["template_input"]
+                },
+                {
+                    "name": "extract_graph_tables",#_learning",                                                                                                                                                  
+                    "primitives": ["d3m.primitives.data_transformation.graph_to_edge_list.DSBOX"],
+                    "inputs": ["readgraph_step"]
+                },
+              {
+                    "name": "extract_graph_tables",#_learning",                                                                                                                                                  
+                    "primitives": ["d3m.primitives.data_transformation.graph_to_edge_list.DSBOX"],
+                    "inputs": ["readgraph_step"]
+                },
+                {
+                    "name": "to_learning_dataframe",
+                    "primitives": ["d3m.primitives.data_transformation.dataset_to_dataframe.Common"],
+                    "inputs": ["template_input"]
+                },
+                {
+                    "name": "extract_target_step",
+                    "primitives": [{
+                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.DataFrameCommon",
+                        "hyperparameters":
+                            {
+                                'semantic_types': ('https://metadata.datadrivendiscovery.org/types/TrueTarget',),
+                                'use_columns': (),
+                                'exclude_columns': ()
+                            }
+                    }],
+                    "inputs": ["to_learning_dataframe"]#_learning"]                                                                                                                                              
+                },
+                {
+                    #"name": "model_step", #                                                                                                                                                                     
+                    "name": "embedding_step",
+                    "primitives": [
+                        {
+                            "primitive": "d3m.primitives.feature_construction.graph_transformer.GCN"
+                        }
+                    ],
+                    "inputs": ["extract_graph_tables", "extract_target_step"]
+                },
+                {
+                     "name": "model_step",
+                     "primitives": [{
+                         "primitive": "d3m.primitives.classification.random_forest.SKlearn",
+                         "hyperparameters": {
+                             # 'bootstrap': [True, False],                                                                                                                                                       
+                             'max_depth': [15, 30, None],
+                             'min_samples_leaf': [1, 2, 4],
+                             'min_samples_split': [2, 5, 10],
+                             'max_features': ['auto', 'sqrt'],
+                             'n_estimators': [10, 50, 100],
+                             'add_index_columns': [True],
+                             'use_semantic_types':[False],
+                             'error_on_no_input':[True]
+                         }
+                     }
+                    ],
+                # #{                                                                                                                                                                                             
+                # #    "name": "model_step",                                                                                                                                                                     
+                # #    "primitives": [                                                                                                                                                                           
+
+                # #                                                                                                                                                                                              
+                # #        #"d3m.primitives.classification.gaussian_classification.JHU"                                                                                                                          
+                # #    ],                                                                                                                                                                                        
+                # #        "d3m.primitives.classification.gaussian_classification.JHU"                                                                                                                           
+                # #    ],                                                                                                                                                                                        
+                    "inputs": ["embedding_step", "extract_target_step"]
+                }
+            ]
+        }
+        
+        
