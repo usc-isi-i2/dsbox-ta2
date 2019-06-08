@@ -5,6 +5,7 @@ import time
 import typing
 import enum
 import collections
+import frozendict
 # import eventlet
 
 from multiprocessing import current_process
@@ -12,8 +13,9 @@ from warnings import warn
 
 from d3m.container.dataset import Dataset
 from d3m.container.pandas import DataFrame
+from d3m.base import utils as d3m_utils
 from d3m.exceptions import NotSupportedError
-from d3m.metadata.base import Metadata
+from d3m.metadata.base import Metadata, ALL_ELEMENTS
 from d3m.metadata.problem import PerformanceMetric
 from dsbox.JobManager.cache import PrimitivesCache
 from dsbox.combinatorial_search.search_utils import get_target_columns
@@ -25,7 +27,7 @@ from dsbox.template.configuration_space import ConfigurationPoint
 from dsbox.template.configuration_space import ConfigurationSpace
 from dsbox.template.template import DSBoxTemplate
 from dsbox.template.utils import calculate_score, graph_problem_conversion, SpecialMetric
-
+from datamart_isi.entries import AUGMENTED_COLUMN_SEMANTIC_TYPE, Q_NODE_SEMANTIC_TYPE
 T = typing.TypeVar("T")
 # python path of primitive, i.e. 'd3m.primitives.common_primitives.RandomForestClassifier'
 PythonPath = typing.NewType('PythonPath', str)
@@ -478,6 +480,33 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
 
             # Pickle test
             if self.output_directory is not None and dump2disk:
+                # remove the augmented columns in self.test_dataset1 to ensure we can pass the picking test
+                res_id, test_dataset1_df = d3m_utils.get_tabular_resource(dataset=self.test_dataset1, resource_id=None)
+
+                original_columns = []
+                remained_columns_number = 0
+                for i in range(test_dataset1_df.shape[1]):
+                    current_selector = (res_id, ALL_ELEMENTS, i)
+                    meta = self.test_dataset1.metadata.query(current_selector)
+
+                    if AUGMENTED_COLUMN_SEMANTIC_TYPE in meta['semantic_types'] or Q_NODE_SEMANTIC_TYPE in meta['semantic_types']:
+                        self.test_dataset1.metadata = self.test_dataset1.metadata.remove(selector=current_selector)
+                    else:
+                        original_columns.append(i)
+                        if remained_columns_number != i:
+                            self.test_dataset1.metadata = self.test_dataset1.metadata.remove(selector=current_selector)
+                            updated_selector = (res_id, ALL_ELEMENTS, remained_columns_number)
+                            self.test_dataset1.metadata = self.test_dataset1.metadata.update(selector=updated_selector, metadata=meta)
+                        remained_columns_number += 1
+
+                self.test_dataset1[res_id] = self.test_dataset1[res_id].iloc[:, original_columns]
+                meta = dict(self.test_dataset1.metadata.query((res_id, ALL_ELEMENTS)))
+                dimension = dict(meta['dimension'])
+                dimension['length'] = remained_columns_number
+                meta['dimension'] = frozendict.FrozenOrderedDict(dimension)
+                self.test_dataset1.metadata = self.test_dataset1.metadata.update((res_id, ALL_ELEMENTS), frozendict.FrozenOrderedDict(meta))
+                # end removing augmente columns
+
                 _ = fitted_pipeline_final.produce(inputs=[self.test_dataset1])
                 test_prediction3 = fitted_pipeline_final.get_produce_step_output(
                     self.template.get_output_step_number())

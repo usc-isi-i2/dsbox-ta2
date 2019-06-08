@@ -1,5 +1,6 @@
 import typing
 import logging
+import traceback
 from d3m.container import DataFrame
 from d3m.metadata.problem import PerformanceMetric
 from d3m.utils import AbstractMetaclass
@@ -7,7 +8,6 @@ from d3m.utils import AbstractMetaclass
 
 _logger = logging.getLogger(__name__)
 
-'''
 def calculate_score(ground_truth: DataFrame, prediction: DataFrame,
                     performance_metrics: typing.List[typing.Dict],
                     task_type, regression_metric: set()):
@@ -96,7 +96,7 @@ def calculate_score(ground_truth: DataFrame, prediction: DataFrame,
                 if do_regression_mode:
                     # regression mode require the targets must be float
                     for each_column in range(-target_amount, 0, 1):
-                        prediction.iloc[:,each_column] = prediction[each_column].astype(float).copy()
+                        prediction.iloc[:,each_column] = prediction.iloc[:,each_column].astype(float).copy()
 
                 # update 2019.4.12, now d3m v2019.4.4 have new metric function, we have to change like this
                 ground_truth_d3m_index_column_index = ground_truth.columns.tolist().index("d3mIndex")
@@ -115,6 +115,7 @@ def calculate_score(ground_truth: DataFrame, prediction: DataFrame,
                 raise NotSupportedError("Metric calculation failed because prediction is None!")
 
         except Exception:
+            traceback.print_exc()
             raise NotSupportedError('[ERROR] metric calculation failed')
     # END for loop
 
@@ -123,7 +124,7 @@ def calculate_score(ground_truth: DataFrame, prediction: DataFrame,
 
     # return the training and test metrics
     return result_metrics
-'''
+
 
 def graph_problem_conversion(task_type, prediction):
     """
@@ -199,7 +200,7 @@ SEMANTIC_TYPES = {
 }
 
 
-
+'''
 def calculate_score(ground_truth: DataFrame, prediction: DataFrame,
                     performance_metrics: typing.List[typing.Dict],
                     task_type, regression_metric: set()):
@@ -291,7 +292,7 @@ def calculate_score(ground_truth: DataFrame, prediction: DataFrame,
                                               prediction.iloc[:,[prediction_d3m_index_column_index,each_column]])
                     })
         except Exception:
-            raise NotSupportedError('[ERROR] metric calculation failed')
+            raise ValueError('[ERROR] metric calculation failed')
     # END for loop
 
     if len(result_metrics) > target_amount:
@@ -299,3 +300,5 @@ def calculate_score(ground_truth: DataFrame, prediction: DataFrame,
 
     # return the training and test metrics
     return result_metrics
+
+'''
