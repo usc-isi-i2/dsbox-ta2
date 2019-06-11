@@ -521,97 +521,98 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
 
     def test_pickled_pipeline(self, folder_loc: str, pipeline_id: str, test_dataset: Dataset,
                               test_metrics: typing.List, test_ground_truth) -> None:
+        try:
+            fitted_pipeline = FittedPipeline.load(folder_loc=folder_loc, fitted_pipeline_id=pipeline_id,
+                                                  log_dir=self.log_dir)
+            results = fitted_pipeline.produce(inputs=[test_dataset])
 
-        fitted_pipeline = FittedPipeline.load(folder_loc=folder_loc, fitted_pipeline_id=pipeline_id,
-                                              log_dir=self.log_dir)
-        results = fitted_pipeline.produce(inputs=[test_dataset])
+            pipeline_prediction = fitted_pipeline.get_produce_step_output(
+                self.template.get_output_step_number())
+            pipeline_prediction = graph_problem_conversion(self.task_type, pipeline_prediction)
 
-        pipeline_prediction = fitted_pipeline.get_produce_step_output(
-            self.template.get_output_step_number())
-        pipeline_prediction = graph_problem_conversion(self.task_type, pipeline_prediction)
+            test_pipeline_metrics2 = calculate_score(test_ground_truth, pipeline_prediction,
+                self.performance_metrics, self.task_type, SpecialMetric().regression_metric)
 
-        test_pipeline_metrics2 = calculate_score(test_ground_truth, pipeline_prediction,
-            self.performance_metrics, self.task_type, SpecialMetric().regression_metric)
+            '''
+            test_pipeline_metrics = list()
+            for metric_description in self.performance_metrics:
+                metricDesc = PerformanceMetric.parse(metric_description['metric'])
+                metric: typing.Callable = metricDesc.get_function()
+                params: typing.Dict = metric_description['params']
+                # pass the tesk picle test!
+                if metric_description['metric'] == "objectDetectionAP":
+                    return
+                try:
+                    if metric_description["metric"] in SpecialMetric().regression_metric:
+                        # if the test_ground_truth do not have results
+                        if test_ground_truth.iloc[0, -1] == '':
+                            test_ground_truth.iloc[:, -1] = 0
+                        test_pipeline_metrics.append({
+                            'metric': metric_description['metric'],
+                            'value': metric(
+                                test_ground_truth.iloc[:, -1].astype(float),
+                                pipeline_prediction.iloc[:, -1].astype(float),
+                                **params
+                            )
+                        })
+                    # elif metric_description['metric'] == objectDetectionAP:
+                    #     test_pipeline_metrics.append({
+                    #         'metric': metric_description['metric'],
+                    #         'value': metric(
+                    #             test_ground_truth.iloc[:, -1].astype(float),
+                    #             pipeline_prediction.iloc[:,2:].astype(float),
+                    #             **params
+                    #         )
+                    #     })
+                    else:
+                        test_pipeline_metrics.append({
+                            'metric': metric_description['metric'],
+                            'value': metric(
+                                test_ground_truth.iloc[:, -1].astype(str),
+                                pipeline_prediction.iloc[:, -1].astype(str),
+                                **params
+                            )
+                        })
+                except Exception:
+                    raise NotSupportedError(
+                        '[ERROR] metric calculation failed in test pickled pipeline')
+            '''
+            _logger.info(f'=== original:{test_metrics}')
+            # _logger.info(f'=== test:{test_pipeline_metrics}')
+            _logger.info(f'=== test2:{test_pipeline_metrics2}')
 
-        '''
-        test_pipeline_metrics = list()
-        for metric_description in self.performance_metrics:
-            metricDesc = PerformanceMetric.parse(metric_description['metric'])
-            metric: typing.Callable = metricDesc.get_function()
-            params: typing.Dict = metric_description['params']
-            # pass the tesk picle test!
-            if metric_description['metric'] == "objectDetectionAP":
-                return
-            try:
-                if metric_description["metric"] in SpecialMetric().regression_metric:
-                    # if the test_ground_truth do not have results
-                    if test_ground_truth.iloc[0, -1] == '':
-                        test_ground_truth.iloc[:, -1] = 0
-                    test_pipeline_metrics.append({
-                        'metric': metric_description['metric'],
-                        'value': metric(
-                            test_ground_truth.iloc[:, -1].astype(float),
-                            pipeline_prediction.iloc[:, -1].astype(float),
-                            **params
-                        )
-                    })
-                # elif metric_description['metric'] == objectDetectionAP:
-                #     test_pipeline_metrics.append({
-                #         'metric': metric_description['metric'],
-                #         'value': metric(
-                #             test_ground_truth.iloc[:, -1].astype(float),
-                #             pipeline_prediction.iloc[:,2:].astype(float),
-                #             **params
-                #         )
-                #     })
-                else:
-                    test_pipeline_metrics.append({
-                        'metric': metric_description['metric'],
-                        'value': metric(
-                            test_ground_truth.iloc[:, -1].astype(str),
-                            pipeline_prediction.iloc[:, -1].astype(str),
-                            **params
-                        )
-                    })
-            except Exception:
-                raise NotSupportedError(
-                    '[ERROR] metric calculation failed in test pickled pipeline')
-        '''
-        _logger.info(f'=== original:{test_metrics}')
-        # _logger.info(f'=== test:{test_pipeline_metrics}')
-        _logger.info(f'=== test2:{test_pipeline_metrics2}')
-
-        pairs = zip(test_metrics, test_pipeline_metrics2)
-        if any(x != y for x, y in pairs):
-            warn("[WARN] Test pickled pipeline mismatch. id: {}".format(fitted_pipeline.id))
-            print(
-                {
-                    'id': fitted_pipeline.id,
-                    'test__metric': test_metrics,
-                    'pickled_pipeline__metric': test_pipeline_metrics2
-                }
-            )
-            print("\n" * 5)
-            _logger.warning(
-                "Test pickled pipeline mismatch. 'id': '%(id)s', 'test__metric': '%("
-                "test__metric)s', 'pickled_pipeline__metric': '%(pickled_pipeline__metric)s'.",
-                {
-                    'id': fitted_pipeline.id,
-                    'test__metric': test_metrics,
-                    'pickled_pipeline__metric': test_pipeline_metrics2
-                },
-            )
-            print(
-                "Test pickled pipeline mismatch. 'id': '%(id)s', 'test__metric': '%("
-                "test__metric)s', 'pickled_pipeline__metric': '%("
-                "pickled_pipeline__metric)s'.".format(
+            pairs = zip(test_metrics, test_pipeline_metrics2)
+            if any(x != y for x, y in pairs):
+                warn("[WARN] Test pickled pipeline mismatch. id: {}".format(fitted_pipeline.id))
+                print(
                     {
                         'id': fitted_pipeline.id,
                         'test__metric': test_metrics,
                         'pickled_pipeline__metric': test_pipeline_metrics2
-                    })
-            )
-            print("\n" * 5)
-        else:
-            _logger.debug(("\n" * 5) + "Pickling succeeded" + ("\n" * 5))
-            
+                    }
+                )
+                print("\n" * 5)
+                _logger.warning(
+                    "Test pickled pipeline mismatch. 'id': '%(id)s', 'test__metric': '%("
+                    "test__metric)s', 'pickled_pipeline__metric': '%(pickled_pipeline__metric)s'.",
+                    {
+                        'id': fitted_pipeline.id,
+                        'test__metric': test_metrics,
+                        'pickled_pipeline__metric': test_pipeline_metrics2
+                    },
+                )
+                print(
+                    "Test pickled pipeline mismatch. 'id': '%(id)s', 'test__metric': '%("
+                    "test__metric)s', 'pickled_pipeline__metric': '%("
+                    "pickled_pipeline__metric)s'.".format(
+                        {
+                            'id': fitted_pipeline.id,
+                            'test__metric': test_metrics,
+                            'pickled_pipeline__metric': test_pipeline_metrics2
+                        })
+                )
+                print("\n" * 5)
+            else:
+                _logger.debug(("\n" * 5) + "Pickling succeeded" + ("\n" * 5))
+        except Exception:
+            _logger.error('!!!! Test pickle failed', exc_info=True)
