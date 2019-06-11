@@ -26,8 +26,8 @@ class DsboxConfig:
 
     D3M output directory structure:
     * pipelines_ranked (pipelines_ranked_dir) - a directory with ranked pipelines to be
-      evaluated, named <pipeline id>.json; these files should have additional field
-      pipeline_rank
+      evaluated, named <pipeline id>.json; Each json file should have a corresponding
+      <pipeline id>.rank file
     * pipelines_scored (pipelines_scored_dir) - a directory with successfully scored
       pipelines during the search, named <pipeline id>.json
     * pipelines_searched (pipelines_searched_dir) - a directory of full pipelines which
