@@ -56,7 +56,7 @@ class TemplateSteps:
             },
             {
                 "name": "corex_step",
-                "primitives": ["d3m.primitives.feature_construction.corex_text.CorexText"],
+                "primitives": ["d3m.primitives.feature_construction.corex_text.DSBOX"],
                 "inputs": ["encode_step"]
             },
             {
@@ -184,7 +184,7 @@ class TemplateSteps:
                 "name": "corex_step",
                 "primitives": [
                     {
-                        "primitive": "d3m.primitives.feature_construction.corex_text.CorexText",
+                        "primitive": "d3m.primitives.feature_construction.corex_text.DSBOX",
                         "hyperparameters":
                             {
                                 'n_hidden': [5, 10],
@@ -579,7 +579,7 @@ class TemplateSteps:
                     "name": "encode_text_step",
                     "primitives": [
                         {
-                            "primitive": "d3m.primitives.feature_construction.corex_text.CorexText",
+                            "primitive": "d3m.primitives.feature_construction.corex_text.DSBOX",
                             "hyperparameters":
                                 {
                                     'n_hidden': [(10)],

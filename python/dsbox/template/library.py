@@ -81,7 +81,7 @@ class TemplateLibrary:
             # graph
             "ISI_graph_norm_clf": ISIGraphNormClf,
             "ISI_gcn": ISI_GCN,
-            
+
             # text
             "default_text_classification_template": DefaultTextClassificationTemplate,
             "default_text_regression_template": DefaultTextRegressionTemplate,
@@ -222,7 +222,7 @@ class TemplateLibrary:
 
         self.templates.append(ISIGraphNormClf)
         self.templates.append(ISI_GCN)
-        
+
         # templates used for datasets with a large number of columns
         self.templates.append(Large_column_number_with_numerical_only_classification)
         self.templates.append(Large_column_number_with_numerical_only_regression)
@@ -1126,7 +1126,7 @@ class DataAugmentRegressionTemplate(DSBoxTemplate):
                 "name": "encode_text_step",
                 "primitives": [
                     {
-                        "primitive": "d3m.primitives.feature_construction.corex_text.CorexText",
+                        "primitive": "d3m.primitives.feature_construction.corex_text.DSBOX",
                         "hyperparameters":
                             {
                                 'n_hidden': [(10)],
@@ -3352,11 +3352,11 @@ class TA1Classification_2(DSBoxTemplate):
             "output": "model_step",  # Name of the final step generating the prediction
             "target": "extract_target_step",  # Name of the step generating the ground truth
             "steps": [
-                *default_dataparser(attribute_name="extract_attribute_step",
-                                    target_name="extract_target_step"),
+                *TemplateSteps.default_dataparser(attribute_name="extract_attribute_step",
+                                                  target_name="extract_target_step"),
                 {
                     "name": "corex_step",
-                    "primitives": ["d3m.primitives.feature_construction.corex_text.CorexText"],
+                    "primitives": ["d3m.primitives.feature_construction.corex_text.DSBOX"],
                     "inputs": ["extract_attribute_step"]
                 },
                 {
@@ -3399,10 +3399,6 @@ class TA1Classification_2(DSBoxTemplate):
                 }
             ]
         }
-        # import pprint
-        # pprint.pprint(self.template)
-        # exit(1)
-
 
 
 class TA1Classification_3(DSBoxTemplate):
@@ -3474,12 +3470,12 @@ class TA1Classification_3(DSBoxTemplate):
                 },
                 {
                     "name": "corex_step",
-                    "primitives": ["d3m.primitives.feature_construction.corex_text.CorexText"],
+                    "primitives": ["d3m.primitives.feature_construction.corex_text.DSBOX"],
                     "inputs": ["label_step"]
                 },
                 # {
                 #     "name": "corex_step",
-                #     "primitives": ["d3m.primitives.feature_construction.corex_text.CorexText"],
+                #     "primitives": ["d3m.primitives.feature_construction.corex_text.DSBOX"],
                 #     "inputs": ["cast_1_step"]
                 # },
                 {
@@ -3560,7 +3556,7 @@ class MuxinTA1ClassificationTemplate1(DSBoxTemplate):
                 },
                 {
                     "name": "corex_step",
-                    "primitives": ["d3m.primitives.feature_construction.corex_text.CorexText"],
+                    "primitives": ["d3m.primitives.feature_construction.corex_text.DSBOX"],
                     "inputs": ["encode2_step"]
                 },
                 {
@@ -3654,7 +3650,7 @@ class MuxinTA1ClassificationTemplate2(DSBoxTemplate):
                 },
                 {
                     "name": "corex_step",
-                    "primitives": ["d3m.primitives.feature_construction.corex_text.CorexText"],
+                    "primitives": ["d3m.primitives.feature_construction.corex_text.DSBOX"],
                     "inputs": ["encode_step"]
                 },
                 {
@@ -3745,7 +3741,7 @@ class MuxinTA1ClassificationTemplate3(DSBoxTemplate):
                 },
                 {
                     "name": "corex_step",
-                    "primitives": ["d3m.primitives.feature_construction.corex_text.CorexText"],
+                    "primitives": ["d3m.primitives.feature_construction.corex_text.DSBOX"],
                     "inputs": ["encode_step"]
                 },
                 {
@@ -4008,7 +4004,7 @@ class HorizontalTemplate(DSBoxTemplate): #This template only generate processed 
                     "name": "corex_step",
                     "primitives": [
                         {
-                            "primitive": "d3m.primitives.feature_construction.corex_text.CorexText",
+                            "primitive": "d3m.primitives.feature_construction.corex_text.DSBOX",
                             "hyperparameters":
                                 {
                                 }
@@ -4063,8 +4059,8 @@ class ISIGraphNormClf(DSBoxTemplate):
             "name": "ISI_graph_norm_clf",
             "taskType": {TaskType.COLLABORATIVE_FILTERING.name, TaskType.VERTEX_NOMINATION.name, TaskType.COMMUNITY_DETECTION.name, TaskType.LINK_PREDICTION.name},
             "taskSubtype": {"NONE", TaskSubtype.NONOVERLAPPING.name, TaskSubtype.OVERLAPPING.name},
-            #"taskSubtype": "NONE",                                                                                                                                                                              
-            #"inputType": "table",                                                                                                                                                                               
+            #"taskSubtype": "NONE",
+            #"inputType": "table",
             "inputType": {"graph","table"},
             "output": "model_step",
             "steps": [
@@ -4072,12 +4068,12 @@ class ISIGraphNormClf(DSBoxTemplate):
                     "name": "readgraph_step",
                     "primitives": [
                         "d3m.primitives.data_transformation.normalize_graphs.Common"
-                        #"d3m.primitives.data_preprocessing.largest_connected_component.JHU"                                                                                                                     
+                        #"d3m.primitives.data_preprocessing.largest_connected_component.JHU"
                     ],
                     "inputs": ["template_input"]
                 },
                 {
-                    "name": "extract_graph_tables",#_learning",                                                                                                                                                  
+                    "name": "extract_graph_tables",#_learning",
                     "primitives": ["d3m.primitives.data_transformation.graph_to_edge_list.DSBOX"],
                     "inputs": ["readgraph_step"]
                 },
@@ -4094,12 +4090,12 @@ class ISIGraphNormClf(DSBoxTemplate):
                             {
                                 'semantic_types': ('https://metadata.datadrivendiscovery.org/types/TrueTarget',
                                                    'https://metadata.datadrivendiscovery.org/types/SuggestedTarget'),
-                                                   #'https://metadata.datadrivendiscovery.org/types/PrimaryKey'),                                                                                                
-                                'use_columns': (),#'d3mIndex'),                                                                                                                                                  
-                                'exclude_columns': ()#[[1]]                                                                                                                                                      
+                                                   #'https://metadata.datadrivendiscovery.org/types/PrimaryKey'),
+                                'use_columns': (),#'d3mIndex'),
+                                'exclude_columns': ()#[[1]]
                             }
                     }],
-                    "inputs": ["to_learning_dataframe"]#_learning"]  
+                    "inputs": ["to_learning_dataframe"]#_learning"]
                     },
                     {
                     "name": "embedding_step",
@@ -4109,14 +4105,14 @@ class ISIGraphNormClf(DSBoxTemplate):
                     "hyperparameters": {
                         "return_list": [False]
                     },
-                    "inputs": ["extract_graph_tables"]#["to_dataframe_nodes", "to_dataframe_edges"] #["readgraph_step"]                                                                                        
+                    "inputs": ["extract_graph_tables"]#["to_dataframe_nodes", "to_dataframe_edges"] #["readgraph_step"]
                 },
                 {
                      "name": "model_step",
                      "primitives": [{
                      "primitive": "d3m.primitives.classification.random_forest.SKlearn",
                      "hyperparameters": {
-                         # 'bootstrap': [True, False],                                                                                                                                                     
+                         # 'bootstrap': [True, False],
                          'max_depth': [15, 30, None],
                          'min_samples_leaf': [1, 2, 4],
                          'min_samples_split': [2, 5, 10],
@@ -4125,27 +4121,27 @@ class ISIGraphNormClf(DSBoxTemplate):
                          'add_index_columns': [True],
                          'use_semantic_types':[False],
                          'error_on_no_input':[True],
-                         #'exclude_input_columns': [[1]]                                                                                                                                                   
-                         #'exclude_output_columns': ['nodeID']                                                                                                                                             
+                         #'exclude_input_columns': [[1]]
+                         #'exclude_output_columns': ['nodeID']
                          }
                      }
                     ],
-                #{                                                                                                                                                                                             
-                #    "name": "model_step",                                                                                                                                                                     
-                #    "primitives": [                                                                                                                                                                           
+                #{
+                #    "name": "model_step",
+                #    "primitives": [
 
-                #                                                                                                                                                                                              
-                #        #"d3m.primitives.classification.gaussian_classification.JHU"                                                                                                                          
-                #    ],                                                                                                                                                                                        
-                #        "d3m.primitives.classification.gaussian_classification.JHU"                                                                                                                           
-                #    ],                                                                                                                                                                                        
+                #
+                #        #"d3m.primitives.classification.gaussian_classification.JHU"
+                #    ],
+                #        "d3m.primitives.classification.gaussian_classification.JHU"
+                #    ],
                     "inputs": ["embedding_step", "extract_target_step"]
                 }
             ]
         }
-      
-        
-        
+
+
+
 class ISI_GCN(DSBoxTemplate):
     def __init__(self):
         DSBoxTemplate.__init__(self)
@@ -4153,8 +4149,8 @@ class ISI_GCN(DSBoxTemplate):
 	    "name": "ISI_gcn",
             "taskType": {TaskType.COLLABORATIVE_FILTERING.name, TaskType.VERTEX_NOMINATION.name, TaskType.COMMUNITY_DETECTION.name, TaskType.LINK_PREDICTION.name},
             "taskSubtype": {"NONE", TaskSubtype.NONOVERLAPPING.name, TaskSubtype.OVERLAPPING.name},
-            #"taskSubtype": "NONE",                                                                                                                                                                              
-            #"inputType": "table",                                                                                                                                                                               
+            #"taskSubtype": "NONE",
+            #"inputType": "table",
             "inputType": {"graph", "table"},
 	        "output": "model_step",
             "steps": [
@@ -4162,17 +4158,17 @@ class ISI_GCN(DSBoxTemplate):
 		    "name": "readgraph_step",
                     "primitives": [
                         "d3m.primitives.data_transformation.normalize_graphs.Common"
-                        #"d3m.primitives.data_preprocessing.largest_connected_component.JHU"                                                                                                                     
+                        #"d3m.primitives.data_preprocessing.largest_connected_component.JHU"
                     ],
                     "inputs": ["template_input"]
                 },
                 {
-                    "name": "extract_graph_tables",#_learning",                                                                                                                                                  
+                    "name": "extract_graph_tables",#_learning",
                     "primitives": ["d3m.primitives.data_transformation.graph_to_edge_list.DSBOX"],
                     "inputs": ["readgraph_step"]
                 },
               {
-                    "name": "extract_graph_tables",#_learning",                                                                                                                                                  
+                    "name": "extract_graph_tables",#_learning",
                     "primitives": ["d3m.primitives.data_transformation.graph_to_edge_list.DSBOX"],
                     "inputs": ["readgraph_step"]
                 },
@@ -4192,10 +4188,10 @@ class ISI_GCN(DSBoxTemplate):
                                 'exclude_columns': ()
                             }
                     }],
-                    "inputs": ["to_learning_dataframe"]#_learning"]                                                                                                                                              
+                    "inputs": ["to_learning_dataframe"]#_learning"]
                 },
                 {
-                    #"name": "model_step", #                                                                                                                                                                     
+                    #"name": "model_step", #
                     "name": "embedding_step",
                     "primitives": [
                         {
@@ -4209,7 +4205,7 @@ class ISI_GCN(DSBoxTemplate):
                      "primitives": [{
                          "primitive": "d3m.primitives.classification.random_forest.SKlearn",
                          "hyperparameters": {
-                             # 'bootstrap': [True, False],                                                                                                                                                       
+                             # 'bootstrap': [True, False],
                              'max_depth': [15, 30, None],
                              'min_samples_leaf': [1, 2, 4],
                              'min_samples_split': [2, 5, 10],
@@ -4221,18 +4217,16 @@ class ISI_GCN(DSBoxTemplate):
                          }
                      }
                     ],
-                # #{                                                                                                                                                                                             
-                # #    "name": "model_step",                                                                                                                                                                     
-                # #    "primitives": [                                                                                                                                                                           
+                # #{
+                # #    "name": "model_step",
+                # #    "primitives": [
 
-                # #                                                                                                                                                                                              
-                # #        #"d3m.primitives.classification.gaussian_classification.JHU"                                                                                                                          
-                # #    ],                                                                                                                                                                                        
-                # #        "d3m.primitives.classification.gaussian_classification.JHU"                                                                                                                           
-                # #    ],                                                                                                                                                                                        
+                # #
+                # #        #"d3m.primitives.classification.gaussian_classification.JHU"
+                # #    ],
+                # #        "d3m.primitives.classification.gaussian_classification.JHU"
+                # #    ],
                     "inputs": ["embedding_step", "extract_target_step"]
                 }
             ]
         }
-        
-        
