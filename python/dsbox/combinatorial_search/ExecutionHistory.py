@@ -253,12 +253,12 @@ class ExecutionHistory:
         else:
             return list(comparison_results.values())[0]
 
-    def get_best_history(self) -> typing.List[typing.Dict]:
-        best = None
+    def get_best_history(self) -> typing.Dict:
+        best_row = None
         for t_name, row in self.storage.iterrows():
-            if ExecutionHistory._is_better(base=best, check=row, key_attribute=self.key_attribute):
-                best = row
-        best = best.to_dict()
+            if ExecutionHistory._is_better(base=best_row, check=row, key_attribute=self.key_attribute):
+                best_row = row
+        best = best_row.to_dict()
         best["ensemble_dataset_predictions"] = self.ensemble_dataset_predictions
         return best
 
