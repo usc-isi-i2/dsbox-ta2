@@ -1782,6 +1782,11 @@ class ARIMATemplate(DSBoxTemplate):
                                 "take_log": [(False)],
                                 "auto": [(True)]
                             }
+                        },
+                        {
+                            "primitive": "d3m.primitives.time_series_forecasting.rnn_time_series.DSBOX",
+                            "hyperparameters": {
+                            }
                         }
                     ], # can add tuning parameters like: auto-fit, take_log, etc
                     "inputs": ["extract_attribute_step", "extract_target_step"]
@@ -2140,7 +2145,7 @@ class DefaultVideoClassificationTemplate(DSBoxTemplate):
                     "name": "model_step", # step 6
                     "primitives": [
                         {
-                            "primitive": "d3m.primitives.feature_extraction.lstm.DSBOX",
+                            "primitive": "d3m.primitives.classification.lstm.DSBOX",
                             "hyperparameters": {
                                 "LSTM_units":[512, 1024, 2048],
                                 "epochs":[10, 100, 1000],

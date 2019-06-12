@@ -614,22 +614,30 @@ class Controller:
             return the augmented dataset (if success)
         """
         try:
-            from dsbox.datapreprocessing.cleaner.wikifier import WikifierHyperparams ,Wikifier
-            wikifier_hyperparams = WikifierHyperparams.defaults()
-            # wikifier_hyperparams = wikifier_hyperparams.replace({"use_columns":(1,)})
-            wikifier_primitive = Wikifier(hyperparams = wikifier_hyperparams)
-            augment_res = copy.copy(self.all_dataset)
-            augment_res = wikifier_primitive.produce(inputs = augment_res).value
-            self.extra_primitive.add("wikifier")
-            self.dump_primitive(wikifier_primitive, "wikifier")
-
+            # from dsbox.datapreprocessing.cleaner.wikifier import WikifierHyperparams ,Wikifier
+            # wikifier_hyperparams = WikifierHyperparams.defaults()
+            # # wikifier_hyperparams = wikifier_hyperparams.replace({"use_columns":(1,)})
+            # wikifier_primitive = Wikifier(hyperparams = wikifier_hyperparams)
+            # augment_res = copy.copy(self.all_dataset)
+            # augment_res = wikifier_primitive.produce(inputs = augment_res).value
+            # self.extra_primitive.add("wikifier")
+            # self.dump_primitive(wikifier_primitive, "wikifier")
             from datamart_isi import entries
             isi_datamart_url = "http://dsbox02.isi.edu:9001/blazegraph/namespace/datamart3/sparql"
             datamart_unit = entries.Datamart(connection_url=isi_datamart_url)
-
             from common_primitives.datamart_augment import Hyperparams as hyper_augment, DataMartAugmentPrimitive
-            augment_times = 0
             hyper_augment_default = hyper_augment.defaults()
+            # run wikifier first
+            augment_times = 0
+            search_result_wikifier = entries.DatamartSearchResult(search_result={}, supplied_data=None, query_json={}, search_type="wikifier")
+            hyper_temp = hyper_augment_default.replace({"search_result":pickle.dumps(search_result_wikifier)})
+            augment_primitive = DataMartAugmentPrimitive(hyperparams=hyper_temp)
+            augment_res = augment_primitive.produce(inputs = self.all_dataset).value
+            self.extra_primitive.add("augment" + str(augment_times))
+            self.dump_primitive(augment_primitive, "augment" + str(augment_times))
+
+            augment_times += 1
+            
             all_results1 = datamart_unit.search_with_data(query=None, supplied_data=augment_res).get_next_page()
             for each_search in all_results1:
                 if each_search.search_type == "wikidata":
