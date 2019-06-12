@@ -1156,7 +1156,7 @@ def to_proto_search_solution_request(problem, fitted_pipeline_id, metrics_result
         if first:
             first = False
             score_list.append(Score(
-                metric=ProblemPerformanceMetric(metric=PerformanceMetric.RANK),
+                metric=ProblemPerformanceMetric(metric=problem_pb2.RANK),
                 value=Value(raw=to_proto_value_raw(metric['rank']))
             ))
         if internal_score is np.nan:
