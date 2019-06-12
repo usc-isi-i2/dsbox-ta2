@@ -87,6 +87,7 @@ class DsboxConfig:
 
         # DSBox output directories
         self.dsbox_output_dir: str = ''
+        self.dsbox_scratch_dir: str = ''
         self.log_dir: str = ''
         self.dfs_log_dir: str = ''
 
@@ -243,6 +244,7 @@ class DsboxConfig:
         self.dsbox_output_dir = self.output_dir
         self.pipelines_fitted_dir = os.path.join(self.dsbox_output_dir, 'pipelines_fitted')
         self.pipelines_info_dir = os.path.join(self.dsbox_output_dir, 'pipelines_info')
+        self.dsbox_scratch_dir = os.path.join(self.dsbox_output_dir, 'scratch')
         self.log_dir = os.path.join(self.dsbox_output_dir, 'logs')
         self.dfs_log_dir = os.path.join(self.log_dir, 'dfs')
 
@@ -251,7 +253,8 @@ class DsboxConfig:
                 self.pipelines_ranked_dir, self.pipelines_scored_dir,
                 self.pipelines_searched_dir, self.subpipelines_dir, self.pipeline_runs_dir,
                 self.additional_inputs_dir, self.local_dir,
-                self.dsbox_output_dir, self.pipelines_fitted_dir, self.pipelines_info_dir, self.log_dir, self.dfs_log_dir]:
+                self.dsbox_output_dir, self.pipelines_fitted_dir, self.pipelines_info_dir,
+                self.log_dir, self.dfs_log_dir, self.dsbox_scratch_dir]:
             if not os.path.exists(directory):
                 os.mkdir(directory)
 

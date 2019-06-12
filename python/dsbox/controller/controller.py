@@ -32,10 +32,12 @@ from dsbox.template.template import DSBoxTemplate
 
 # import dsbox.JobManager.mplog as mplog
 
-__all__ = ['Status', 'Controller']
+__all__ = ['Status', 'Controller', 'controller_instance']
 
 
-pd.set_option("display.max_rows", 100)
+# pd.set_option("display.max_rows", 100)
+
+controller_instance = None
 
 
 class Status(enum.Enum):
@@ -47,13 +49,11 @@ class Status(enum.Enum):
 class Controller:
     TIMEOUT = 59  # in minutes
 
-    # _controller = None
-
-    # @classmethod
-    # def get_controller(cls) -> 'Controller':
-    #     return Controller._controller
-
     def __init__(self, development_mode: bool = False, run_single_template_name: str = "", is_ta3=True) -> None:
+        global controller_instance
+        if controller_instance is None:
+            controller_instance = self
+
         self.development_mode: bool = development_mode
         self.is_ta3 = is_ta3
 
@@ -120,7 +120,7 @@ class Controller:
         # self.output_executables_dir: str = ""
         # self.output_supporting_files_dir: str = ""
         # self.output_logs_dir: str = ""
-        self._logger = None
+        self._logger = logging.getLogger(__name__)
 
         self.main_pid: int = os.getpid()
 
@@ -1013,12 +1013,12 @@ class Controller:
         try:
             # pickle this fitted sampler for furture use in pipelines
             name = self.all_dataset.metadata.query(())['id']
-            sampler_pickle_file_loc = os.path.join(os.environ["D3MLOCALDIR"], name+save_file_name+".pkl")
+            sampler_pickle_file_loc = os.path.join(self.config.dsbox_scratch_dir, name+save_file_name+".pkl")
             with open(sampler_pickle_file_loc, "wb") as f:
                 pickle.dump(target_primitive, f)
 
             hyperparams_now = target_primitive.hyperparams.values_to_json_structure()
-            sampler_hyperparams_file_loc = os.path.join(os.environ["D3MLOCALDIR"], name+save_file_name+".json")
+            sampler_hyperparams_file_loc = os.path.join(self.config.dsbox_scratch_dir, name+save_file_name+".json")
             with open(sampler_hyperparams_file_loc, "w") as f:
                 json.dump(hyperparams_now, f)
             return True

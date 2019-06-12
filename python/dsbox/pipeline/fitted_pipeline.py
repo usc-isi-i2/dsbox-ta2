@@ -180,6 +180,8 @@ class FittedPipeline:
             "d3m.primitives.data_augmentation.datamart_query.DSBOX"             or
             "d3m.primitives.data_augmentation.datamart_augmentation.DSBOX"
         """
+        from dsbox.controller.controller import controller_instance as controller
+
         structure = self.pipeline.to_json_structure()
         for each_primitive_name in primitive_name:
             # considering adding datamart query and augment must be add in the same time
@@ -197,7 +199,7 @@ class FittedPipeline:
 
             primitive_augument = self.get_primitive_augment(each_primitive_name, input_names)
 
-            hyperparams_file_loc = os.path.join(os.environ["D3MLOCALDIR"], self.dataset_id+each_primitive_name+".json")
+            hyperparams_file_loc = os.path.join(controller.config.dsbox_scratch_dir, self.dataset_id+each_primitive_name+".json")
             with open(hyperparams_file_loc, "r") as f:
                 hyperparams_file = json.load(f)
             new_hyper_file = {}
@@ -235,7 +237,7 @@ class FittedPipeline:
             # update original structure
             structure["steps"] = detail_steps
             # add into runtime
-            primitive_pickle_file_loc = os.path.join(os.environ["D3MLOCALDIR"], self.dataset_id+each_primitive_name+".pkl")
+            primitive_pickle_file_loc = os.path.join(controller.config.dsbox_scratch_dir, self.dataset_id+each_primitive_name+".pkl")
             with open(primitive_pickle_file_loc, "rb") as f:
                 primitive_pickle_file = pickle.load(f)
             self.runtime.steps_state.insert(location_number, primitive_pickle_file)
