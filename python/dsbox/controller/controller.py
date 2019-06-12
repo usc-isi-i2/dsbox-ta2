@@ -3,39 +3,34 @@ import json
 import logging
 import os
 import operator
+import pathlib
+import pickle
+import pprint
 import random
 import typing
-import uuid
 import shutil
 import traceback
-import pandas as pd
-import frozendict
-import copy
-import pprint
-import pickle
 
-from d3m.metadata.problem import TaskType
-from d3m.container.pandas import DataFrame as d3m_DataFrame
+import pandas as pd
+
+from d3m.base import utils as d3m_utils
 from d3m.container.list import List
 from d3m.container.dataset import Dataset, D3MDatasetLoader
-from d3m.exceptions import InvalidArgumentValueError
-from d3m.metadata.base import Metadata, DataMetadata, ALL_ELEMENTS
-from d3m.metadata.problem import TaskSubtype, parse_problem_description
-from d3m.base import utils as d3m_utils
+from d3m.metadata.base import ALL_ELEMENTS
 
-from dsbox.pipeline.fitted_pipeline import FittedPipeline
-from dsbox.pipeline.ensemble_tuning import EnsembleTuningPipeline, HorizontalTuningPipeline
-from dsbox.template.library import TemplateLibrary
-from dsbox.controller.config import DsboxConfig
 from dsbox.combinatorial_search.TemplateSpaceBaseSearch import TemplateSpaceBaseSearch
 from dsbox.combinatorial_search.TemplateSpaceParallelBaseSearch import TemplateSpaceParallelBaseSearch
 from dsbox.combinatorial_search.RandomDimensionalSearch import RandomDimensionalSearch
 from dsbox.combinatorial_search.BanditDimensionalSearch import BanditDimensionalSearch
 from dsbox.combinatorial_search.MultiBanditSearch import MultiBanditSearch
 from dsbox.combinatorial_search.search_utils import get_target_columns
+from dsbox.controller.config import DsboxConfig
+from dsbox.pipeline.fitted_pipeline import FittedPipeline
+from dsbox.pipeline.ensemble_tuning import EnsembleTuningPipeline, HorizontalTuningPipeline
+from dsbox.template.library import TemplateLibrary
 from dsbox.template.template import DSBoxTemplate
-from sklearn.model_selection import StratifiedShuffleSplit, ShuffleSplit
-import dsbox.JobManager.mplog as mplog
+
+# import dsbox.JobManager.mplog as mplog
 
 __all__ = ['Status', 'Controller']
 
@@ -343,6 +338,31 @@ class Controller:
         #         '[ERROR] Save training results Failed!')
 
     def _process_pipeline_submission(self) -> None:
+        # If no limit then no need to remove any pipelines
+        limit = self.config.rank_solutions_limit
+        if limit <= 0:
+            return
+
+        ranked_list = []
+        directory = pathlib.Path(self.config.pipelines_ranked_dir)
+        for rank_file in directory.glob('*.rank'):
+            try:
+                rank = float(open(directory / rank_file).read())
+                ranked_list.append((rank, rank_file))
+            except Exception:
+                pass
+        ranked_list = sorted(ranked_list, key=operator.itemgetter(0))
+
+        # Keep all solutions
+        if len(ranked_list) <= limit:
+            return
+
+        # Remove pipelines with larger rank values
+        for (rank, rank_file) in ranked_list[limit:]:
+            (directory / rank_file).with_suffix('.json').unlink()
+            (directory / rank_file).with_suffix('.rank').unlink()
+
+    def _process_pipeline_submission_old(self) -> None:
         self._logger.info(f'Moving top 20 pipelines to {self.config.pipelines_ranked_dir}')
 
         # Get list of (rank, pipeline) pairs
@@ -368,7 +388,7 @@ class Controller:
         for _, filename in ranked_list[:20]:
             shutil.copy(os.path.join(self.config.pipelines_scored_dir, filename), self.config.pipelines_ranked_dir)
 
-    def _process_pipeline_submission_old(self) -> None:
+    def _process_pipeline_submission_old2(self) -> None:
         output_dir = os.path.dirname(self.output_pipelines_dir)
         print("[PROSKA]:", output_dir)
         pipelines_root: str = os.path.join(output_dir, 'pipelines')
@@ -588,14 +608,14 @@ class Controller:
 
         use_multiprocessing = True
         if self.config.search_method == 'serial':
-            self._search_method = TemplateSpaceBaseSearch()
+            self._search_method = TemplateSpaceBaseSearch(self.config.d3m_context)
             use_multiprocessing = False
         elif self.config.search_method == 'parallel':
-            self._search_method = TemplateSpaceParallelBaseSearch(num_proc=self.config.cpu)
+            self._search_method = TemplateSpaceParallelBaseSearch(self.config.d3m_context, num_proc=self.config.cpu)
         # elif self.config.search_method == 'bandit':
         #     self._search_method = BanditDimensionalSearch(num_proc=self.config.cpu)
         else:
-            self._search_method = TemplateSpaceParallelBaseSearch(num_proc=self.config.cpu)
+            self._search_method = TemplateSpaceParallelBaseSearch(self.config.d3m_context, num_proc=self.config.cpu)
 
         if self.do_ensemble_tune:
             # creat a special dictionary that can collect the results in each processes

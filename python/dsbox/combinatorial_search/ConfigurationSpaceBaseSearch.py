@@ -39,6 +39,7 @@ class Mode(enum.IntEnum):
     CROSS_VALIDATION_MODE = 1
     TRAIN_TEST_MODE = 2
 
+
 class ConfigurationSpaceBaseSearch(typing.Generic[T]):
     """
     Search configuration space on dimension at a time.
@@ -58,15 +59,16 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
            ( ('partial', 'whole'), ('bootstrap', 'cross-validation'))
     """
 
-    def __init__(self, template: DSBoxTemplate,
+    def __init__(self, context: str, template: DSBoxTemplate,
                  configuration_space: ConfigurationSpace[T],
                  problem: Metadata, train_dataset1: Dataset,
                  train_dataset2: typing.List[Dataset], test_dataset1: Dataset,
                  test_dataset2: typing.List[Dataset], all_dataset: Dataset,
                  ensemble_tuning_dataset: Dataset,
                  performance_metrics: typing.List[typing.Dict], output_directory: str,
-                 log_dir: str, extra_primitive = None) -> None:
+                 log_dir: str, extra_primitive=None) -> None:
 
+        self.context = context
         self.template = template
         self.task_type = self.template.template["taskType"]
 
@@ -189,7 +191,7 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
                   dump2disk: bool = True) -> typing.Dict:
 
         start_time = time.time()
-        pipeline = self.template.to_pipeline(configuration)
+        pipeline = self.template.to_pipeline(self.context, configuration)
         # Todo: update ResourceManager to run pipeline:  ResourceManager.add_pipeline(pipeline)
         # initlize repeat_time_level
         self._repeat_times_level_2 = 1

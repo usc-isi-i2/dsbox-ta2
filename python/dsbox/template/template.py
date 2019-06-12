@@ -52,7 +52,7 @@ class DSBoxTemplate():
     def __repr__(self):
         return self.__str__()
 
-    def to_pipeline(self, configuration_point: ConfigurationPoint) -> Pipeline:
+    def to_pipeline(self, context: str, configuration_point: ConfigurationPoint) -> Pipeline:
         """
         converts the configuration point to the executable pipeline based on
         ta2 competitions format
@@ -77,12 +77,8 @@ class DSBoxTemplate():
                 }
             }
             dstemp = DSBoxTemplate(...)
-            dstemp.to_pipeline(configuration_point)
+            dstemp.to_pipeline('TESTING', configuration_point)
         """
-        # print("*" * 20)
-        # print("[INFO] to_pipeline:")
-        # pprint(configuration_point)
-        # return self._to_pipeline(configuration_point)
 
         # add inputs to the configuration point
         ioconf = self.add_inputs_to_confPonit(configuration_point)
@@ -90,7 +86,7 @@ class DSBoxTemplate():
         # binding = configuration_point
         binding, sequence = self.add_intermediate_type_casting(ioconf)
 
-        return self._to_pipeline(binding, sequence)
+        return self._to_pipeline(context, binding, sequence)
 
     def add_inputs_to_confPonit(self,
                                 configuration_point: ConfigurationPoint) -> ConfigurationPoint:
@@ -235,12 +231,12 @@ class DSBoxTemplate():
                     added.add(p)
             for index, argument in enumerate(arguments):
                 primitive.add_argument(
-                    name = argument,
-                    argument_type = metadata_base.ArgumentType.CONTAINER,
-                    data_reference = templateIO[index]
+                    name=argument,
+                    argument_type=metadata_base.ArgumentType.CONTAINER,
+                    data_reference=templateIO[index]
                 )
 
-    def _to_pipeline(self, binding, sequence) -> Pipeline:
+    def _to_pipeline(self, context, binding, sequence) -> Pipeline:
         """
         Args:
             binding:
@@ -254,8 +250,14 @@ class DSBoxTemplate():
         # pprint(binding)
         # print(sequence)
         # print("[INFO] list:",list(map(str, metadata_base.Context)))
-        pipeline = Pipeline(name=self.template['name'] + ":" + str(id(binding)),
-                            description=self.description_info)
+        pipeline = Pipeline(
+            name=self.template['name'] + ":" + str(id(binding)),
+            context=context,
+            description=self.description_info,
+            source={
+                'name': 'ISI',
+                'contact': 'mailto:kyao@isi.edu'
+            })
         templateinput = pipeline.add_input("input dataset")
 
         # save temporary output for another step to take as input

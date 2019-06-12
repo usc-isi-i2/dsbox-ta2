@@ -288,7 +288,7 @@ class FittedPipeline:
         self.save_pipeline_info(os.path.join(folder_loc, self.pipelines_info_subdir))
         self.save_fitted_pipeline(os.path.join(folder_loc, self.pipelines_fitted_subdir))
 
-    def get_rank(self) -> float:
+    def get_set_rank(self) -> float:
         rank = sys.float_info.max
         if self.metric:
             metric: str = self.metric['metric']
@@ -298,6 +298,7 @@ class FittedPipeline:
                     rank = 1 / value
             else:
                 rank = value
+            self.metric['rank'] = rank
         else:
             _logger.error("Metric type of the pipeline is unknown, unable to calculate the rank of the pipeline")
         return rank
@@ -307,7 +308,7 @@ class FittedPipeline:
         Generate <pipeline_id>.rank file
         """
         with open(os.path.join(folder_loc, self.pipeline.id + '.rank'), 'w') as f:
-            print(self.get_rank(), file=f)
+            print(self.get_set_rank(), file=f)
 
     def save_schema_only(self, folder_loc: str, pipeline_schema_subdir: str, *, subpipelines_subdir: str = None) -> None:
         '''
@@ -420,7 +421,7 @@ class FittedPipeline:
         if self.metric:
             metric: str = self.metric['metric']
             value: float = self.metric['value']
-            rank = self.get_rank()
+            rank = self.get_set_rank()
             structure['pipeline_rank'] = rank
             structure['metric'] = metric
             structure['metric_value'] = value

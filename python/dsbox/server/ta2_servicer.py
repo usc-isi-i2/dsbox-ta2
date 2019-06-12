@@ -4,6 +4,7 @@ import os
 import pickle
 import random
 import string
+import tempfile
 import time
 import typing
 import uuid
@@ -29,6 +30,7 @@ from d3m.container.dataset import D3MDatasetLoader
 from d3m.metadata.pipeline import Pipeline, PrimitiveStep, SubpipelineStep
 from d3m.primitive_interfaces.base import PrimitiveBase
 
+import ta3ta2_api.utils as utils
 
 from ta3ta2_api import core_pb2 as core_pb2
 from ta3ta2_api import core_pb2_grpc as core_pb2_grpc
@@ -105,6 +107,7 @@ logging.getLogger('').setLevel(logging_level)
 _logger = logging.getLogger(__name__)
 
 communication_value_types = [value_pb2.DATASET_URI, value_pb2.CSV_URI, value_pb2.RAW]
+allowed_value_types = [utils.ValueType.DATASET_URI, utils.ValueType.CSV_URI, utils.ValueType.RAW]
 
 # value_pb2.PICKLE_URI, value_pb2.PICKLE_BLOB
 
@@ -166,6 +169,13 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
                 fitted_pipeline_id=fitted_pipeline_id, folder_loc=self.config.output_dir, log_dir=self.config.log_dir)
             self.fit_solution[fitted_pipeline_id] = fitted_pipeline
 
+        # Create scratch directory
+        self.temp_dir = tempfile.TemporaryDirectory()
+
+    def __del__(self):
+        # Clean up scrach directory
+        self.temp_dir.cleanup()
+
     def Hello(self, request, context):
         '''
         Hello call
@@ -222,8 +232,10 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
 
         # convert to seconds
         self.config.timeout = request.time_bound_search * 60
+        self.config.rank_solutions_limit = request.rank_solutions_limit
 
-        # TODO: !!!! what to do with request.time_bound_run???
+        # What to do with time_bound_run?
+        self.config.time_bound_run = request.time_bound_run
 
         self.config.dataset_schema_files = dataset_uris
         self.config.set_problem(problem_json_dict, problem_parsed)
@@ -621,7 +633,7 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
         pipeline = fitted_pipeline.pipeline
 
         result = DescribeSolutionResponse(
-            pipeline=to_proto_pipeline(pipeline, fitted_pipeline.id),
+            pipeline=to_proto_pipeline(pipeline, fitted_pipeline.id, allowed_value_types, self.temp_dir.name),
             steps=to_proto_steps_description(pipeline)
         )
 
@@ -1039,56 +1051,64 @@ def to_proto_primitive_step(step: PrimitiveStep) -> PipelineDescriptionStep:
     return PipelineDescriptionStep(primitive=primitive_description)
 
 
-def to_proto_pipeline(pipeline: Pipeline, id: str = None) -> PipelineDescription:
+def to_proto_pipeline(pipeline: Pipeline, id: str , allow_value_types: typing.Sequence[utils.ValueType],
+                      scratch_dir: str) -> PipelineDescription:
     """
     Convert d3m Pipeline to protocol buffer PipelineDescription
     """
-    inputs = []
-    outputs = []
-    steps = []
-    users = []
-    for input_description in pipeline.inputs:
-        if 'name' in input_description:
-            inputs.append(PipelineDescriptionInput(name=input_description['name']))
-    for output_description in pipeline.outputs:
-        outputs.append(
-            PipelineDescriptionOutput(
-                name=output_description['name'] if 'name' in output_description else None,
-                data=output_description['data']))
-    for step in pipeline.steps:
-        if isinstance(step, PrimitiveStep):
-            step_description = to_proto_primitive_step(step)
-        elif isinstance(step, SubpipelineStep):
-            # TODO: Subpipeline not yet implemented
-            # PipelineDescriptionStep(pipeline=pipeline_description)
-            pass
-        else:
-            # TODO: PlaceholderStep not yet implemented
-            #PipelineDescriptionStep(placeholder=placeholde_description)
-            pass
-        steps.append(step_description)
-    for user in pipeline.users:
-        users.append(PipelineDescriptionUser(
-            id=user['id'],
-            reason=user['reason'] if 'reason' in user else None,
-            rationale=user['rationale'] if 'rationale' in user else None
-        ))
-    if id is None:
-        id = pipeline.id
+    description: PipelineDescription = utils.encode_pipeline_description(
+        pipeline, allow_value_types, scratch_dir)
+    if id is not None:
+        description.id = id
+    return description
 
-    pipeline_context = pipeline.context.value
-    return PipelineDescription(
-        id=id,
-        source=pipeline.source,
-        created=Timestamp().FromDatetime(pipeline.created.replace(tzinfo=None)),
-        context=pipeline_context,
-        inputs=inputs,
-        outputs=outputs,
-        steps=steps,
-        name=pipeline.name,
-        description=pipeline.description,
-        users=users
-    )
+    # inputs = []
+    # outputs = []
+    # steps = []
+    # users = []
+    # for input_description in pipeline.inputs:
+    #     if 'name' in input_description:
+    #         inputs.append(PipelineDescriptionInput(name=input_description['name']))
+    # for output_description in pipeline.outputs:
+    #     outputs.append(
+    #         PipelineDescriptionOutput(
+    #             name=output_description['name'] if 'name' in output_description else None,
+    #             data=output_description['data']))
+    # for step in pipeline.steps:
+    #     if isinstance(step, PrimitiveStep):
+    #         step_description = to_proto_primitive_step(step)
+    #     elif isinstance(step, SubpipelineStep):
+    #         # TODO: Subpipeline not yet implemented
+    #         # PipelineDescriptionStep(pipeline=pipeline_description)
+    #         pass
+    #     else:
+    #         # TODO: PlaceholderStep not yet implemented
+    #         #PipelineDescriptionStep(placeholder=placeholde_description)
+    #         pass
+    #     steps.append(step_description)
+    # for user in pipeline.users:
+    #     users.append(PipelineDescriptionUser(
+    #         id=user['id'],
+    #         reason=user['reason'] if 'reason' in user else None,
+    #         rationale=user['rationale'] if 'rationale' in user else None
+    #     ))
+    # if id is None:
+    #     id = pipeline.id
+
+    # # PipelineContext deprecated inv v2019.5.23
+    # # pipeline_context = pipeline.context.value
+    # return PipelineDescription(
+    #     id=id,
+    #     source=pipeline.source,
+    #     created=Timestamp().FromDatetime(pipeline.created.replace(tzinfo=None)),
+    #     # context=pipeline_context,
+    #     inputs=inputs,
+    #     outputs=outputs,
+    #     steps=steps,
+    #     name=pipeline.name,
+    #     description=pipeline.description,
+    #     users=users
+    # )
 
 
 def to_proto_search_solution_request(problem, fitted_pipeline_id, metrics_result) -> GetSearchSolutionsResultsResponse:
@@ -1115,6 +1135,7 @@ def to_proto_search_solution_request(problem, fitted_pipeline_id, metrics_result
                 clusters_number=target['clusters_number']))
     score_list = []
     internal_score = np.nan
+    first = True
     for metric in metrics_result:
         performance_matric: d3m_problem.PerformanceMetric = d3m_problem.PerformanceMetric.parse(metric['metric'])
         ppm = ProblemPerformanceMetric(metric=performance_matric.name)
@@ -1127,7 +1148,17 @@ def to_proto_search_solution_request(problem, fitted_pipeline_id, metrics_result
             fold=0,
             # Targets removed in v2019.4.11
             # targets=targets,
-            value=Value(raw=to_proto_value_raw(metric['value']))))
+            value=Value(raw=to_proto_value_raw(metric['value']))
+            # TODO add:
+            # random_seed int32
+            # Optional normalized
+        ))
+        if first:
+            first = False
+            score_list.append(Score(
+                metric=ProblemPerformanceMetric(metric=PerformanceMetric.RANK),
+                value=Value(raw=to_proto_value_raw(metric['rank']))
+            ))
         if internal_score is np.nan:
             # Return the first metric as the internal score
             internal_score = performance_matric.normalize(metric['value'])
@@ -1142,9 +1173,9 @@ def to_proto_search_solution_request(problem, fitted_pipeline_id, metrics_result
                           status="Done",
                           start=timestamp.GetCurrentTime(),
                           end=timestamp.GetCurrentTime()),
-        done_ticks=0, # TODO: Figure out how we want to support this
-        all_ticks=0, # TODO: Figure out how we want to support this
-        solution_id=fitted_pipeline_id, # TODO: Populate this with the pipeline id
+        done_ticks=0,  # TODO: Figure out how we want to support this
+        all_ticks=0,  # TODO: Figure out how we want to support this
+        solution_id=fitted_pipeline_id,  # TODO: Populate this with the pipeline id
         # internal_score is between 0.0 and 1.0, where 1.0 is the highest score
         internal_score=internal_score,
         scores=scores
@@ -1187,7 +1218,11 @@ def to_proto_score_solution_request(problem, fitted_pipeline_id, metrics_result)
             fold=0,
             # Targets removed in v2019.4.11
             # targets=targets,
-            value=Value(raw=to_proto_value_raw(metric['value']))))
+            value=Value(raw=to_proto_value_raw(metric['value']))
+            # TODO add:
+            # random_seed int32
+            # Optional normalized
+        ))
     result = GetScoreSolutionResultsResponse(
         progress=Progress(state=core_pb2.COMPLETED,
                           status="Done",
@@ -1203,8 +1238,22 @@ def to_proto_steps_description(pipeline: Pipeline) -> typing.List[StepDescriptio
     '''
     Convert free hyperparameters in d3m pipeline steps to protocol buffer StepDescription
     '''
-    # Todo: To be implemented
     descriptions: typing.List[StepDescription] = []
+
+    for step in pipeline.steps:
+        print(step)
+        if isinstance(step, PrimitiveStep):
+            free = step.get_free_hyperparms()
+            values = {}
+            for name, hyperparam_class in free.items():
+                default = hyperparam_class.get_default()
+                values[name] = to_proto_value_raw(default)
+            descriptions.append(StepDescription(
+                primitive=PrimitiveStepDescription(hyperparams=values)))
+        else:
+            # TODO: Subpipeline not yet implemented
+            pass
+
     return descriptions
 
     # for step in pipeline.steps:
