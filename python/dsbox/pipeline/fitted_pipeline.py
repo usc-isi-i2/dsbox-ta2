@@ -298,13 +298,17 @@ class FittedPipeline:
             _logger.info("Primitive Wikifier has been added to pipeline.")
             self.location_offset += 1
 
-        augment_count = 0
+        augment_count = -1
+        for each in self.extra_primitive:
+            if "augment" in each:
+                augment_count += 1
+
         current_augment = "augment" + str(augment_count)
         while current_augment in self.extra_primitive:
             self.add_extra_primitive([current_augment], self.location_offset)
             structure = self.pipeline.to_json_structure()
             _logger.info("Primitive " + current_augment +" has been added to pipeline.")
-            augment_count += 1
+            augment_count -= 1
             current_augment = "augment" + str(augment_count)
 
         # Save pipeline rank

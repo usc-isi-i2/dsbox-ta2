@@ -622,15 +622,18 @@ class Controller:
             # augment_res = wikifier_primitive.produce(inputs = augment_res).value
             # self.extra_primitive.add("wikifier")
             # self.dump_primitive(wikifier_primitive, "wikifier")
+            # import pdb
+            # pdb.set_trace()
             from datamart_isi import entries
-            isi_datamart_url = "http://dsbox02.isi.edu:9001/blazegraph/namespace/datamart3/sparql"
+            isi_datamart_url = "http://dsbox02.isi.edu:9001/blazegraph/namespace/datamart4/sparql"
             datamart_unit = entries.Datamart(connection_url=isi_datamart_url)
             from common_primitives.datamart_augment import Hyperparams as hyper_augment, DataMartAugmentPrimitive
             hyper_augment_default = hyper_augment.defaults()
+            hyper_augment_default = hyper_augment_default.replace({"system_identifier":"ISI"})
             # run wikifier first
             augment_times = 0
             search_result_wikifier = entries.DatamartSearchResult(search_result={}, supplied_data=None, query_json={}, search_type="wikifier")
-            hyper_temp = hyper_augment_default.replace({"search_result":pickle.dumps(search_result_wikifier)})
+            hyper_temp = hyper_augment_default.replace({"search_result":search_result_wikifier.serialize()})
             augment_primitive = DataMartAugmentPrimitive(hyperparams=hyper_temp)
             augment_res = augment_primitive.produce(inputs = self.all_dataset).value
             self.extra_primitive.add("augment" + str(augment_times))
@@ -641,7 +644,7 @@ class Controller:
             all_results1 = datamart_unit.search_with_data(query=None, supplied_data=augment_res).get_next_page()
             for each_search in all_results1:
                 if each_search.search_type == "wikidata":
-                    hyper_temp = hyper_augment_default.replace({"search_result":pickle.dumps(each_search)})
+                    hyper_temp = hyper_augment_default.replace({"search_result":each_search.serialize()})
                     augment_primitive = DataMartAugmentPrimitive(hyperparams=hyper_temp)
                     augment_res = augment_primitive.produce(inputs = augment_res).value
                     self.extra_primitive.add("augment" + str(augment_times))
@@ -653,7 +656,7 @@ class Controller:
             # all_results1.sort(key=lambda x: x.score(), reverse=True)
             for each_search in all_results1:
                 if each_search.search_type == "general":
-                    hyper_temp = hyper_augment_default.replace({"search_result":pickle.dumps(each_search)})
+                    hyper_temp = hyper_augment_default.replace({"search_result":each_search.serialize()})
                     augment_primitive = DataMartAugmentPrimitive(hyperparams=hyper_temp)
                     augment_res = augment_primitive.produce(inputs = augment_res).value
                     self.extra_primitive.add("augment" + str(augment_times))

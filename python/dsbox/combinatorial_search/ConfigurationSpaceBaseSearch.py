@@ -196,6 +196,35 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
         # initlize repeat_time_level
         self._repeat_times_level_2 = 1
         self._repeat_times_level_1 = 1
+
+        # for timeseries forcasting, we can't compare directly
+        if self.problem.query(())['about']['taskType']=="timeSeriesForecasting":
+            # just skip for now
+            # TODO: add one way to evalute time series forecasting pipeline quality
+            fitted_pipeline = FittedPipeline(
+                pipeline=pipeline,
+                dataset_id=self.train_dataset1.metadata.query(())['id'],
+                log_dir=self.log_dir,
+                metric_descriptions=self.performance_metrics,
+                template=self.template, problem=self.problem, extra_primitive = self.extra_primitive)
+            fitted_pipeline.fit(cache=cache, inputs=[self.train_dataset1])
+            fitted_pipeline.save(self.output_directory)
+
+            data = {
+                'id': fitted_pipeline.id,
+                'fitted_pipeline': fitted_pipeline,
+                'training_metrics': None,
+                'cross_validation_metrics': None,
+                'test_metrics': None,
+                'total_runtime': time.time() - start_time,
+                'configuration': configuration,
+                'ensemble_tuning_result': None,
+                'ensemble_tuning_metrics': None,
+            }
+            fitted_pipeline.auxiliary = dict(data)
+            return data
+
+        # following codes should only for running in the normal validation that can be splitted and tested
         # if in cross validation mode
         if self.testing_mode == Mode.CROSS_VALIDATION_MODE:
             self._repeat_times_level_2 = int(self.validation_config['cross_validation'])

@@ -1113,7 +1113,7 @@ class DataAugmentRegressionTemplate(DSBoxTemplate):
                 "name": "encode_text_step",
                 "primitives": [
                     {
-                        "primitive": "d3m.primitives.feature_construction.corex_text.CorexText",
+                        "primitive": "d3m.primitives.feature_construction.corex_text.DSBOX",
                         "hyperparameters":
                             {
                                 'n_hidden': [(10)],
@@ -1721,18 +1721,24 @@ class ARIMATemplate(DSBoxTemplate):
             "target": "extract_target_step",  # Name of the step generating the ground truth
             "steps": [
                 {
-                    "name": "denormalize_step",
-                    "primitives": ["d3m.primitives.normalization.denormalize.DSBOX"],
+                    "name": "to_dataframe_step",
+                    "primitives": ["d3m.primitives.data_transformation.dataset_to_dataframe.Common"],
                     "inputs": ["template_input"]
                 },
                 {
-                    "name": "to_dataframe_step",
-                    "primitives": ["d3m.primitives.data_transformation.dataset_to_dataframe.Common"],
-                    "inputs": ["denormalize_step"]
+                    "name": "parser_step",
+                    "primitives": [{
+                        "primitive": "d3m.primitives.data_transformation.column_parser.DataFrameCommon",
+                        "hyperparameters": {
+                            "parse_semantic_types": [('http://schema.org/Boolean', 'http://schema.org/Integer', 'http://schema.org/Float', 'https://metadata.datadrivendiscovery.org/types/FloatVector'),]
+                        }
+                    }],
+                    "inputs": ["to_dataframe_step"]
                 },
+
                 # read Y value
                 {
-                    "name": "pre_extract_target_step",
+                    "name": "extract_target_step",
                     "primitives": [{
                         "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.DataFrameCommon",
                         "hyperparameters":
@@ -1742,37 +1748,29 @@ class ARIMATemplate(DSBoxTemplate):
                              'exclude_columns': ()
                             }
                     }],
-                    "inputs": ["to_dataframe_step"]
+                    "inputs": ["parser_step"]
                 },
+
                 {
-                    "name": "extract_target_step",
-                    "primitives": [{
-                        "primitive": "d3m.primitives.data_transformation.to_numeric.DSBOX",
-                        "hyperparameters": {
-                            "drop_non_numeric_columns": [(False)]
-                        }
-                    }],
-                    "inputs": ["pre_extract_target_step"]
-                },
-                {
-                    "name": "pre_extract_attribute_step",
+                    "name": "extract_attribute_step",
                     "primitives": [{
                         "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.DataFrameCommon",
                         "hyperparameters":
                             {
                                 'semantic_types': ('https://metadata.datadrivendiscovery.org/types/PrimaryKey',
+                                                   'https://metadata.datadrivendiscovery.org/types/TrueTarget',
                                                    'https://metadata.datadrivendiscovery.org/types/Attribute',),
                                 'use_columns': (),
                                 'exclude_columns': ()
                             }
                     }],
-                    "inputs": ["to_dataframe_step"]
+                    "inputs": ["parser_step"]
                 },
-                {
-                    "name": "extract_attribute_step",
-                    "primitives": ["d3m.primitives.data_transformation.to_numeric.DSBOX"],
-                    "inputs": ["pre_extract_attribute_step"]
-                },
+                # {
+                #     "name": "extract_attribute_step",
+                #     "primitives": ["d3m.primitives.data_transformation.to_numeric.DSBOX"],
+                #     "inputs": ["pre_extract_attribute_step"]
+                # },
                 {
                     "name": "ARIMA_step",
                     "primitives": [
@@ -3348,7 +3346,7 @@ class TA1Classification_2(DSBoxTemplate):
                                     target_name="extract_target_step"),
                 {
                     "name": "corex_step",
-                    "primitives": ["d3m.primitives.feature_construction.corex_text.CorexText"],
+                    "primitives": ["d3m.primitives.feature_construction.corex_text.DSBOX"],
                     "inputs": ["extract_attribute_step"]
                 },
                 {
@@ -3466,12 +3464,12 @@ class TA1Classification_3(DSBoxTemplate):
                 },
                 {
                     "name": "corex_step",
-                    "primitives": ["d3m.primitives.feature_construction.corex_text.CorexText"],
+                    "primitives": ["d3m.primitives.feature_construction.corex_text.DSBOX"],
                     "inputs": ["label_step"]
                 },
                 # {
                 #     "name": "corex_step",
-                #     "primitives": ["d3m.primitives.feature_construction.corex_text.CorexText"],
+                #     "primitives": ["d3m.primitives.feature_construction.corex_text.DSBOX"],
                 #     "inputs": ["cast_1_step"]
                 # },
                 {
@@ -3552,7 +3550,7 @@ class MuxinTA1ClassificationTemplate1(DSBoxTemplate):
                 },
                 {
                     "name": "corex_step",
-                    "primitives": ["d3m.primitives.feature_construction.corex_text.CorexText"],
+                    "primitives": ["d3m.primitives.feature_construction.corex_text.DSBOX"],
                     "inputs": ["encode2_step"]
                 },
                 {
@@ -3646,7 +3644,7 @@ class MuxinTA1ClassificationTemplate2(DSBoxTemplate):
                 },
                 {
                     "name": "corex_step",
-                    "primitives": ["d3m.primitives.feature_construction.corex_text.CorexText"],
+                    "primitives": ["d3m.primitives.feature_construction.corex_text.DSBOX"],
                     "inputs": ["encode_step"]
                 },
                 {
@@ -3737,7 +3735,7 @@ class MuxinTA1ClassificationTemplate3(DSBoxTemplate):
                 },
                 {
                     "name": "corex_step",
-                    "primitives": ["d3m.primitives.feature_construction.corex_text.CorexText"],
+                    "primitives": ["d3m.primitives.feature_construction.corex_text.DSBOX"],
                     "inputs": ["encode_step"]
                 },
                 {
@@ -4000,7 +3998,7 @@ class HorizontalTemplate(DSBoxTemplate): #This template only generate processed 
                     "name": "corex_step",
                     "primitives": [
                         {
-                            "primitive": "d3m.primitives.feature_construction.corex_text.CorexText",
+                            "primitive": "d3m.primitives.feature_construction.corex_text.DSBOX",
                             "hyperparameters":
                                 {
                                 }
