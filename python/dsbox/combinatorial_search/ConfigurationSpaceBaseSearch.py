@@ -200,7 +200,8 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
         # for timeseries forcasting, we can't compare directly
         if self.problem.query(())['about']['taskType']=="timeSeriesForecasting":
             # just skip for now
-            # TODO: add one way to evalute time series forecasting pipeline quality
+            # TODO: add one way to evalute time series forecasting pipeline quality 
+            # (something like sliding window)
             fitted_pipeline = FittedPipeline(
                 pipeline=pipeline,
                 dataset_id=self.train_dataset1.metadata.query(())['id'],
@@ -210,18 +211,26 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
             fitted_pipeline.fit(cache=cache, inputs=[self.train_dataset1])
             fitted_pipeline.save(self.output_directory)
 
+            training_ground_truth = get_target_columns(self.train_dataset1, self.problem)
+            fake_metric = calculate_score(training_ground_truth, training_ground_truth,
+                self.performance_metrics, self.task_type, SpecialMetric().regression_metric)
+            fitted_pipeline.set_metric(fake_metric[0])
+
+            # [{'column_name': 'Class', 'metric': 'f1', 'value': 0.1}]
             data = {
                 'id': fitted_pipeline.id,
                 'fitted_pipeline': fitted_pipeline,
-                'training_metrics': None,
+                'training_metrics': fake_metric,
                 'cross_validation_metrics': None,
-                'test_metrics': None,
+                'test_metrics': fake_metric,
                 'total_runtime': time.time() - start_time,
                 'configuration': configuration,
                 'ensemble_tuning_result': None,
                 'ensemble_tuning_metrics': None,
             }
+
             fitted_pipeline.auxiliary = dict(data)
+            fitted_pipeline.save(self.output_directory)
             return data
 
         # following codes should only for running in the normal validation that can be splitted and tested
@@ -592,6 +601,7 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
             self.performance_metrics, self.task_type, SpecialMetric().regression_metric)
 
         '''
+        # should not use this old test method anymore
         test_pipeline_metrics = list()
         for metric_description in self.performance_metrics:
             metricDesc = PerformanceMetric.parse(metric_description['metric'])

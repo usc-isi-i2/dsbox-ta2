@@ -349,18 +349,19 @@ class Controller:
         pipeline_files = os.listdir(self.config.pipelines_scored_dir)
         ranked_list = []
         for filename in pipeline_files:
-            filepath = os.path.join(self.config.pipelines_scored_dir, filename)
-            with open(filepath) as f:
-                pipeline = json.load(f)
-                try:
-                    if 'pipeline_rank' in pipeline:
-                        ranked_list.append((pipeline['pipeline_rank'], filename))
-                    else:
-                        # Move pipelines without scores to pipelines_searched directory
-                        self._logger.info(f'Pipeline does not have score. id={pipeline["id"]}')
-                        shutil.move(filepath, self.config.pipelines_searched_dir)
-                except:
-                    self._logger.warning("Broken or unfinished pipeline: " + str(filepath))
+            if filename.endswith("json"):
+                filepath = os.path.join(self.config.pipelines_scored_dir, filename)
+                with open(filepath) as f:
+                    pipeline = json.load(f)
+                    try:
+                        if 'pipeline_rank' in pipeline:
+                            ranked_list.append((pipeline['pipeline_rank'], filename))
+                        else:
+                            # Move pipelines without scores to pipelines_searched directory
+                            self._logger.info(f'Pipeline does not have score. id={pipeline["id"]}')
+                            shutil.move(filepath, self.config.pipelines_searched_dir)
+                    except:
+                        self._logger.warning("Broken or unfinished pipeline: " + str(filepath))
         if not ranked_list:
             self._logger.warning('No ranked pipelines found.')
             return
