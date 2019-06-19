@@ -7,6 +7,7 @@ from dsbox.template.configuration_space import ConfigurationPoint
 from d3m.metadata.pipeline import PrimitiveStep
 from d3m.container.dataset import Dataset
 from d3m.container.pandas import DataFrame
+from d3m.container.numpy import ndarray as d3m_ndarray
 from d3m.primitive_interfaces.base import PrimitiveBase
 from dsbox.combinatorial_search.search_utils import comparison_metrics
 
@@ -275,11 +276,17 @@ class PrimitivesCache:
                 isinstance(primitive_arguments['inputs'], typing.List)), \
                f"inputs type not valid {type(primitive_arguments['inputs'])}"
 
+        hash_part = copy.copy(primitive_arguments['inputs'])
+        for i in primitive_arguments['inputs'].shape[1]:
+            if type(primitive_arguments['inputs'].iloc[0, i]) is d3m_ndarray:
+                drop_column_name = hash_part.columns[i]
+                hash_part = hash_part.drop(columns=drop_column_name)
+
         if hash_prefix is None:
             _logger.debug("Primtive cache, hash computed in prefix mode")
-            dataset_value_hash = hash(str(primitive_arguments['inputs']))
+            dataset_value_hash = hash(str(hash_part))
         else:
-            dataset_value_hash = hash(primitive_arguments['inputs'].values.tobytes())
+            dataset_value_hash = hash(hash_part.values.tobytes())
 
         dataset_hash = hash(str(dataset_value_hash) + dataset_id + dataset_digest)
         prim_hash = hash(str([hyperparam_hash, dataset_hash, hash_prefix]))
