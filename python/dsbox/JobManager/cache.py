@@ -277,10 +277,11 @@ class PrimitivesCache:
                f"inputs type not valid {type(primitive_arguments['inputs'])}"
 
         hash_part = copy.copy(primitive_arguments['inputs'])
-        for i in primitive_arguments['inputs'].shape[1]:
-            if type(primitive_arguments['inputs'].iloc[0, i]) is d3m_ndarray:
-                drop_column_name = hash_part.columns[i]
-                hash_part = hash_part.drop(columns=drop_column_name)
+        if type(hash_part) is DataFrame:
+            for i in range(primitive_arguments['inputs'].shape[1]):
+                if type(primitive_arguments['inputs'].iloc[0, i]) is d3m_ndarray:
+                    drop_column_name = hash_part.columns[i]
+                    hash_part = hash_part.drop(columns=drop_column_name)
 
         if hash_prefix is None:
             _logger.debug("Primtive cache, hash computed in prefix mode")
