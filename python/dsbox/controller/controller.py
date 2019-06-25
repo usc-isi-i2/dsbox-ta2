@@ -640,32 +640,33 @@ class Controller:
             augment_times += 1
             # import pdb
             # pdb.set_trace()
-            meta =     {
-                 "name": "SEQNO",
-                 "structural_type": str,
-                 "semantic_types": [
-                  "http://schema.org/Text",
-                  "http://schema.org/DateTime",
-                  "https://metadata.datadrivendiscovery.org/types/UniqueKey"
-                 ],
-                 "description": "Record Number. SEQNO is a unique number assigned to each record. The assigned numbers are not necessarily continuous or sequential."
-                }
-            augment_res.metadata = augment_res.metadata.update(selector=('learningData', ALL_ELEMENTS, 1), metadata = meta)
+            # this special change only for running for DA_medical dataset
+            # meta =     {
+            #      "name": "SEQNO",
+            #      "structural_type": str,
+            #      "semantic_types": [
+            #       "http://schema.org/Text",
+            #       "http://schema.org/DateTime",
+            #       "https://metadata.datadrivendiscovery.org/types/UniqueKey"
+            #      ],
+            #      "description": "Record Number. SEQNO is a unique number assigned to each record. The assigned numbers are not necessarily continuous or sequential."
+            #     }
+            # augment_res.metadata = augment_res.metadata.update(selector=('learningData', ALL_ELEMENTS, 1), metadata = meta)
 
             search_unit = datamart_unit.search_with_data(query=None, supplied_data=augment_res)
             all_results1 = search_unit.get_next_page()
-            # for each_search in all_results1:
-            #     if each_search.search_type == "wikidata":
-            #         hyper_temp = hyper_augment_default.replace({"search_result":each_search.serialize()})
-            #         augment_primitive = DataMartAugmentPrimitive(hyperparams=hyper_temp)
-            #         augment_res = augment_primitive.produce(inputs = augment_res).value
-            #         self.extra_primitive.add("augment" + str(augment_times))
-            #         self.dump_primitive(augment_primitive, "augment" + str(augment_times))
-            #         augment_times += 1
+            for each_search in all_results1:
+                if each_search.search_type == "wikidata":
+                    hyper_temp = hyper_augment_default.replace({"search_result":each_search.serialize()})
+                    augment_primitive = DataMartAugmentPrimitive(hyperparams=hyper_temp)
+                    augment_res = augment_primitive.produce(inputs = augment_res).value
+                    self.extra_primitive.add("augment" + str(augment_times))
+                    self.dump_primitive(augment_primitive, "augment" + str(augment_times))
+                    augment_times += 1
             
-            # all_results2 = datamart_unit.search_with_data(query=None, supplied_data=augment_res).get_next_page()
+            all_results2 = datamart_unit.search_with_data(query=None, supplied_data=augment_res).get_next_page()
 
-            # all_results1.sort(key=lambda x: x.score(), reverse=True)
+            all_results1.sort(key=lambda x: x.score(), reverse=True)
 
             for each_search in all_results1:
                 if each_search.search_type == "general":
