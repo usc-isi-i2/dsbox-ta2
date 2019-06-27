@@ -112,7 +112,7 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
                 self.validation_config = each_step['runtime']
                 if "cross_validation" in each_step['runtime']:
                     self.testing_mode = 1
-                    _logger.debug("Will use cross validation(n ={}) to choose best primitives".format(int(self.validation_config['cross_validation'])))
+                    _logger.debug("Will use cross validation(n = {}) to choose best primitives".format(int(self.validation_config['cross_validation'])))
                     _logger.info("Validation mode: Cross Validation")
                     # print("!!!!!@@#### CV mode!!!")
                     break

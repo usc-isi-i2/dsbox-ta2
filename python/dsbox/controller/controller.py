@@ -654,6 +654,7 @@ class Controller:
             # augment_res.metadata = augment_res.metadata.update(selector=('learningData', ALL_ELEMENTS, 1), metadata = meta)
 
             search_unit = datamart_unit.search_with_data(query=None, supplied_data=augment_res)
+
             all_results1 = search_unit.get_next_page()
             for each_search in all_results1:
                 if each_search.search_type == "wikidata":
@@ -664,7 +665,7 @@ class Controller:
                     self.dump_primitive(augment_primitive, "augment" + str(augment_times))
                     augment_times += 1
             
-            all_results2 = datamart_unit.search_with_data(query=None, supplied_data=augment_res).get_next_page()
+            # all_results2 = datamart_unit.search_with_data(query=None, supplied_data=augment_res).get_next_page()
 
             all_results1.sort(key=lambda x: x.score(), reverse=True)
 
@@ -677,7 +678,7 @@ class Controller:
                     self.dump_primitive(augment_primitive, "augment" + str(augment_times))
                     augment_times += 1
                     break
-            # pdb.set_trace()
+
             # # return the augmented dataset
             original_shape = self.all_dataset[self.problem_info["res_id"]].shape
             _, augment_res_df = d3m_utils.get_tabular_resource(dataset=augment_res, resource_id=None)
