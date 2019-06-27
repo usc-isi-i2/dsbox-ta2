@@ -29,6 +29,7 @@ from ta3ta2_api.core_pb2 import FitSolutionRequest
 from ta3ta2_api.core_pb2 import GetFitSolutionResultsRequest
 from ta3ta2_api.core_pb2 import ProduceSolutionRequest
 from ta3ta2_api.core_pb2 import GetProduceSolutionResultsRequest
+from ta3ta2_api.core_pb2 import ListPrimitivesRequest
 
 from ta3ta2_api.value_pb2 import Value
 from ta3ta2_api.value_pb2 import ValueType
@@ -177,6 +178,8 @@ class Client(object):
         parser.add_argument('--baseball', action='store_const', const='185_baseball', dest='dataset')
         parser.add_argument('--dataset', dest='dataset')
 
+        parser.add_argument('--list', action='store_true', help='List primitives')
+
         parser.add_argument('--basic', action='store_true')
         parser.add_argument('--complete', action='store_true')
         parser.add_argument('--solution')
@@ -217,13 +220,16 @@ class Client(object):
             self.describeSolution(stub, solution_id)
         elif args.produce:
             solution_id = args.produce
-            self.basicProduceSolution(stub, solution_id, train_problem_desc)
+            # self.basicProduceSolution(stub, solution_id, train_problem_desc)
+            self.basicProduceSolution(stub, solution_id, test_problem_desc)
         elif args.fit:
             solution_id = args.fit
             self.basicFitSolution(stub, solution_id, train_problem_desc)
         elif args.end_search:
             search_id = args.end_search
             self.endSearchSolutions(stub, search_id)
+        elif args.list:
+            self.listPrimitives(stub)
         else:
             print('Try adding --basic')
 
@@ -307,6 +313,8 @@ class Client(object):
                 log_msg(scoreSolutionResultsResponse)
                 i += 1
 
+            self.basicProduceSolution(stub, solution_id, test_problem)
+
         if end_search:
             self.endSearchSolutions(stub, search_id)
 
@@ -325,6 +333,16 @@ class Client(object):
         get_produce_solution_results_response = self.getProduceSolutionResults(stub, produce_solution_response.request_id)
         for produce_solution_results_response in get_produce_solution_results_response:
             log_msg(produce_solution_results_response)
+
+    '''
+    Invoke List Primitives
+    '''
+    def listPrimitives(self, stub):
+        _logger.info('Listing primitives')
+        request = ListPrimitivesRequest()
+        reply = stub.ListPrimitives(request)
+        for i, primitive in enumerate(reply.primitives):
+            print(f'{i} {primitive}')
 
     '''
     Invoke Hello call

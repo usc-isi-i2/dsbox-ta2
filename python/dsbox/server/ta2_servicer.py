@@ -4,6 +4,7 @@ import os
 import pickle
 import random
 import string
+import tempfile
 import time
 import typing
 import uuid
@@ -29,6 +30,7 @@ from d3m.container.dataset import D3MDatasetLoader
 from d3m.metadata.pipeline import Pipeline, PrimitiveStep, SubpipelineStep
 from d3m.primitive_interfaces.base import PrimitiveBase
 
+import ta3ta2_api.utils as utils
 
 from ta3ta2_api import core_pb2 as core_pb2
 from ta3ta2_api import core_pb2_grpc as core_pb2_grpc
@@ -104,7 +106,10 @@ logging.getLogger('').setLevel(logging_level)
 
 _logger = logging.getLogger(__name__)
 
-communication_value_types = [value_pb2.DATASET_URI, value_pb2.PICKLE_URI, value_pb2.PICKLE_BLOB, value_pb2.CSV_URI]
+communication_value_types = [value_pb2.DATASET_URI, value_pb2.CSV_URI, value_pb2.RAW]
+allowed_value_types = [utils.ValueType.DATASET_URI, utils.ValueType.CSV_URI, utils.ValueType.RAW]
+
+# value_pb2.PICKLE_URI, value_pb2.PICKLE_BLOB
 
 
 # self.controller = Controller()
@@ -154,12 +159,22 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
         # maps produce solution id to produce solution request
         self.produce_solution: typing.Dict = {}
 
+        # Use own Random instance. The system instance gets reset elsewhere, which causes randomly generated id to repeat.
+        self.random = random.Random()
+
         self._search_cache = {}
 
         if fitted_pipeline_id:
             fitted_pipeline = FittedPipeline.load(
                 fitted_pipeline_id=fitted_pipeline_id, folder_loc=self.config.output_dir, log_dir=self.config.log_dir)
             self.fit_solution[fitted_pipeline_id] = fitted_pipeline
+
+        # Create scratch directory
+        self.temp_dir = tempfile.TemporaryDirectory()
+
+    def __del__(self):
+        # Clean up scrach directory
+        self.temp_dir.cleanup()
 
     def Hello(self, request, context):
         '''
@@ -216,7 +231,11 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
         # })
 
         # convert to seconds
-        self.config.timeout = request.time_bound * 60
+        self.config.timeout = request.time_bound_search * 60
+        self.config.rank_solutions_limit = request.rank_solutions_limit
+
+        # What to do with time_bound_run?
+        self.config.time_bound_run = request.time_bound_run
 
         self.config.dataset_schema_files = dataset_uris
         self.config.set_problem(problem_json_dict, problem_parsed)
@@ -258,7 +277,7 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
             problem_config = self.search_solution[request.search_id]
 
             self.controller.initialize_from_ta3(problem_config)
-            status = self.controller.train()
+            _ = self.controller.train()
 
             candidates = self.controller.get_candidates()
             self.search_solution_results[request.search_id] = candidates
@@ -374,7 +393,10 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
     def ListPrimitives(self, request, context):
         primitives = []
         for python_path in d3m.index.search():
-            primitives.append(to_proto_primitive(d3m.index.get_primitive(python_path)))
+            try:
+                primitives.append(to_proto_primitive(d3m.index.get_primitive(python_path)))
+            except Exception:
+                pass
         return ListPrimitivesResponse(primitives=primitives)
 
     def ProduceSolution(self, request, context):
@@ -383,8 +405,8 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
 
         request_id = self.generateId()
         self.produce_solution[request_id] = {
-            'request' : request,
-            'start' : Timestamp().GetCurrentTime()
+            'request': request,
+            'start': Timestamp().GetCurrentTime()
         }
         return ProduceSolutionResponse(request_id=request_id)
 
@@ -411,7 +433,6 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
 
         add_true_target(dataset, self.problem_parsed)
 
-        print('Load fitted pipeline', self.config.output_dir, fitted_pipeline_id)
         fitted_pipeline = FittedPipeline.load(fitted_pipeline_id=fitted_pipeline_id, folder_loc=self.config.output_dir, log_dir=self.config.log_dir)
         fitted_pipeline.produce(inputs=[dataset])
 
@@ -479,7 +500,9 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
             'request': request,
             'start': Timestamp().GetCurrentTime()
         }
-        return FitSolutionResponse(request_id=request_id)
+        response = FitSolutionResponse(request_id=request_id)
+        self.log_msg(response)
+        return response
 
     def GetFitSolutionResults(self, request, context):
         self.log_msg(msg="GetFitSolutionResults invoked with request_id " + request.request_id)
@@ -610,7 +633,7 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
         pipeline = fitted_pipeline.pipeline
 
         result = DescribeSolutionResponse(
-            pipeline=to_proto_pipeline(pipeline, fitted_pipeline.id),
+            pipeline=to_proto_pipeline(pipeline, fitted_pipeline.id, allowed_value_types, self.temp_dir.name),
             steps=to_proto_steps_description(pipeline)
         )
 
@@ -644,7 +667,7 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
         '''
         Convenience method for generating 22 character id's
         '''
-        return ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(22))
+        return ''.join(self.random.choice(string.ascii_uppercase + string.digits) for _ in range(22))
 
     def _map_directories(self, uri):
         '''
@@ -739,7 +762,8 @@ def to_csv_file(dataframe, file_transfer_directory, file_prefix: str, *, index=T
     file_path = os.path.join(file_transfer_directory, file_prefix + '.csv')
     # dataframe.to_csv(file_path, index=index)
     export_dataframe(dataframe, file_path)
-    return file_path
+    file_uri = 'file://' + file_path
+    return file_uri
 
 
 def export_dataframe(dataframe: d3m_container.DataFrame, output_file: typing.TextIO = None) -> typing.Optional[str]:
@@ -817,11 +841,10 @@ def problem_to_dict(problem) -> typing.Dict:
     description: typing.Dict[str, typing.Any] = {
         'schema': d3m_problem.PROBLEM_SCHEMA_VERSION,
         'problem': {
-            'id': problem.problem.id,
-            # "problemVersion" is required by the schema, but we want to be compatible with problem
-            # descriptions which do not adhere to the schema.
-            'version': problem.problem.version,
-            'name': problem.problem.name,
+            # id, version and name fields removed in ta3ta2 api version v2019.4.11
+            # 'id': problem.problem.id,
+            # 'version': problem.problem.version,
+            # 'name': problem.problem.name,
             'task_type': d3m_problem.TaskType(problem.problem.task_type),
             'task_subtype': d3m_problem.TaskSubtype(problem.problem.task_subtype),
             'performance_metrics': performance_metrics
@@ -878,12 +901,9 @@ def problem_to_json(problem) -> typing.Dict:
 
     description: typing.Dict[str, typing.Any] = {
         'about': {
-            'problemSchemaVersion': problem.problem.version,
-            'problemID': problem.problem.id,
-            # "problemVersion" is required by the schema, but we want to be compatible with problem
-            # descriptions which do not adhere to the schema.
-            # 'version': problem.problem.version,
-            'problemName': problem.problem.name,
+            # 'problemSchemaVersion': problem.problem.version,
+            # 'problemID': problem.problem.id,
+            # 'problemName': problem.problem.name,
             'taskType': d3m_problem.TaskType(problem.problem.task_type).unparse(),
             'taskSubtype': d3m_problem.TaskSubtype(problem.problem.task_subtype).unparse(),
         }
@@ -1031,59 +1051,67 @@ def to_proto_primitive_step(step: PrimitiveStep) -> PipelineDescriptionStep:
     return PipelineDescriptionStep(primitive=primitive_description)
 
 
-def to_proto_pipeline(pipeline: Pipeline, id: str = None) -> PipelineDescription:
+def to_proto_pipeline(pipeline: Pipeline, id: str , allow_value_types: typing.Sequence[utils.ValueType],
+                      scratch_dir: str) -> PipelineDescription:
     """
     Convert d3m Pipeline to protocol buffer PipelineDescription
     """
-    inputs = []
-    outputs = []
-    steps = []
-    users = []
-    for input_description in pipeline.inputs:
-        if 'name' in input_description:
-            inputs.append(PipelineDescriptionInput(name=input_description['name']))
-    for output_description in pipeline.outputs:
-        outputs.append(
-            PipelineDescriptionOutput(
-                name=output_description['name'] if 'name' in output_description else None,
-                data=output_description['data']))
-    for step in pipeline.steps:
-        if isinstance(step, PrimitiveStep):
-            step_description = to_proto_primitive_step(step)
-        elif isinstance(step, SubpipelineStep):
-            # TODO: Subpipeline not yet implemented
-            # PipelineDescriptionStep(pipeline=pipeline_description)
-            pass
-        else:
-            # TODO: PlaceholderStep not yet implemented
-            #PipelineDescriptionStep(placeholder=placeholde_description)
-            pass
-        steps.append(step_description)
-    for user in pipeline.users:
-        users.append(PipelineDescriptionUser(
-            id=user['id'],
-            reason=user['reason'] if 'reason' in user else None,
-            rationale=user['rationale'] if 'rationale' in user else None
-        ))
-    if id is None:
-        id = pipeline.id
+    description: PipelineDescription = utils.encode_pipeline_description(
+        pipeline, allow_value_types, scratch_dir)
+    if id is not None:
+        description.id = id
+    return description
 
-    pipeline_context = pipeline.context.value
-    return PipelineDescription(
-        id=id,
-        source=pipeline.source,
-        created=Timestamp().FromDatetime(pipeline.created.replace(tzinfo=None)),
-        context=pipeline_context,
-        inputs=inputs,
-        outputs=outputs,
-        steps=steps,
-        name=pipeline.name,
-        description=pipeline.description,
-        users=users
-    )
+    # inputs = []
+    # outputs = []
+    # steps = []
+    # users = []
+    # for input_description in pipeline.inputs:
+    #     if 'name' in input_description:
+    #         inputs.append(PipelineDescriptionInput(name=input_description['name']))
+    # for output_description in pipeline.outputs:
+    #     outputs.append(
+    #         PipelineDescriptionOutput(
+    #             name=output_description['name'] if 'name' in output_description else None,
+    #             data=output_description['data']))
+    # for step in pipeline.steps:
+    #     if isinstance(step, PrimitiveStep):
+    #         step_description = to_proto_primitive_step(step)
+    #     elif isinstance(step, SubpipelineStep):
+    #         # TODO: Subpipeline not yet implemented
+    #         # PipelineDescriptionStep(pipeline=pipeline_description)
+    #         pass
+    #     else:
+    #         # TODO: PlaceholderStep not yet implemented
+    #         #PipelineDescriptionStep(placeholder=placeholde_description)
+    #         pass
+    #     steps.append(step_description)
+    # for user in pipeline.users:
+    #     users.append(PipelineDescriptionUser(
+    #         id=user['id'],
+    #         reason=user['reason'] if 'reason' in user else None,
+    #         rationale=user['rationale'] if 'rationale' in user else None
+    #     ))
+    # if id is None:
+    #     id = pipeline.id
+
+    # # PipelineContext deprecated inv v2019.5.23
+    # # pipeline_context = pipeline.context.value
+    # return PipelineDescription(
+    #     id=id,
+    #     source=pipeline.source,
+    #     created=Timestamp().FromDatetime(pipeline.created.replace(tzinfo=None)),
+    #     # context=pipeline_context,
+    #     inputs=inputs,
+    #     outputs=outputs,
+    #     steps=steps,
+    #     name=pipeline.name,
+    #     description=pipeline.description,
+    #     users=users
+    # )
 
 
-def to_proto_search_solution_request(problem, fitted_pipeline_id, metrics_result) -> typing.List[GetSearchSolutionsResultsResponse]:
+def to_proto_search_solution_request(problem, fitted_pipeline_id, metrics_result) -> GetSearchSolutionsResultsResponse:
 
     # search_solutions_results = []
 
@@ -1100,14 +1128,17 @@ def to_proto_search_solution_request(problem, fitted_pipeline_id, metrics_result
     for inputs_dict in problem_dict['inputs']:
         for target in inputs_dict['targets']:
             targets.append(ProblemTarget(
-                target_index = target['target_index'],
-                resource_id = target['resource_id'],
-                column_index = target['column_index'],
-                column_name = target['column_name'],
-                clusters_number = target['clusters_number']))
+                target_index=target['target_index'],
+                resource_id=target['resource_id'],
+                column_index=target['column_index'],
+                column_name=target['column_name'],
+                clusters_number=target['clusters_number']))
     score_list = []
+    internal_score = np.nan
+    first = True
     for metric in metrics_result:
-        ppm = ProblemPerformanceMetric(metric=d3m_problem.PerformanceMetric.parse(metric['metric']).name)
+        performance_matric: d3m_problem.PerformanceMetric = d3m_problem.PerformanceMetric.parse(metric['metric'])
+        ppm = ProblemPerformanceMetric(metric=performance_matric.name)
         if 'k' in metric:
             ppm = metric['k']
         if 'pos_label' in metric:
@@ -1115,8 +1146,23 @@ def to_proto_search_solution_request(problem, fitted_pipeline_id, metrics_result
         score_list.append(Score(
             metric=ppm,
             fold=0,
-            targets=targets,
-            value=Value(raw=to_proto_value_raw(metric['value']))))
+            # Targets removed in v2019.4.11
+            # targets=targets,
+            value=Value(raw=to_proto_value_raw(metric['value']))
+            # TODO add:
+            # random_seed int32
+            # Optional normalized
+        ))
+        if first:
+            first = False
+            score_list.append(Score(
+                metric=ProblemPerformanceMetric(metric=problem_pb2.RANK),
+                value=Value(raw=to_proto_value_raw(metric['rank']))
+            ))
+        if internal_score is np.nan:
+            # Return the first metric as the internal score
+            internal_score = performance_matric.normalize(metric['value'])
+
     scores = []
     scores.append(
         SolutionSearchScore(
@@ -1127,18 +1173,18 @@ def to_proto_search_solution_request(problem, fitted_pipeline_id, metrics_result
                           status="Done",
                           start=timestamp.GetCurrentTime(),
                           end=timestamp.GetCurrentTime()),
-        done_ticks=0, # TODO: Figure out how we want to support this
-        all_ticks=0, # TODO: Figure out how we want to support this
-        solution_id=fitted_pipeline_id, # TODO: Populate this with the pipeline id
-        internal_score=0,
-        # scores=None # Optional so we will not tackle it until needed
+        done_ticks=0,  # TODO: Figure out how we want to support this
+        all_ticks=0,  # TODO: Figure out how we want to support this
+        solution_id=fitted_pipeline_id,  # TODO: Populate this with the pipeline id
+        # internal_score is between 0.0 and 1.0, where 1.0 is the highest score
+        internal_score=internal_score,
         scores=scores
     )
 
     return result
 
 
-def to_proto_score_solution_request(problem, fitted_pipeline_id, metrics_result) -> typing.List[GetSearchSolutionsResultsResponse]:
+def to_proto_score_solution_request(problem, fitted_pipeline_id, metrics_result) -> GetScoreSolutionResultsResponse:
 
     # search_solutions_results = []
 
@@ -1170,8 +1216,13 @@ def to_proto_score_solution_request(problem, fitted_pipeline_id, metrics_result)
         score_list.append(Score(
             metric=ppm,
             fold=0,
-            targets=targets,
-            value=Value(raw=to_proto_value_raw(metric['value']))))
+            # Targets removed in v2019.4.11
+            # targets=targets,
+            value=Value(raw=to_proto_value_raw(metric['value']))
+            # TODO add:
+            # random_seed int32
+            # Optional normalized
+        ))
     result = GetScoreSolutionResultsResponse(
         progress=Progress(state=core_pb2.COMPLETED,
                           status="Done",
@@ -1187,8 +1238,22 @@ def to_proto_steps_description(pipeline: Pipeline) -> typing.List[StepDescriptio
     '''
     Convert free hyperparameters in d3m pipeline steps to protocol buffer StepDescription
     '''
-    # Todo: To be implemented
     descriptions: typing.List[StepDescription] = []
+
+    for step in pipeline.steps:
+        print(step)
+        if isinstance(step, PrimitiveStep):
+            free = step.get_free_hyperparms()
+            values = {}
+            for name, hyperparam_class in free.items():
+                default = hyperparam_class.get_default()
+                values[name] = to_proto_value_raw(default)
+            descriptions.append(StepDescription(
+                primitive=PrimitiveStepDescription(hyperparams=values)))
+        else:
+            # TODO: Subpipeline not yet implemented
+            pass
+
     return descriptions
 
     # for step in pipeline.steps:

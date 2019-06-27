@@ -105,11 +105,12 @@ class EnsembleTuningPipeline:
             step_outputs.append(each_step.add_output('output'))
 
         concat_step = pipeline_module.PrimitiveStep({
-            "python_path": "d3m.primitives.data_preprocessing.vertical_concat.DSBOX",
+            "python_path": "d3m.primitives.data_preprocessing.vertical_concatenate.DSBOX",
             "id": "dsbox-vertical-concat",
-            "version": "1.3.0",
+            # "version": "1.3.0",
             "name": "DSBox vertically concat"})
 
+        concat_step_output = None
         for i in range(len(self.pids) - 1):
             each_concact_step = copy.deepcopy(concat_step)
             if i == 0:
@@ -120,6 +121,7 @@ class EnsembleTuningPipeline:
 
 
             self.voting_pipeline.add_step(each_concact_step)
+
             # update concat_step_output
             concat_step_output = each_concact_step.add_output('produce')
 

@@ -16,20 +16,9 @@ class TemplateSteps:
         '''
         return [
             {
-                "name": "sampling_step",
-                "primitives": ["d3m.primitives.data_preprocessing.do_nothing_for_dataset.DSBOX"],
-                "inputs": ["template_input"]
-            },
-
-            {
-                "name": "denormalize_step",
-                "primitives": ["d3m.primitives.data_transformation.denormalize.Common"],
-                "inputs": ["sampling_step"]
-            },
-            {
                 "name": "to_dataframe_step",
                 "primitives": ["d3m.primitives.data_transformation.dataset_to_dataframe.Common"],
-                "inputs": ["denormalize_step"]
+                "inputs": ["template_input"]
             },
             {
                 "name": "extract_attribute_step",
@@ -67,7 +56,7 @@ class TemplateSteps:
             },
             {
                 "name": "corex_step",
-                "primitives": ["d3m.primitives.feature_construction.corex_text.CorexText"],
+                "primitives": ["d3m.primitives.feature_construction.corex_text.DSBOX"],
                 "inputs": ["encode_step"]
             },
             {
@@ -104,7 +93,7 @@ class TemplateSteps:
                 "name": data,
                 "primitives": [
                     {
-                        "primitive": "d3m.primitives.data_transformation.pca.SKlearn",
+                        "primitive": "d3m.primitives.feature_extraction.pca.SKlearn",
                         "hyperparameters":
                         {
                             'use_semantic_types': [True],
@@ -151,21 +140,9 @@ class TemplateSteps:
         '''
         return [
             {
-                "name": "sampling_step",
-                "primitives": ["d3m.primitives.data_preprocessing.do_nothing_for_dataset.DSBOX"],
-                "inputs": ["template_input"]
-            },
-            {
-                "name": "denormalize_step",
-                "primitives": [
-                    "d3m.primitives.data_transformation.denormalize.Common"
-                ],
-                "inputs": ["sampling_step"]
-            },
-            {
                 "name": "to_dataframe_step",
                 "primitives": ["d3m.primitives.data_transformation.dataset_to_dataframe.Common"],
-                "inputs": ["denormalize_step"]
+                "inputs": ["template_input"]
             },
             {
                 "name": "extract_attribute_step",
@@ -207,7 +184,7 @@ class TemplateSteps:
                 "name": "corex_step",
                 "primitives": [
                     {
-                        "primitive": "d3m.primitives.feature_construction.corex_text.CorexText",
+                        "primitive": "d3m.primitives.feature_construction.corex_text.DSBOX",
                         "hyperparameters":
                             {
                                 'n_hidden': [5, 10],
@@ -280,14 +257,9 @@ class TemplateSteps:
         '''
         return [
             {
-                "name": "denormalize_step",
-                "primitives": ["d3m.primitives.data_transformation.denormalize.Common"],
-                "inputs": ["template_input"]
-            },
-            {
                 "name": "to_dataframe_step",
                 "primitives": ["d3m.primitives.data_transformation.dataset_to_dataframe.Common"],
-                "inputs": ["denormalize_step"]
+                "inputs": ["template_input"]
             },
             {
                 "name": "extract_attribute_step",
@@ -321,7 +293,7 @@ class TemplateSteps:
                 "name": "encoder_step",
                 "primitives": [
                     "d3m.primitives.data_preprocessing.encoder.DSBOX",
-                    "d3m.primitives.data_cleaning.labeler.DSBOX"
+                    "d3m.primitives.data_cleaning.label_encoder.DSBOX"
                 ],
                 "inputs": ["clean_step"]
             },
@@ -363,7 +335,6 @@ class TemplateSteps:
 
     @staticmethod
     def dsbox_feature_selector(ptype, first_input='impute_step', second_input='extract_target_step'):
-        import numpy as np
         '''
         dsbox feature selection steps for classification and regression, lead to feature selector steps
         '''
@@ -448,7 +419,7 @@ class TemplateSteps:
                             "primitive": "d3m.primitives.data_preprocessing.do_nothing.DSBOX",
                         },
                         {
-                            "primitive": "d3m.primitives.data_transformation.pca.SKlearn",
+                            "primitive": "d3m.primitives.feature_extraction.pca.SKlearn",
                             "hyperparameters":
                                 {
                                     'add_index_columns': [True],
@@ -456,7 +427,7 @@ class TemplateSteps:
                                     'n_components': [(2), (4), (8), (16), (32), (64), (128)], }
                         },
                         {
-                            "primitive": "d3m.primitives.data_transformation.kernel_pca.SKlearn",
+                            "primitive": "d3m.primitives.feature_extraction.kernel_pca.SKlearn",
                             "hyperparameters":
                                 {
                                     'add_index_columns': [True],
@@ -466,7 +437,7 @@ class TemplateSteps:
                                 }
                         },
                         {
-                            "primitive": "d3m.primitives.data_transformation.kernel_pca.SKlearn",
+                            "primitive": "d3m.primitives.feature_extraction.kernel_pca.SKlearn",
                             "hyperparameters":
                                 {
                                     'add_index_columns': [True],
@@ -499,14 +470,9 @@ class TemplateSteps:
         return \
             [
                 {
-                    "name": "denormalize_step",
-                    "primitives": ["d3m.primitives.data_transformation.denormalize.Common"],
-                    "inputs": ['template_input']
-                },
-                {
                     "name": "to_dataframe_step",
                     "primitives": ["d3m.primitives.data_transformation.dataset_to_dataframe.Common"],
-                    "inputs": ["denormalize_step"]
+                    "inputs": ["template_input"]
                 },
                 {
                     "name": attribute_name,
@@ -613,7 +579,7 @@ class TemplateSteps:
                     "name": "encode_text_step",
                     "primitives": [
                         {
-                            "primitive": "d3m.primitives.feature_construction.corex_text.CorexText",
+                            "primitive": "d3m.primitives.feature_construction.corex_text.DSBOX",
                             "hyperparameters":
                                 {
                                     'n_hidden': [(10)],
@@ -640,7 +606,7 @@ class TemplateSteps:
                     "name": encoded_name,
                     "primitives": [
                         {"primitive": "d3m.primitives.data_preprocessing.encoder.DSBOX", },
-                        {"primitive": "d3m.primitives.data_cleaning.labeler.DSBOX", },
+                        {"primitive": "d3m.primitives.data_cleaning.label_encoder.DSBOX", },
                         # {"primitive": "d3m.primitives.data_preprocessing.do_nothing.DSBOX", },
                     ],
                     "inputs": ["encode_text_step"]

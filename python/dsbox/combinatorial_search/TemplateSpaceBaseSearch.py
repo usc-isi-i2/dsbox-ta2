@@ -40,7 +40,8 @@ class TemplateSpaceBaseSearch(typing.Generic[T]):
         the dictinary containing the results of the best pipline
     """
 
-    def __init__(self, is_multiprocessing: bool = True):
+    def __init__(self, context: str, is_multiprocessing: bool = True):
+        self.context = context
         self.is_multiprocessing = is_multiprocessing
         self.cacheManager = CacheManager(is_multiprocessing=is_multiprocessing)
 
@@ -50,11 +51,12 @@ class TemplateSpaceBaseSearch(typing.Generic[T]):
                            train_dataset2: typing.List[Dataset], test_dataset1: Dataset,
                            test_dataset2: typing.List[Dataset], all_dataset: Dataset,
                            ensemble_tuning_dataset: Dataset,
+                           extra_primitive: typing.Set[str],
                            output_directory: str, log_dir: str,
                            start_time: float = 0,
                            timeout_sec: float = -1) -> None:
 
-        self.cacheManager.timeout_sec = timeout_sec
+        # self.cacheManager.timeout_sec = timeout_sec
         self.template_list = template_list
 
         self.configuration_space_list = list(
@@ -63,12 +65,14 @@ class TemplateSpaceBaseSearch(typing.Generic[T]):
         self.confSpaceBaseSearch = list(
             map(
                 lambda tup: ConfigurationSpaceBaseSearch(
+                    self.context,
                     template=tup[0],
                     configuration_space=tup[1],
                     problem=problem, train_dataset1=train_dataset1, train_dataset2=train_dataset2,
                     test_dataset1=test_dataset1, test_dataset2=test_dataset2,
                     all_dataset=all_dataset, performance_metrics=performance_metrics,
                     ensemble_tuning_dataset=ensemble_tuning_dataset,
+                    extra_primitive=extra_primitive,
                     output_directory=output_directory, log_dir=log_dir
                 ),
                 zip(template_list, self.configuration_space_list)

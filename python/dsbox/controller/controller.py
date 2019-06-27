@@ -3,42 +3,41 @@ import json
 import logging
 import os
 import operator
+import pathlib
+import pickle
+import pprint
 import random
 import typing
-import uuid
 import shutil
 import traceback
+
 import pandas as pd
-import frozendict
-import copy
-import pprint
-import pickle
 
-from d3m.metadata.problem import TaskType
-from d3m.container.pandas import DataFrame as d3m_DataFrame
+from d3m.base import utils as d3m_utils
+from d3m.container.list import List
 from d3m.container.dataset import Dataset, D3MDatasetLoader
-from d3m.exceptions import InvalidArgumentValueError
-from d3m.metadata.base import Metadata, DataMetadata, ALL_ELEMENTS
-from d3m.metadata.problem import TaskSubtype, parse_problem_description
+from d3m.metadata.base import ALL_ELEMENTS
 
-from dsbox.pipeline.fitted_pipeline import FittedPipeline
-from dsbox.pipeline.ensemble_tuning import EnsembleTuningPipeline, HorizontalTuningPipeline
-from dsbox.template.library import TemplateLibrary
-from dsbox.controller.config import DsboxConfig
 from dsbox.combinatorial_search.TemplateSpaceBaseSearch import TemplateSpaceBaseSearch
 from dsbox.combinatorial_search.TemplateSpaceParallelBaseSearch import TemplateSpaceParallelBaseSearch
 from dsbox.combinatorial_search.RandomDimensionalSearch import RandomDimensionalSearch
 from dsbox.combinatorial_search.BanditDimensionalSearch import BanditDimensionalSearch
 from dsbox.combinatorial_search.MultiBanditSearch import MultiBanditSearch
 from dsbox.combinatorial_search.search_utils import get_target_columns
+from dsbox.controller.config import DsboxConfig
+from dsbox.pipeline.fitted_pipeline import FittedPipeline
+from dsbox.pipeline.ensemble_tuning import EnsembleTuningPipeline, HorizontalTuningPipeline
+from dsbox.template.library import TemplateLibrary
 from dsbox.template.template import DSBoxTemplate
-from sklearn.model_selection import StratifiedShuffleSplit, ShuffleSplit
-import dsbox.JobManager.mplog as mplog
 
-__all__ = ['Status', 'Controller']
+# import dsbox.JobManager.mplog as mplog
+
+__all__ = ['Status', 'Controller', 'controller_instance']
 
 
-pd.set_option("display.max_rows", 100)
+# pd.set_option("display.max_rows", 100)
+
+controller_instance = None
 
 
 class Status(enum.Enum):
@@ -50,13 +49,11 @@ class Status(enum.Enum):
 class Controller:
     TIMEOUT = 59  # in minutes
 
-    # _controller = None
-
-    # @classmethod
-    # def get_controller(cls) -> 'Controller':
-    #     return Controller._controller
-
     def __init__(self, development_mode: bool = False, run_single_template_name: str = "", is_ta3=True) -> None:
+        global controller_instance
+        if controller_instance is None:
+            controller_instance = self
+
         self.development_mode: bool = development_mode
         self.is_ta3 = is_ta3
 
@@ -80,6 +77,7 @@ class Controller:
         self.all_dataset: Dataset = None
         self.ensemble_dataset: Dataset = None
         self.taskSourceType: typing.Set[str] = set()  # str from SEMANTIC_TYPES
+        self.extra_primitive = set()
 
         # Dataset limits
         self.threshold_column_length = 300
@@ -87,7 +85,7 @@ class Controller:
         # hard coded unsplit dataset type
         # TODO: check whether "speech" type should be put into this list or not
         self.data_type_cannot_split = ["graph", "edgeList", "audio"]
-        self.task_type_can_split = ["CLASSIFICATION", "REGRESSION", "TIME_SERIES_FORECASTING"]
+        self.task_type_can_split = ["CLASSIFICATION", "REGRESSION"]
 
         # !!! hard code here
         # TODO: add if statement to determine it
@@ -122,7 +120,7 @@ class Controller:
         # self.output_executables_dir: str = ""
         # self.output_supporting_files_dir: str = ""
         # self.output_logs_dir: str = ""
-        self._logger = None
+        self._logger = logging.getLogger(__name__)
 
         self.main_pid: int = os.getpid()
 
@@ -149,40 +147,46 @@ class Controller:
         """
         The function used to change the metadata of the target predictions to be "TrueTarget"
         """
-        # TODO: Should use self.config.problem to set TrueTarget
-
         resource_id = self.config.problem['inputs'][0]['targets'][0]['resource_id']
+        target_column_id = self.config.problem['inputs'][0]['targets'][0]['column_index']
+        column_semantic_types = list(set(self.all_dataset.metadata.query((resource_id, ALL_ELEMENTS, target_column_id))['semantic_types']).union({
+            'https://metadata.datadrivendiscovery.org/types/Target',
+            'https://metadata.datadrivendiscovery.org/types/TrueTarget'
+            }))
+        self.all_dataset.metadata = self.all_dataset.metadata.update(
+            (resource_id, ALL_ELEMENTS, target_column_id), {'semantic_types': column_semantic_types})
+        return
         # Need to make sure the Target and TrueTarget column semantic types are set
-        if self.config.task_type == TaskType.CLASSIFICATION or self.config.task_type == TaskType.REGRESSION:
+        # if self.config.task_type == TaskType.CLASSIFICATION or self.config.task_type == TaskType.REGRESSION:
 
-            # start from last column, since typically target is the last column
-            for index in range(
-                    self.all_dataset.metadata.query((resource_id, ALL_ELEMENTS))['dimension']['length'] - 1,
-                    -1, -1):
-                column_semantic_types = self.all_dataset.metadata.query(
-                    (resource_id, ALL_ELEMENTS, index))['semantic_types']
-                if ('https://metadata.datadrivendiscovery.org/types/Target' in column_semantic_types
-                        and 'https://metadata.datadrivendiscovery.org/types/TrueTarget' in
-                        column_semantic_types):
-                    return
+        #     # start from last column, since typically target is the last column
+        #     for index in range(
+        #             self.all_dataset.metadata.query((resource_id, ALL_ELEMENTS))['dimension']['length'] - 1,
+        #             -1, -1):
+        #         column_semantic_types = self.all_dataset.metadata.query(
+        #             (resource_id, ALL_ELEMENTS, index))['semantic_types']
+        #         if ('https://metadata.datadrivendiscovery.org/types/Target' in column_semantic_types
+        #                 and 'https://metadata.datadrivendiscovery.org/types/TrueTarget' in
+        #                 column_semantic_types):
+        #             return
 
-            # If not set, use sugested target column
-            for index in range(
-                    self.all_dataset.metadata.query((resource_id, ALL_ELEMENTS))['dimension']['length'] - 1,
-                    -1, -1):
-                column_semantic_types = self.all_dataset.metadata.query(
-                    (resource_id, ALL_ELEMENTS, index))['semantic_types']
-                if 'https://metadata.datadrivendiscovery.org/types/SuggestedTarget' in \
-                        column_semantic_types:
-                    column_semantic_types = list(column_semantic_types) + [
-                        'https://metadata.datadrivendiscovery.org/types/Target',
-                        'https://metadata.datadrivendiscovery.org/types/TrueTarget']
-                    self.all_dataset.metadata = self.all_dataset.metadata.update(
-                        (resource_id, ALL_ELEMENTS, index), {'semantic_types': column_semantic_types})
-                    return
+        #     # If not set, use sugested target column
+        #     for index in range(
+        #             self.all_dataset.metadata.query((resource_id, ALL_ELEMENTS))['dimension']['length'] - 1,
+        #             -1, -1):
+        #         column_semantic_types = self.all_dataset.metadata.query(
+        #             (resource_id, ALL_ELEMENTS, index))['semantic_types']
+        #         if 'https://metadata.datadrivendiscovery.org/types/SuggestedTarget' in \
+        #                 column_semantic_types:
+        #             column_semantic_types = list(column_semantic_types) + [
+        #                 'https://metadata.datadrivendiscovery.org/types/Target',
+        #                 'https://metadata.datadrivendiscovery.org/types/TrueTarget']
+        #             self.all_dataset.metadata = self.all_dataset.metadata.update(
+        #                 (resource_id, ALL_ELEMENTS, index), {'semantic_types': column_semantic_types})
+        #             return
 
-            raise InvalidArgumentValueError(
-                'At least one column should have semantic type SuggestedTarget')
+        #     raise InvalidArgumentValueError(
+        #         'At least one column should have semantic type SuggestedTarget')
 
     # def _create_output_directory(self, config):
     #     """
@@ -334,6 +338,31 @@ class Controller:
         #         '[ERROR] Save training results Failed!')
 
     def _process_pipeline_submission(self) -> None:
+        # If no limit then no need to remove any pipelines
+        limit = self.config.rank_solutions_limit
+        if limit <= 0:
+            return
+
+        ranked_list = []
+        directory = pathlib.Path(self.config.pipelines_ranked_dir)
+        for rank_file in directory.glob('*.rank'):
+            try:
+                rank = float(open(directory / rank_file).read())
+                ranked_list.append((rank, rank_file))
+            except Exception:
+                pass
+        ranked_list = sorted(ranked_list, key=operator.itemgetter(0))
+
+        # Keep all solutions
+        if len(ranked_list) <= limit:
+            return
+
+        # Remove pipelines with larger rank values
+        for (rank, rank_file) in ranked_list[limit:]:
+            (directory / rank_file).with_suffix('.json').unlink()
+            (directory / rank_file).with_suffix('.rank').unlink()
+
+    def _process_pipeline_submission_old(self) -> None:
         self._logger.info(f'Moving top 20 pipelines to {self.config.pipelines_ranked_dir}')
 
         # Get list of (rank, pipeline) pairs
@@ -359,7 +388,7 @@ class Controller:
         for _, filename in ranked_list[:20]:
             shutil.copy(os.path.join(self.config.pipelines_scored_dir, filename), self.config.pipelines_ranked_dir)
 
-    def _process_pipeline_submission_old(self) -> None:
+    def _process_pipeline_submission_old2(self) -> None:
         output_dir = os.path.dirname(self.output_pipelines_dir)
         print("[PROSKA]:", output_dir)
         pipelines_root: str = os.path.join(output_dir, 'pipelines')
@@ -432,7 +461,8 @@ class Controller:
             output_directory=self.config.output_dir,
             log_dir=self.config.log_dir,
             start_time=self.config.start_time,
-            timeout_sec=self.config.timeout_search
+            timeout_sec=self.config.timeout_search,
+            extra_primitive=self.extra_primitive,
         )
         # report = self._search_method.search(num_iter=50)
         report = self._search_method.search(num_iter=self.config.serial_search_iterations, one_pipeline_only=one_pipeline_only)
@@ -455,6 +485,7 @@ class Controller:
             log_dir=self.config.log_dir,
             start_time=self.config.start_time,
             timeout_sec=self.config.timeout_search,
+            extra_primitive=self.extra_primitive,
         )
         report = self._search_method.search(num_iter=500)
 
@@ -480,6 +511,7 @@ class Controller:
             log_dir=self.config.log_dir,
             num_proc=self.config.cpu,
             timeout=self.config.timeout_search,
+            extra_primitive=self.extra_primitive,
         )
         report = self._search_method.search(num_iter=10)
         if report_ensemble:
@@ -505,6 +537,7 @@ class Controller:
             num_proc=self.config.cpu,
             start_time=self.config.start_time,
             timeout=self.config.timeout_search,
+            extra_primitive=self.extra_primitive,
         )
         report = self._search_method.search(num_iter=5)
         if report_ensemble:
@@ -530,6 +563,7 @@ class Controller:
             num_proc=self.config.cpu,
             start_time=self.config.start_time,
             timeout=self.config.timeout_search,
+            extra_primitive=self.extra_primitive,
         )
         report = self._search_method.search(num_iter=30)
         if report_ensemble:
@@ -574,14 +608,14 @@ class Controller:
 
         use_multiprocessing = True
         if self.config.search_method == 'serial':
-            self._search_method = TemplateSpaceBaseSearch()
+            self._search_method = TemplateSpaceBaseSearch(self.config.d3m_context)
             use_multiprocessing = False
         elif self.config.search_method == 'parallel':
-            self._search_method = TemplateSpaceParallelBaseSearch(num_proc=self.config.cpu)
+            self._search_method = TemplateSpaceParallelBaseSearch(self.config.d3m_context, num_proc=self.config.cpu)
         # elif self.config.search_method == 'bandit':
         #     self._search_method = BanditDimensionalSearch(num_proc=self.config.cpu)
         else:
-            self._search_method = TemplateSpaceParallelBaseSearch(num_proc=self.config.cpu)
+            self._search_method = TemplateSpaceParallelBaseSearch(self.config.d3m_context, num_proc=self.config.cpu)
 
         if self.do_ensemble_tune:
             # creat a special dictionary that can collect the results in each processes
@@ -595,83 +629,137 @@ class Controller:
     def do_data_augmentation(self, input_all_dataset: Dataset) -> Dataset:
         """
             use datamart primitives to do data augmentation on given dataset
-            return the augmented dataset (if success)            
+            return the augmented dataset (if success)
         """
+        try:
+            from dsbox.datapreprocessing.cleaner.wikifier import WikifierHyperparams ,Wikifier
+            wikifier_hyperparams = WikifierHyperparams.defaults()
+            # wikifier_hyperparams = wikifier_hyperparams.replace({"use_columns":(1,)})
+            wikifier_primitive = Wikifier(hyperparams = wikifier_hyperparams)
+            self.all_dataset = wikifier_primitive.produce(inputs = self.all_dataset).value
 
-        query_about = ""
-        augment = self.config.problem["data_augmentation"]
-        for each_augment in augment:
-            if query_about != "":
-                query_about += ", "
-            query_about += ", ".join(each_augment["keywords"]) + ", " + ", ".join(each_augment["domain"])
 
-        can_query_columns = []
-        for each in range(len(self.all_dataset[self.problem_info["res_id"]].columns)):
-            selector = (self.problem_info["res_id"], ALL_ELEMENTS, each)
-            each_column_meta = self.all_dataset.metadata.query(selector)
-            if 'http://schema.org/Text' in each_column_meta["semantic_types"]:
-                can_query_columns.append(each_column_meta['name'])
+            from common_primitives.dataset_to_dataframe import Hyperparams as hyper_ds_to_df, DatasetToDataFramePrimitive
+            ds_to_df_hyperparams = hyper_ds_to_df.defaults()
+            ds_to_df_primitive = DatasetToDataFramePrimitive(hyperparams = ds_to_df_hyperparams)
+            suppied_dataframe = ds_to_df_primitive.produce(inputs=self.all_dataset).value
+            query_about = ""
+            augment = self.config.problem["data_augmentation"]
+            for each_augment in augment:
+                if query_about != "":
+                    query_about += ", "
+                query_about += ", ".join(each_augment["keywords"]) + ", " + ", ".join(each_augment["domain"])
 
-        if len(can_query_columns) == 0:
-            self._logger.warn("No columns can be augment!")
-            return self.all_dataset
+            can_query_columns = []
+            for each in range(len(suppied_dataframe.columns)):
+                selector = (ALL_ELEMENTS, each)
+                each_column_meta = suppied_dataframe.metadata.query(selector)
+                if 'http://schema.org/Text' in each_column_meta["semantic_types"] or \
+                "https://metadata.datadrivendiscovery.org/types/CategoricalData" in each_column_meta["semantic_types"]:
+                    can_query_columns.append(each_column_meta['name'])
 
-        from dsbox.datapreprocessing.cleaner.datamart_query_from_dataframe import QueryFromDataframe ,QueryFromDataFrameHyperparams
-        query_hyperparams = QueryFromDataFrameHyperparams.defaults()
-        for each_column in can_query_columns:
-            query_json = {
-                "dataset": {
-                    "about": query_about
-                    # Not used for now
-                    # TODO: add NLP to extract more features
-                    # "description": ["FIFA", "worldcup", "Soccer game", "European Cup"]
-                },
-                "required_variables": [
-                    {
-                        "type": "dataframe_columns",
-                        "names": [each_column]
-                    }
-                ]
-                # Not used for now
-                # ,
-                # "desired_variables": [
-                #     {
-                #         "type": "generic_entity",
-                #         "about": "score_winner",
-                #         "variable_syntactic_type": [
-                #             "http://schema.org/Text"
-                #         ]
-                #     }
-                # ]
-            }
+            if len(can_query_columns) == 0:
+                self._logger.warn("No columns can be augment!")
+                return self.all_dataset
 
-            query_hyperparams = query_hyperparams.replace({"query":query_json})
-            query_primitive = QueryFromDataframe(hyperparams = query_hyperparams)
-            result = query_primitive.produce(inputs = self.all_dataset[self.problem_info["res_id"]])
-            ################################################################################################################
-            # too slow!!!
-            '''
-            from dsbox.datapreprocessing.cleaner.datamart_augment import DatamartAugmentation ,DatamartAugmentationHyperparams
-            augment_hyperparams = DatamartAugmentationHyperparams.defaults()
-            augment_primitive = DatamartAugmentation(hyperparams = augment_hyperparams)
-            augment_primitive.produce(inputs1 = result.value, inputs2 = self.all_dataset[self.problem_info["res_id"]])
-            
-            # used for join
-            for each_result in result:
-                queried_dataframe = each_result.materialize() 
-                right_column_number = queried_dataframe.columns.index(each_column)
-                left_column_number = self.all_dataset[self.problem_info["res_id"]].columns.index(each_column)
-            '''
+            from datamart import entries_new
+            datamart_unit = entries_new.D3MDatamart()
+            # import pdb
+            # pdb.set_trace()
+            all_results = []
+        except:
+            return
+        # for each_column in can_query_columns:
+        #     # TODO: now we only use the first results!!! Consider do multiple test with different query
+        #     query_json = {
+        #         "dataset": {
+        #             "about": query_about
+        #             # Not used for now
+        #             # TODO: add NLP to extract more features
+        #             # "description": ["FIFA", "worldcup", "Soccer game", "European Cup"]
+        #         },
+        #         "required_variables": [
+        #             {
+        #                 "type": "dataframe_columns",
+        #                 "names": [each_column]
+        #             }
+        #         ]
+        #         # Not used for now
+        #         # ,
+        #         # "desired_variables": [
+        #         #     {
+        #         #         "type": "generic_entity",
+        #         #         "about": "score_winner",
+        #         #         "variable_syntactic_type": [
+        #         #             "http://schema.org/Text"
+        #         #         ]
+        #         #     }
+        #         # ]
+        #     }
+
+        all_results.extend(datamart_unit.search_with_data(query=None, supplied_data=self.all_dataset))
+        # end query part
+
+            # from dsbox.datapreprocessing.cleaner.datamart_augment import DatamartAugmentation ,DatamartAugmentationHyperparams
+            # augment_hyperparams = DatamartAugmentationHyperparams.defaults()
+            # augment_hyperparams = augment_hyperparams.replace({"join_type":"rltk", "joining_columns":each_column, "duplicate_rows_process_method":"average"})
+            # augment_primitive = DatamartAugmentation(hyperparams = augment_hyperparams)
+            # res = augment_primitive.produce(inputs1 = result.value, inputs2 = self.all_dataset)
+            # self.extra_primitive.add("data_augment")
+        # import pdb
+        # pdb.set_trace()
+        all_results.sort(key=lambda x: x.score, reverse=True)
+
+        # res = best_result.augment(supplied_data=suppied_dataframe)
+        all_serach_results = List()
+        for each in all_results:
+            result_config = each.serialize()
+            all_serach_results.append(result_config)
+
+        from dsbox.datapreprocessing.cleaner.datamart_augment import DatamartAugmentation ,DatamartAugmentationHyperparams
+        from dsbox.datapreprocessing.cleaner.datamart_download import DatamartDownload ,DatamartDownloadHyperparams
+        augment_hyperparams = DatamartAugmentationHyperparams.defaults()
+        augment_hyperparams = augment_hyperparams.replace({"search_result":all_serach_results})
+        download_hyperparams = DatamartDownloadHyperparams.defaults()
+        download_hyperparams = download_hyperparams.replace({"search_result":all_serach_results[0]})
+        download_primitive = DatamartDownload(hyperparams = download_hyperparams)
+        augment_primitive = DatamartAugmentation(hyperparams = augment_hyperparams)
+        # import pdb
+        # pdb.set_trace()
+        download_result = download_primitive.produce(inputs=self.all_dataset).value
+        augment_result = augment_primitive.produce(inputs=self.all_dataset).value
+
+        self.extra_primitive.add("augment")
+        self.dump_primitive(augment_primitive, "augment")
+        return augment_result
+
+
+            # # save 2 primitives and add it to pipelines during FittedPipeline.save() afterwards
+            # self.dump_primitive(query_primitive, "datamart_query")
+            # self.dump_primitive(augment_primitive, "datamart_augmentation")
+            # # return the augmented dataset
+            # original_shape = self.all_dataset[self.problem_info["res_id"]].shape
+            # augmented_shape = res.value[self.problem_info["res_id"]].shape
+            # self._logger.info("The original dataset shape is (" + str(original_shape[0]) + ", " + str(original_shape[1]) + ")")
+            # self._logger.info("The augmented dataset shape is (" + str(augmented_shape[0]) + ", " + str(augmented_shape[1]) + ")")
+            # return res.value
+
+            # # used for join
+            # for each_result in result:
+            #     queried_dataframe = each_result.materialize()
+            #     right_column_number = queried_dataframe.columns.index(each_column)
+            #     left_column_number = self.all_dataset[self.problem_info["res_id"]].columns.index(each_column)
+
             ################################################################################################################
 
             # for now use temporary method adapt from rltk
-
+        """
             import rltk
             class left(rltk.AutoGeneratedRecord):
                 pass
 
             class right(rltk.AutoGeneratedRecord):
-                pass 
+                pass
 
             res_id = self.problem_info['res_id']
             df_left = self.all_dataset[res_id]
@@ -820,6 +908,7 @@ class Controller:
             # update problem doc metadata
             self.config.problem_metadata = self.config.problem_metadata.update((), problem)
             return augmented_dataset
+        """
 
     def add_d3m_index_and_prediction_class_name(self, prediction, from_dataset = None):
         """
@@ -871,47 +960,70 @@ class Controller:
 
     def auto_regress_convert_and_add_metadata(self, dataset: Dataset):
         """
-        Add metadata to the dataset from problem_doc_metadata
-        If the dataset is timeseriesforecasting, do auto convert for timeseriesforecasting prob
-        Paramters
-        ---------
-        dataset
-            Dataset
-        problem_doc_metadata:
-            Metadata about the problemDoc
+        Muxin said it is useless, just keep it for now
         """
-        problem = self.config.problem_metadata.query(())
-        targets = problem["inputs"]["data"][0]["targets"]
-        for each_target in range(len(targets)):
-            resID = targets[each_target]["resID"]
-            colIndex = targets[each_target]["colIndex"]
-            if problem["about"]["taskType"] == "timeSeriesForecasting" or problem["about"][
-                "taskType"] == "regression":
-                dataset[resID].iloc[:, colIndex] = pd.to_numeric(dataset[resID].iloc[:, colIndex],
-                                                                 downcast="float", errors="coerce")
-                meta = dict(dataset.metadata.query((resID, ALL_ELEMENTS, colIndex)))
-                meta["structural_type"] = float
-                dataset.metadata = dataset.metadata.update((resID, ALL_ELEMENTS, colIndex), meta)
+        return dataset
+        # """
+        # Add metadata to the dataset from problem_doc_metadata
+        # If the dataset is timeseriesforecasting, do auto convert for timeseriesforecasting prob
+        # Paramters
+        # ---------
+        # dataset
+        #     Dataset
+        # problem_doc_metadata:
+        #     Metadata about the problemDoc
+        # """
+        # problem = self.config.problem_metadata.query(())
+        # targets = problem["inputs"]["data"][0]["targets"]
+        # for each_target in range(len(targets)):
+        #     resID = targets[each_target]["resID"]
+        #     colIndex = targets[each_target]["colIndex"]
+        #     if problem["about"]["taskType"] == "timeSeriesForecasting" or problem["about"][
+        #         "taskType"] == "regression":
+        #         dataset[resID].iloc[:, colIndex] = pd.to_numeric(dataset[resID].iloc[:, colIndex],
+        #                                                          downcast="float", errors="coerce")
+        #         meta = dict(dataset.metadata.query((resID, ALL_ELEMENTS, colIndex)))
+        #         meta["structural_type"] = float
+        #         dataset.metadata = dataset.metadata.update((resID, ALL_ELEMENTS, colIndex), meta)
 
-        for data in self.config.problem_metadata.query(())['inputs']['data']:
-            targets = data['targets']
-            for target in targets:
-                semantic_types = list(dataset.metadata.query(
-                    (target['resID'], ALL_ELEMENTS, target['colIndex'])).get(
-                    'semantic_types', []))
+        # for data in self.config.problem_metadata.query(())['inputs']['data']:
+        #     targets = data['targets']
+        #     for target in targets:
+        #         semantic_types = list(dataset.metadata.query(
+        #             (target['resID'], ALL_ELEMENTS, target['colIndex'])).get(
+        #             'semantic_types', []))
 
-                if 'https://metadata.datadrivendiscovery.org/types/Target' not in semantic_types:
-                    semantic_types.append('https://metadata.datadrivendiscovery.org/types/Target')
-                    dataset.metadata = dataset.metadata.update(
-                        (target['resID'], ALL_ELEMENTS, target['colIndex']),
-                        {'semantic_types': semantic_types})
+        #         if 'https://metadata.datadrivendiscovery.org/types/Target' not in semantic_types:
+        #             semantic_types.append('https://metadata.datadrivendiscovery.org/types/Target')
+        #             dataset.metadata = dataset.metadata.update(
+        #                 (target['resID'], ALL_ELEMENTS, target['colIndex']),
+        #                 {'semantic_types': semantic_types})
 
-                if 'https://metadata.datadrivendiscovery.org/types/TrueTarget' not in semantic_types:
-                    semantic_types.append('https://metadata.datadrivendiscovery.org/types/TrueTarget')
-                    dataset.metadata = dataset.metadata.update(
-                        (target['resID'], ALL_ELEMENTS, target['colIndex']),
-                        {'semantic_types': semantic_types})
-            return dataset
+        #         if 'https://metadata.datadrivendiscovery.org/types/TrueTarget' not in semantic_types:
+        #             semantic_types.append('https://metadata.datadrivendiscovery.org/types/TrueTarget')
+        #             dataset.metadata = dataset.metadata.update(
+        #                 (target['resID'], ALL_ELEMENTS, target['colIndex']),
+        #                 {'semantic_types': semantic_types})
+        #     return dataset
+
+    def dump_primitive(self, target_primitive, save_file_name) -> bool:
+        """
+            Function used to dump a (usually it should be fitted) primitive into D#MLOCALDIR for further use
+        """
+        try:
+            # pickle this fitted sampler for furture use in pipelines
+            name = self.all_dataset.metadata.query(())['id']
+            sampler_pickle_file_loc = os.path.join(self.config.dsbox_scratch_dir, name+save_file_name+".pkl")
+            with open(sampler_pickle_file_loc, "wb") as f:
+                pickle.dump(target_primitive, f)
+
+            hyperparams_now = target_primitive.hyperparams.values_to_json_structure()
+            sampler_hyperparams_file_loc = os.path.join(self.config.dsbox_scratch_dir, name+save_file_name+".json")
+            with open(sampler_hyperparams_file_loc, "w") as f:
+                json.dump(hyperparams_now, f)
+            return True
+        except:
+            return False
 
     def ensemble_tuning(self, ensemble_tuning_report) -> None:
         """
@@ -974,8 +1086,15 @@ class Controller:
         json_file = os.path.abspath(self.config.dataset_schema_files[0])
         all_dataset_uri = 'file://{}'.format(json_file)
         self.all_dataset = loader.load(dataset_uri=all_dataset_uri)
-
-        if "data_augmentation" in self.config.problem:
+        self._check_and_set_dataset_metadata()
+        # first apply denormalize on input dataset
+        from common_primitives.denormalize import Hyperparams as hyper_denormalize, DenormalizePrimitive
+        denormalize_hyperparams = hyper_denormalize.defaults()
+        denormalize_primitive = DenormalizePrimitive(hyperparams = denormalize_hyperparams)
+        self.all_dataset = denormalize_primitive.produce(inputs = self.all_dataset).value
+        self.extra_primitive.add("denormalize")
+        self.dump_primitive(denormalize_primitive, "denormalize")
+        if "data_augmentation" in self.config.problem.keys():
             self.all_dataset = self.do_data_augmentation(self.all_dataset)
         # load templates
         self.load_templates()
@@ -1012,9 +1131,21 @@ class Controller:
         else:
             json_file = os.path.abspath(json_file)
             self.all_dataset = loader.load(dataset_uri='file://{}'.format(json_file))
+        self._check_and_set_dataset_metadata()
 
-        # Templates
+        # first apply denormalize on input dataset
+        from common_primitives.denormalize import Hyperparams as hyper_denormalize, DenormalizePrimitive
+        denormalize_hyperparams = hyper_denormalize.defaults()
+        denormalize_primitive = DenormalizePrimitive(hyperparams = denormalize_hyperparams)
+        self.all_dataset = denormalize_primitive.produce(inputs = self.all_dataset).value
+        self.extra_primitive.add("denormalize")
+        self.dump_primitive(denormalize_primitive, "denormalize")
+        if "data_augmentation" in self.config.problem.keys():
+            self.all_dataset = self.do_data_augmentation(self.all_dataset)
+        # load templates
         self.load_templates()
+
+
 
     def load_pipe_runtime(self):
         dir = os.path.expanduser(self.config.output_dir + '/pipelines_fitted')
@@ -1052,7 +1183,7 @@ class Controller:
         will automatically remove empty targets in training
         """
         problem = self.config.problem_metadata.query(())
-        
+
         # do not remove columns for cluster dataset!
         if problem['about']['taskType'] == "clustering":
             return dataset
@@ -1258,7 +1389,6 @@ class Controller:
 
         self._logger.info("[INFO] testing data")
 
-        self.all_dataset = self.auto_regress_convert_and_add_metadata(self.all_dataset)
         run_test.produce(inputs=[self.all_dataset])
 
         # try:
@@ -1315,7 +1445,6 @@ class Controller:
         # pprint(self.test_dataset.head())
 
         # pipeline_load.runtime.produce(inputs=[self.test_dataset])
-        self.all_dataset = self.auto_regress_convert_and_add_metadata(self.all_dataset)
         # runtime.add_target_columns_metadata(self.all_dataset, self.config.problem_metadata)
         run_test.produce(inputs=[self.all_dataset])
 
@@ -1390,10 +1519,10 @@ class Controller:
         """
         Generate and train pipelines.
         """
+        logging.getLogger("d3m").setLevel(logging.ERROR)
         if not self.template:
             return Status.PROBLEM_NOT_IMPLEMENT
 
-        self._check_and_set_dataset_metadata()
         self.generate_dataset_splits()
 
         # FIXME) come up with a better way to implement this part. The fork does not provide a way
@@ -1439,12 +1568,12 @@ class Controller:
             self._logger.info("Starting horizontal tuning")
             self.horizontal_tuning("d3m.primitives.sklearn_wrap.SKBernoulliNB")
 
+        self.write_training_results()
         return Status.OK
 
     def generate_dataset_splits(self):
 
         self.all_dataset = self.remove_empty_targets(self.all_dataset)
-        self.all_dataset = self.auto_regress_convert_and_add_metadata(self.all_dataset)
         from dsbox.datapreprocessing.cleaner.splitter import Splitter, SplitterHyperparameter
 
         hyper_sampler = SplitterHyperparameter.defaults()
@@ -1454,17 +1583,14 @@ class Controller:
         sampler.set_training_data(inputs = self.all_dataset)
         sampler.fit()
         train_split = sampler.produce(inputs = self.all_dataset)
-        self.all_dataset = train_split.value
 
-        # pickle this fitted sampler for furture use in pipelines
-        sampler_pickle_file_loc = os.path.join(os.environ["D3MLOCALDIR"], "splitter.pkl")
-        with open(sampler_pickle_file_loc, "wb") as f:
-            pickle.dump(sampler, f)
-
-        hyperparams_now = sampler.hyperparams.values_to_json_structure()
-        sampler_hyperparams_file_loc = os.path.join(os.environ["D3MLOCALDIR"], "splitter.json")
-        with open(sampler_hyperparams_file_loc, "w") as f:
-            json.dump(hyperparams_now, f)
+        _, original_df = d3m_utils.get_tabular_resource(dataset=self.all_dataset, resource_id=None)
+        _, split_df = d3m_utils.get_tabular_resource(dataset=train_split.value, resource_id=None)
+        if original_df.shape != split_df.shape:
+            self.extra_primitive.add("splitter")
+            self.all_dataset = train_split.value
+            # pickle this fitted sampler for furture use in pipelines
+            self.dump_primitive(sampler,"splitter")
 
         '''
         # old method here

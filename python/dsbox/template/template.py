@@ -1,10 +1,10 @@
 import copy
-import numpy as np
+import typing
 
 from itertools import product
 from pprint import pprint
 
-from d3m import exceptions, utils, index as d3m_index
+from d3m import container, exceptions, utils, index as d3m_index
 from d3m.metadata import base as metadata_base
 from d3m.metadata.pipeline import Pipeline, PrimitiveStep
 from .configuration_space import SimpleConfigurationSpace, ConfigurationPoint
@@ -41,7 +41,7 @@ class DSBoxTemplate():
         self.need_add_reference = False
 
         # Need to be set by subclass inheriting DSBoxTemplate
-        # self.template = ""
+        self.template = {}
 
     def __str__(self):
         if hasattr(self, 'template') and 'name' in getattr(self, 'template'):
@@ -52,23 +52,7 @@ class DSBoxTemplate():
     def __repr__(self):
         return self.__str__()
 
-    def add_stepcheck(self):
-        check = np.zeros(shape=(len(self.primitive), len(self.primitive))).astype(int)
-        for i, v in enumerate(self.primitive.keys()):
-            inputs = self.primitive[v].metadata.query()["primitive_code"]["class_type_arguments"][
-                "Inputs"]
-            for j, u in enumerate(self.primitive.keys()):
-                outputs = self.primitive[u].metadata.query()["primitive_code"]["class_type_arguments"]["Outputs"]
-                try:
-                    inp = inputs.__args__
-                    if outputs in inp:
-                        check[i][j] = 1
-                except Exception:
-                    if inputs == outputs:
-                        check[i][j] = 1
-        self.stepcheck = check
-
-    def to_pipeline(self, configuration_point: ConfigurationPoint) -> Pipeline:
+    def to_pipeline(self, context: str, configuration_point: ConfigurationPoint) -> Pipeline:
         """
         converts the configuration point to the executable pipeline based on
         ta2 competitions format
@@ -93,21 +77,16 @@ class DSBoxTemplate():
                 }
             }
             dstemp = DSBoxTemplate(...)
-            dstemp.to_pipeline(configuration_point)
+            dstemp.to_pipeline('TESTING', configuration_point)
         """
-        # print("*" * 20)
-        # print("[INFO] to_pipeline:")
-        # pprint(configuration_point)
-        # return self._to_pipeline(configuration_point)
 
         # add inputs to the configuration point
         ioconf = self.add_inputs_to_confPonit(configuration_point)
 
         # binding = configuration_point
         binding, sequence = self.add_intermediate_type_casting(ioconf)
-        # print("[INFO] Binding:")
-        # pprint(binding)
-        return self._to_pipeline(binding, sequence)
+
+        return self._to_pipeline(context, binding, sequence)
 
     def add_inputs_to_confPonit(self,
                                 configuration_point: ConfigurationPoint) -> ConfigurationPoint:
@@ -119,7 +98,7 @@ class DSBoxTemplate():
 
     def add_intermediate_type_casting(
             self, configuration_point: ConfigurationPoint) \
-            -> ConfigurationPoint:
+            -> typing.List:  # list of ConfigurationPoint and list
         """
         This method parses the information in the template and adds the
         necessary type casting primitives in the pipeline. These type
@@ -154,6 +133,9 @@ class DSBoxTemplate():
                 if in_arg == "template_input":
                     continue
 
+                # if list, assume it's okay
+                if in_primitive_value is container.List and type(in_arg) is list:
+                    continue
                 # Check if the input name is valid and available in template
                 if in_arg not in binding:
                     print("[ERROR] step {} input {} is not available!".format(step_num, in_arg))
@@ -224,27 +206,37 @@ class DSBoxTemplate():
                 return True
         return False
 
-    def bind_primitive_IO(self, primitive: PrimitiveStep, *templateIO):
+    def bind_primitive_IO(self, primitive: PrimitiveStep, templateIO):
         # print(templateIO)
-        if len(templateIO) > 0:
+        if len(templateIO) == 1:
             primitive.add_argument(
                 name="inputs",
                 argument_type=metadata_base.ArgumentType.CONTAINER,
                 data_reference=templateIO[0])
-
-        if len(templateIO) > 1:
-            arguments = primitive.primitive.metadata.query()['primitive_code']['instance_methods'][
+        # if len(templateIO) > 1:
+        else:
+            arguments_train = primitive.primitive.metadata.query()['primitive_code']['instance_methods'][
                 'set_training_data']['arguments']
-            if "outputs" in arguments:
-                # Some primitives (e.g. GreedyImputer) require "outputs", while others do
-                # not (e.g. MeanImputer)
-                primitive.add_argument("outputs", metadata_base.ArgumentType.CONTAINER,
-                                       templateIO[1])
-        if len(templateIO) > 2:
-            raise exceptions.InvalidArgumentValueError(
-                "Should be less than 3 arguments!")
+            arguments_produce = primitive.primitive.metadata.query()['primitive_code']['instance_methods'][
+                'produce']['arguments']
 
-    def _to_pipeline(self, binding, sequence) -> Pipeline:
+            arguments = []
+            added = set()
+            for t in arguments_train:
+                arguments.append(t)
+                added.add(t)
+            for p in arguments_produce:
+                if p not in added and p != 'timeout' and p != 'iterations':
+                    arguments.append(p)
+                    added.add(p)
+            for index, argument in enumerate(arguments):
+                primitive.add_argument(
+                    name=argument,
+                    argument_type=metadata_base.ArgumentType.CONTAINER,
+                    data_reference=templateIO[index]
+                )
+
+    def _to_pipeline(self, context, binding, sequence) -> Pipeline:
         """
         Args:
             binding:
@@ -258,9 +250,14 @@ class DSBoxTemplate():
         # pprint(binding)
         # print(sequence)
         # print("[INFO] list:",list(map(str, metadata_base.Context)))
-        pipeline = Pipeline(name=self.template['name'] + ":" + str(id(binding)),
-                            context=metadata_base.Context.PRETRAINING,
-                            description=self.description_info)  # 'PRETRAINING'
+        pipeline = Pipeline(
+            name=self.template['name'] + ":" + str(id(binding)),
+            context=context,
+            description=self.description_info,
+            source={
+                'name': 'ISI',
+                'contact': 'mailto:kyao@isi.edu'
+            })
         templateinput = pipeline.add_input("input dataset")
 
         # save temporary output for another step to take as input
@@ -290,9 +287,39 @@ class DSBoxTemplate():
                 raise exceptions.InvalidArgumentValueError("Error, can't find the primitive : ",
                                                            primitive_name)
 
+            if primitive_name == "d3m.primitives.data_augmentation.datamart_augmentation.DSBOX":
+                hyper = binding[step]["hyperparameters"]
+                primitive_step.add_argument("inputs1",metadata_base.ArgumentType.CONTAINER,"steps.0.produce")
+                primitive_step.add_argument("inputs2",metadata_base.ArgumentType.CONTAINER, templateinput)
+                for hyperName in hyper.keys():
+                    primitive_step.add_hyperparameter(
+                        # argument_type should be fixed type not the type of the data!!
+                        name=hyperName, argument_type=self.argmentsmapper["value"],
+                        data=hyper[hyperName])
+                # pre v2019.1.21
+                pipeline.add_step(primitive_step)
+                primitive_step.add_output("produce")
+                outputs[step] = f'steps.{primitive_step.index}.produce'
+                continue
+
+            if primitive_name == "d3m.primitives.data_augmentation.datamart_query.DSBOX":
+                primitive_step.add_argument("inputs",metadata_base.ArgumentType.CONTAINER, templateinput)
+                hyper = binding[step]["hyperparameters"]
+                for hyperName in hyper.keys():
+                    primitive_step.add_hyperparameter(
+                        # argument_type should be fixed type not the type of the data!!
+                        name=hyperName, argument_type=self.argmentsmapper["value"],
+                        data=hyper[hyperName])
+                # pre v2019.1.21
+                pipeline.add_step(primitive_step)
+                primitive_step.add_output("produce")
+                outputs[step] = f'steps.{primitive_step.index}.produce'
+                continue
+
+
             if binding[step]["hyperparameters"] != {}:
                 hyper = binding[step]["hyperparameters"]
-                for hyperName in hyper:
+                for hyperName in hyper.keys():
                     primitive_step.add_hyperparameter(
                         # argument_type should be fixed type not the type of the data!!
                         name=hyperName, argument_type=self.argmentsmapper["value"],
@@ -301,15 +328,20 @@ class DSBoxTemplate():
             if self.need_add_reference and primitive_name == 'd3m.primitives.data_transformation.construct_predictions.DataFrameCommon':
                 primitive_step.add_argument("reference",metadata_base.ArgumentType.CONTAINER,"steps.0.produce")
 
-            templateIO = binding[step]["inputs"]
-
             # first we need to extract the types of the primtive's input and
             # the generators's output type.
             # then we need to compare those and in case we have different
             # types, add the intermediate type caster in the pipeline
             # print(outputs)
-            self.bind_primitive_IO(primitive_step,
-                                   *map(lambda io: outputs[io], templateIO))
+            step_parameters = binding[step]["inputs"]
+            step_arguments = []
+            for parameter in step_parameters:
+                if type(parameter) is list:
+                    argument = [outputs[subparam] for subparam in parameter]
+                else:
+                    argument = outputs[parameter]
+                step_arguments.append(argument)
+            self.bind_primitive_IO(primitive_step, step_arguments)
             pipeline.add_step(primitive_step)
             # pre v2019.1.21
             # outputs[step] = primitive_step.add_output("produce")
@@ -329,7 +361,7 @@ class DSBoxTemplate():
         conf_space = {}
         for each_step in steps:
             name = each_step["name"]
-            values = []
+            values: list = []
 
             # description: typing.Dict
             for description in each_step["primitives"]:
@@ -340,7 +372,7 @@ class DSBoxTemplate():
                         "primitive": description,
                         "hyperparameters": {}
                     })
-                # one primitive with hyperparamters
+                # one primitive with hyperparameters
                 elif isinstance(description, dict):
                     value_step += self.description_to_configuration(description)
                 # list of primitives
@@ -364,32 +396,43 @@ class DSBoxTemplate():
         value = []
         # if the desciption is an dictionary:
         # it maybe a primitive with hyperparameters
+
         if "primitive" not in description:
             print("Error: Wrong format of the configuration space data: "
                   "No primitive name found!")
-        else:
-            if "hyperparameters" not in description:
-                description["hyperparameters"] = {}
+            return value
 
-            # go through the hypers and if anyone has empty value just remove it
-            hyperDict = dict(filter(lambda kv: len(kv[1]) > 0,
-                                    description["hyperparameters"].items()))
-
-            # go through the hyper values for single tuples and convert them
-            # to a list with single tuple element
-            hyperDict = dict(map(
-                lambda kv:
-                (kv[0], [kv[1]]) if isinstance(kv[1], tuple) else (kv[0], kv[1]),
-                hyperDict.items()
-            ))
-
-            # iterate through all combinations of the hyperparamters and add
-            # each as a separate configuration point to the space
-            for hyper in _product_dict(hyperDict):
-                value.append({
+        # 2019.3.25 update: Because the query of datamart is different,
+        #                   We use dict as a hyperparameter, we have to do some special change here
+        if description["primitive"] == "d3m.primitives.data_augmentation.datamart_query.DSBOX":
+            value.append({
                     "primitive": description["primitive"],
-                    "hyperparameters": hyper,
+                    "hyperparameters": description["hyperparameters"],
                 })
+            return value
+
+        if "hyperparameters" not in description:
+            description["hyperparameters"] = {}
+
+        # go through the hypers and if anyone has empty value just remove it
+        hyperDict = dict(filter(lambda kv: len(kv[1]) > 0,
+                                description["hyperparameters"].items()))
+
+        # go through the hyper values for single tuples and convert them
+        # to a list with single tuple element
+        hyperDict = dict(map(
+            lambda kv:
+            (kv[0], [kv[1]]) if isinstance(kv[1], tuple) else (kv[0], kv[1]),
+            hyperDict.items()
+        ))
+
+        # iterate through all combinations of the hyperparameters and add
+        # each as a separate configuration point to the space
+        for hyper in _product_dict(hyperDict):
+            value.append({
+                "primitive": description["primitive"],
+                "hyperparameters": hyper,
+            })
         return value
 
     def get_target_step_number(self):

@@ -35,6 +35,9 @@ def serve():
         default=[])
     parser.add_argument(
         '--load-pipeline', help='Load using fitted pipeline ID')
+    parser.add_argument(
+        '--ta2ta3', action='store_true', help='Run in interactive TA3 mode with no timeout'
+        )
     args = parser.parse_args()
 
     print(args)
@@ -48,7 +51,7 @@ def serve():
         print('volume: {} to {}'.format(host_dir, container_dir))
 
     config = DsboxConfig()
-    config.load()
+    config.load(ta2ta3_mode=args.ta2ta3)
 
     print(config)
 

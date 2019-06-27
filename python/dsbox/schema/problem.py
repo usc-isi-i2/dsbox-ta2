@@ -9,7 +9,7 @@ class OptimizationType(Enum):
 def optimization_type(metric: PerformanceMetric) -> OptimizationType:
     if metric in [PerformanceMetric.MEAN_SQUARED_ERROR,
                   PerformanceMetric.ROOT_MEAN_SQUARED_ERROR,
-                  PerformanceMetric.ROOT_MEAN_SQUARED_ERROR_AVG,
+                  # PerformanceMetric.ROOT_MEAN_SQUARED_ERROR_AVG,
                   PerformanceMetric.MEAN_ABSOLUTE_ERROR,
                   PerformanceMetric.R_SQUARED]:
         return OptimizationType.MINIMIZE
