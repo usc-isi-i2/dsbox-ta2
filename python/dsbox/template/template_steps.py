@@ -293,7 +293,7 @@ class TemplateSteps:
                 "name": "encoder_step",
                 "primitives": [
                     "d3m.primitives.data_preprocessing.encoder.DSBOX",
-                    "d3m.primitives.data_cleaning.labeler.DSBOX"
+                    "d3m.primitives.data_cleaning.label_encoder.DSBOX"
                 ],
                 "inputs": ["clean_step"]
             },
@@ -335,7 +335,6 @@ class TemplateSteps:
 
     @staticmethod
     def dsbox_feature_selector(ptype, first_input='impute_step', second_input='extract_target_step'):
-        import numpy as np
         '''
         dsbox feature selection steps for classification and regression, lead to feature selector steps
         '''
@@ -607,7 +606,7 @@ class TemplateSteps:
                     "name": encoded_name,
                     "primitives": [
                         {"primitive": "d3m.primitives.data_preprocessing.encoder.DSBOX", },
-                        {"primitive": "d3m.primitives.data_cleaning.labeler.DSBOX", },
+                        {"primitive": "d3m.primitives.data_cleaning.label_encoder.DSBOX", },
                         # {"primitive": "d3m.primitives.data_preprocessing.do_nothing.DSBOX", },
                     ],
                     "inputs": ["encode_text_step"]

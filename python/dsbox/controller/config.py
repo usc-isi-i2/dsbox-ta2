@@ -14,7 +14,8 @@ class DsboxConfig:
     Class for loading and managing DSBox configurations.
 
     The following variables are defined in D3M OS environment
-    * d3m_run: Run either in 'ta2' for 'ta2ta3' mode (os.environ['D3MRun'])
+    * d3m_run: valid values are 'ta2' or 'ta2ta3' (os.environ['D3MRun'])
+    * d3m_context: values are 'TESTING', 'EVALUATION', 'PRODUCTION' (os.environ['D3MCONTEXT'])
     * input_dir: Top-level directory for all inputs (os.environ['D3MINPUTDIR'])
     * problem_schema: File path to problemDoc.json (os.environ['D3MPROBLEMPATH'])
     * output_dir: Top-level directory for all outputs (os.environ['D3MOUTPUTDIR'])
@@ -26,8 +27,8 @@ class DsboxConfig:
 
     D3M output directory structure:
     * pipelines_ranked (pipelines_ranked_dir) - a directory with ranked pipelines to be
-      evaluated, named <pipeline id>.json; these files should have additional field
-      pipeline_rank
+      evaluated, named <pipeline id>.json; Each json file should have a corresponding
+      <pipeline id>.rank file
     * pipelines_scored (pipelines_scored_dir) - a directory with successfully scored
       pipelines during the search, named <pipeline id>.json
     * pipelines_searched (pipelines_searched_dir) - a directory of full pipelines which
@@ -78,8 +79,15 @@ class DsboxConfig:
         self.pipeline_runs_dir: str = ''
         self.additional_inputs_dir: str = ''
 
+        ## D3M TA3 SearchSolutionsRequest parameters
+        # Number of ranked solution to return
+        self.rank_solutions_limit: int = 0
+        # time bound on individual pipeline run
+        self.time_bound_run: int = 0
+
         # DSBox output directories
         self.dsbox_output_dir: str = ''
+        self.dsbox_scratch_dir: str = ''
         self.log_dir: str = ''
         self.dfs_log_dir: str = ''
 
@@ -141,6 +149,7 @@ class DsboxConfig:
                 print(f'{key}={value}')
 
         self.d3m_run = os.environ['D3MRUN']
+        self.d3m_context = os.environ.get('D3MCONTEXT', default='TEST')
         self.input_dir = os.environ['D3MINPUTDIR']
         self.output_dir = os.environ['D3MOUTPUTDIR']
         self.local_dir = os.environ['D3MLOCALDIR']
@@ -154,6 +163,7 @@ class DsboxConfig:
             self.cpu = 1
         if 'D3MRAM' in os.environ:
             self.ram = os.environ['D3MRAM']
+
         if ta2ta3_mode:
             # Timeout should not be used in ta2ta3_mode. Set to a large number
             self.timeout = 9999999
@@ -170,6 +180,8 @@ class DsboxConfig:
                 self.problem_schema = os.environ['D3MPROBLEMPATH']
             else:
                 print('D3MPROBLEMPATH environment variable not defined.')
+        self.datamart_nyu_url = os.environ.get('DATAMART_NYU_URL', default='')
+        self.datamart_isi_url = os.environ.get('DATAMART_ISI_URL', default='')
 
     def _load_dsbox(self):
         self._load_logging()
@@ -231,6 +243,8 @@ class DsboxConfig:
         # DSBox directories
         self.dsbox_output_dir = self.output_dir
         self.pipelines_fitted_dir = os.path.join(self.dsbox_output_dir, 'pipelines_fitted')
+        self.pipelines_info_dir = os.path.join(self.dsbox_output_dir, 'pipelines_info')
+        self.dsbox_scratch_dir = os.path.join(self.dsbox_output_dir, 'scratch')
         self.log_dir = os.path.join(self.dsbox_output_dir, 'logs')
         self.dfs_log_dir = os.path.join(self.log_dir, 'dfs')
 
@@ -239,7 +253,8 @@ class DsboxConfig:
                 self.pipelines_ranked_dir, self.pipelines_scored_dir,
                 self.pipelines_searched_dir, self.subpipelines_dir, self.pipeline_runs_dir,
                 self.additional_inputs_dir, self.local_dir,
-                self.dsbox_output_dir, self.pipelines_fitted_dir, self.log_dir, self.dfs_log_dir]:
+                self.dsbox_output_dir, self.pipelines_fitted_dir, self.pipelines_info_dir,
+                self.log_dir, self.dfs_log_dir, self.dsbox_scratch_dir]:
             if not os.path.exists(directory):
                 os.mkdir(directory)
 

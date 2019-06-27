@@ -41,6 +41,7 @@ class Mode(enum.IntEnum):
     CROSS_VALIDATION_MODE = 1
     TRAIN_TEST_MODE = 2
 
+
 class ConfigurationSpaceBaseSearch(typing.Generic[T]):
     """
     Search configuration space on dimension at a time.
@@ -60,15 +61,16 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
            ( ('partial', 'whole'), ('bootstrap', 'cross-validation'))
     """
 
-    def __init__(self, template: DSBoxTemplate,
+    def __init__(self, context: str, template: DSBoxTemplate,
                  configuration_space: ConfigurationSpace[T],
                  problem: Metadata, train_dataset1: Dataset,
                  train_dataset2: typing.List[Dataset], test_dataset1: Dataset,
                  test_dataset2: typing.List[Dataset], all_dataset: Dataset,
                  ensemble_tuning_dataset: Dataset,
                  performance_metrics: typing.List[typing.Dict], output_directory: str,
-                 log_dir: str, extra_primitive = None) -> None:
+                 log_dir: str, extra_primitive=None) -> None:
 
+        self.context = context
         self.template = template
         self.task_type = self.template.template["taskType"]
 
@@ -191,7 +193,7 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
                   dump2disk: bool = True) -> typing.Dict:
 
         start_time = time.time()
-        pipeline = self.template.to_pipeline(configuration)
+        pipeline = self.template.to_pipeline(self.context, configuration)
         # Todo: update ResourceManager to run pipeline:  ResourceManager.add_pipeline(pipeline)
         # initlize repeat_time_level
         self._repeat_times_level_2 = 1
@@ -600,51 +602,6 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
         test_pipeline_metrics2 = calculate_score(test_ground_truth, pipeline_prediction,
             self.performance_metrics, self.task_type, SpecialMetric().regression_metric)
 
-        '''
-        # should not use this old test method anymore
-        test_pipeline_metrics = list()
-        for metric_description in self.performance_metrics:
-            metricDesc = PerformanceMetric.parse(metric_description['metric'])
-            metric: typing.Callable = metricDesc.get_function()
-            params: typing.Dict = metric_description['params']
-            # pass the tesk picle test!
-            if metric_description['metric'] == "objectDetectionAP":
-                return
-            try:
-                if metric_description["metric"] in SpecialMetric().regression_metric:
-                    # if the test_ground_truth do not have results
-                    if test_ground_truth.iloc[0, -1] == '':
-                        test_ground_truth.iloc[:, -1] = 0
-                    test_pipeline_metrics.append({
-                        'metric': metric_description['metric'],
-                        'value': metric(
-                            test_ground_truth.iloc[:, -1].astype(float),
-                            pipeline_prediction.iloc[:, -1].astype(float),
-                            **params
-                        )
-                    })
-                # elif metric_description['metric'] == objectDetectionAP:
-                #     test_pipeline_metrics.append({
-                #         'metric': metric_description['metric'],
-                #         'value': metric(
-                #             test_ground_truth.iloc[:, -1].astype(float),
-                #             pipeline_prediction.iloc[:,2:].astype(float),
-                #             **params
-                #         )
-                #     })
-                else:
-                    test_pipeline_metrics.append({
-                        'metric': metric_description['metric'],
-                        'value': metric(
-                            test_ground_truth.iloc[:, -1].astype(str),
-                            pipeline_prediction.iloc[:, -1].astype(str),
-                            **params
-                        )
-                    })
-            except Exception:
-                raise NotSupportedError(
-                    '[ERROR] metric calculation failed in test pickled pipeline')
-        '''
         _logger.info(f'=== original:{test_metrics}')
         # _logger.info(f'=== test:{test_pipeline_metrics}')
         _logger.info(f'=== test2:{test_pipeline_metrics2}')

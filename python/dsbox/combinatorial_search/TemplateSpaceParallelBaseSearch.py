@@ -43,8 +43,8 @@ class TemplateSpaceParallelBaseSearch(TemplateSpaceBaseSearch[T]):
 
     """
 
-    def __init__(self, num_proc):
-        super().__init__(is_multiprocessing=True)
+    def __init__(self, context: str, num_proc):
+        super().__init__(context, is_multiprocessing=True)
         self.job_manager = DistributedJobManager(proc_num=num_proc)
         self.timeout_sec = None
 
