@@ -67,6 +67,7 @@ class Controller:
         # self.task_subtype: TaskSubtype = None
         # self.problem_doc_metadata: Metadata = None
         self.problem_info = {}
+        self.is_privileged_data_problem = False
 
         # Dataset
         # self.dataset_schema_file: str = ""
@@ -145,81 +146,39 @@ class Controller:
 
     def _check_and_set_dataset_metadata(self) -> None:
         """
-        The function used to change the metadata of the target predictions to be "TrueTarget"
+        Update metadata of dataframe columns based on problem doc specification. Columns
+        changed include target columns and privileged data columns.
         """
-        resource_id = self.config.problem['inputs'][0]['targets'][0]['resource_id']
-        target_column_id = self.config.problem['inputs'][0]['targets'][0]['column_index']
-        column_semantic_types = list(set(self.all_dataset.metadata.query((resource_id, ALL_ELEMENTS, target_column_id))['semantic_types']).union({
-            'https://metadata.datadrivendiscovery.org/types/Target',
-            'https://metadata.datadrivendiscovery.org/types/TrueTarget'
-            }))
-        self.all_dataset.metadata = self.all_dataset.metadata.update(
-            (resource_id, ALL_ELEMENTS, target_column_id), {'semantic_types': column_semantic_types})
+
+        for dataset in self.config.problem['inputs']:
+            if 'targets' not in dataset:
+                continue
+            for info in dataset['targets']:
+                resource_id = info['resource_id']
+                column_index = info['column_index']
+                column_semantic_types = self.all_dataset.metadata.query((resource_id, ALL_ELEMENTS, column_index))['semantic_types']
+                column_semantic_types = list(set(column_semantic_types).union({
+                    'https://metadata.datadrivendiscovery.org/types/Target',
+                    'https://metadata.datadrivendiscovery.org/types/TrueTarget'
+                }))
+                self.all_dataset.metadata = self.all_dataset.metadata.update(
+                    (resource_id, ALL_ELEMENTS, column_index), {'semantic_types': column_semantic_types})
+
+        for dataset in self.config.problem['inputs']:
+            if 'privileged_data' not in dataset:
+                continue
+            self.is_privileged_data_problem = True
+            for info in dataset['privileged_data']:
+                resource_id = info['resource_id']
+                column_index = info['column_index']
+                column_semantic_types = self.all_dataset.metadata.query((resource_id, ALL_ELEMENTS, column_index))['semantic_types']
+                column_semantic_types = list(set(column_semantic_types).union({
+                    'https://metadata.datadrivendiscovery.org/types/PrivilegedData'
+                }))
+                self.all_dataset.metadata = self.all_dataset.metadata.update(
+                    (resource_id, ALL_ELEMENTS, column_index), {'semantic_types': column_semantic_types})
+
         return
-        # Need to make sure the Target and TrueTarget column semantic types are set
-        # if self.config.task_type == TaskType.CLASSIFICATION or self.config.task_type == TaskType.REGRESSION:
-
-        #     # start from last column, since typically target is the last column
-        #     for index in range(
-        #             self.all_dataset.metadata.query((resource_id, ALL_ELEMENTS))['dimension']['length'] - 1,
-        #             -1, -1):
-        #         column_semantic_types = self.all_dataset.metadata.query(
-        #             (resource_id, ALL_ELEMENTS, index))['semantic_types']
-        #         if ('https://metadata.datadrivendiscovery.org/types/Target' in column_semantic_types
-        #                 and 'https://metadata.datadrivendiscovery.org/types/TrueTarget' in
-        #                 column_semantic_types):
-        #             return
-
-        #     # If not set, use sugested target column
-        #     for index in range(
-        #             self.all_dataset.metadata.query((resource_id, ALL_ELEMENTS))['dimension']['length'] - 1,
-        #             -1, -1):
-        #         column_semantic_types = self.all_dataset.metadata.query(
-        #             (resource_id, ALL_ELEMENTS, index))['semantic_types']
-        #         if 'https://metadata.datadrivendiscovery.org/types/SuggestedTarget' in \
-        #                 column_semantic_types:
-        #             column_semantic_types = list(column_semantic_types) + [
-        #                 'https://metadata.datadrivendiscovery.org/types/Target',
-        #                 'https://metadata.datadrivendiscovery.org/types/TrueTarget']
-        #             self.all_dataset.metadata = self.all_dataset.metadata.update(
-        #                 (resource_id, ALL_ELEMENTS, index), {'semantic_types': column_semantic_types})
-        #             return
-
-        #     raise InvalidArgumentValueError(
-        #         'At least one column should have semantic type SuggestedTarget')
-
-    # def _create_output_directory(self, config):
-    #     """
-    #     Create output sub-directories based on Summer 2018 evaluation layout.
-
-    #     For the Summer 2018 evaluation the top-level output dir is '/output'
-    #     """
-    #     #### Official config entry for Evaluation
-    #     if 'pipeline_logs_root' in config:
-    #         self.output_pipelines_dir = os.path.abspath(config['pipeline_logs_root'])
-    #     if 'executables_root' in config:
-    #         self.output_executables_dir = os.path.abspath(config['executables_root'])
-    #     if 'temp_storage_root' in config:
-    #         self.output_supporting_files_dir = os.path.abspath(config['temp_storage_root'])
-    #     #### End: Official config entry for Evaluation
-
-    #     self.output_directory = os.path.abspath(config['output_root'])
-    #     self.output_logs_dir = os.path.abspath(config['logs_root'])
-
-    #     # Make directories if they do not exist
-    #     if not os.path.exists(self.output_directory):
-    #         os.makedirs(self.output_directory)
-
-    #     for path in [self.output_pipelines_dir, self.output_executables_dir,
-    #                  self.output_supporting_files_dir, self.output_logs_dir]:
-    #         if not os.path.exists(path) and path != '':
-    #             os.makedirs(path)
-
-    #     self._log_init()
-    #     self._logger.info('Top level output directory: %s' % self.output_directory)
-    #     considered_root = os.path.join(os.path.dirname(self.output_pipelines_dir),
-    #                                    'pipelines_considered')
-    #     self._logger.info('Pipelines Considered output directory: %s' % considered_root)
 
     def _load_schema(self, *, is_ta3=False):
         # Problem
@@ -598,7 +557,7 @@ class Controller:
     """
     def initialize(self, config: DsboxConfig):
         '''
-        This method should called as soon as possible. Need to spawn all processes before grpc connection.
+        This method should be called as soon as possible. Need to spawn all processes before grpc connection.
         '''
         self.config = config
 
@@ -1118,6 +1077,9 @@ class Controller:
         self.load_templates()
 
     def initialize_from_ta3(self, config: DsboxConfig):
+        """
+        This function for TA3 GRPC connection, which is official D3M evaluation mechanism.
+        """
         self.config = config
         self._load_schema(is_ta3=True)
         self._log_init()
@@ -1136,8 +1098,8 @@ class Controller:
         # first apply denormalize on input dataset
         from common_primitives.denormalize import Hyperparams as hyper_denormalize, DenormalizePrimitive
         denormalize_hyperparams = hyper_denormalize.defaults()
-        denormalize_primitive = DenormalizePrimitive(hyperparams = denormalize_hyperparams)
-        self.all_dataset = denormalize_primitive.produce(inputs = self.all_dataset).value
+        denormalize_primitive = DenormalizePrimitive(hyperparams=denormalize_hyperparams)
+        self.all_dataset = denormalize_primitive.produce(inputs=self.all_dataset).value
         self.extra_primitive.add("denormalize")
         self.dump_primitive(denormalize_primitive, "denormalize")
         if "data_augmentation" in self.config.problem.keys():
