@@ -25,6 +25,7 @@ from dsbox.combinatorial_search.BanditDimensionalSearch import BanditDimensional
 from dsbox.combinatorial_search.MultiBanditSearch import MultiBanditSearch
 from dsbox.combinatorial_search.search_utils import get_target_columns
 from dsbox.controller.config import DsboxConfig
+from dsbox.schema import ColumnRole, SpecializedProblem
 from dsbox.pipeline.fitted_pipeline import FittedPipeline
 from dsbox.pipeline.ensemble_tuning import EnsembleTuningPipeline, HorizontalTuningPipeline
 from dsbox.template.library import TemplateLibrary
@@ -67,6 +68,7 @@ class Controller:
         # self.task_subtype: TaskSubtype = None
         # self.problem_doc_metadata: Metadata = None
         self.problem_info = {}
+        self.specialized_problem: SpecializedProblem = SpecializedProblem.NONE
         self.is_privileged_data_problem = False
 
         # Dataset
@@ -150,33 +152,49 @@ class Controller:
         changed include target columns and privileged data columns.
         """
 
+        # NOTICE: Should follow d3m.runtime.Runtime._mark_columns()
+
+        # Remove suggest target from all columns, to avoid confusion
+        for resource_id, resource in self.all_dataset.items():
+            indices = self.all_dataset.metadata.list_columns_with_semantic_types(ColumnRole.SUGGESTED_TARGET)
+            for column_index in indices:
+                selector = (resource_id, ALL_ELEMENTS, column_index)
+
+                column_semantic_types: list = self.all_dataset.metadata.query(selector)['semantic_types']
+                column_semantic_types.remove(ColumnRole.SUGGESTED_TARGET)
+                self.all_dataset.metadata = self.all_dataset.metadata.update(
+                    selector, {'semantic_types': column_semantic_types})
+                self._logger.debug(f'Removing suggest target tag for {selector}')
+
+        # Set true target column(s)
         for dataset in self.config.problem['inputs']:
             if 'targets' not in dataset:
                 continue
             for info in dataset['targets']:
-                resource_id = info['resource_id']
-                column_index = info['column_index']
-                column_semantic_types = self.all_dataset.metadata.query((resource_id, ALL_ELEMENTS, column_index))['semantic_types']
-                column_semantic_types = list(set(column_semantic_types).union({
-                    'https://metadata.datadrivendiscovery.org/types/Target',
-                    'https://metadata.datadrivendiscovery.org/types/TrueTarget'
-                }))
-                self.all_dataset.metadata = self.all_dataset.metadata.update(
-                    (resource_id, ALL_ELEMENTS, column_index), {'semantic_types': column_semantic_types})
+                selector = (info['resource_id'], ALL_ELEMENTS, info['column_index'])
 
+                self.all_dataset.metadata = self.all_dataset.metadata.add_semantic_type(selector, ColumnRole.TRUE_TARGET)
+                self.all_dataset.metadata = self.all_dataset.metadata.add_semantic_type(selector, ColumnRole.TARGET)
+
+                # Add suggested target, because primitives like LUPI still using suggested target
+                self.all_dataset.metadata = self.all_dataset.metadata.add_semantic_type(selector, ColumnRole.SUGGESTED_TARGET)
+
+                # Target is not attribute
+                self.all_dataset.metadata = self.all_dataset.metadata.remove_semantic_type(selector, ColumnRole.ATTRIBUTE)
+
+                self._logger.debug(f'Adding true target tag for {selector}')
+
+        # Set privileged data columns
         for dataset in self.config.problem['inputs']:
             if 'privileged_data' not in dataset:
                 continue
-            self.is_privileged_data_problem = True
+            self.specialized_problem = SpecializedProblem.PRIVILEGED_INFORMATION
+            self._logger.debug(f'Specialized problem: {self.specialized_problem}')
             for info in dataset['privileged_data']:
-                resource_id = info['resource_id']
-                column_index = info['column_index']
-                column_semantic_types = self.all_dataset.metadata.query((resource_id, ALL_ELEMENTS, column_index))['semantic_types']
-                column_semantic_types = list(set(column_semantic_types).union({
-                    'https://metadata.datadrivendiscovery.org/types/PrivilegedData'
-                }))
-                self.all_dataset.metadata = self.all_dataset.metadata.update(
-                    (resource_id, ALL_ELEMENTS, column_index), {'semantic_types': column_semantic_types})
+                selector = (info['resource_id'], ALL_ELEMENTS, info['column_index'])
+
+                self.all_dataset.metadata = self.all_dataset.metadata.add_semantic_type(selector, ColumnRole.PRIVILEGED_DATA)
+                self._logger.debug(f'Adding privileged info tag for {selector}')
 
         return
 
@@ -1131,7 +1149,8 @@ class Controller:
     def load_templates(self) -> None:
         self.template = self.template_library.get_templates(self.config.task_type,
                                                             self.config.task_subtype,
-                                                            self.taskSourceType)
+                                                            self.taskSourceType,
+                                                            self.specialized_problem)
         # find the maximum dataset split requirements
         for each_template in self.template:
             for each_step in each_template.template['steps']:
