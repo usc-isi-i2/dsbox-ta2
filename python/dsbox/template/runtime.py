@@ -92,8 +92,6 @@ class Runtime(runtime_base.Runtime):
             # dsbox parameters
             fitted_pipeline_id: str = None, template_name: str = '', log_dir: str = None, task_type: str = '',
     ) -> None:
-        print('--->', log_dir)
-        print('--->', _logger.getEffectiveLevel())
         super().__init__(
             pipeline=pipeline, hyperparams=hyperparams, problem_description=problem_description, context=context,
             random_seed=random_seed, volumes_dir=volumes_dir, scratch_dir=scratch_dir,

@@ -15,7 +15,7 @@ from dsbox.template.runtime import Runtime
 # from dsbox.template.runtime import ForkedPdb
 from dsbox.template.template import DSBoxTemplate
 
-from .utils import larger_is_better
+from dsbox.schema import larger_is_better
 
 _logger = logging.getLogger(__name__)
 

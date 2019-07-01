@@ -20,9 +20,7 @@ from d3m.metadata.problem import PerformanceMetric
 from dsbox.JobManager.cache import PrimitivesCache
 from dsbox.combinatorial_search.search_utils import get_target_columns
 from dsbox.pipeline.fitted_pipeline import FittedPipeline
-from dsbox.pipeline.utils import larger_is_better
-from dsbox.schema.problem import OptimizationType
-from dsbox.schema.problem import optimization_type
+from dsbox.schema import larger_is_better
 from dsbox.template.configuration_space import ConfigurationPoint
 from dsbox.template.configuration_space import ConfigurationSpace
 from dsbox.template.template import DSBoxTemplate
@@ -99,8 +97,7 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
         self.output_directory = output_directory
         self.log_dir = log_dir
 
-        self.minimize = optimization_type(performance_metrics[0]['metric']) == \
-                        OptimizationType.MINIMIZE
+        self.minimize = performance_metrics[0]['metric'].best_value() < performance_metrics[0]['metric'].worst_value()
 
         self.quick_mode = False
         self.testing_mode = 0  # set default to not use cross validation mode
@@ -308,12 +305,8 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
                     test_ground_truth = None
                     test_prediction = None
                     test_metrics_each = copy.deepcopy(training_metrics_each)
-                    if larger_is_better(training_metrics_each):
-                        for each in test_metrics_each:
-                            each["value"] = 0
-                    else:
-                        for each in test_metrics_each:
-                            each["value"] = sys.float_info.max
+                    for each in test_metrics_each:
+                        each["value"] = PerformanceMetric.parse(each['metric']).worst_value()
 
                 training_metrics.append(training_metrics_each)
                 test_metrics.append(test_metrics_each)

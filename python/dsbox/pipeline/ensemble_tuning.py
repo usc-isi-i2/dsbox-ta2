@@ -6,9 +6,9 @@ import json
 import d3m.exceptions as exceptions
 
 from dsbox.pipeline.fitted_pipeline import FittedPipeline
-from dsbox.pipeline.utils import larger_is_better
 from dsbox.combinatorial_search.ConfigurationSpaceBaseSearch import calculate_score, SpecialMetric
 from dsbox.combinatorial_search.search_utils import get_target_columns
+from dsbox.schema import larger_is_better
 from d3m.metadata.problem import parse_problem_description, TaskType
 from d3m import runtime as runtime_module, container
 from d3m.metadata import pipeline as pipeline_module

@@ -1,4 +1,20 @@
-__all__ = ['ColumnRole', 'ResourceType', 'ColumnType', 'SpecializedProblem']
+from d3m.metadata.problem import PerformanceMetric
+
+__all__ = ['ColumnRole', 'ResourceType', 'ColumnType', 'SpecializedProblem', 'larger_is_better']
+
+
+def larger_is_better(metric_spec) -> bool:
+    '''
+    Retruns true, if larger metric value is better, such as for ACCURACY and F1_MICRO.
+    Moved from dsbox/pipeline/utils.py
+    '''
+    if isinstance(metric_spec, str):
+        metric_name = metric_spec
+    else:
+        metric_name = metric_spec['metric']
+    metric = PerformanceMetric.get_map()[metric_name]
+    return metric.best_value() > metric.worst_value()
+
 
 class ColumnRole:
     INDEX = 'https://metadata.datadrivendiscovery.org/types/PrimaryKey'

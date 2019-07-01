@@ -26,9 +26,6 @@ from d3m.primitive_interfaces.base import PrimitiveBaseMeta
 from d3m.metadata.problem import TaskType
 
 from dsbox.pipeline.fitted_pipeline import FittedPipeline
-from dsbox.pipeline.utils import larger_is_better
-from dsbox.schema.problem import optimization_type
-from dsbox.schema.problem import OptimizationType
 
 from .template import DSBoxTemplate
 from .template import HyperparamDirective
@@ -490,7 +487,7 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
                  num_workers: int = 0) -> None:
 
         # Use first metric from test
-        minimize = optimization_type(performance_metrics[0]['metric']) == OptimizationType.MINIMIZE
+        minimize = performance_metrics[0]['metric'].best_value() < performance_metrics[0]['metric'].worst_value()
         super().__init__(self.evaluate_pipeline, configuration_space, minimize)
 
         self.template = template
@@ -598,12 +595,9 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
 
             # copy the cross validation score here to test_metrics for return
             test_metrics = copy.deepcopy(training_metrics)  # fitted_pipeline.get_cross_validation_metrics()
-            if larger_is_better(training_metrics):
-                for each in test_metrics:
-                    each["value"] = 0
-            else:
-                for each in test_metrics:
-                    each["value"] = sys.float_info.max
+            for each in test_metrics:
+                each["value"] = PerformanceMetric.get_map()[each['metric']].worst_value()
+
             print("[INFO] Testing finish.!!!")
         # if in normal testing mode(including default testing mode with train/test one time each)
         else:
@@ -651,12 +645,8 @@ class TemplateDimensionalSearch(DimensionalSearch[PrimitiveDescription]):
                 # if no test_dataset exist, we need to give it with a default value
                 if len(test_metrics_each) == 0:
                     test_metrics_each = copy.deepcopy(training_metrics_each)
-                    if larger_is_better(training_metrics_each):
-                        for each in test_metrics_each:
-                            each["value"] = 0
-                    else:
-                        for each in test_metrics_each:
-                            each["value"] = sys.float_info.max
+                    for each in test_metrics_each:
+                        each["value"] = PerformanceMetric.get_map()[each['metric']].worst_value()
 
                 training_metrics.append(training_metrics_each)
                 test_metrics.append(test_metrics_each)

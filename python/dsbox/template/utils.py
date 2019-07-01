@@ -31,7 +31,6 @@ def calculate_score(ground_truth: DataFrame, prediction: DataFrame,
         if params:
             metric: typing.Callable = metricDesc.get_class()(**params)
         else:
-            _logger.warning("No params given!")
             metric = metricDesc.get_class()
         # updated for d3m v2019.5.8: we need to instantiate the metric class first if it was not done yet
         if type(metric) is AbstractMetaclass:
@@ -39,7 +38,7 @@ def calculate_score(ground_truth: DataFrame, prediction: DataFrame,
 
         # special design for objectDetectionAP
         if metric_description["metric"] == "objectDetectionAP":
-            
+
             if ground_truth is not None and prediction is not None:
                 # training_image_name_column = ground_truth.iloc[:,
                 #                              ground_truth.shape[1] - 2]
@@ -80,8 +79,8 @@ def calculate_score(ground_truth: DataFrame, prediction: DataFrame,
                     prediction.insert(0,'d3mIndex' ,ground_truth['d3mIndex'].copy())
                 else:
                     target_amount = len(prediction.columns) - 1
-                
-                if prediction['d3mIndex'].dtype.name != ground_truth['d3mIndex'].dtype.name:       
+
+                if prediction['d3mIndex'].dtype.name != ground_truth['d3mIndex'].dtype.name:
                     ground_truth['d3mIndex'] = ground_truth['d3mIndex'].astype(str).copy()
                     prediction['d3mIndex'] = prediction['d3mIndex'].astype(str).copy()
 
