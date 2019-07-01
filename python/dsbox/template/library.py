@@ -143,11 +143,16 @@ class TemplateLibrary:
                             if each_source_type == template.template['inputType']:
                                 results.append(template)
 
-        if not specialized_problem == SpecializedProblem.NONE:
+        # filter based on specialized problem
+        if specialized_problem == SpecializedProblem.NONE:
+            results = [template for template in results
+                       if 'specializedProblem' not in template.template]
+        else:
             _logger.debug(f'Specialized problem: {specialized_problem}')
             results = [template for template in results
                        if 'specializedProblem' in template.template
                        and specialized_problem in template.template['specializedProblem']]
+
         # if we finally did not find a proper template to use
         if results == []:
             _logger.error(f"Cannot find a suitable template type to fit the problem: {task.name}")
