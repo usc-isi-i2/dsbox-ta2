@@ -79,9 +79,6 @@ class Controller:
         self.taskSourceType: typing.Set[str] = set()  # str from SEMANTIC_TYPES
         self.extra_primitive = set()
 
-        # Dataset limits
-        self.threshold_column_length = 300
-        self.threshold_index_length = 100000
         # hard coded unsplit dataset type
         # TODO: check whether "speech" type should be put into this list or not
         self.data_type_cannot_split = ["graph", "edgeList", "audio"]
@@ -369,16 +366,19 @@ class Controller:
         pipeline_files = os.listdir(self.config.pipelines_scored_dir)
         ranked_list = []
         for filename in pipeline_files:
-            filepath = os.path.join(self.config.pipelines_scored_dir, filename)
-            with open(filepath) as f:
-                pipeline = json.load(f)
-                if 'pipeline_rank' in pipeline:
-                    ranked_list.append((pipeline['pipeline_rank'], filename))
-                else:
-                    # Move pipelines without scores to pipelines_searched directory
-                    self._logger.info(f'Pipeline does not have score. id={pipeline["id"]}')
-                    shutil.move(filepath, self.config.pipelines_searched_dir)
-
+            if filename.endswith("json"):
+                filepath = os.path.join(self.config.pipelines_scored_dir, filename)
+                with open(filepath) as f:
+                    pipeline = json.load(f)
+                    try:
+                        if 'pipeline_rank' in pipeline:
+                            ranked_list.append((pipeline['pipeline_rank'], filename))
+                        else:
+                            # Move pipelines without scores to pipelines_searched directory
+                            self._logger.info(f'Pipeline does not have score. id={pipeline["id"]}')
+                            shutil.move(filepath, self.config.pipelines_searched_dir)
+                    except:
+                        self._logger.warning("Broken or unfinished pipeline: " + str(filepath))
         if not ranked_list:
             self._logger.warning('No ranked pipelines found.')
             return
@@ -632,283 +632,86 @@ class Controller:
             return the augmented dataset (if success)
         """
         try:
-            from dsbox.datapreprocessing.cleaner.wikifier import WikifierHyperparams ,Wikifier
-            wikifier_hyperparams = WikifierHyperparams.defaults()
-            # wikifier_hyperparams = wikifier_hyperparams.replace({"use_columns":(1,)})
-            wikifier_primitive = Wikifier(hyperparams = wikifier_hyperparams)
-            self.all_dataset = wikifier_primitive.produce(inputs = self.all_dataset).value
-
-
-            from common_primitives.dataset_to_dataframe import Hyperparams as hyper_ds_to_df, DatasetToDataFramePrimitive
-            ds_to_df_hyperparams = hyper_ds_to_df.defaults()
-            ds_to_df_primitive = DatasetToDataFramePrimitive(hyperparams = ds_to_df_hyperparams)
-            suppied_dataframe = ds_to_df_primitive.produce(inputs=self.all_dataset).value
-            query_about = ""
-            augment = self.config.problem["data_augmentation"]
-            for each_augment in augment:
-                if query_about != "":
-                    query_about += ", "
-                query_about += ", ".join(each_augment["keywords"]) + ", " + ", ".join(each_augment["domain"])
-
-            can_query_columns = []
-            for each in range(len(suppied_dataframe.columns)):
-                selector = (ALL_ELEMENTS, each)
-                each_column_meta = suppied_dataframe.metadata.query(selector)
-                if 'http://schema.org/Text' in each_column_meta["semantic_types"] or \
-                "https://metadata.datadrivendiscovery.org/types/CategoricalData" in each_column_meta["semantic_types"]:
-                    can_query_columns.append(each_column_meta['name'])
-
-            if len(can_query_columns) == 0:
-                self._logger.warn("No columns can be augment!")
-                return self.all_dataset
-
-            from datamart import entries_new
-            datamart_unit = entries_new.D3MDatamart()
+            # from dsbox.datapreprocessing.cleaner.wikifier import WikifierHyperparams ,Wikifier
+            # wikifier_hyperparams = WikifierHyperparams.defaults()
+            # # wikifier_hyperparams = wikifier_hyperparams.replace({"use_columns":(1,)})
+            # wikifier_primitive = Wikifier(hyperparams = wikifier_hyperparams)
+            # augment_res = copy.copy(self.all_dataset)
+            # augment_res = wikifier_primitive.produce(inputs = augment_res).value
+            # self.extra_primitive.add("wikifier")
+            # self.dump_primitive(wikifier_primitive, "wikifier")
             # import pdb
             # pdb.set_trace()
-            all_results = []
-        except:
-            return
-        # for each_column in can_query_columns:
-        #     # TODO: now we only use the first results!!! Consider do multiple test with different query
-        #     query_json = {
-        #         "dataset": {
-        #             "about": query_about
-        #             # Not used for now
-        #             # TODO: add NLP to extract more features
-        #             # "description": ["FIFA", "worldcup", "Soccer game", "European Cup"]
-        #         },
-        #         "required_variables": [
-        #             {
-        #                 "type": "dataframe_columns",
-        #                 "names": [each_column]
-        #             }
-        #         ]
-        #         # Not used for now
-        #         # ,
-        #         # "desired_variables": [
-        #         #     {
-        #         #         "type": "generic_entity",
-        #         #         "about": "score_winner",
-        #         #         "variable_syntactic_type": [
-        #         #             "http://schema.org/Text"
-        #         #         ]
-        #         #     }
-        #         # ]
-        #     }
+            from datamart_isi import entries
+            isi_datamart_url = "http://dsbox02.isi.edu:9001/blazegraph/namespace/datamart4/sparql"
+            datamart_unit = entries.Datamart(connection_url=isi_datamart_url)
+            from common_primitives.datamart_augment import Hyperparams as hyper_augment, DataMartAugmentPrimitive
+            hyper_augment_default = hyper_augment.defaults()
+            hyper_augment_default = hyper_augment_default.replace({"system_identifier":"ISI"})
+            # run wikifier first
+            augment_times = 0
+            search_result_wikifier = entries.DatamartSearchResult(search_result={}, supplied_data=None, query_json={}, search_type="wikifier")
+            hyper_temp = hyper_augment_default.replace({"search_result":search_result_wikifier.serialize()})
+            augment_primitive = DataMartAugmentPrimitive(hyperparams=hyper_temp)
+            augment_res = augment_primitive.produce(inputs = self.all_dataset).value
+            self.extra_primitive.add("augment" + str(augment_times))
+            self.dump_primitive(augment_primitive, "augment" + str(augment_times))
 
-        all_results.extend(datamart_unit.search_with_data(query=None, supplied_data=self.all_dataset))
-        # end query part
+            augment_times += 1
 
-            # from dsbox.datapreprocessing.cleaner.datamart_augment import DatamartAugmentation ,DatamartAugmentationHyperparams
-            # augment_hyperparams = DatamartAugmentationHyperparams.defaults()
-            # augment_hyperparams = augment_hyperparams.replace({"join_type":"rltk", "joining_columns":each_column, "duplicate_rows_process_method":"average"})
-            # augment_primitive = DatamartAugmentation(hyperparams = augment_hyperparams)
-            # res = augment_primitive.produce(inputs1 = result.value, inputs2 = self.all_dataset)
-            # self.extra_primitive.add("data_augment")
-        # import pdb
-        # pdb.set_trace()
-        all_results.sort(key=lambda x: x.score, reverse=True)
+            # this special change only for running for DA_medical dataset
+            # meta =     {
+            #      "name": "SEQNO",
+            #      "structural_type": str,
+            #      "semantic_types": [
+            #       "http://schema.org/Text",
+            #       "http://schema.org/DateTime",
+            #       "https://metadata.datadrivendiscovery.org/types/UniqueKey"
+            #      ],
+            #      "description": "Record Number. SEQNO is a unique number assigned to each record. The assigned numbers are not necessarily continuous or sequential."
+            #     }
+            # augment_res.metadata = augment_res.metadata.update(selector=('learningData', ALL_ELEMENTS, 1), metadata = meta)
 
-        # res = best_result.augment(supplied_data=suppied_dataframe)
-        all_serach_results = List()
-        for each in all_results:
-            result_config = each.serialize()
-            all_serach_results.append(result_config)
+            search_unit = datamart_unit.search_with_data(query=None, supplied_data=augment_res)
 
-        from dsbox.datapreprocessing.cleaner.datamart_augment import DatamartAugmentation ,DatamartAugmentationHyperparams
-        from dsbox.datapreprocessing.cleaner.datamart_download import DatamartDownload ,DatamartDownloadHyperparams
-        augment_hyperparams = DatamartAugmentationHyperparams.defaults()
-        augment_hyperparams = augment_hyperparams.replace({"search_result":all_serach_results})
-        download_hyperparams = DatamartDownloadHyperparams.defaults()
-        download_hyperparams = download_hyperparams.replace({"search_result":all_serach_results[0]})
-        download_primitive = DatamartDownload(hyperparams = download_hyperparams)
-        augment_primitive = DatamartAugmentation(hyperparams = augment_hyperparams)
-        # import pdb
-        # pdb.set_trace()
-        download_result = download_primitive.produce(inputs=self.all_dataset).value
-        augment_result = augment_primitive.produce(inputs=self.all_dataset).value
+            all_results1 = search_unit.get_next_page()
 
-        self.extra_primitive.add("augment")
-        self.dump_primitive(augment_primitive, "augment")
-        return augment_result
+            for each_search in all_results1:
+                if each_search.search_type == "wikidata":
+                    hyper_temp = hyper_augment_default.replace({"search_result":each_search.serialize()})
+                    augment_primitive = DataMartAugmentPrimitive(hyperparams=hyper_temp)
+                    augment_res = augment_primitive.produce(inputs = augment_res).value
+                    self.extra_primitive.add("augment" + str(augment_times))
+                    self.dump_primitive(augment_primitive, "augment" + str(augment_times))
+                    augment_times += 1
+            
+            # all_results2 = datamart_unit.search_with_data(query=None, supplied_data=augment_res).get_next_page()
 
+            all_results1.sort(key=lambda x: x.score(), reverse=True)
 
-            # # save 2 primitives and add it to pipelines during FittedPipeline.save() afterwards
-            # self.dump_primitive(query_primitive, "datamart_query")
-            # self.dump_primitive(augment_primitive, "datamart_augmentation")
+            for each_search in all_results1:
+                if each_search.search_type == "general":
+                    hyper_temp = hyper_augment_default.replace({"search_result":each_search.serialize()})
+                    augment_primitive = DataMartAugmentPrimitive(hyperparams=hyper_temp)
+                    augment_res = augment_primitive.produce(inputs = augment_res).value
+                    self.extra_primitive.add("augment" + str(augment_times))
+                    self.dump_primitive(augment_primitive, "augment" + str(augment_times))
+                    augment_times += 1
+                    break
+
             # # return the augmented dataset
-            # original_shape = self.all_dataset[self.problem_info["res_id"]].shape
-            # augmented_shape = res.value[self.problem_info["res_id"]].shape
-            # self._logger.info("The original dataset shape is (" + str(original_shape[0]) + ", " + str(original_shape[1]) + ")")
-            # self._logger.info("The augmented dataset shape is (" + str(augmented_shape[0]) + ", " + str(augmented_shape[1]) + ")")
-            # return res.value
+            original_shape = self.all_dataset[self.problem_info["res_id"]].shape
+            _, augment_res_df = d3m_utils.get_tabular_resource(dataset=augment_res, resource_id=None)
+            augmented_shape = augment_res_df.shape
+            self._logger.info("The original dataset shape is (" + str(original_shape[0]) + ", " + str(original_shape[1]) + ")")
+            self._logger.info("The augmented dataset shape is (" + str(augmented_shape[0]) + ", " + str(augmented_shape[1]) + ")")
 
-            # # used for join
-            # for each_result in result:
-            #     queried_dataframe = each_result.materialize()
-            #     right_column_number = queried_dataframe.columns.index(each_column)
-            #     left_column_number = self.all_dataset[self.problem_info["res_id"]].columns.index(each_column)
+            return augment_res
 
-            ################################################################################################################
-
-            # for now use temporary method adapt from rltk
-        """
-            import rltk
-            class left(rltk.AutoGeneratedRecord):
-                pass
-
-            class right(rltk.AutoGeneratedRecord):
-                pass
-
-            res_id = self.problem_info['res_id']
-            df_left = self.all_dataset[res_id]
-            df_right = result.value[0].materialize()
-            df_left['id']=df_left.index.astype(str)
-            df_right['id']=df_right.index.astype(str)
-            if 'Unnamed: 0' in df_right.columns:
-                df_right = df_right.drop(columns=['Unnamed: 0'])
-            ds1 = rltk.Dataset(rltk.DataFrameReader(df_left), record_class=left)
-            ds2 = rltk.Dataset(rltk.DataFrameReader(df_right), record_class=right)
-
-            bg = rltk.HashBlockGenerator()
-            block = bg.generate(bg.block(ds1, property_='INSTNM'),
-                                bg.block(ds2, property_='INSTNM'))
-            df_left = df_left.set_index('id')
-            df_right = df_right.set_index('id')
-
-            pairs = rltk.get_record_pairs(ds1, ds2, block=block)
-
-            df_joined = pd.DataFrame()
-
-            column_names_to_join = None
-            for r1, r2 in pairs:
-                left_res = df_left.loc[r1.id]
-                right_res = df_right.loc[r2.id]
-                if column_names_to_join is None:
-                    column_names_to_join = right_res.index.difference(left_res.index)
-                new = pd.concat([left_res, right_res[column_names_to_join]])
-
-                df_joined = df_joined.append(new, ignore_index = True)
-
-            # adjust column position, to put d3mIndex at first columns and put target at last columns
-            columns_all = list(df_joined.columns)
-            if 'd3mIndex' in df_joined.columns:
-                oldindex = columns_all.index('d3mIndex')
-                columns_all.insert(0, columns_all.pop(oldindex))
-            else:
-                _logger.error("No d3mIndex column found after data-mart augment!!!")
-            target_amount = 0
-            metadata_new_target = {}
-            new_target_column_number = []
-            targets_from_problem = self.config.problem_metadata.query(())["inputs"]["data"][0]["targets"]
-            for t in targets_from_problem:
-                oldindex = columns_all.index(t["colName"])
-                target_amount += 1
-                temp = columns_all.pop(oldindex)
-                new_target_column_number.append(len(columns_all))
-                metadata_new_target[t["colName"]] = len(columns_all)
-                columns_all.insert(len(columns_all), temp)
-            df_joined = df_joined[columns_all]
-
-            # start adding metadata for dataset
-            metadata_dict_left = {}
-            metadata_dict_right = {}
-            for each in result.value[0].metadata['variables']:
-                decript = each['description']
-                dtype = decript.split("dtype: ")[-1]
-                if "float" in dtype:
-                    semantic_types = (
-                          "http://schema.org/Float",
-                          "https://metadata.datadrivendiscovery.org/types/Attribute"
-                         )
-                elif "int" in dtype:
-                    semantic_types = (
-                          "http://schema.org/Integer",
-                          "https://metadata.datadrivendiscovery.org/types/Attribute"
-                         )
-                else:
-                    semantic_types = (
-                          "https://metadata.datadrivendiscovery.org/types/CategoricalData",
-                          "https://metadata.datadrivendiscovery.org/types/Attribute"
-                         )
-                each_meta = {
-                    "name": each['name'],
-                    "structural_type": str,
-                    "semantic_types": semantic_types,
-                    "description": decript
-                }
-                metadata_dict_right[each['name']] = frozendict.FrozenOrderedDict(each_meta)
-
-            left_df_column_legth = self.all_dataset.metadata.query((res_id, ALL_ELEMENTS))['dimension']['length']
-            for i in range(left_df_column_legth):
-                each_selector = (res_id, ALL_ELEMENTS, i)
-                each_column_meta = self.all_dataset.metadata.query(each_selector)
-                metadata_dict_left[each_column_meta['name']] = each_column_meta
-
-            metadata_new = DataMetadata()
-            metadata_old = copy.copy(self.all_dataset.metadata)
-            new_column_meta = dict(self.all_dataset.metadata.query((res_id, ALL_ELEMENTS)))
-            new_column_meta['dimension'] = dict(new_column_meta['dimension'])
-            new_column_meta['dimension']['length'] = df_joined.shape[1]
-            new_row_meta = dict(self.all_dataset.metadata.query((res_id,)))
-            new_row_meta['dimension'] = dict(new_row_meta['dimension'])
-            new_row_meta['dimension']['length'] = df_joined.shape[0]
-            # update whole source description
-            metadata_new = metadata_new.update((), metadata_old.query(()))
-            metadata_new = metadata_new.update((res_id,), new_row_meta)
-            metadata_new = metadata_new.update((res_id, ALL_ELEMENTS), new_column_meta)
-
-            new_column_names_list = list(df_joined.columns)
-            # update each column's metadata
-            for i, current_column_name in enumerate(new_column_names_list):
-                each_selector = (res_id, ALL_ELEMENTS, i)
-                if current_column_name in metadata_dict_left:
-                    new_metadata_i = metadata_dict_left[current_column_name]
-                else:
-                    new_metadata_i = metadata_dict_right[current_column_name]
-                metadata_new = metadata_new.update(each_selector, new_metadata_i)
-            # end adding metadata for dataset
-            augmented_dataset = self.all_dataset.copy()
-            augmented_dataset.metadata = metadata_new
-            df_joined_d3m = d3m_DataFrame(df_joined, generate_metadata=False, dtype = str)
-            augmented_dataset[res_id] = df_joined_d3m
-            # end updating dataset
-
-            self.problem_info['target_index'] = new_target_column_number
-
-            # update problem metadata
-            problem = dict(self.config.problem_metadata.query(()))
-            # data_meta = dict(problem["inputs"]["data"][0])
-            data_meta = []
-            for each_data in problem["inputs"]["data"]:
-                # update targets metadata for each target columns
-                target_meta = []
-                each_data = dict(each_data)
-                for each_target in each_data["targets"]:
-                    target_meta_each = dict(each_target)
-                    if target_meta_each['colName'] in metadata_new_target:
-                        target_meta_each['colIndex'] = metadata_new_target[target_meta_each['colName']]
-                    else:
-                        self._logger.error("New target column for {} not found:".format(
-                            target_meta_each['colName']))
-                    # target_meta_each['colIndex'] = self.threshold_column_length + (
-                    # all_column_length - target_meta_each['colIndex'])
-                    target_meta.append(frozendict.FrozenOrderedDict(target_meta_each))
-                # return the updated target_meta
-                each_data["targets"] = tuple(target_meta)
-                data_meta.append(each_data)
-            # return the updated data_meta
-            problem["inputs"] = dict(problem["inputs"])
-            problem["inputs"]["data"] = tuple(data_meta)
-
-            problem["inputs"] = frozendict.FrozenOrderedDict(problem["inputs"])
-            problem = frozendict.FrozenOrderedDict(problem)
-
-            # update problem doc metadata
-            self.config.problem_metadata = self.config.problem_metadata.update((), problem)
-            return augmented_dataset
-        """
+        except:
+            self._logger.error("Agument Failed!")
+            traceback.print_exc()
+            return self.all_dataset
 
     def add_d3m_index_and_prediction_class_name(self, prediction, from_dataset = None):
         """
@@ -1189,7 +992,9 @@ class Controller:
             return dataset
 
         targets = problem["inputs"]["data"][0]["targets"]
-        resID = targets[0]["resID"]
+        # resID = targets[0]["resID"]
+
+        resID, _ = d3m_utils.get_tabular_resource(dataset=dataset, resource_id=None)
         colIndex = targets[0]["colIndex"]
         # dataset_actual = dataset[resID]
 
