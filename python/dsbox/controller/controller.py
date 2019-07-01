@@ -658,8 +658,7 @@ class Controller:
             self.dump_primitive(augment_primitive, "augment" + str(augment_times))
 
             augment_times += 1
-            # import pdb
-            # pdb.set_trace()
+
             # this special change only for running for DA_medical dataset
             # meta =     {
             #      "name": "SEQNO",
@@ -676,6 +675,7 @@ class Controller:
             search_unit = datamart_unit.search_with_data(query=None, supplied_data=augment_res)
 
             all_results1 = search_unit.get_next_page()
+
             for each_search in all_results1:
                 if each_search.search_type == "wikidata":
                     hyper_temp = hyper_augment_default.replace({"search_result":each_search.serialize()})
@@ -709,7 +709,7 @@ class Controller:
             return augment_res
 
         except:
-            print("Agument Failed")
+            self._logger.error("Agument Failed!")
             traceback.print_exc()
             return self.all_dataset
 

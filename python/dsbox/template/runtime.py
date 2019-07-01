@@ -436,7 +436,6 @@ class Runtime(runtime_base.Runtime):
                         kf = KFold(n_splits=cv, shuffle=True, random_state=seed)
 
                     num = 0.0
-
                     for k, (train, test) in enumerate(kf.split(X, y)):
                         try:
                             # !!!

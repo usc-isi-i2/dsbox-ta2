@@ -276,6 +276,9 @@ class PrimitivesCache:
                 isinstance(primitive_arguments['inputs'], typing.List)), \
                f"inputs type not valid {type(primitive_arguments['inputs'])}"
 
+        # v2019.6.30 
+        # this added part used to check whether the input dataframe has column with ndarray
+        # hashing large ndarray is very slow so we should not do hash on this part
         hash_part = copy.copy(primitive_arguments['inputs'])
         if type(hash_part) is DataFrame:
             for i in range(primitive_arguments['inputs'].shape[1]):
