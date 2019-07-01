@@ -475,11 +475,16 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
             fitted_pipeline.auxiliary = dict(data)
 
             # Save fiteed pipeline
+            pickled = False
             if self.output_directory is not None and dump2disk:
-                fitted_pipeline_final.save(self.output_directory)
+                try:
+                    fitted_pipeline_final.save(self.output_directory)
+                    pickled = True
+                except Exception as e:
+                    _logger.warning('SKIPPING Pickle test. Saving pipeline failed: {e.message}')
 
             # Pickle test
-            if self.output_directory is not None and dump2disk:
+            if pickled and self.output_directory is not None and dump2disk:
                 _ = fitted_pipeline_final.produce(inputs=[self.test_dataset1])
                 test_prediction3 = fitted_pipeline_final.get_produce_step_output(
                     self.template.get_output_step_number())

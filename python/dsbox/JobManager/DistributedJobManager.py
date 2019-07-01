@@ -259,7 +259,8 @@ class DistributedJobManager:
         Cancel timer and clear the job queue.
         '''
         self._timeout_sec = -1
-        self.timer.cancel()
+        if self.timer:
+            self.timer.cancel()
         self._clear_jobs()
 
     def kill_job_manager(self):
@@ -282,8 +283,9 @@ class DistributedJobManager:
         self.kill_timer()
 
     def kill_timer(self):
-        _logger.warning(f"timer killed")
-        self.timer.cancel()
+        if self.timer:
+            _logger.warning(f"timer killed")
+            self.timer.cancel()
 
     def _setup_timeout_timer(self):
         self.start_time = time.perf_counter()
