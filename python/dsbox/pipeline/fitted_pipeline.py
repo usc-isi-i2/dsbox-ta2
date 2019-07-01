@@ -121,55 +121,56 @@ class FittedPipeline:
             Return the dict type primitive augment for adding in pipeline
         """
         if primitive_name == "splitter":
-            from dsbox.datapreprocessing.cleaner.splitter import Splitter, SplitterHyperparameter
+            from dsbox.datapreprocessing.cleaner.splitter import Splitter
             primitive_metadata = Splitter.metadata.query()
 
-        elif primitive_name == "datamart_query":
-            from dsbox.datapreprocessing.cleaner.datamart_query_from_dataframe import QueryFromDataframe
-            primitive_metadata = QueryFromDataframe.metadata.query()
-
-        elif primitive_name == "datamart_augmentation":
-            from dsbox.datapreprocessing.cleaner.datamart_augment import DatamartAugmentation
-            primitive_metadata = DatamartAugmentation.metadata.query()
+        elif primitive_name == "wikifier":
+            from dsbox.datapreprocessing.cleaner.wikifier import Wikifier
+            primitive_metadata = Wikifier.metadata.query()
 
         elif primitive_name == "denormalize":
             from common_primitives.denormalize import DenormalizePrimitive
             primitive_metadata = DenormalizePrimitive.metadata.query()
 
-        primitive_augument = {
-            "type": "PRIMITIVE",
-            "primitive": {
-                "id": primitive_metadata['id'],
-                "version": primitive_metadata['version'],
-                "python_path": primitive_metadata['python_path'],
-                "name": primitive_metadata['name'],
-                "digest": primitive_metadata['digest']
-            },
-            "arguments": {
-                "inputs": {
-                    "type": "CONTAINER",
-                    "data": input_names[0] #"inputs.0"
-                }
-            },
-            "outputs": [
-                {
-                    "id": "produce"
-                }
-            ]
-        }
+        elif "augment" in primitive_name:
+            from common_primitives.datamart_augment import DataMartAugmentPrimitive
+            primitive_metadata = DataMartAugmentPrimitive.metadata.query()
 
-        # special type of augment
-        if primitive_name == "datamart_augmentation":
-            primitive_augument["arguments"] = {
-                "inputs1": {
-                    "type": "CONTAINER",
-                    "data":  input_names[0]  #"steps."+str(self._datamart_query_step_location)+".produce"
-                },
-                "inputs2": {
-                    "type": "CONTAINER",
-                    "data":  input_names[1]  #"inputs.0"
-                }
-            }
+        primitive_augument= {
+                              "type": "PRIMITIVE",
+                              "primitive": {
+                                "id": primitive_metadata['id'],
+                                "version": primitive_metadata['version'],
+                                "python_path": primitive_metadata['python_path'],
+                                "name": primitive_metadata['name'],
+                                "digest": primitive_metadata['digest']
+                              },
+                              "arguments": {
+                                "inputs": {
+                                  "type": "CONTAINER",
+                                  "data": input_names[0] #"inputs.0"
+                                }
+                              },
+                              "outputs": [
+                                {
+                                  "id": "produce"
+                                }
+                              ]
+                            }
+
+        # # special type of augment
+        # if primitive_name == "datamart_augmentation":
+        #     primitive_augument["arguments"] = {
+        #                               "inputs1": {
+        #                                   "type": "CONTAINER",
+        #                                   "data":  input_names[0] #"steps."+str(self._datamart_query_step_location)+".produce"
+        #                                 },
+        #                                 "inputs2": {
+        #                                   "type": "CONTAINER",
+        #                                   "data":  input_names[1]#"inputs.0"
+        #                                 }
+        #                             }
+
         return primitive_augument
 
     def add_extra_primitive(self, primitive_name: typing.List[str], location_number: int) -> None:
@@ -190,12 +191,13 @@ class FittedPipeline:
                 input_names = ["inputs.0"]
             else:
                 input_names = ["steps."+str(location_number - 1)+".produce"]
-            if each_primitive_name == "datamart_augmentation":
-                if location_number >= 2:
-                    input_names = ["steps."+str(location_number - 1)+".produce", "steps."+str(location_number - 2)+".produce"]
-                if location_number == 1:  # which should not occur any more
-                    _logger.warn("detect DatamartAugmentation primitive was added in second step, which should not happen!")
-                    input_names = ["steps."+str(location_number - 1)+".produce", "inputs.0"]
+            # if each_primitive_name == "datamart_augmentation":
+            #     if location_number >= 2:
+            #         input_names = ["steps."+str(location_number - 1)+".produce", "steps."+str(location_number - 2)+".produce"]
+            #     if location_number == 1: # which should not occur any more
+            #         _logger.warn("detect DatamartAugmentation primitive was added in second step, which should not happen!")
+            #         input_names = ["steps."+str(location_number - 1)+".produce", "inputs.0"]
+
 
             primitive_augument = self.get_primitive_augment(each_primitive_name, input_names)
 
@@ -334,11 +336,24 @@ class FittedPipeline:
             _logger.info("Primitive Denormalize has been added to pipeline.")
             self.location_offset += 1
 
-        # ForkedPdb().set_trace()
-        if self.extra_primitive and "data_augment" in self.extra_primitive:
-            self.add_extra_primitive(["datamart_query", "datamart_augmentation"], self.location_offset)
+        if self.extra_primitive and "wikifier" in self.extra_primitive:
+            self.add_extra_primitive(["wikifier"], self.location_offset)
             structure = self.pipeline.to_json_structure()
-            _logger.info("Primitive datamartQuery and DatamartAugmentation has been added to pipeline.")
+            _logger.info("Primitive Wikifier has been added to pipeline.")
+            self.location_offset += 1
+
+        augment_count = -1
+        for each in self.extra_primitive:
+            if "augment" in each:
+                augment_count += 1
+
+        current_augment = "augment" + str(augment_count)
+        while current_augment in self.extra_primitive:
+            self.add_extra_primitive([current_augment], self.location_offset)
+            structure = self.pipeline.to_json_structure()
+            _logger.info("Primitive " + current_augment +" has been added to pipeline.")
+            augment_count -= 1
+            current_augment = "augment" + str(augment_count)
 
         # update from d3m v2019.5.8: update digest to ensure the digest value is correct
         updated_digest = d3m_utils.compute_digest(Pipeline._canonical_pipeline_description(structure))

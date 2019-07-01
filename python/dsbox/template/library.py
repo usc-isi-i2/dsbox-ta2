@@ -1758,18 +1758,24 @@ class ARIMATemplate(DSBoxTemplate):
             "target": "extract_target_step",  # Name of the step generating the ground truth
             "steps": [
                 {
-                    "name": "denormalize_step",
-                    "primitives": ["d3m.primitives.normalization.denormalize.DSBOX"],
+                    "name": "to_dataframe_step",
+                    "primitives": ["d3m.primitives.data_transformation.dataset_to_dataframe.Common"],
                     "inputs": ["template_input"]
                 },
                 {
-                    "name": "to_dataframe_step",
-                    "primitives": ["d3m.primitives.data_transformation.dataset_to_dataframe.Common"],
-                    "inputs": ["denormalize_step"]
+                    "name": "parser_step",
+                    "primitives": [{
+                        "primitive": "d3m.primitives.data_transformation.column_parser.DataFrameCommon",
+                        "hyperparameters": {
+                            "parse_semantic_types": [('http://schema.org/Boolean', 'http://schema.org/Integer', 'http://schema.org/Float', 'https://metadata.datadrivendiscovery.org/types/FloatVector'),]
+                        }
+                    }],
+                    "inputs": ["to_dataframe_step"]
                 },
+
                 # read Y value
                 {
-                    "name": "pre_extract_target_step",
+                    "name": "extract_target_step",
                     "primitives": [{
                         "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.DataFrameCommon",
                         "hyperparameters":
@@ -1779,37 +1785,29 @@ class ARIMATemplate(DSBoxTemplate):
                              'exclude_columns': ()
                             }
                     }],
-                    "inputs": ["to_dataframe_step"]
+                    "inputs": ["parser_step"]
                 },
+
                 {
-                    "name": "extract_target_step",
-                    "primitives": [{
-                        "primitive": "d3m.primitives.data_transformation.to_numeric.DSBOX",
-                        "hyperparameters": {
-                            "drop_non_numeric_columns": [(False)]
-                        }
-                    }],
-                    "inputs": ["pre_extract_target_step"]
-                },
-                {
-                    "name": "pre_extract_attribute_step",
+                    "name": "extract_attribute_step",
                     "primitives": [{
                         "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.DataFrameCommon",
                         "hyperparameters":
                             {
                                 'semantic_types': ('https://metadata.datadrivendiscovery.org/types/PrimaryKey',
+                                                   'https://metadata.datadrivendiscovery.org/types/TrueTarget',
                                                    'https://metadata.datadrivendiscovery.org/types/Attribute',),
                                 'use_columns': (),
                                 'exclude_columns': ()
                             }
                     }],
-                    "inputs": ["to_dataframe_step"]
+                    "inputs": ["parser_step"]
                 },
-                {
-                    "name": "extract_attribute_step",
-                    "primitives": ["d3m.primitives.data_transformation.to_numeric.DSBOX"],
-                    "inputs": ["pre_extract_attribute_step"]
-                },
+                # {
+                #     "name": "extract_attribute_step",
+                #     "primitives": ["d3m.primitives.data_transformation.to_numeric.DSBOX"],
+                #     "inputs": ["pre_extract_attribute_step"]
+                # },
                 {
                     "name": "ARIMA_step",
                     "primitives": [
@@ -1818,6 +1816,11 @@ class ARIMATemplate(DSBoxTemplate):
                             "hyperparameters": {
                                 "take_log": [(False)],
                                 "auto": [(True)]
+                            }
+                        },
+                        {
+                            "primitive": "d3m.primitives.time_series_forecasting.rnn_time_series.DSBOX",
+                            "hyperparameters": {
                             }
                         }
                     ], # can add tuning parameters like: auto-fit, take_log, etc
@@ -2166,7 +2169,7 @@ class DefaultVideoClassificationTemplate(DSBoxTemplate):
                             {
                                 "primitive": "d3m.primitives.feature_extraction.inceptionV3_image_feature.DSBOX",
                                 "hyperparameters": {
-                                    "use_limitation":[True, False],
+                                    "use_limitation":[(True), (False)],
                                 }
                             }
 
@@ -2177,10 +2180,10 @@ class DefaultVideoClassificationTemplate(DSBoxTemplate):
                     "name": "model_step", # step 6
                     "primitives": [
                         {
-                            "primitive": "d3m.primitives.feature_extraction.lstm.DSBOX",
+                            "primitive": "d3m.primitives.classification.lstm.DSBOX",
                             "hyperparameters": {
-                                "LSTM_units":[512,1024,2048],
-                                "epochs":[10,100,1000],
+                                "LSTM_units":[512, 1024, 2048],
+                                "epochs":[10, 100, 1000],
                             }
                         }
                     ],
