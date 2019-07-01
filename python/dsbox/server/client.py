@@ -194,7 +194,7 @@ class Client(object):
 
         datasets = 'seed'
         if args.datasets:
-            datasets = 'seed_aug'
+            datasets = args.datasets
         config_datasets(datasets, args.docker)
         train_problem_desc = get_problem_description(dataset_base_path, args.dataset, 'TRAIN')
         test_problem_desc = get_problem_description(dataset_base_path, args.dataset, 'TEST')

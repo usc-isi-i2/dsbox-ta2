@@ -123,8 +123,8 @@ class DistributedJobManager:
                     if "ensemble_tunning_result" in result:
                         result_simplified.pop("ensemble_tunning_result")
 
-                print(f"Pushing Results {current_process()} > {result}")
-                _logger.info(f"{current_process()} Pushing Results > {result}")
+                _logger.info(f"{current_process()} Pushing Results: {result['id'] if result and 'id' in result else 'NONE'}")
+                _logger.debug(f"{current_process()} Pushing Results > {result}")
 
                 pushed = False
                 # while not pushed:
