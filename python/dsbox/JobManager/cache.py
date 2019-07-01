@@ -223,6 +223,7 @@ class PrimitivesCache:
                 # print("[WARN] Double-push in Primitives Cache")
                 return 1
         except:
+            _logger.warning('Caching model failed. Most likely the primitive does not pickle properly.')
             traceback.print_exc()
         finally:
             # print("[INFO] released")

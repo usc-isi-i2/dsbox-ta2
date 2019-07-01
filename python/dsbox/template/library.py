@@ -7,6 +7,7 @@ import d3m
 from d3m import index
 
 from d3m.metadata.problem import TaskType, TaskSubtype
+from dsbox.schema import SpecializedProblem
 from dsbox.template.template import DSBoxTemplate
 from .template_steps import TemplateSteps
 
@@ -103,7 +104,10 @@ class TemplateLibrary:
             "ARIMA_Template": ARIMATemplate,
             "TimeSeriesForcastingTestingTemplate": TimeSeriesForcastingTestingTemplate,
             "DefaultObjectDetectionTemplate": DefaultObjectDetectionTemplate,
-            "DefaultVideoClassificationTemplate": DefaultVideoClassificationTemplate
+            "DefaultVideoClassificationTemplate": DefaultVideoClassificationTemplate,
+
+            # Specialized problems: privileged data
+            "LupiPriviledgedInformationClassification": LupiPriviledgedInformationClassification,
         }
 
         if run_single_template:
@@ -111,8 +115,8 @@ class TemplateLibrary:
         else:
             self._load_inline_templates()
 
-    def get_templates(self, task: TaskType, subtype: TaskSubtype, taskSourceType: typing.Set) \
-            -> typing.List[DSBoxTemplate]:
+    def get_templates(self, task: TaskType, subtype: TaskSubtype, taskSourceType: typing.Set,
+                      specialized_problem: SpecializedProblem = SpecializedProblem.NONE) -> typing.List[DSBoxTemplate]:
         results: typing.List[DSBoxTemplate] = []
         results.append(SRIMeanBaselineTemplate())  # put the meanbaseline here so whatever dataset will have a result
         for template_class in self.templates:
@@ -139,6 +143,11 @@ class TemplateLibrary:
                             if each_source_type == template.template['inputType']:
                                 results.append(template)
 
+        if not specialized_problem == SpecializedProblem.NONE:
+            _logger.debug(f'Specialized problem: {specialized_problem}')
+            results = [template for template in results
+                       if 'specializedProblem' in template.template
+                       and specialized_problem in template.template['specializedProblem']]
         # if we finally did not find a proper template to use
         if results == []:
             _logger.error(f"Cannot find a suitable template type to fit the problem: {task.name}")
@@ -200,6 +209,9 @@ class TemplateLibrary:
         # self.templates.append(DefaultImageClassificationWithCNNTemplate)
         self.templates.append(TA1VggImageProcessingRegressionTemplate)
 
+        # Privileged information
+        self.templates.append(LupiPriviledgedInformationClassification)
+
         # Others
         self.templates.append(DefaultTimeseriesCollectionTemplate)
         self.templates.append(TimeSeriesForcastingTestingTemplate)
@@ -235,11 +247,23 @@ class TemplateLibrary:
         self.templates.append(dsboxClassificationTemplate)
         self.templates.append(dsboxRegressionTemplate)
 
+        self._validate_templates(self.templates)
+
     def _load_single_inline_templates(self, template_name):
         if template_name in self.all_templates:
             self.templates.append(self.all_templates[template_name])
         else:
             raise KeyError("Template not found, name: {}".format(template_name))
+
+    def _validate_templates(self, templates: typing.List[typing.Type[DSBoxTemplate]]) -> None:
+        names: set = set()
+        for template_class in templates:
+            template = template_class()
+            if template.template['name'] in names:
+                raise ValueError(f'Multiple templates have the same name: {template.template["name"]}')
+            names.add(template.template['name'])
+            template.validate()
+
 
 
 ################################################################################################################
@@ -1505,7 +1529,7 @@ class TESTINGTemplate(DSBoxTemplate): # this is a template from succeed pipeline
                             "hyperparameters": {
                                 "add_columns": [(1), (2), (3), (4), (5)],
                                 "add_tpyes": ("https://metadata.datadrivendiscovery.org/types/CategoricalData",),
-                                "resource_id": ("learningData")
+                                "resource_id": ("learningData", )
                             }
                         }
                     ],
@@ -1584,7 +1608,7 @@ class TESTINGTemplate(DSBoxTemplate): # this is a template from succeed pipeline
                         {
                             "primitive": "d3m.primitives.regression.gradient_boosting.SKlearn",
                             "hyperparameters": {
-                                "return_result": ("replace"),
+                                "return_result": ("replace", ),
                                 "use_semanctic_types": [(True)],
                             }
                         }
@@ -4094,11 +4118,11 @@ class ISIGraphNormClf(DSBoxTemplate):
                                 'semantic_types': ('https://metadata.datadrivendiscovery.org/types/TrueTarget',
                                                    'https://metadata.datadrivendiscovery.org/types/SuggestedTarget'),
                                                    #'https://metadata.datadrivendiscovery.org/types/PrimaryKey'),
-                                'use_columns': (),#'d3mIndex'),
-                                'exclude_columns': ()#[[1]]
+                                'use_columns': (),  #'d3mIndex'),
+                                'exclude_columns': ()  #[[1]]
                             }
                     }],
-                    "inputs": ["to_learning_dataframe"]#_learning"]
+                    "inputs": ["to_learning_dataframe"]  #_learning"]
                     },
                     {
                     "name": "embedding_step",
@@ -4231,5 +4255,61 @@ class ISI_GCN(DSBoxTemplate):
                 # #    ],
                     "inputs": ["embedding_step", "extract_target_step"]
                 }
+            ]
+        }
+
+class LupiPriviledgedInformationClassification(DSBoxTemplate):
+    def __init__(self):
+        DSBoxTemplate.__init__(self)
+        self.template = {
+            "name": "LupiPrivilegedInfoCls",
+            "taskType": {TaskType.CLASSIFICATION.name},
+            "taskSubtype": {TaskSubtype.BINARY.name, TaskSubtype.MULTICLASS.name},
+            "inputType": {"table"},
+            "specializedProblem": {SpecializedProblem.PRIVILEGED_INFORMATION},
+            "output": "prediction_step",
+            "steps": [
+                {
+                    "name": "denormalize_step",
+                    "primitives": ["d3m.primitives.data_transformation.denormalize.Common"],
+                    "inputs": ["template_input"]
+                },
+                {
+                    "name": "to_dataframe_step",
+                    "primitives": ["d3m.primitives.data_transformation.dataset_to_dataframe.Common"],
+                    "inputs": ["denormalize_step"]
+                },
+                {
+                    "name": "model_step",
+                    "primitives": [{
+                        "primitive":  "d3m.primitives.classification.lupi_svm.LupiSvmClassifier",
+                        "hyperparameters": {
+                            "C": [1],
+                            "C_gridsearch": [(-4.0, 26.0, 0.3)],
+                            "add_index_columns": [False],
+                            "class_weight": ['balanced'],
+                            "coef0": [0],
+                            "degree": [3],
+                            "gamma": ["auto"],
+                            "gamma_gridsearch": [(-4.0, 26.0, 0.3)],
+                            "kernel": ["rbf"],
+                            "max_iter": [-1],
+                            "n_jobs": [4],
+                            "probability": [False],
+                            "return_result": ["new"],
+                            "shrinking": [True],
+                            "tol": [0.001],
+                            "use_semantic_types": [False],
+                        }
+                    },
+                    ],
+                    "inputs": ["to_dataframe_step"]
+                },
+                {
+                    "name": "prediction_step",
+                    "primitives": ["d3m.primitives.data_transformation.construct_predictions.DataFrameCommon"],
+                    "inputs": ["model_step", "to_dataframe_step"]
+                }
+
             ]
         }

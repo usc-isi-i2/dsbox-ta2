@@ -202,7 +202,7 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
         # for timeseries forcasting, we can't compare directly
         if self.problem.query(())['about']['taskType']=="timeSeriesForecasting":
             # just skip for now
-            # TODO: add one way to evalute time series forecasting pipeline quality 
+            # TODO: add one way to evalute time series forecasting pipeline quality
             # (something like sliding window)
             fitted_pipeline = FittedPipeline(
                 pipeline=pipeline,
@@ -515,11 +515,16 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
             fitted_pipeline.auxiliary = dict(data)
 
             # Save fiteed pipeline
+            pickled = False
             if self.output_directory is not None and dump2disk:
-                fitted_pipeline_final.save(self.output_directory)
+                try:
+                    fitted_pipeline_final.save(self.output_directory)
+                    pickled = True
+                except Exception as e:
+                    _logger.warning('SKIPPING Pickle test. Saving pipeline failed: {e.message}')
 
             # Pickle test
-            if self.output_directory is not None and dump2disk:
+            if pickled and self.output_directory is not None and dump2disk:
                 # remove the augmented columns in self.test_dataset1 to ensure we can pass the picking test
                 res_id, test_dataset1_df = d3m_utils.get_tabular_resource(dataset=self.test_dataset1, resource_id=None)
 
@@ -639,4 +644,3 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
             print("\n" * 5)
         else:
             _logger.debug(("\n" * 5) + "Pickling succeeded" + ("\n" * 5))
-            
