@@ -82,7 +82,7 @@ class TemplateLibrary:
 
             # graph
             "ISI_graph_norm_clf": ISIGraphNormClf,
-            "ISI_gcn": ISI_GCN,
+            # "ISI_gcn": ISI_GCN,
 
             # text
             "default_text_classification_template": DefaultTextClassificationTemplate,
@@ -242,7 +242,8 @@ class TemplateLibrary:
         self.templates.append(JHUGraphMatchingTemplate)
 
         self.templates.append(ISIGraphNormClf)
-        self.templates.append(ISI_GCN)
+        # 2019-7-3: Uses too much memory
+        # self.templates.append(ISI_GCN)
 
         # templates used for datasets with a large number of columns
         self.templates.append(Large_column_number_with_numerical_only_classification)
@@ -4177,21 +4178,20 @@ class ISIGraphNormClf(DSBoxTemplate):
         }
 
 
-
 class ISI_GCN(DSBoxTemplate):
     def __init__(self):
         DSBoxTemplate.__init__(self)
         self.template = {
-	    "name": "ISI_gcn",
+            "name": "ISI_gcn",
             "taskType": {TaskType.COLLABORATIVE_FILTERING.name, TaskType.VERTEX_NOMINATION.name, TaskType.COMMUNITY_DETECTION.name, TaskType.LINK_PREDICTION.name},
             "taskSubtype": {"NONE", TaskSubtype.NONOVERLAPPING.name, TaskSubtype.OVERLAPPING.name},
             #"taskSubtype": "NONE",
             #"inputType": "table",
             "inputType": {"graph", "table"},
-	        "output": "model_step",
+            "output": "model_step",
             "steps": [
                 {
-		    "name": "readgraph_step",
+                    "name": "readgraph_step",
                     "primitives": [
                         "d3m.primitives.data_transformation.normalize_graphs.Common"
                         #"d3m.primitives.data_preprocessing.largest_connected_component.JHU"
@@ -4203,7 +4203,7 @@ class ISI_GCN(DSBoxTemplate):
                     "primitives": ["d3m.primitives.data_transformation.graph_to_edge_list.DSBOX"],
                     "inputs": ["readgraph_step"]
                 },
-              {
+                {
                     "name": "extract_graph_tables",#_learning",
                     "primitives": ["d3m.primitives.data_transformation.graph_to_edge_list.DSBOX"],
                     "inputs": ["readgraph_step"]
@@ -4218,11 +4218,11 @@ class ISI_GCN(DSBoxTemplate):
                     "primitives": [{
                         "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.DataFrameCommon",
                         "hyperparameters":
-                            {
-                                'semantic_types': ('https://metadata.datadrivendiscovery.org/types/TrueTarget',),
-                                'use_columns': (),
-                                'exclude_columns': ()
-                            }
+                        {
+                            'semantic_types': ('https://metadata.datadrivendiscovery.org/types/TrueTarget',),
+                            'use_columns': (),
+                            'exclude_columns': ()
+                        }
                     }],
                     "inputs": ["to_learning_dataframe"]  #_learning"]
                 },
@@ -4237,31 +4237,31 @@ class ISI_GCN(DSBoxTemplate):
                     "inputs": ["extract_graph_tables", "extract_target_step"]
                 },
                 {
-                     "name": "model_step",
-                     "primitives": [{
-                         "primitive": "d3m.primitives.classification.random_forest.SKlearn",
-                         "hyperparameters": {
-                             # 'bootstrap': [True, False],
+                    "name": "model_step",
+                    "primitives": [{
+                        "primitive": "d3m.primitives.classification.random_forest.SKlearn",
+                        "hyperparameters": {
+                            # 'bootstrap': [True, False],
                              'max_depth': [15, 30, None],
-                             'min_samples_leaf': [1, 2, 4],
-                             'min_samples_split': [2, 5, 10],
-                             'max_features': ['auto', 'sqrt'],
-                             'n_estimators': [10, 50, 100],
-                             'add_index_columns': [True],
-                             'use_semantic_types':[False],
-                             'error_on_no_input':[True]
-                         }
-                     }
+                            'min_samples_leaf': [1, 2, 4],
+                            'min_samples_split': [2, 5, 10],
+                            'max_features': ['auto', 'sqrt'],
+                            'n_estimators': [10, 50, 100],
+                            'add_index_columns': [True],
+                            'use_semantic_types':[False],
+                            'error_on_no_input':[True]
+                        }
+                    }
                     ],
-                # #{
-                # #    "name": "model_step",
-                # #    "primitives": [
+                    # #{
+                    # #    "name": "model_step",
+                    # #    "primitives": [
 
                 # #
-                # #        #"d3m.primitives.classification.gaussian_classification.JHU"
-                # #    ],
-                # #        "d3m.primitives.classification.gaussian_classification.JHU"
-                # #    ],
+                    # #        #"d3m.primitives.classification.gaussian_classification.JHU"
+                    # #    ],
+                    # #        "d3m.primitives.classification.gaussian_classification.JHU"
+                    # #    ],
                     "inputs": ["embedding_step", "extract_target_step"]
                 }
             ]
