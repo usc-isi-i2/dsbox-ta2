@@ -60,7 +60,8 @@ class TemplateLibrary:
             "extra_trees_regression_template": ExtraTreesRegressionTemplate,
             "gradient_boosting_regression_template": GradientBoostingRegressionTemplate,
             "svr_regression_template": SVRRegressionTemplate,
-            "Testing_template": TESTINGTemplate, # template from elastic search
+            # 2019-7-3: Need to update TESTINGTemplate: "d3m.primitives.data_transformation.update_semantic_types.DatasetCommon" missing
+            # "Testing_template": TESTINGTemplate, # template from elastic search
             "Alpha_Zero_template": AlphaZeroEvalTemplate, # template from elastic search
             # older templates
             "dsbox_classification_template": dsboxClassificationTemplate,
@@ -107,7 +108,8 @@ class TemplateLibrary:
             "DefaultVideoClassificationTemplate": DefaultVideoClassificationTemplate,
 
             # Specialized problems: privileged data
-            "LupiPriviledgedInformationClassification": LupiPriviledgedInformationClassification,
+            "LupiSvmClassification": LupiSvmClassification,
+            "LupiRfClassification": LupiRfClassification,
         }
 
         if run_single_template:
@@ -195,7 +197,8 @@ class TemplateLibrary:
         self.templates.append(ExtraTreesRegressionTemplate)
         self.templates.append(GradientBoostingRegressionTemplate)
         self.templates.append(AlphaZeroEvalTemplate)
-        self.templates.append(TESTINGTemplate)
+        # 2019-7-3: Need to update TESTINGTemplate: "d3m.primitives.data_transformation.update_semantic_types.DatasetCommon" missing
+        # self.templates.append(TESTINGTemplate)
         # takes too long to run
         # self.templates.append(SVRRegressionTemplate)
 
@@ -215,7 +218,8 @@ class TemplateLibrary:
         self.templates.append(TA1VggImageProcessingRegressionTemplate)
 
         # Privileged information
-        self.templates.append(LupiPriviledgedInformationClassification)
+        # self.templates.append(LupiSvmClassification)
+        self.templates.append(LupiRfClassification)
 
         # Others
         self.templates.append(DefaultTimeseriesCollectionTemplate)
@@ -4220,7 +4224,7 @@ class ISI_GCN(DSBoxTemplate):
                                 'exclude_columns': ()
                             }
                     }],
-                    "inputs": ["to_learning_dataframe"]#_learning"]
+                    "inputs": ["to_learning_dataframe"]  #_learning"]
                 },
                 {
                     #"name": "model_step", #
@@ -4263,11 +4267,11 @@ class ISI_GCN(DSBoxTemplate):
             ]
         }
 
-class LupiPriviledgedInformationClassification(DSBoxTemplate):
+class LupiSvmClassification(DSBoxTemplate):
     def __init__(self):
         DSBoxTemplate.__init__(self)
         self.template = {
-            "name": "LupiPrivilegedInfoCls",
+            "name": "LupiSvmClassification",
             "taskType": {TaskType.CLASSIFICATION.name},
             "taskSubtype": {TaskSubtype.BINARY.name, TaskSubtype.MULTICLASS.name},
             "inputType": {"table"},
@@ -4309,6 +4313,113 @@ class LupiPriviledgedInformationClassification(DSBoxTemplate):
                     },
                     ],
                     "inputs": ["to_dataframe_step"]
+                },
+                {
+                    "name": "prediction_step",
+                    "primitives": ["d3m.primitives.data_transformation.construct_predictions.DataFrameCommon"],
+                    "inputs": ["model_step", "to_dataframe_step"]
+                }
+
+            ]
+        }
+
+class LupiRfClassification(DSBoxTemplate):
+    def __init__(self):
+        DSBoxTemplate.__init__(self)
+        self.template = {
+            "name": "LupiRfClassification",
+            "taskType": {TaskType.CLASSIFICATION.name},
+            "taskSubtype": {TaskSubtype.BINARY.name, TaskSubtype.MULTICLASS.name},
+            "inputType": {"table"},
+            "specializedProblem": {SpecializedProblem.PRIVILEGED_INFORMATION},
+            "output": "prediction_step",
+            "steps": [
+                {
+                    "name": "denormalize_step",
+                    "primitives": ["d3m.primitives.data_transformation.denormalize.Common"],
+                    "inputs": ["template_input"]
+                },
+                {
+                    "name": "to_dataframe_step",
+                    "primitives": ["d3m.primitives.data_transformation.dataset_to_dataframe.Common"],
+                    "inputs": ["denormalize_step"]
+                },
+                {
+                    "name": "extract_target_step",
+                    "primitives": [{
+                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.DataFrameCommon",
+                        "hyperparameters":
+                        {
+                            'semantic_types': ('https://metadata.datadrivendiscovery.org/types/TrueTarget',),
+                            'use_columns': (),
+                            'exclude_columns': ()
+                        }
+                    }],
+                    "inputs": ["to_dataframe_step"]
+                },
+                {
+                    "name": "model_step",
+                    "primitives": [
+                        {
+                            "primitive":  "d3m.primitives.classification.lupi_rf.LupiRFClassifier",
+                            "hyperparameters": {
+                                "add_index_columns": [False],
+                                "bootstrap": [True],
+                                "class_weight": ["balanced"],
+                                "criterion": ["gini"],
+                                "error_on_no_input": [True],
+                                "exclude_input_columns": [()],
+                                "exclude_output_columns": [()],
+                                "max_depth": [10],
+                                "max_features": ["auto"],
+                                "max_leaf_nodes": [None],
+                                "min_impurity_decrease": [0.0],
+                                "min_samples_leaf": [1],
+                                "min_samples_split": [2],
+                                "min_weight_fraction_leaf": [0],
+                                "n_estimators": [5000],
+                                "n_jobs": [4],
+                                "oob_score": [False],
+                                "return_result": ["new"],
+                                "use_input_columns": [()],
+                                "use_output_columns": [()],
+                                "use_semantic_types": [False],
+                                "warm_start": [False],
+                            }
+                        },
+                        {
+                            "primitive":  "d3m.primitives.classification.lupi_rfsel.LupiRFSelClassifier",
+                            "hyperparameters":
+                            {
+                                "add_index_columns": [False],
+                                "bootstrap": [True],
+                                "class_weight": ["balanced"],
+                                "criterion": ["gini"],
+                                "error_on_no_input": [True],
+                                "exclude_input_columns": [()],
+                                "exclude_output_columns": [()],
+                                "max_depth": [20],
+                                "max_features": ["auto"],
+                                "max_leaf_nodes": [None],
+                                "min_impurity_decrease": [0.0],
+                                "min_samples_leaf": [1],
+                                "min_samples_split": [2],
+                                "min_weight_fraction_leaf": [0],
+                                "n_cv": [5],
+                                "n_estimators": [2000],
+                                "n_jobs": [4],
+                                "oob_score": [False],
+                                "regressor_type": ["linear"],
+                                "return_result": ["new"],
+                                "use_input_columns": [()],
+                                "use_output_columns": [()],
+                                "use_semantic_types": [False],
+                                "warm_start": [False],
+
+                            }
+                        },
+                    ],
+                    "inputs": ["to_dataframe_step", "extract_target_step"]
                 },
                 {
                     "name": "prediction_step",
