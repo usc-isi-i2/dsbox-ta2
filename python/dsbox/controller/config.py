@@ -6,7 +6,16 @@ import typing
 
 import d3m.metadata.base as metadata_base
 from d3m.metadata.problem import parse_problem_description
-# from d3m.metadata.problem import Problem
+from d3m.metadata.problem import Problem
+
+class RuntimeSetting:
+    '''
+    Class for storing information needed for Runtime
+    '''
+    def __init__(self, *, volumes_dir: str = None, scratch_dir: str = None, log_dir: str = None):
+        self.volumes_dir = volumes_dir
+        self.scratch_dir = scratch_dir
+        self.log_dir = log_dir
 
 
 class DsboxConfig:
@@ -15,7 +24,7 @@ class DsboxConfig:
 
     The following variables are defined in D3M OS environment
     * d3m_run: valid values are 'ta2' or 'ta2ta3' (os.environ['D3MRun'])
-    * d3m_context: values are 'TESTING', 'EVALUATION', 'PRODUCTION' (os.environ['D3MCONTEXT'])
+    * deprecated: d3m_context: values are 'TESTING', 'EVALUATION', 'PRODUCTION' (os.environ['D3MCONTEXT'])
     * input_dir: Top-level directory for all inputs (os.environ['D3MINPUTDIR'])
     * problem_schema: File path to problemDoc.json (os.environ['D3MPROBLEMPATH'])
     * output_dir: Top-level directory for all outputs (os.environ['D3MOUTPUTDIR'])
@@ -105,12 +114,11 @@ class DsboxConfig:
         self.root_logger_level = min(self.file_logging_level, self.console_logging_level)
 
         # ==== Derived variables
-        # problem spec in json dict
+        # Problem spec in json dict (Should not use)
         self.problem_doc: typing.Dict = {}
-        # parsed problem spec (e.g.. string value for task converted to d3m.metadata.problem.TaskType enum)
-        self.problem: typing.Dict = {}
-        # Should use self.problem_doc
-        self.problem_metadata = None
+        # Use this version
+        # Parsed problem spec (e.g.. string value for task converted to d3m.metadata.problem.TaskType enum)
+        self.problem: Problem = {}
 
         # List of file path to datasetDoc.json files
         self.dataset_schema_files: typing.List[str] = []
@@ -134,11 +142,16 @@ class DsboxConfig:
         self._load_dsbox()
         self._setup()
 
-    def set_problem(self, problem_doc, problem):
+    def set_problem(self, problem_doc, problem: Problem):
         self.problem_doc = problem_doc
         self.problem = problem
-        self.problem_metadata = metadata_base.Metadata(self.problem_doc)
         self._load_problem_rest()
+
+    def get_runtime_setting(self) -> RuntimeSetting:
+        return RuntimeSetting(
+            volumes_dir=self.static_dir,
+            scratch_dir=self.dsbox_scratch_dir,
+            log_dir=self.log_dir)
 
     def _load_d3m_environment(self, ta2ta3_mode: bool):
         '''
@@ -149,7 +162,7 @@ class DsboxConfig:
                 print(f'{key}={value}')
 
         self.d3m_run = os.environ['D3MRUN']
-        self.d3m_context = os.environ.get('D3MCONTEXT', default='TEST')
+        # self.d3m_context = os.environ.get('D3MCONTEXT', default='TEST')
         self.input_dir = os.environ['D3MINPUTDIR']
         self.output_dir = os.environ['D3MOUTPUTDIR']
         self.local_dir = os.environ['D3MLOCALDIR']
@@ -203,16 +216,15 @@ class DsboxConfig:
             return
         with open(os.path.abspath(self.problem_schema)) as file:
             self.problem_doc = json.load(file)
-        self.problem = parse_problem_description(os.path.abspath(self.problem_schema))
-        # self.problem = Problem.load()
-        self.problem_metadata = metadata_base.Metadata(self.problem_doc)
+        # self.problem = parse_problem_description(os.path.abspath(self.problem_schema))
+        self.problem = Problem.load('file://' + os.path.abspath(self.problem_schema))
         self._load_problem_rest()
 
     def _load_problem_rest(self) -> None:
         self.task_type = self.problem['problem']['task_type']
         self.task_subtype = self.problem['problem']['task_subtype']
 
-        dataset_ids = [obj['datasetID'] for obj in self.problem_doc['inputs']['data']]
+        dataset_ids = [obj['dataset_id'] for obj in self.problem['inputs']]
         if len(dataset_ids) > 1:
             self._logger.warning(f"ProblemDoc specifies more than one dataset id: {dataset_ids}")
 
