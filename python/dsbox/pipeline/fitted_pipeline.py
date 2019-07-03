@@ -11,6 +11,7 @@ from d3m.metadata.pipeline import Pipeline, Resolver, StepBase, PrimitiveStep, S
 from d3m import exceptions
 from d3m import utils as d3m_utils
 
+from dsbox.controller.config import RuntimeSetting
 from dsbox.template.runtime import Runtime
 # from dsbox.template.runtime import ForkedPdb
 from dsbox.template.template import DSBoxTemplate
@@ -31,10 +32,8 @@ class FittedPipeline:
         a pipeline
     template/problem:
         Used to add extra explanation, not necessary to be given
-    runtime: Runtime
-        runtime object for the pipeline
-    log_dir: str
-        the direction to store the log files
+    random_seed : int
+        A random seed to use for every run. This control all randomness during the run.
     id: str
         the id of the pipeline
     metric_descriptions: List[str]
@@ -44,7 +43,9 @@ class FittedPipeline:
     """
 
     # Static volume for data need by d3m primitives
-    static_volume_dir: str = ""
+    # static_volume_dir: str = ""
+    runtime_setting: RuntimeSetting = RuntimeSetting()
+
     # control parameters to let pipeline generator know whether we need add splitter
     need_splitter = False
      # control parameters to let pipeline generator know whether we need add data mart related primitives
@@ -60,10 +61,12 @@ class FittedPipeline:
     pipelines_fitted_subdir: str = 'pipelines_fitted'
     pipelines_info_subdir: str = 'pipelines_info'
 
-    def __init__(self, pipeline: Pipeline, dataset_id: str, log_dir: str, *, id: str = None,
+    def __init__(self, pipeline: Pipeline, dataset_id: str, *, id: str = None,
                  metric_descriptions: typing.List = [], template: DSBoxTemplate = None,
                  template_name: str = None, template_task: str = None, template_subtask: str = None,
-                 problem=None, extra_primitive=None) -> None:
+                 problem=None, extra_primitive: typing.Set[str] = set(),
+                 random_seed: int = -1
+    ) -> None:
 
         # these two are mandatory
         # TODO add the check
@@ -90,11 +93,13 @@ class FittedPipeline:
         else:
             self.id = id
         self.extra_primitive = extra_primitive
-        self.log_dir = log_dir
 
+        self.random_seed = random_seed
         self.runtime = Runtime(pipeline, fitted_pipeline_id=self.id, template_name=self.template_name,
-                               volumes_dir=FittedPipeline.static_volume_dir, log_dir=self.log_dir,
-                               task_type=self.template_task)
+                               task_type=self.template_task,
+                               random_seed=self.random_seed,
+                               volumes_dir=FittedPipeline.runtime_setting.volumes_dir,
+                               log_dir=FittedPipeline.runtime_setting.log_dir)
 
         self.metric_descriptions = list(metric_descriptions)
         self.runtime.set_metric_descriptions(self.metric_descriptions)
@@ -181,7 +186,6 @@ class FittedPipeline:
             "d3m.primitives.data_augmentation.datamart_query.DSBOX"             or
             "d3m.primitives.data_augmentation.datamart_augmentation.DSBOX"
         """
-        from dsbox.controller.controller import controller_instance as controller
 
         structure = self.pipeline.to_json_structure()
         for each_primitive_name in primitive_name:
@@ -201,7 +205,7 @@ class FittedPipeline:
 
             primitive_augument = self.get_primitive_augment(each_primitive_name, input_names)
 
-            hyperparams_file_loc = os.path.join(controller.config.dsbox_scratch_dir, self.dataset_id+each_primitive_name+".json")
+            hyperparams_file_loc = os.path.join(self.runtime_setting.scratch_dir, self.dataset_id+each_primitive_name+".json")
             with open(hyperparams_file_loc, "r") as f:
                 hyperparams_file = json.load(f)
             new_hyper_file = {}
@@ -239,7 +243,7 @@ class FittedPipeline:
             # update original structure
             structure["steps"] = detail_steps
             # add into runtime
-            primitive_pickle_file_loc = os.path.join(controller.config.dsbox_scratch_dir, self.dataset_id+each_primitive_name+".pkl")
+            primitive_pickle_file_loc = os.path.join(self.runtime_setting.scratch_dir, self.dataset_id+each_primitive_name+".pkl")
             with open(primitive_pickle_file_loc, "rb") as f:
                 primitive_pickle_file = pickle.load(f)
             self.runtime.steps_state.insert(location_number, primitive_pickle_file)
@@ -251,7 +255,9 @@ class FittedPipeline:
         steps_state_old = self.runtime.steps_state
         # generate new runtime
         self.runtime = Runtime(self.pipeline, fitted_pipeline_id=self.id,
-                               volumes_dir=FittedPipeline.static_volume_dir, log_dir=self.log_dir)
+                               random_seed=self.random_seed,
+                               volumes_dir=FittedPipeline.runtime_setting.volumes_dir,
+                               log_dir=FittedPipeline.runtime_setting.log_dir)
         self.runtime.steps_state = steps_state_old
 
     def fit(self, **arguments):
@@ -285,6 +291,8 @@ class FittedPipeline:
         # D3M
         self.save_schema_only(folder_loc, self.pipelines_searched_subdir, subpipelines_subdir=self.subpipelines_subdir)
         self.save_schema_only(folder_loc, self.pipelines_scored_subdir)
+        # Always save a ranked version. If there is a limit on the number of ranked pipelines, then the controller will
+        # remove the extra ones.
         self.save_schema_only(folder_loc, self.pipelines_ranked_subdir)
         self.save_rank(os.path.join(folder_loc, self.pipelines_ranked_subdir))
 
@@ -485,7 +493,7 @@ class FittedPipeline:
         return (pipeline, structure)
 
     @classmethod
-    def load(cls, *, fitted_pipeline_id: str, folder_loc: str, log_dir: str) -> 'FittedPipeline':
+    def load(cls, *, fitted_pipeline_id: str, folder_loc: str) -> 'FittedPipeline':
         # pipeline_schema_subdir: str = 'pipelines_scored', subpipelines_subdir: str = 'subpipelines', pipelines_fitted_subdir: str = 'pipelines_fitted'
 
         pipelines_fitted_dir = os.path.join(folder_loc, cls.pipelines_fitted_subdir)
@@ -496,9 +504,9 @@ class FittedPipeline:
 
         pipeline, pipeline_structure = FittedPipeline.load_schema_only(structure['pipeline_id'], folder_loc, cls.pipelines_scored_subdir)
         runtime: Runtime = FittedPipeline.load_pickle_files(
-            pipeline, structure['fitted_pipeline_id'], pipelines_fitted_dir=pipelines_fitted_dir, log_dir=log_dir)
+            pipeline, structure['fitted_pipeline_id'], pipelines_fitted_dir=pipelines_fitted_dir)
 
-        fitted_pipeline = FittedPipeline(pipeline, dataset_id=structure['dataset_id'], log_dir=log_dir, id=fitted_pipeline_id)
+        fitted_pipeline = FittedPipeline(pipeline, dataset_id=structure['dataset_id'], id=fitted_pipeline_id)
         fitted_pipeline.runtime = runtime
         fitted_pipeline._set_fitted(runtime.steps_state)
 
@@ -520,13 +528,18 @@ class FittedPipeline:
 
     @classmethod
     def load_pickle_files(cls, pipeline_to_load: Pipeline, fitted_pipeline_id: str,
-                          pipelines_fitted_dir: str, log_dir: str) -> Runtime:
+                          pipelines_fitted_dir: str) -> Runtime:
         '''
             create a Runtime instance from given pipelines and supporting files
         '''
 
+        # What to set for random seed?
+        random_seed = 0
+
         runtime_loaded = Runtime(pipeline_to_load, fitted_pipeline_id=fitted_pipeline_id,
-                                 volumes_dir=FittedPipeline.static_volume_dir, log_dir=log_dir)
+                                 random_seed=random_seed,
+                                 volumes_dir=FittedPipeline.runtime_setting.volumes_dir,
+                                 log_dir=FittedPipeline.runtime_setting.log_dir)
         pipelines_fitted_dir = os.path.join(pipelines_fitted_dir, fitted_pipeline_id)
         for i, each_step in enumerate(pipeline_to_load.steps):
             # if it is a primitive, load directly
@@ -539,7 +552,7 @@ class FittedPipeline:
             # if it is a subpipeline, recursively creat a new runtime
             elif isinstance(each_step, SubpipelineStep):
                 runtime_loaded.steps_state[i] = FittedPipeline.load_pickle_files(
-                    each_step.pipeline, each_step.pipeline.id, log_dir, pipelines_fitted_dir)
+                    each_step.pipeline, each_step.pipeline.id, pipelines_fitted_dir)
 
             else:
                 raise exceptions.UnexpectedValueError("Unknown types for step " + str(i) + "as" + str(type(each_step)))
@@ -568,8 +581,8 @@ class FittedPipeline:
         # add the fitted_primitives
         state['fitted_pipe'] = self.runtime.steps_state
         state['pipeline'] = self.pipeline.to_json_structure()
-        state['log_dir'] = self.log_dir
         state['id'] = self.id
+        state['random_seed'] = self.random_seed
         del state['runtime']  # remove runtime entry
 
         return state
@@ -591,9 +604,12 @@ class FittedPipeline:
 
         structure = state['pipeline']
         state['pipeline'] = Pipeline.from_json_structure(structure)
+        random_seed = state['random_seed']
 
         run = Runtime(state['pipeline'], fitted_pipeline_id=state['id'],
-                      volumes_dir=FittedPipeline.static_volume_dir, log_dir=state['log_dir'])
+                      random_seed=random_seed,
+                      volumes_dir=FittedPipeline.runtime_setting.volumes_dir,
+                      log_dir=FittedPipeline.runtime_setting.log_dir)
         run.steps_state = fitted
 
         state['runtime'] = run

@@ -166,7 +166,7 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
 
         if fitted_pipeline_id:
             fitted_pipeline = FittedPipeline.load(
-                fitted_pipeline_id=fitted_pipeline_id, folder_loc=self.config.output_dir, log_dir=self.config.log_dir)
+                fitted_pipeline_id=fitted_pipeline_id, folder_loc=self.config.output_dir)
             self.fit_solution[fitted_pipeline_id] = fitted_pipeline
 
         # Create scratch directory
@@ -208,6 +208,7 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
             _logger.warning("Protocol Version does NOT match supported version {} != {}".format(
                 core_pb2.DESCRIPTOR.GetOptions().Extensions[core_pb2.protocol_version], request.version))
 
+        # TODO: Check if there is util function that does problem parsing
         problem_json_dict = problem_to_json(request.problem)
         problem_parsed = problem_to_dict(request.problem)
         print('==json')
@@ -433,7 +434,7 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
 
         add_true_target(dataset, self.problem_parsed)
 
-        fitted_pipeline = FittedPipeline.load(fitted_pipeline_id=fitted_pipeline_id, folder_loc=self.config.output_dir, log_dir=self.config.log_dir)
+        fitted_pipeline = FittedPipeline.load(fitted_pipeline_id=fitted_pipeline_id, folder_loc=self.config.output_dir)
         fitted_pipeline.produce(inputs=[dataset])
 
         timestamp = Timestamp()
@@ -527,7 +528,7 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
 
         add_true_target(dataset, self.problem_parsed)
 
-        old_fitted_pipeline = FittedPipeline.load(fitted_pipeline_id=fitted_pipeline_id, folder_loc=self.config.output_dir, log_dir=self.config.log_dir)
+        old_fitted_pipeline = FittedPipeline.load(fitted_pipeline_id=fitted_pipeline_id, folder_loc=self.config.output_dir)
 
         if old_fitted_pipeline.dataset_id == dataset.metadata.query(())['id']:
             # Nothigh to do. Old fitted pipeline was trained on the same dataset
@@ -549,7 +550,6 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
 
             fitted_pipeline = FittedPipeline(old_fitted_pipeline.pipeline,
                                              dataset.metadata.query(())['id'],
-                                             log_dir=self.config.log_dir,
                                              id=str(uuid.uuid4()),
                                              metric_descriptions=old_fitted_pipeline.metric_descriptions)
 

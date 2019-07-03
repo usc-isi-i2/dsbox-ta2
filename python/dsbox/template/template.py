@@ -98,7 +98,7 @@ class DSBoxTemplate():
                     raise ValueError(f'Template {self.template["name"]} step {step["name"]}({i}) key ({key}) values must a list or a tuple')
 
 
-    def to_pipeline(self, context: str, configuration_point: ConfigurationPoint) -> Pipeline:
+    def to_pipeline(self, configuration_point: ConfigurationPoint) -> Pipeline:
         """
         converts the configuration point to the executable pipeline based on
         ta2 competitions format
@@ -132,7 +132,7 @@ class DSBoxTemplate():
         # binding = configuration_point
         binding, sequence = self.add_intermediate_type_casting(ioconf)
 
-        return self._to_pipeline(context, binding, sequence)
+        return self._to_pipeline(binding, sequence)
 
     def add_inputs_to_confPonit(self,
                                 configuration_point: ConfigurationPoint) -> ConfigurationPoint:
@@ -282,7 +282,7 @@ class DSBoxTemplate():
                     data_reference=templateIO[index]
                 )
 
-    def _to_pipeline(self, context, binding, sequence) -> Pipeline:
+    def _to_pipeline(self, binding, sequence) -> Pipeline:
         """
         Args:
             binding:
@@ -293,12 +293,8 @@ class DSBoxTemplate():
 
         # define an empty pipeline with the general dataset input primitive
         # generate empty pipeline with i/o/s/u =[]
-        # pprint(binding)
-        # print(sequence)
-        # print("[INFO] list:",list(map(str, metadata_base.Context)))
         pipeline = Pipeline(
             name=self.template['name'] + ":" + str(id(binding)),
-            context=context,
             description=self.description_info,
             source={
                 'name': 'ISI',

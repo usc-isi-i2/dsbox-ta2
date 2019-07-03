@@ -16,15 +16,15 @@ from d3m.container.pandas import DataFrame
 from d3m.base import utils as d3m_utils
 from d3m.exceptions import NotSupportedError
 from d3m.metadata.base import Metadata, ALL_ELEMENTS
-from d3m.metadata.problem import PerformanceMetric
+from d3m.metadata.problem import PerformanceMetric, Problem, TaskType
 from dsbox.JobManager.cache import PrimitivesCache
-from dsbox.combinatorial_search.search_utils import get_target_columns
 from dsbox.pipeline.fitted_pipeline import FittedPipeline
-from dsbox.schema import larger_is_better
+from dsbox.schema import get_target_columns, larger_is_better
 from dsbox.template.configuration_space import ConfigurationPoint
 from dsbox.template.configuration_space import ConfigurationSpace
 from dsbox.template.template import DSBoxTemplate
-from dsbox.template.utils import calculate_score, graph_problem_conversion, SpecialMetric
+# from dsbox.template.utils import calculate_score, graph_problem_conversion, SpecialMetric
+from dsbox.template.utils import score_prediction, graph_problem_conversion, SpecialMetric
 from datamart_isi.entries import AUGMENTED_COLUMN_SEMANTIC_TYPE, Q_NODE_SEMANTIC_TYPE
 T = typing.TypeVar("T")
 # python path of primitive, i.e. 'd3m.primitives.common_primitives.RandomForestClassifier'
@@ -59,23 +59,25 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
            ( ('partial', 'whole'), ('bootstrap', 'cross-validation'))
     """
 
-    def __init__(self, context: str, template: DSBoxTemplate,
+    def __init__(self, template: DSBoxTemplate,
                  configuration_space: ConfigurationSpace[T],
-                 problem: Metadata, train_dataset1: Dataset,
+                 problem: Problem, train_dataset1: Dataset,
                  train_dataset2: typing.List[Dataset], test_dataset1: Dataset,
                  test_dataset2: typing.List[Dataset], all_dataset: Dataset,
                  ensemble_tuning_dataset: Dataset,
                  performance_metrics: typing.List[typing.Dict], output_directory: str,
-                 log_dir: str, extra_primitive=None) -> None:
+                 extra_primitive: typing.Set[str] = set(), *,
+                 random_seed: int = 0
+    ) -> None:
 
-        self.context = context
         self.template = template
         self.task_type = self.template.template["taskType"]
+        self.random_seed = random_seed
 
         self.configuration_space = configuration_space
         # self.dimension_ordering = configuration_space_list.get_dimension_search_ordering()
 
-        self.problem = problem
+        self.problem: Problem = problem
         self.train_dataset1 = train_dataset1
         self.train_dataset2 = train_dataset2
         self.test_dataset1 = test_dataset1
@@ -89,13 +91,9 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
             self.do_ensemble_tuning = False
             self.ensemble_tuning_dataset = None
 
-        self.performance_metrics = list(map(
-            lambda d: {'metric': d['metric'].unparse(), 'params': d.get('params', None)},
-            performance_metrics
-        ))
+        self.performance_metrics = performance_metrics
 
         self.output_directory = output_directory
-        self.log_dir = log_dir
 
         self.minimize = performance_metrics[0]['metric'].best_value() < performance_metrics[0]['metric'].worst_value()
 
@@ -190,29 +188,30 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
                   dump2disk: bool = True) -> typing.Dict:
 
         start_time = time.time()
-        pipeline = self.template.to_pipeline(self.context, configuration)
+        pipeline = self.template.to_pipeline(configuration)
         # Todo: update ResourceManager to run pipeline:  ResourceManager.add_pipeline(pipeline)
         # initlize repeat_time_level
         self._repeat_times_level_2 = 1
         self._repeat_times_level_1 = 1
 
         # for timeseries forcasting, we can't compare directly
-        if self.problem.query(())['about']['taskType']=="timeSeriesForecasting":
+        if self.problem['problem']['task_type'] == TaskType.TIME_SERIES_FORECASTING:
             # just skip for now
             # TODO: add one way to evalute time series forecasting pipeline quality
             # (something like sliding window)
             fitted_pipeline = FittedPipeline(
                 pipeline=pipeline,
                 dataset_id=self.train_dataset1.metadata.query(())['id'],
-                log_dir=self.log_dir,
                 metric_descriptions=self.performance_metrics,
-                template=self.template, problem=self.problem, extra_primitive = self.extra_primitive)
+                template=self.template, problem=self.problem, extra_primitive=self.extra_primitive, random_seed=self.random_seed)
             fitted_pipeline.fit(cache=cache, inputs=[self.train_dataset1])
             fitted_pipeline.save(self.output_directory)
 
-            training_ground_truth = get_target_columns(self.train_dataset1, self.problem)
-            fake_metric = calculate_score(training_ground_truth, training_ground_truth,
-                self.performance_metrics, self.task_type, SpecialMetric().regression_metric)
+            training_ground_truth = get_target_columns(self.train_dataset1)
+            # fake_metric = calculate_score(training_ground_truth, training_ground_truth,
+            #     self.performance_metrics, self.task_type, SpecialMetric().regression_metric)
+            fake_metric = score_prediction(training_ground_truth, [self.train_dataset1], self.problem, self.performance_metrics, self.random_seed)
+
             fitted_pipeline.set_metric(fake_metric[0])
 
             # [{'column_name': 'Class', 'metric': 'f1', 'value': 0.1}]
@@ -240,17 +239,16 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
             fitted_pipeline = FittedPipeline(
                 pipeline=pipeline,
                 dataset_id=self.train_dataset1.metadata.query(())['id'],
-                log_dir=self.log_dir,
                 metric_descriptions=self.performance_metrics,
-                template=self.template, problem=self.problem, extra_primitive = self.extra_primitive)
+                template=self.template, problem=self.problem, extra_primitive=self.extra_primitive, random_seed=self.random_seed)
 
             fitted_pipeline.fit(cache=cache, inputs=[self.train_dataset1])
 
-            training_ground_truth = get_target_columns(self.train_dataset1, self.problem)
-            training_prediction = fitted_pipeline.get_fit_step_output(
-                self.template.get_output_step_number())
-            training_metrics = calculate_score(training_ground_truth, training_prediction,
-                self.performance_metrics, self.task_type, SpecialMetric().regression_metric)
+            training_prediction = fitted_pipeline.get_fit_step_output(self.template.get_output_step_number())
+            # training_ground_truth = get_target_columns(self.train_dataset1)
+            # training_metrics = calculate_score(training_ground_truth, training_prediction,
+            #     self.performance_metrics, self.task_type, SpecialMetric().regression_metric)
+            training_metrics = score_prediction(training_prediction, [self.train_dataset1], self.problem, self.performance_metrics, self.random_seed)
 
             cv_metrics = fitted_pipeline.get_cross_validation_metrics()
             test_metrics = copy.deepcopy(training_metrics)
@@ -278,31 +276,36 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
                 fitted_pipeline = FittedPipeline(
                     pipeline=pipeline,
                     dataset_id=self.train_dataset2[each_repeat].metadata.query(())['id'],
-                    log_dir=self.log_dir,
                     metric_descriptions=self.performance_metrics,
-                    template=self.template, problem=self.problem, extra_primitive = self.extra_primitive)
+                    template=self.template, problem=self.problem, extra_primitive=self.extra_primitive, random_seed=self.random_seed)
 
                 fitted_pipeline.fit(cache=cache, inputs=[self.train_dataset2[each_repeat]])
                 # fitted_pipeline.fit(inputs=[self.train_dataset2[each_repeat]])
-                training_ground_truth = get_target_columns(self.train_dataset2[each_repeat],
-                                                           self.problem)
                 training_prediction = fitted_pipeline.get_fit_step_output(
                     self.template.get_output_step_number())
-                training_metrics_each = calculate_score(training_ground_truth, training_prediction,
-                self.performance_metrics, self.task_type, SpecialMetric().regression_metric)
+
+                # training_ground_truth = get_target_columns(self.train_dataset2[each_repeat])
+                # training_metrics_each = calculate_score(
+                #     training_ground_truth, training_prediction,
+                #     self.performance_metrics, self.task_type, SpecialMetric().regression_metric)
+                training_metrics_each = score_prediction(training_prediction, [self.train_dataset2[each_repeat]],
+                                                         self.problem, self.performance_metrics, self.random_seed)
 
                 # only do test if the test_dataset exist
                 if self.test_dataset2[each_repeat] is not None:
                     results = fitted_pipeline.produce(inputs=[self.test_dataset2[each_repeat]])
-                    test_ground_truth = get_target_columns(self.test_dataset2[each_repeat],
-                                                           self.problem)
                     # Note: results == test_prediction
                     test_prediction = fitted_pipeline.get_produce_step_output(
                         self.template.get_output_step_number())
-                    test_metrics_each = calculate_score(test_ground_truth, test_prediction,
-                        self.performance_metrics, self.task_type, SpecialMetric().regression_metric)
+
+                    # test_ground_truth = get_target_columns(self.test_dataset2[each_repeat])
+                    # test_metrics_each = calculate_score(test_ground_truth, test_prediction,
+                    #     self.performance_metrics, self.task_type, SpecialMetric().regression_metric)
+                    test_metrics_each = score_prediction(test_prediction, [self.test_dataset2[each_repeat]],
+                                                         self.problem, self.performance_metrics, self.random_seed)
+
                 else:
-                    test_ground_truth = None
+                    # test_ground_truth = None
                     test_prediction = None
                     test_metrics_each = copy.deepcopy(training_metrics_each)
                     for each in test_metrics_each:
@@ -379,18 +382,27 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
                     })
 
             # Save fitted pipeline
+            pickled = False
             if self.output_directory is not None and dump2disk:
-                fitted_pipeline2.save(self.output_directory)
+                try:
+                    fitted_pipeline2.save(self.output_directory)
+                    pickled = True
+                except Exception as e:
+                    _logger.warning('SKIPPING Pickle test. Saving pipeline failed: {e.message}')
 
             # Pickle test
-            if self.output_directory is not None and dump2disk:
-                _logger.debug("Test pickled pipeline. id: {}".format(fitted_pipeline2.id))
-                self.test_pickled_pipeline(folder_loc=self.output_directory,
-                                           pipeline_id=fitted_pipeline2.id,
-                                           test_dataset=self.train_dataset2[0],
-                                           test_metrics=training_metrics,
-                                           test_ground_truth=get_target_columns(
-                                               self.train_dataset2[0], self.problem))
+            try:
+                if pickled and self.output_directory is not None and dump2disk:
+                    _logger.debug("Test pickled pipeline. id: {}".format(fitted_pipeline2.id))
+                    self.test_pickled_pipeline(
+                        folder_loc=self.output_directory,
+                        pipeline_id=fitted_pipeline2.id,
+                        test_dataset=self.train_dataset2[0],
+                        test_metrics=training_metrics
+                        # test_ground_truth=get_target_columns(self.train_dataset2[0], self.problem)
+                    )
+            except Exception as e:
+                _logger.exception('Pickle test Failed', exc_info=True)
         else:
             # update v2019.3.17, running k-fold corss validation on level_1 split
             if self.quick_mode:
@@ -399,11 +411,15 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
                 # just generate the predictions on dataset_test1 directly and get the rank
                 fitted_pipeline2 = fitted_pipeline
                 fitted_pipeline2.produce(inputs=[self.test_dataset1])
-                test_ground_truth = get_target_columns(self.test_dataset1, self.problem)
                 test_prediction = fitted_pipeline2.get_produce_step_output(
                     self.template.get_output_step_number())
-                test_metrics2 = calculate_score(test_ground_truth, test_prediction,
-                    self.performance_metrics, self.task_type, SpecialMetric().regression_metric)
+
+                # test_ground_truth = get_target_columns(self.test_dataset1)
+                # test_metrics2 = calculate_score(test_ground_truth, test_prediction,
+                #     self.performance_metrics, self.task_type, SpecialMetric().regression_metric)
+                test_metrics2 = score_prediction(test_prediction, [self.test_dataset1],
+                                                 self.problem, self.performance_metrics, self.random_seed)
+
             else:
                 _logger.info("[INFO] Now in normal mode, will add extra train with train_dataset1")
                 # otherwise train again with dataset_train1 and get the rank
@@ -431,17 +447,20 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
                         fitted_pipeline2 = FittedPipeline(
                             pipeline=pipeline,
                             dataset_id=current_train_dataset.metadata.query(())['id'],
-                            log_dir=self.log_dir,
                             metric_descriptions=self.performance_metrics,
-                            template=self.template, problem=self.problem, extra_primitive = self.extra_primitive)
+                            template=self.template, problem=self.problem, extra_primitive=self.extra_primitive, random_seed=self.random_seed)
                         # retrain and compute ranking/metric using self.train_dataset
                         # fitted_pipeline2.fit(inputs = [self.train_dataset1])
                         fitted_pipeline2.fit(cache=cache, inputs=[current_train_dataset])
                         fitted_pipeline2.produce(inputs=[current_test_dataset])
-                        test_ground_truth = get_target_columns(current_test_dataset, self.problem)
                         test_prediction = fitted_pipeline2.get_produce_step_output(self.template.get_output_step_number())
-                        test_metrics_temp = calculate_score(test_ground_truth, test_prediction,
-                            self.performance_metrics, self.task_type, SpecialMetric().regression_metric)
+
+                        # test_ground_truth = get_target_columns(current_test_dataset)
+                        # test_metrics_temp = calculate_score(test_ground_truth, test_prediction,
+                        #     self.performance_metrics, self.task_type, SpecialMetric().regression_metric)
+                        test_metrics_temp = score_prediction(test_prediction, [current_test_dataset],
+                                                             self.problem, self.performance_metrics, self.random_seed)
+
                         all_test_metrics.append(test_metrics_temp)
 
                     results = self.conclude_k_fold_metrics(all_test_metrics)
@@ -451,17 +470,19 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
                     fitted_pipeline2 = FittedPipeline(
                         pipeline=pipeline,
                         dataset_id=self.train_dataset1.metadata.query(())['id'],
-                        log_dir=self.log_dir,
                         metric_descriptions=self.performance_metrics,
-                        template=self.template, problem=self.problem, extra_primitive = self.extra_primitive)
+                        template=self.template, problem=self.problem, extra_primitive=self.extra_primitive, random_seed=self.random_seed)
                     # retrain and compute ranking/metric using self.train_dataset
                     # fitted_pipeline2.fit(inputs = [self.train_dataset1])
                     fitted_pipeline2.fit(cache=cache, inputs=[self.train_dataset1])
                     fitted_pipeline2.produce(inputs=[self.test_dataset1])
-                    test_ground_truth = get_target_columns(self.test_dataset1, self.problem)
                     test_prediction = fitted_pipeline2.get_produce_step_output(self.template.get_output_step_number())
-                    test_metrics2 = calculate_score(test_ground_truth, test_prediction,
-                        self.performance_metrics, self.task_type, SpecialMetric().regression_metric)
+
+                    # test_ground_truth = get_target_columns(self.test_dataset1)
+                    # test_metrics2 = calculate_score(test_ground_truth, test_prediction,
+                    #     self.performance_metrics, self.task_type, SpecialMetric().regression_metric)
+                    test_metrics2 = score_prediction(test_prediction, [self.test_dataset1],
+                                                     self.problem, self.performance_metrics, self.random_seed)
             # update here:
             # Now new version of d3m runtime don't allow to run ".fit()" again on a given runtime
             #  object second time
@@ -471,9 +492,8 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
             fitted_pipeline_final = FittedPipeline(
                 pipeline=pipeline,
                 dataset_id=self.all_dataset.metadata.query(())['id'],
-                log_dir=self.log_dir,
                 metric_descriptions=self.performance_metrics,
-                template=self.template, problem=self.problem, extra_primitive = self.extra_primitive)
+                template=self.template, problem=self.problem, extra_primitive = self.extra_primitive, random_seed=self.random_seed)
             # set the metric for calculating the rank
             fitted_pipeline_final.set_metric(test_metrics2[0])
             # end uptdate v2019.3.17
@@ -486,9 +506,12 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
             if self.ensemble_tuning_dataset:
                 fitted_pipeline_final.produce(inputs=[self.ensemble_tuning_dataset])
                 ensemble_tuning_result = fitted_pipeline_final.get_produce_step_output(self.template.get_output_step_number())
-                ensemble_tuning_result_ground_truth = get_target_columns(self.ensemble_tuning_dataset, self.problem)
-                ensemble_tuning_metrics = calculate_score(ensemble_tuning_result_ground_truth, ensemble_tuning_result,
-                                                          self.performance_metrics, self.task_type, SpecialMetric().regression_metric)
+
+                # ensemble_tuning_result_ground_truth = get_target_columns(self.ensemble_tuning_dataset)
+                # ensemble_tuning_metrics = calculate_score(ensemble_tuning_result_ground_truth, ensemble_tuning_result,
+                #                                           self.performance_metrics, self.task_type, SpecialMetric().regression_metric)
+                ensemble_tuning_metrics = score_prediction(ensemble_tuning_result, [self.ensemble_tuning_dataset],
+                                                           self.problem, self.performance_metrics, self.random_seed)
 
             cv = fitted_pipeline_final.get_cross_validation_metrics()
             if not cv:
@@ -518,52 +541,59 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
 
             # Pickle test
             if pickled and self.output_directory is not None and dump2disk:
-                # remove the augmented columns in self.test_dataset1 to ensure we can pass the picking test
-                res_id, test_dataset1_df = d3m_utils.get_tabular_resource(dataset=self.test_dataset1, resource_id=None)
+                try:
+                    # remove the augmented columns in self.test_dataset1 to ensure we can pass the picking test
+                    res_id, test_dataset1_df = d3m_utils.get_tabular_resource(dataset=self.test_dataset1, resource_id=None)
 
-                original_columns = []
-                remained_columns_number = 0
-                for i in range(test_dataset1_df.shape[1]):
-                    current_selector = (res_id, ALL_ELEMENTS, i)
-                    meta = self.test_dataset1.metadata.query(current_selector)
+                    original_columns = []
+                    remained_columns_number = 0
+                    for i in range(test_dataset1_df.shape[1]):
+                        current_selector = (res_id, ALL_ELEMENTS, i)
+                        meta = self.test_dataset1.metadata.query(current_selector)
 
-                    if AUGMENTED_COLUMN_SEMANTIC_TYPE in meta['semantic_types'] or Q_NODE_SEMANTIC_TYPE in meta['semantic_types']:
-                        self.test_dataset1.metadata = self.test_dataset1.metadata.remove(selector=current_selector)
-                    else:
-                        original_columns.append(i)
-                        if remained_columns_number != i:
+                        if AUGMENTED_COLUMN_SEMANTIC_TYPE in meta['semantic_types'] or Q_NODE_SEMANTIC_TYPE in meta['semantic_types']:
                             self.test_dataset1.metadata = self.test_dataset1.metadata.remove(selector=current_selector)
-                            updated_selector = (res_id, ALL_ELEMENTS, remained_columns_number)
-                            self.test_dataset1.metadata = self.test_dataset1.metadata.update(selector=updated_selector, metadata=meta)
-                        remained_columns_number += 1
+                        else:
+                            original_columns.append(i)
+                            if remained_columns_number != i:
+                                self.test_dataset1.metadata = self.test_dataset1.metadata.remove(selector=current_selector)
+                                updated_selector = (res_id, ALL_ELEMENTS, remained_columns_number)
+                                self.test_dataset1.metadata = self.test_dataset1.metadata.update(selector=updated_selector, metadata=meta)
+                            remained_columns_number += 1
 
-                self.test_dataset1[res_id] = self.test_dataset1[res_id].iloc[:, original_columns]
-                meta = dict(self.test_dataset1.metadata.query((res_id, ALL_ELEMENTS)))
-                dimension = dict(meta['dimension'])
-                dimension['length'] = remained_columns_number
-                meta['dimension'] = frozendict.FrozenOrderedDict(dimension)
-                self.test_dataset1.metadata = self.test_dataset1.metadata.update((res_id, ALL_ELEMENTS), frozendict.FrozenOrderedDict(meta))
-                # end removing augmente columns
+                    self.test_dataset1[res_id] = self.test_dataset1[res_id].iloc[:, original_columns]
+                    meta = dict(self.test_dataset1.metadata.query((res_id, ALL_ELEMENTS)))
+                    dimension = dict(meta['dimension'])
+                    dimension['length'] = remained_columns_number
+                    meta['dimension'] = frozendict.FrozenOrderedDict(dimension)
+                    self.test_dataset1.metadata = self.test_dataset1.metadata.update((res_id, ALL_ELEMENTS), frozendict.FrozenOrderedDict(meta))
+                    # end removing augmente columns
 
-                _ = fitted_pipeline_final.produce(inputs=[self.test_dataset1])
-                test_prediction3 = fitted_pipeline_final.get_produce_step_output(
-                    self.template.get_output_step_number())
-                test_ground_truth_for_test_pickle = get_target_columns(self.test_dataset1, self.problem)
-                test_metrics3 = calculate_score(test_ground_truth_for_test_pickle, test_prediction3,
-                    self.performance_metrics, self.task_type, SpecialMetric().regression_metric)
+                    _ = fitted_pipeline_final.produce(inputs=[self.test_dataset1])
+                    test_prediction3 = fitted_pipeline_final.get_produce_step_output(
+                        self.template.get_output_step_number())
 
-                _logger.info("Test pickled pipeline. id: {}".format(fitted_pipeline_final.id))
-                self.test_pickled_pipeline(folder_loc=self.output_directory,
-                                           pipeline_id=fitted_pipeline_final.id,
-                                           test_dataset=self.test_dataset1,
-                                           test_metrics=test_metrics3,
-                                           test_ground_truth=test_ground_truth_for_test_pickle)
+                    # test_ground_truth_for_test_pickle = get_target_columns(self.test_dataset1)
+                    # test_metrics3 = calculate_score(test_ground_truth_for_test_pickle, test_prediction3,
+                    #     self.performance_metrics, self.task_type, SpecialMetric().regression_metric)
+                    test_metrics3 = score_prediction(test_prediction3, [self.test_dataset1],
+                                                     self.problem, self.performance_metrics, self.random_seed)
+
+                    _logger.info("Test pickled pipeline. id: {}".format(fitted_pipeline_final.id))
+                    self.test_pickled_pipeline(folder_loc=self.output_directory,
+                                               pipeline_id=fitted_pipeline_final.id,
+                                               test_dataset=self.test_dataset1,
+                                               test_metrics=test_metrics3
+                                               # test_ground_truth=test_ground_truth_for_test_pickle
+                    )
+                except Exception as e:
+                    _logger.exception('Pickle test Failed', exc_info=True)
 
         # still return the original fitted_pipeline with relation to train_dataset1
         return data
 
     def conclude_k_fold_metrics(self, input_metrics:typing.List):
-        metric_value_dict = collections.defaultdict(list)
+        metric_value_dict: typing.Dict[list] = collections.defaultdict(list)
         # convert for test matrics
         for each in input_metrics:
             # for condition only one exist?
@@ -587,18 +617,18 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
         return output_metrics
 
     def test_pickled_pipeline(self, folder_loc: str, pipeline_id: str, test_dataset: Dataset,
-                              test_metrics: typing.List, test_ground_truth) -> None:
+                              test_metrics: typing.List) -> None:
 
-        fitted_pipeline = FittedPipeline.load(folder_loc=folder_loc, fitted_pipeline_id=pipeline_id,
-                                              log_dir=self.log_dir)
+        fitted_pipeline = FittedPipeline.load(folder_loc=folder_loc, fitted_pipeline_id=pipeline_id)
         results = fitted_pipeline.produce(inputs=[test_dataset])
 
         pipeline_prediction = fitted_pipeline.get_produce_step_output(
             self.template.get_output_step_number())
         pipeline_prediction = graph_problem_conversion(self.task_type, pipeline_prediction)
 
-        test_pipeline_metrics2 = calculate_score(test_ground_truth, pipeline_prediction,
-            self.performance_metrics, self.task_type, SpecialMetric().regression_metric)
+        # test_pipeline_metrics2 = calculate_score(test_ground_truth, pipeline_prediction,
+        #     self.performance_metrics, self.task_type, SpecialMetric().regression_metric)
+        test_pipeline_metrics2 = score_prediction(pipeline_prediction, [test_dataset], self.problem, self.performance_metrics, self.random_seed)
 
         _logger.info(f'=== original:{test_metrics}')
         # _logger.info(f'=== test:{test_pipeline_metrics}')
