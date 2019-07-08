@@ -4,6 +4,7 @@ import contextlib
 import logging
 import sys
 import tempfile
+import traceback
 import time
 import pdb
 
@@ -64,6 +65,8 @@ class Runtime(runtime_base.Runtime):
         used to store the prediction outputs from fit() part's dataset
     fitted_pipeline_id : str
         A uuid format str to indicate the pipeline id
+    random_seed : int
+        A random seed to use for every run. This control all randomness during the run.
     log_dir : str
         A path to indicate the path to the logging files
     pipeline_description : Pipeline
@@ -86,14 +89,15 @@ class Runtime(runtime_base.Runtime):
     def __init__(
             self, pipeline: pipeline_module.Pipeline,  hyperparams: typing.Sequence = None, *,
             problem_description: problem.Problem = None, context: metadata_base.Context = metadata_base.Context.TESTING,
-            random_seed: int = 0, volumes_dir: str = None, scratch_dir: str = None,
+            random_seed: int = -1, volumes_dir: str = None, scratch_dir: str = None,
             is_standard_pipeline: bool = False, environment: pipeline_run_module.RuntimeEnvironment = None,
             users: typing.Sequence[pipeline_run_module.User] = None,
             # dsbox parameters
             fitted_pipeline_id: str = None, template_name: str = '', log_dir: str = None, task_type: str = '',
     ) -> None:
-        print('--->', log_dir)
-        print('--->', _logger.getEffectiveLevel())
+        if random_seed == -1:
+            raise ValueError('Be sure to set random seed. Fix this.')
+
         super().__init__(
             pipeline=pipeline, hyperparams=hyperparams, problem_description=problem_description, context=context,
             random_seed=random_seed, volumes_dir=volumes_dir, scratch_dir=scratch_dir,
@@ -110,7 +114,7 @@ class Runtime(runtime_base.Runtime):
         else:
             self.fitted_pipeline_id = fitted_pipeline_id
         self.template_name = template_name
-        self.fit_outputs = None
+        self.fit_outputs: runtime_base.Result = None
         self.log_dir = log_dir
         self.metric_descriptions: typing.List[typing.Dict] = []
         self.produce_outputs = None
@@ -497,8 +501,13 @@ class Runtime(runtime_base.Runtime):
                                 testY.insert(0,'d3mIndex' ,testX['d3mIndex'].copy())
                             if 'd3mIndex' not in ypred.columns:
                                 ypred.insert(0,'d3mIndex' ,testX['d3mIndex'].copy())
+
                             # update 2019.5.13: use calculate_score method instead from ConfigurationSpaceBaseSearch
-                            metric_score = calculate_score(ground_truth=testY, prediction=ypred, performance_metrics=self.metric_descriptions, task_type=self.task_type, regression_metric=SpecialMetric().regression_metric)
+                            # !!!! TODO: Use utils.score. How to fix this.
+                            metric_score = calculate_score(
+                                ground_truth=testY, prediction=ypred, performance_metrics=self.metric_descriptions,
+                                task_type=self.task_type, regression_metric=SpecialMetric().regression_metric)
+
                             # targets['ground_truth'].append(testY)
                             # targets['prediction'].append(ypred)
                             for metric_description in metric_score:
@@ -512,7 +521,7 @@ class Runtime(runtime_base.Runtime):
                             sys.stderr.write(
                                 "ERROR: cross_validation {}: {}\n".format(primitive, e))
                             _logger.error("ERROR: cross_validation {}: {}\n".format(primitive, e))
-                            # traceback.print_exc(e)
+                            traceback.print_exc(e)
 
         if num == 0:
             return results
@@ -540,7 +549,7 @@ class Runtime(runtime_base.Runtime):
 
     def _guess_task_type(self):
         for each in self.metric_descriptions:
-            if 'error' in each['metric']:
+            if 'error' in each['metric'].unparse():
                 self.task_type = "REGRESSION"
             else:
                 self.task_type = "CLASSIFICATION"
@@ -1395,7 +1404,7 @@ def score_handler(
     if expose_produced_outputs:
         save_steps_outputs(produce_result, arguments.expose_produced_outputs_dir)
 
-    scores, score_result = score(
+    scores, score_result = score_prediction(
         scoring_pipeline,
         fitted_pipeline.problem_description,
         predictions,

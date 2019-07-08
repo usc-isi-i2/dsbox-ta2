@@ -11,20 +11,21 @@ import typing
 import shutil
 import traceback
 
-import pandas as pd
+import pandas as pd  # type: ignore
 
 from d3m.base import utils as d3m_utils
 from d3m.container.list import List
 from d3m.container.dataset import Dataset, D3MDatasetLoader
 from d3m.metadata.base import ALL_ELEMENTS
+from d3m.metadata.problem import TaskType
 
 from dsbox.combinatorial_search.TemplateSpaceBaseSearch import TemplateSpaceBaseSearch
 from dsbox.combinatorial_search.TemplateSpaceParallelBaseSearch import TemplateSpaceParallelBaseSearch
 from dsbox.combinatorial_search.RandomDimensionalSearch import RandomDimensionalSearch
 from dsbox.combinatorial_search.BanditDimensionalSearch import BanditDimensionalSearch
 from dsbox.combinatorial_search.MultiBanditSearch import MultiBanditSearch
-from dsbox.combinatorial_search.search_utils import get_target_columns
 from dsbox.controller.config import DsboxConfig
+from dsbox.schema import ColumnRole, SpecializedProblem
 from dsbox.pipeline.fitted_pipeline import FittedPipeline
 from dsbox.pipeline.ensemble_tuning import EnsembleTuningPipeline, HorizontalTuningPipeline
 from dsbox.template.library import TemplateLibrary
@@ -66,7 +67,9 @@ class Controller:
         # self.task_type: TaskType = None
         # self.task_subtype: TaskSubtype = None
         # self.problem_doc_metadata: Metadata = None
-        self.problem_info = {}
+        self.problem_info: dict = {}
+        self.specialized_problem: str = SpecializedProblem.NONE
+        self.is_privileged_data_problem = False
 
         # Dataset
         # self.dataset_schema_file: str = ""
@@ -77,7 +80,7 @@ class Controller:
         self.all_dataset: Dataset = None
         self.ensemble_dataset: Dataset = None
         self.taskSourceType: typing.Set[str] = set()  # str from SEMANTIC_TYPES
-        self.extra_primitive = set()
+        self.extra_primitive: typing.Set[str] = set()
 
         # hard coded unsplit dataset type
         # TODO: check whether "speech" type should be put into this list or not
@@ -90,7 +93,7 @@ class Controller:
         self.do_ensemble_tune = False
         self.do_horizontal_tune = False
 
-        self.report_ensemble = dict()
+        self.report_ensemble: dict = dict()
 
         # Resource limits
         # self.ram: int = 0  # concurrently ignored
@@ -142,81 +145,55 @@ class Controller:
 
     def _check_and_set_dataset_metadata(self) -> None:
         """
-        The function used to change the metadata of the target predictions to be "TrueTarget"
+        Update metadata of dataframe columns based on problem doc specification. Columns
+        changed include target columns and privileged data columns.
         """
-        resource_id = self.config.problem['inputs'][0]['targets'][0]['resource_id']
-        target_column_id = self.config.problem['inputs'][0]['targets'][0]['column_index']
-        column_semantic_types = list(set(self.all_dataset.metadata.query((resource_id, ALL_ELEMENTS, target_column_id))['semantic_types']).union({
-            'https://metadata.datadrivendiscovery.org/types/Target',
-            'https://metadata.datadrivendiscovery.org/types/TrueTarget'
-            }))
-        self.all_dataset.metadata = self.all_dataset.metadata.update(
-            (resource_id, ALL_ELEMENTS, target_column_id), {'semantic_types': column_semantic_types})
+
+        # NOTICE: Should follow d3m.runtime.Runtime._mark_columns()
+
+        # Remove suggest target from all columns, to avoid confusion
+        for resource_id, resource in self.all_dataset.items():
+            indices = self.all_dataset.metadata.list_columns_with_semantic_types(ColumnRole.SUGGESTED_TARGET)
+            for column_index in indices:
+                selector = (resource_id, ALL_ELEMENTS, column_index)
+
+                column_semantic_types: list = self.all_dataset.metadata.query(selector)['semantic_types']
+                column_semantic_types.remove(ColumnRole.SUGGESTED_TARGET)
+                self.all_dataset.metadata = self.all_dataset.metadata.update(
+                    selector, {'semantic_types': column_semantic_types})
+                self._logger.debug(f'Removing suggest target tag for {selector}')
+
+        # Set true target column(s)
+        for dataset in self.config.problem['inputs']:
+            if 'targets' not in dataset:
+                continue
+            for info in dataset['targets']:
+                selector = (info['resource_id'], ALL_ELEMENTS, info['column_index'])
+
+                self.all_dataset.metadata = self.all_dataset.metadata.add_semantic_type(selector, ColumnRole.TRUE_TARGET)
+                self.all_dataset.metadata = self.all_dataset.metadata.add_semantic_type(selector, ColumnRole.TARGET)
+
+                # Add suggested target, because primitives like LUPI still using suggested target
+                self.all_dataset.metadata = self.all_dataset.metadata.add_semantic_type(selector, ColumnRole.SUGGESTED_TARGET)
+
+                # Target is not attribute
+                self.all_dataset.metadata = self.all_dataset.metadata.remove_semantic_type(selector, ColumnRole.ATTRIBUTE)
+
+                self._logger.debug(f'Adding true target tag for {selector}')
+
+        # Set privileged data columns
+        for dataset in self.config.problem['inputs']:
+            if 'privileged_data' not in dataset:
+                continue
+            self.specialized_problem = SpecializedProblem.PRIVILEGED_INFORMATION
+            self._logger.debug(f'Specialized problem: {self.specialized_problem}')
+            for info in dataset['privileged_data']:
+                selector = (info['resource_id'], ALL_ELEMENTS, info['column_index'])
+
+                self.all_dataset.metadata = self.all_dataset.metadata.add_semantic_type(selector, ColumnRole.PRIVILEGED_DATA)
+                self._logger.debug(f'Adding privileged info tag for {selector}')
+
         return
-        # Need to make sure the Target and TrueTarget column semantic types are set
-        # if self.config.task_type == TaskType.CLASSIFICATION or self.config.task_type == TaskType.REGRESSION:
-
-        #     # start from last column, since typically target is the last column
-        #     for index in range(
-        #             self.all_dataset.metadata.query((resource_id, ALL_ELEMENTS))['dimension']['length'] - 1,
-        #             -1, -1):
-        #         column_semantic_types = self.all_dataset.metadata.query(
-        #             (resource_id, ALL_ELEMENTS, index))['semantic_types']
-        #         if ('https://metadata.datadrivendiscovery.org/types/Target' in column_semantic_types
-        #                 and 'https://metadata.datadrivendiscovery.org/types/TrueTarget' in
-        #                 column_semantic_types):
-        #             return
-
-        #     # If not set, use sugested target column
-        #     for index in range(
-        #             self.all_dataset.metadata.query((resource_id, ALL_ELEMENTS))['dimension']['length'] - 1,
-        #             -1, -1):
-        #         column_semantic_types = self.all_dataset.metadata.query(
-        #             (resource_id, ALL_ELEMENTS, index))['semantic_types']
-        #         if 'https://metadata.datadrivendiscovery.org/types/SuggestedTarget' in \
-        #                 column_semantic_types:
-        #             column_semantic_types = list(column_semantic_types) + [
-        #                 'https://metadata.datadrivendiscovery.org/types/Target',
-        #                 'https://metadata.datadrivendiscovery.org/types/TrueTarget']
-        #             self.all_dataset.metadata = self.all_dataset.metadata.update(
-        #                 (resource_id, ALL_ELEMENTS, index), {'semantic_types': column_semantic_types})
-        #             return
-
-        #     raise InvalidArgumentValueError(
-        #         'At least one column should have semantic type SuggestedTarget')
-
-    # def _create_output_directory(self, config):
-    #     """
-    #     Create output sub-directories based on Summer 2018 evaluation layout.
-
-    #     For the Summer 2018 evaluation the top-level output dir is '/output'
-    #     """
-    #     #### Official config entry for Evaluation
-    #     if 'pipeline_logs_root' in config:
-    #         self.output_pipelines_dir = os.path.abspath(config['pipeline_logs_root'])
-    #     if 'executables_root' in config:
-    #         self.output_executables_dir = os.path.abspath(config['executables_root'])
-    #     if 'temp_storage_root' in config:
-    #         self.output_supporting_files_dir = os.path.abspath(config['temp_storage_root'])
-    #     #### End: Official config entry for Evaluation
-
-    #     self.output_directory = os.path.abspath(config['output_root'])
-    #     self.output_logs_dir = os.path.abspath(config['logs_root'])
-
-    #     # Make directories if they do not exist
-    #     if not os.path.exists(self.output_directory):
-    #         os.makedirs(self.output_directory)
-
-    #     for path in [self.output_pipelines_dir, self.output_executables_dir,
-    #                  self.output_supporting_files_dir, self.output_logs_dir]:
-    #         if not os.path.exists(path) and path != '':
-    #             os.makedirs(path)
-
-    #     self._log_init()
-    #     self._logger.info('Top level output directory: %s' % self.output_directory)
-    #     considered_root = os.path.join(os.path.dirname(self.output_pipelines_dir),
-    #                                    'pipelines_considered')
-    #     self._logger.info('Pipelines Considered output directory: %s' % considered_root)
 
     def _load_schema(self, *, is_ta3=False):
         # Problem
@@ -451,7 +428,7 @@ class Controller:
         self._search_method.initialize_problem(
             template_list=self.template,
             performance_metrics=self.config.problem['problem']['performance_metrics'],
-            problem=self.config.problem_metadata,
+            problem=self.config.problem,
             test_dataset1=self.test_dataset1,
             train_dataset1=self.train_dataset1,
             test_dataset2=self.test_dataset2,
@@ -459,7 +436,6 @@ class Controller:
             all_dataset=self.all_dataset,
             ensemble_tuning_dataset=self.ensemble_dataset,
             output_directory=self.config.output_dir,
-            log_dir=self.config.log_dir,
             start_time=self.config.start_time,
             timeout_sec=self.config.timeout_search,
             extra_primitive=self.extra_primitive,
@@ -474,7 +450,7 @@ class Controller:
         self._search_method.initialize_problem(
             template_list=self.template,
             performance_metrics=self.config.problem['problem']['performance_metrics'],
-            problem=self.config.problem_metadata,
+            problem=self.config.problem,
             test_dataset1=self.test_dataset1,
             train_dataset1=self.train_dataset1,
             test_dataset2=self.test_dataset2,
@@ -482,7 +458,6 @@ class Controller:
             all_dataset=self.all_dataset,
             ensemble_tuning_dataset=self.ensemble_dataset,
             output_directory=self.config.output_dir,
-            log_dir=self.config.log_dir,
             start_time=self.config.start_time,
             timeout_sec=self.config.timeout_search,
             extra_primitive=self.extra_primitive,
@@ -500,7 +475,7 @@ class Controller:
         self._search_method = RandomDimensionalSearch(
             template_list=self.template,
             performance_metrics=self.config.problem['problem']['performance_metrics'],
-            problem=self.config.problem_metadata,
+            problem=self.config.problem,
             test_dataset1=self.test_dataset1,
             train_dataset1=self.train_dataset1,
             test_dataset2=self.test_dataset2,
@@ -525,7 +500,7 @@ class Controller:
         self._search_method = BanditDimensionalSearch(
             template_list=self.template,
             performance_metrics=self.config.problem['problem']['performance_metrics'],
-            problem=self.config.problem_metadata,
+            problem=self.config.problem,
             test_dataset1=self.test_dataset1,
             train_dataset1=self.train_dataset1,
             test_dataset2=self.test_dataset2,
@@ -551,7 +526,7 @@ class Controller:
         self._search_method = MultiBanditSearch(
             template_list=self.template,
             performance_metrics=self.config.problem['problem']['performance_metrics'],
-            problem=self.config.problem_metadata,
+            problem=self.config.problem,
             test_dataset1=self.test_dataset1,
             train_dataset1=self.train_dataset1,
             test_dataset2=self.test_dataset2,
@@ -575,7 +550,7 @@ class Controller:
     """
         **********************************************************************
         Public method (in alphabet)
-        1 . add_d3m_index_and_prediction_class_name
+        # 1 . add_d3m_index_and_prediction_class_name
         2 . generate_configuration_space
         3 . initialize_from_config_for_evaluation
         4 . initialize_from_config_train_test
@@ -598,24 +573,24 @@ class Controller:
     """
     def initialize(self, config: DsboxConfig):
         '''
-        This method should called as soon as possible. Need to spawn all processes before grpc connection.
+        This method should be called as soon as possible. Need to spawn all processes before grpc connection.
         '''
         self.config = config
 
-        # Set staic volume before process forks
+        # Set runtime environment info before process forks
         if self.config.static_dir:
-            FittedPipeline.static_volume_dir = self.config.static_dir
+            FittedPipeline.runtime_setting = self.config.get_runtime_setting()
 
         use_multiprocessing = True
         if self.config.search_method == 'serial':
-            self._search_method = TemplateSpaceBaseSearch(self.config.d3m_context)
+            self._search_method = TemplateSpaceBaseSearch()
             use_multiprocessing = False
         elif self.config.search_method == 'parallel':
-            self._search_method = TemplateSpaceParallelBaseSearch(self.config.d3m_context, num_proc=self.config.cpu)
+            self._search_method = TemplateSpaceParallelBaseSearch(num_proc=self.config.cpu)
         # elif self.config.search_method == 'bandit':
         #     self._search_method = BanditDimensionalSearch(num_proc=self.config.cpu)
         else:
-            self._search_method = TemplateSpaceParallelBaseSearch(self.config.d3m_context, num_proc=self.config.cpu)
+            self._search_method = TemplateSpaceParallelBaseSearch(num_proc=self.config.cpu)
 
         if self.do_ensemble_tune:
             # creat a special dictionary that can collect the results in each processes
@@ -684,7 +659,7 @@ class Controller:
                     self.extra_primitive.add("augment" + str(augment_times))
                     self.dump_primitive(augment_primitive, "augment" + str(augment_times))
                     augment_times += 1
-            
+
             # all_results2 = datamart_unit.search_with_data(query=None, supplied_data=augment_res).get_next_page()
 
             all_results1.sort(key=lambda x: x.score(), reverse=True)
@@ -713,53 +688,54 @@ class Controller:
             traceback.print_exc()
             return self.all_dataset
 
-    def add_d3m_index_and_prediction_class_name(self, prediction, from_dataset = None):
-        """
-            The function to process the prediction results
-            1. If no prediction column name founnd, add the prediction column name
-            2. Add the d3m index into the output predictions
-        """
-        # setup an initial condition
-        if not from_dataset:
-            from_dataset = self.all_dataset
+    # No longer needed
+    # def add_d3m_index_and_prediction_class_name(self, prediction, from_dataset = None):
+    #     """
+    #         The function to process the prediction results
+    #         1. If no prediction column name founnd, add the prediction column name
+    #         2. Add the d3m index into the output predictions
+    #     """
+    #     # setup an initial condition
+    #     if not from_dataset:
+    #         from_dataset = self.all_dataset
 
-        prediction_class_name = []
-        try:
-            with open(self.config.dataset_schema_files[0], 'r') as dataset_description_file:
-                dataset_description = json.load(dataset_description_file)
-                for each_resource in dataset_description["dataResources"]:
-                    if "columns" in each_resource:
-                        for each_column in each_resource["columns"]:
-                            if "suggestedTarget" in each_column["role"] or "target" in each_column["role"]:
-                                prediction_class_name.append(each_column["colName"])
-        except:
-            self._logger.error(
-                "[Warning] Can't find the prediction class name, will use default name "
-                "'prediction'.")
-            prediction_class_name.append("prediction")
+    #     prediction_class_name = []
+    #     try:
+    #         with open(self.config.dataset_schema_files[0], 'r') as dataset_description_file:
+    #             dataset_description = json.load(dataset_description_file)
+    #             for each_resource in dataset_description["dataResources"]:
+    #                 if "columns" in each_resource:
+    #                     for each_column in each_resource["columns"]:
+    #                         if "suggestedTarget" in each_column["role"] or "target" in each_column["role"]:
+    #                             prediction_class_name.append(each_column["colName"])
+    #     except:
+    #         self._logger.error(
+    #             "[Warning] Can't find the prediction class name, will use default name "
+    #             "'prediction'.")
+    #         prediction_class_name.append("prediction")
 
-        # if the prediction results do not have d3m_index column
-        if 'd3mIndex' not in prediction.columns:
-            d3m_index = get_target_columns(from_dataset, self.config.problem_metadata)["d3mIndex"]
-            d3m_index = d3m_index.reset_index().drop(columns=['index'])
-            # prediction.drop("confidence", axis=1, inplace=True, errors = "ignore")#some
-            # prediction has "confidence"
-            prediction_col_name = ['d3mIndex']
-            for each in prediction.columns:
-                prediction_col_name.append(each)
-            prediction['d3mIndex'] = d3m_index
-            prediction = prediction[prediction_col_name]
-            prediction_col_name.remove('d3mIndex')
-            for i in range(len(prediction_class_name)):
-                prediction = prediction.rename(
-                    columns={prediction_col_name[i]: prediction_class_name[i]})
-        else:
-            prediction_col_name = list(prediction.columns)
-            prediction_col_name.remove('d3mIndex')
-            for i in range(len(prediction_class_name)):
-                prediction = prediction.rename(
-                    columns={prediction_col_name[i]: prediction_class_name[i]})
-        return prediction
+    #     # if the prediction results do not have d3m_index column
+    #     if 'd3mIndex' not in prediction.columns:
+    #         d3m_index = get_target_columns(from_dataset)["d3mIndex"]
+    #         d3m_index = d3m_index.reset_index().drop(columns=['index'])
+    #         # prediction.drop("confidence", axis=1, inplace=True, errors = "ignore")#some
+    #         # prediction has "confidence"
+    #         prediction_col_name = ['d3mIndex']
+    #         for each in prediction.columns:
+    #             prediction_col_name.append(each)
+    #         prediction['d3mIndex'] = d3m_index
+    #         prediction = prediction[prediction_col_name]
+    #         prediction_col_name.remove('d3mIndex')
+    #         for i in range(len(prediction_class_name)):
+    #             prediction = prediction.rename(
+    #                 columns={prediction_col_name[i]: prediction_class_name[i]})
+    #     else:
+    #         prediction_col_name = list(prediction.columns)
+    #         prediction_col_name.remove('d3mIndex')
+    #         for i in range(len(prediction_class_name)):
+    #             prediction = prediction.rename(
+    #                 columns={prediction_col_name[i]: prediction_class_name[i]})
+    #     return prediction
 
     def auto_regress_convert_and_add_metadata(self, dataset: Dataset):
         """
@@ -845,11 +821,10 @@ class Controller:
 
         else:
             try:
-                pp = EnsembleTuningPipeline(pipeline_files_dir=self.config.output_dir, log_dir=self.config.log_dir,
+                pp = EnsembleTuningPipeline(pipeline_files_dir=self.config.output_dir,
                                             pids=None, candidate_choose_method=self.ensemble_voting_candidate_choose_method,
                                             report=ensemble_tuning_report, problem=self.problem,
-                                            test_dataset=self.test_dataset1, train_dataset=self.train_dataset1,
-                                            problem_doc_metadata=self.config.problem_metadata)
+                                            test_dataset=self.test_dataset1, train_dataset=self.train_dataset1)
                 pp.generate_candidate_pids()
                 pp.generate_ensemble_pipeline()
                 pp.fit_and_produce()
@@ -863,10 +838,9 @@ class Controller:
             self._logger.error("No ensemble tuning dataset found")
         else:
             try:
-                qq = HorizontalTuningPipeline(pipeline_files_dir=self.config.output_dir, log_dir=self.config.log_dir,
+                qq = HorizontalTuningPipeline(pipeline_files_dir=self.config.output_dir,
                                               pids=None, problem=self.problem, test_dataset=self.test_dataset1,
                                               train_dataset=self.train_dataset1,
-                                              problem_doc_metadata=self.config.problem_metadata,
                                               final_step_primitive=final_step_primitive)
                 qq.generate_candidate_pids()
                 qq.generate_ensemble_pipeline()
@@ -921,6 +895,9 @@ class Controller:
         self.load_templates()
 
     def initialize_from_ta3(self, config: DsboxConfig):
+        """
+        This function for TA3 GRPC connection, which is official D3M evaluation mechanism.
+        """
         self.config = config
         self._load_schema(is_ta3=True)
         self._log_init()
@@ -939,8 +916,8 @@ class Controller:
         # first apply denormalize on input dataset
         from common_primitives.denormalize import Hyperparams as hyper_denormalize, DenormalizePrimitive
         denormalize_hyperparams = hyper_denormalize.defaults()
-        denormalize_primitive = DenormalizePrimitive(hyperparams = denormalize_hyperparams)
-        self.all_dataset = denormalize_primitive.produce(inputs = self.all_dataset).value
+        denormalize_primitive = DenormalizePrimitive(hyperparams=denormalize_hyperparams)
+        self.all_dataset = denormalize_primitive.produce(inputs=self.all_dataset).value
         self.extra_primitive.add("denormalize")
         self.dump_primitive(denormalize_primitive, "denormalize")
         if "data_augmentation" in self.config.problem.keys():
@@ -965,14 +942,14 @@ class Controller:
             read_pipeline_id = lastmodified.split('/')[-1].split('.')[0]
 
         pipeline_load = FittedPipeline.load(folder_loc=self.config.output_dir,
-                                            fitted_pipeline_id=read_pipeline_id,
-                                            log_dir=self.config.log_dir)
+                                            fitted_pipeline_id=read_pipeline_id)
         return self.config.output_dir, pipeline_load, read_pipeline_id, pipeline_load.runtime
 
     def load_templates(self) -> None:
         self.template = self.template_library.get_templates(self.config.task_type,
                                                             self.config.task_subtype,
-                                                            self.taskSourceType)
+                                                            self.taskSourceType,
+                                                            self.specialized_problem)
         # find the maximum dataset split requirements
         for each_template in self.template:
             for each_step in each_template.template['steps']:
@@ -985,18 +962,18 @@ class Controller:
         """
         will automatically remove empty targets in training
         """
-        problem = self.config.problem_metadata.query(())
+        problem = self.config.problem
 
         # do not remove columns for cluster dataset!
-        if problem['about']['taskType'] == "clustering":
+        if problem['problem']['task_type'] == TaskType.CLUSTERING:
             return dataset
 
-        targets = problem["inputs"]["data"][0]["targets"]
-        # resID = targets[0]["resID"]
-
         resID, _ = d3m_utils.get_tabular_resource(dataset=dataset, resource_id=None)
-        colIndex = targets[0]["colIndex"]
-        # dataset_actual = dataset[resID]
+        targets = list(dataset.metadata.list_columns_with_semantic_types(
+            ['https://metadata.datadrivendiscovery.org/types/TrueTarget'],
+            at=(resID,),
+        ))
+        colIndex = targets[0]
 
         # TODO: update to use D3M's method to accelerate the processing speed
 
@@ -1005,6 +982,7 @@ class Controller:
             if v[colIndex] == "":
                 droplist.append(i)
         if droplist != []:
+            self._logger.warning('!!!! THIS IS MOST LIKELY A SEMI-SUPERVISED LEARNING DATASET !!!!')
             dataset[resID] = dataset[resID].drop(dataset[resID].index[droplist])
             meta = dict(dataset.metadata.query((resID,)))
             dimension = dict(meta['dimension'])
@@ -1036,8 +1014,7 @@ class Controller:
             # pprint(dict(dataset_with_new_meta.metadata.query((res_id,))))
             return dataset_with_new_meta
         '''
-        task_type = self.problem_info[
-            "task_type"]  # ['problem']['task_type'].name  # 'classification' 'regression'
+        task_type = self.problem_info["task_type"]  # ['problem']['task_type'].name  # 'classification' 'regression'
         res_id = self.problem_info["res_id"]
         target_index = self.problem_info["target_index"]
         data_type = self.problem_info["data_type"]
@@ -1241,8 +1218,7 @@ class Controller:
             fitted_pipeline_id = lastmodified.split('/')[-1].split('.')[0]
 
         pipeline_load = FittedPipeline.load(folder_loc=self.config.output_dir,
-                                            fitted_pipeline_id=fitted_pipeline_id,
-                                            log_dir=self.config.log_dir)
+                                            fitted_pipeline_id=fitted_pipeline_id)
         run_test = pipeline_load.runtime
         print("[INFO] Pipeline load finished")
 
@@ -1250,7 +1226,7 @@ class Controller:
         # pprint(self.test_dataset.head())
 
         # pipeline_load.runtime.produce(inputs=[self.test_dataset])
-        # runtime.add_target_columns_metadata(self.all_dataset, self.config.problem_metadata)
+        # runtime.add_target_columns_metadata(self.all_dataset, self.config.problem)
         run_test.produce(inputs=[self.all_dataset])
 
         # try:
@@ -1278,27 +1254,28 @@ class Controller:
             prediction_class_name.append("prediction")
 
         prediction = run_test.produce_outputs[step_number_output]
-        # if the prediction results do not have d3m_index column
-        if 'd3mIndex' not in prediction.columns:
-            d3m_index = get_target_columns(self.all_dataset, self.config.problem_metadata)["d3mIndex"]
-            d3m_index = d3m_index.reset_index().drop(columns=['index'])
-            # prediction.drop("confidence", axis=1, inplace=True, errors = "ignore")#some
-            # prediction has "confidence"
-            prediction_col_name = ['d3mIndex']
-            for each in prediction.columns:
-                prediction_col_name.append(each)
-            prediction['d3mIndex'] = d3m_index
-            prediction = prediction[prediction_col_name]
-            prediction_col_name.remove('d3mIndex')
-            for i in range(len(prediction_class_name)):
-                prediction = prediction.rename(
-                    columns={prediction_col_name[i]: prediction_class_name[i]})
+        # Should not fix predictions with d3m_index column
+        # # if the prediction results do not have d3m_index column
+        # if 'd3mIndex' not in prediction.columns:
+        #     d3m_index = get_target_columns(self.all_dataset, self.config.problem)["d3mIndex"]
+        #     d3m_index = d3m_index.reset_index().drop(columns=['index'])
+        #     # prediction.drop("confidence", axis=1, inplace=True, errors = "ignore")#some
+        #     # prediction has "confidence"
+        #     prediction_col_name = ['d3mIndex']
+        #     for each in prediction.columns:
+        #         prediction_col_name.append(each)
+        #     prediction['d3mIndex'] = d3m_index
+        #     prediction = prediction[prediction_col_name]
+        #     prediction_col_name.remove('d3mIndex')
+        #     for i in range(len(prediction_class_name)):
+        #         prediction = prediction.rename(
+        #             columns={prediction_col_name[i]: prediction_class_name[i]})
         prediction_folder_loc = self.config.output_dir + "/predictions/" + fitted_pipeline_id
         folder = os.path.exists(prediction_folder_loc)
         if not folder:
             os.makedirs(prediction_folder_loc)
 
-        prediction = self.add_d3m_index_and_prediction_class_name(prediction)
+        # prediction = self.add_d3m_index_and_prediction_class_name(prediction)
         prediction.to_csv(prediction_folder_loc + "/predictions.csv", index=False)
         self._logger.info("[INFO] Finished: prediction results saving finished")
         self._logger.info(
@@ -1400,7 +1377,7 @@ class Controller:
         '''
         # old method here
 
-        # runtime.add_target_columns_metadata(self.all_dataset, self.config.problem_metadata)
+        # runtime.add_target_columns_metadata(self.all_dataset, self.config.problem)
         res_id = self.problem_info['res_id']
         # check the shape of the dataset
         main_res_shape = self.all_dataset[res_id].shape
@@ -1627,8 +1604,7 @@ class Controller:
 
     def load_fitted_pipeline(self, fitted_pipeline_id) -> FittedPipeline:
         fitted_pipeline_load = FittedPipeline.load(folder_loc=self.config.output_dir,
-                                                   fitted_pipeline_id=fitted_pipeline_id,
-                                                   log_dir=self.config.log_dir)
+                                                   fitted_pipeline_id=fitted_pipeline_id)
         return fitted_pipeline_load
 
     def export_solution(self, fitted_pipeline_id) -> None:

@@ -52,7 +52,53 @@ class DSBoxTemplate():
     def __repr__(self):
         return self.__str__()
 
-    def to_pipeline(self, context: str, configuration_point: ConfigurationPoint) -> Pipeline:
+    def validate(self):
+        if not self.template:
+            raise ValueError(f'Template not defined: {type(self).__name__}')
+        # validate task
+        # valiate subtask
+        # valiate resource types
+        # validate specialized problems
+        # validate steps
+        if 'steps' not in self.template:
+            raise ValueError(f'Template {self.template["name"]} missing "steps" definitions')
+        step_names: set = set()
+        for i, each_step in enumerate(self.template['steps']):
+            if 'name' not in each_step:
+                raise ValueError(f'Template {self.template["name"]} step number {i} missing "name"')
+            step_names.add(each_step['name'])
+            if 'primitives' not in each_step:
+                raise ValueError(f'Template {self.template["name"]} step {each_step["named"]}({i}) missing "primitives" list')
+            for primitive in each_step['primitives']:
+                self._validate_primitive(each_step, primitive, 0)
+
+    def _validate_primitive(self, step, primitive, level):
+        if level > 1:
+            raise ValueError(f'Template {self.template["name"]} step {step["name"]}: Cannot have nest lists of primitives.')
+        if isinstance(primitive, str):
+            # name of primitive
+            pass
+        elif isinstance(primitive, dict):
+            self._validate_primitive_desc(step, 0, primitive)
+        elif isinstance(primitive, list):
+            for i, p in enumerate(primitive):
+                self._validate_primitive(step, p, level+1)
+
+    def _validate_primitive_desc(self, step, i, primitive_desc: dict) -> None:
+        if 'primitive' not in primitive_desc:
+            raise ValueError(f'Template {self.template["name"]} step {step["name"]}({i}): missing "primitive" name.')
+        if len(primitive_desc) > 1 and 'hyperparameters' not in primitive_desc:
+            keys = set(primitive_desc.keys())
+            keys.discard('primitive')
+            raise ValueError(f'Template {self.template["name"]} step {step["name"]}({i}): contain extra key(s) {keys}')
+        if 'hyperparameters' in primitive_desc:
+            hyper: dict = primitive_desc['hyperparameters']
+            for key, value in hyper.items():
+                if not (isinstance(value, list) or isinstance(value, tuple)):
+                    raise ValueError(f'Template {self.template["name"]} step {step["name"]}({i}) key ({key}) values must a list or a tuple')
+
+
+    def to_pipeline(self, configuration_point: ConfigurationPoint) -> Pipeline:
         """
         converts the configuration point to the executable pipeline based on
         ta2 competitions format
@@ -86,7 +132,7 @@ class DSBoxTemplate():
         # binding = configuration_point
         binding, sequence = self.add_intermediate_type_casting(ioconf)
 
-        return self._to_pipeline(context, binding, sequence)
+        return self._to_pipeline(binding, sequence)
 
     def add_inputs_to_confPonit(self,
                                 configuration_point: ConfigurationPoint) -> ConfigurationPoint:
@@ -236,7 +282,7 @@ class DSBoxTemplate():
                     data_reference=templateIO[index]
                 )
 
-    def _to_pipeline(self, context, binding, sequence) -> Pipeline:
+    def _to_pipeline(self, binding, sequence) -> Pipeline:
         """
         Args:
             binding:
@@ -247,12 +293,8 @@ class DSBoxTemplate():
 
         # define an empty pipeline with the general dataset input primitive
         # generate empty pipeline with i/o/s/u =[]
-        # pprint(binding)
-        # print(sequence)
-        # print("[INFO] list:",list(map(str, metadata_base.Context)))
         pipeline = Pipeline(
             name=self.template['name'] + ":" + str(id(binding)),
-            context=context,
             description=self.description_info,
             source={
                 'name': 'ISI',

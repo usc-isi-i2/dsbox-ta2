@@ -6,10 +6,9 @@ import json
 import d3m.exceptions as exceptions
 
 from dsbox.pipeline.fitted_pipeline import FittedPipeline
-from dsbox.pipeline.utils import larger_is_better
-from dsbox.combinatorial_search.ConfigurationSpaceBaseSearch import calculate_score, SpecialMetric
-from dsbox.combinatorial_search.search_utils import get_target_columns
-from d3m.metadata.problem import parse_problem_description, TaskType
+from dsbox.template.utils import score_prediction, calculate_score, SpecialMetric
+from dsbox.schema import get_target_columns, larger_is_better
+from d3m.metadata.problem import parse_problem_description, Problem, TaskType
 from d3m import runtime as runtime_module, container
 from d3m.metadata import pipeline as pipeline_module
 from d3m.metadata.base import ALL_ELEMENTS, Metadata
@@ -31,8 +30,6 @@ class EnsembleTuningPipeline:
     ----------
     pipeline_files_dir : str
         The path to fitted pipelines
-    log_dir: str
-        The path to log files
     pids : typing.List[str]
         The ids of candidate pipelines
         If it was not given, you should call 'generate_candidate_pids' to generate it
@@ -44,34 +41,27 @@ class EnsembleTuningPipeline:
         The ensemble report for tuning (from ta2 system), if it is not given, you have to set pids by yourself
     problem: dict
         Problem description
-    problem_doc_metadata: Metadata
-        Problem doc in metadata format
     """
-    def __init__(self, pipeline_files_dir: str, log_dir: str,
+    def __init__(self, pipeline_files_dir: str,
                  train_dataset: container.Dataset,
                  test_dataset: container.Dataset,
                  pids: typing.List[str] = None,
                  candidate_choose_method: str = 'lastStep',
-                 report = None, problem = None,
-                 problem_doc_metadata = None):
+                 report = None, problem: Problem = None,
+                 random_seed: int = 0
+    ):
 
         self.pipeline_files_dir = pipeline_files_dir
-        self.log_dir = log_dir
         self.pids = pids
         self.candidate_choose_method = candidate_choose_method
         self.report = report
         self.test_dataset = test_dataset
         self.train_dataset = train_dataset
-        self.problem_doc_metadata = problem_doc_metadata
+        self.random_seed = random_seed
 
         self.problem = problem
         if problem:
             performance_metrics = problem['problem']['performance_metrics']
-            self.performance_metrics = list(map(
-                lambda d: {'metric': d['metric'].unparse(), 'params': d['params']},
-                performance_metrics
-                ))
-
             self.task_type = self.problem['problem']['task_type']
             self.dataset_id = self.problem['problem']['id']
         else:
@@ -96,7 +86,7 @@ class EnsembleTuningPipeline:
         pipeline_input = self.voting_pipeline.add_input(name='inputs')
 
         for each_pid in self.pids:
-            each_dsbox_fitted  = FittedPipeline.load(self.pipeline_files_dir, each_pid, self.log_dir)
+            each_dsbox_fitted  = FittedPipeline.load(self.pipeline_files_dir, each_pid)
             each_runtime = each_dsbox_fitted.runtime
             each_fitted = runtime_module.FittedPipeline(each_pid, each_runtime, context=pipeline_module.PipelineContext.TESTING)
             each_step = pipeline_module.FittedPipelineStep(each_fitted.id, each_fitted)
@@ -146,7 +136,7 @@ class EnsembleTuningPipeline:
         if not self.voting_pipeline:
             raise ValueError("No voting pipeline found, please run generate_ensemble_pipeline first")
 
-        self.fitted_pipeline = FittedPipeline(pipeline = self.voting_pipeline, dataset_id = self.dataset_id, log_dir = self.log_dir, metric_descriptions = "pass")
+        self.fitted_pipeline = FittedPipeline(pipeline = self.voting_pipeline, dataset_id = self.dataset_id, metric_descriptions = "pass")
 
         # if we are given performance metrics and task type, we can conduct prediction operations
         if self.performance_metrics and self.task_type:
@@ -158,15 +148,17 @@ class EnsembleTuningPipeline:
                 self.fitted_pipeline.produce(inputs = [self.test_dataset])
 
             prediction = self.fitted_pipeline.get_produce_step_output(0)
-            ground_truth = get_target_columns(self.test_dataset, self.problem_doc_metadata)
-            score_metric = calculate_score(ground_truth, prediction, self.performance_metrics, self.task_type, SpecialMetric().regression_metric)
+
+            #ground_truth = get_target_columns(self.test_dataset)
+            #score_metric = calculate_score(ground_truth, prediction, self.performance_metrics, self.task_type, SpecialMetric().regression_metric)
+            score_metric = score_prediction(prediction, [self.test_dataset], self.problem, self.performance_metrics, self.random_seed)
 
             if type(score_metric) is list:
                     score_metric = score_metric[0]
             self.fitted_pipeline.set_metric(score_metric)
 
         if self.problem:
-            self.fitted_pipeline.problem = self.problem_doc_metadata
+            self.fitted_pipeline.problem = self.problem
         self._logger.info("Ensemble pipeline fitted and produced successfully")
 
     def save(self):
@@ -253,11 +245,16 @@ class EnsembleTuningPipeline:
                         # if classification problem, use accuracy instead of f1marco
                         temp_metric = copy.deepcopy(self.performance_metrics)
                         temp_metric[0]['metric'] = 'accuracy'
+
+                        # TODO: Use utils.score_prediction. How to fix this.
                         temp_score = calculate_score(temp1, temp2, temp_metric, self.task_type, SpecialMetric().regression_metric)
+
                     elif self.task_type == TaskType.REGRESSION:
                         # if regression problem, use MSE instead of f1marco
                         temp_metric = copy.deepcopy(self.performance_metrics)
                         temp_metric[0]['metric'] = 'meanSquaredError'
+
+                        # TODO: Use utils.score_prediction. How to fix this.
                         temp_score = calculate_score(temp1, temp2, temp_metric, self.task_type, SpecialMetric().regression_metric)
 
                     similarity_matrix[(i,j)] = temp_score[0]['value']
@@ -277,18 +274,17 @@ class EnsembleTuningPipeline:
                         self.pids.append(pid_each)
 
 class HorizontalTuningPipeline(EnsembleTuningPipeline):
-    def __init__(self, pipeline_files_dir: str, log_dir: str,
+    def __init__(self, pipeline_files_dir: str,
                  train_dataset: container.Dataset,
                  test_dataset: container.Dataset,
                  pids: typing.List[str] = None,
                  candidate_choose_method: str = 'lastStep',
                  report = None, problem = None,
-                 problem_doc_metadata = None,
                  final_step_primitive: str = "d3m.primitives.classification.bernoulli_naive_bayes.SKlearn"):
-        super().__init__(pipeline_files_dir, log_dir,
+        super().__init__(pipeline_files_dir,
                  train_dataset, test_dataset,
                  pids, candidate_choose_method, report,
-                 problem, problem_doc_metadata)
+                 problem)
         self.final_step_primitive = final_step_primitive
 
     def generate_ensemble_pipeline(self):
@@ -299,7 +295,7 @@ class HorizontalTuningPipeline(EnsembleTuningPipeline):
         step_outputs = []
         self.big_pipeline, pipeline_output, pipeline_input, target = self.preprocessing_pipeline()
         for each_pid in self.pids:
-            each_dsbox_fitted = FittedPipeline.load(self.pipeline_files_dir, each_pid, self.log_dir)
+            each_dsbox_fitted = FittedPipeline.load(self.pipeline_files_dir, each_pid)
             each_runtime = each_dsbox_fitted.runtime
             each_fitted = runtime_module.FittedPipeline(each_pid, each_runtime, context=pipeline_module.PipelineContext.TESTING)
             each_step = pipeline_module.FittedPipelineStep(each_fitted.id, each_fitted)
@@ -375,7 +371,7 @@ class HorizontalTuningPipeline(EnsembleTuningPipeline):
 
     def fit_and_produce(self):
         self.fitted_pipeline = FittedPipeline(pipeline=self.big_pipeline, dataset_id=self.dataset_id,
-                                              log_dir=self.log_dir, metric_descriptions="pass")
+                                              metric_descriptions="pass")
         if self.performance_metrics and self.task_type:
             self._logger.info("Will calculate the metric scores")
             # In ensemble tuning, we should not use cache
@@ -385,15 +381,17 @@ class HorizontalTuningPipeline(EnsembleTuningPipeline):
                 self.fitted_pipeline.produce(inputs=[self.test_dataset])
 
             prediction = self.fitted_pipeline.get_produce_step_output(0)
-            ground_truth = get_target_columns(self.test_dataset, self.problem_doc_metadata)
-            score_metric = calculate_score(ground_truth, prediction, self.performance_metrics, self.task_type, SpecialMetric().regression_metric)
+
+            # ground_truth = get_target_columns(self.test_dataset)
+            # score_metric = calculate_score(ground_truth, prediction, self.performance_metrics, self.task_type, SpecialMetric().regression_metric)
+            score_metric = score_prediction(prediction, [self.test_dataset], self.problem, self.performance_metrics, self.random_seed)
 
             if type(score_metric) is list:
                     score_metric = score_metric[0]
             self.fitted_pipeline.set_metric(score_metric)
 
         if self.problem:
-            self.fitted_pipeline.problem = self.problem_doc_metadata
+            self.fitted_pipeline.problem = self.problem
         self._logger.info("Ensemble pipeline fitted and produced successfully")
 
 
@@ -494,11 +492,10 @@ if __name__ == "__main__":
     # choose_method = 'lastStep'
     # with open(problem_doc_path) as file:
     #     problem_doc = json.load(file)
-    # problem_doc_metadata = Metadata(problem_doc)
 
     # pp = EnsembleTuningPipeline(pipeline_files_dir = data_dir, log_dir = log_dir,
     #              pids = pids, candidate_choose_method = choose_method, report = None, problem = problem,
-    #              test_dataset = dataset, train_dataset = dataset, problem_doc_metadata = problem_doc_metadata)
+    #              test_dataset = dataset, train_dataset = dataset)
     # pp.generate_ensemble_pipeline()
     # pp.fit_and_produce()
     # pp.save()
@@ -508,13 +505,12 @@ if __name__ == "__main__":
     dataset = container.Dataset.load('file:///Users/muxin/Desktop/ISI/dsbox-env/data/datasets/seed_datasets_current/38_sick/38_sick_dataset/datasetDoc.json')
     set_target_column(dataset)
     problem_doc_path = os.path.abspath("/Users/muxin/Desktop/ISI/dsbox-env/data/datasets/seed_datasets_current/38_sick/38_sick_problem/problemDoc.json")
-    problem = parse_problem_description(problem_doc_path)
+    problem = Problem.load('file://' + problem_doc_path)
     with open(problem_doc_path) as file:
         problem_doc = json.load(file)
-    problem_doc_metadata = Metadata(problem_doc)
-    qq = HorizontalTuningPipeline(pipeline_files_dir=data_dir, log_dir=log_dir,
+    qq = HorizontalTuningPipeline(pipeline_files_dir=data_dir,
                                   pids=None, problem=problem, train_dataset=dataset,
-                                  test_dataset=dataset, problem_doc_metadata=problem_doc_metadata
+                                  test_dataset=dataset
                                  )
     qq.generate_candidate_pids()
     print(qq.pids)

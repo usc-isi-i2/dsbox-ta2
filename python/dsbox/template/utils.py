@@ -1,16 +1,80 @@
 import typing
 import logging
 import traceback
-from d3m.container import DataFrame
-from d3m.metadata.problem import PerformanceMetric
-from d3m.utils import AbstractMetaclass
 
+import d3m.runtime as d3m_runtime
+import d3m.metadata.base as metadata_base
+import d3m.container as container
+import d3m.metadata.pipeline_run as pipeline_run_module
+import d3m.metadata.problem as problem
+
+from d3m.exceptions import NotSupportedError
+from d3m.metadata import pipeline as pipeline_module
+from d3m.utils import AbstractMetaclass
 
 _logger = logging.getLogger(__name__)
 
-def calculate_score(ground_truth: DataFrame, prediction: DataFrame,
+def score_prediction(
+        predictions: container.DataFrame,
+        score_inputs: typing.Sequence[container.Dataset],
+        problem_description: typing.Optional[problem.Problem],
+        metrics: typing.Sequence[typing.Dict],
+        predictions_random_seed: int = None,
+        *,
+        scoring_params: typing.Dict[str, str] = None, random_seed: int = 0, volumes_dir: str = None,
+        scratch_dir: str = None, runtime_environment: pipeline_run_module.RuntimeEnvironment = None,
+) -> container.DataFrame:
+    df = score_prediction_dataframe(
+        predictions=predictions, score_inputs=score_inputs, problem_description=problem_description, metrics=metrics,
+        predictions_random_seed=predictions_random_seed, scoring_params=scoring_params, random_seed=random_seed,
+        volumes_dir=volumes_dir, scratch_dir=scratch_dir, runtime_environment=runtime_environment)
+    results = []
+    for index, row in df.iterrows():
+        results.append({
+            'metric': problem.PerformanceMetric[row['metric']],
+            'value': row['value'],
+            'normalized': row['normalized'],
+            'random_seed': row['randomSeed'],
+            'column_name': 'TO_DO'
+            })
+    return results
+
+def score_prediction_dataframe(
+        predictions: container.DataFrame,
+        score_inputs: typing.Sequence[container.Dataset],
+        problem_description: typing.Optional[problem.Problem],
+        metrics: typing.Sequence[typing.Dict],
+        predictions_random_seed: int = None,
+        *,
+        scoring_params: typing.Dict[str, str] = None, random_seed: int = 0, volumes_dir: str = None,
+        scratch_dir: str = None, runtime_environment: pipeline_run_module.RuntimeEnvironment = None,
+) -> container.DataFrame:
+    '''
+    Returns score of the predictions. The returned dataframe has four columns: metric, value, normalized, and randomSeed.
+    The value of the randomSeed is just the input `predictions_random_seed`.
+
+    metric,value,normalized,randomSeed
+    F1,0.878048780487805,0.878048780487805,0
+    '''
+    pipeline_resolver = pipeline_module.get_pipeline
+    scoring_pipeline: pipeline_module.Pipeline = pipeline_resolver(
+        d3m_runtime.DEFAULT_SCORING_PIPELINE_PATH,
+        strict_resolving=False,
+        strict_digest=False,
+        pipeline_search_paths=[],
+    )
+    context: metadata_base.Context = metadata_base.Context.TESTING
+    result, _ = d3m_runtime.score(
+        scoring_pipeline=scoring_pipeline, problem_description=problem_description, predictions=predictions,
+        score_inputs=score_inputs, metrics=metrics, predictions_random_seed=predictions_random_seed,
+        context=context, scoring_params=scoring_params, random_seed=random_seed, volumes_dir=volumes_dir,
+        scratch_dir=scratch_dir, runtime_environment=runtime_environment)
+    return result
+
+
+def calculate_score(ground_truth: container.DataFrame, prediction: container.DataFrame,
                     performance_metrics: typing.List[typing.Dict],
-                    task_type, regression_metric: set()):
+                    task_type, regression_metric: set):
     """
     static method used to calculate the score based on given predictions and metric tpyes
     Parameters
@@ -26,20 +90,19 @@ def calculate_score(ground_truth: DataFrame, prediction: DataFrame,
         prediction = graph_problem_conversion(task_type, prediction)
 
     for metric_description in performance_metrics:
-        metricDesc = PerformanceMetric.parse(metric_description['metric'])
-        params: typing.Dict = metric_description['params']
+        metricDesc = metric_description['metric']
+        params: typing.Dict = metric_description.get('params', {})
         if params:
-            metric: typing.Callable = metricDesc.get_class()(**params)
+            metric: problem.PerformanceMetric = metricDesc.get_class()(**params)
         else:
-            _logger.warning("No params given!")
             metric = metricDesc.get_class()
         # updated for d3m v2019.5.8: we need to instantiate the metric class first if it was not done yet
         if type(metric) is AbstractMetaclass:
             metric = metric()
 
         # special design for objectDetectionAP
-        if metric_description["metric"] == "objectDetectionAP":
-            
+        if metric_description["metric"] == problem.PerformanceMetric.OBJECT_DETECTION_AVERAGE_PRECISION:
+
             if ground_truth is not None and prediction is not None:
                 # training_image_name_column = ground_truth.iloc[:,
                 #                              ground_truth.shape[1] - 2]
@@ -80,8 +143,8 @@ def calculate_score(ground_truth: DataFrame, prediction: DataFrame,
                     prediction.insert(0,'d3mIndex' ,ground_truth['d3mIndex'].copy())
                 else:
                     target_amount = len(prediction.columns) - 1
-                
-                if prediction['d3mIndex'].dtype.name != ground_truth['d3mIndex'].dtype.name:       
+
+                if prediction['d3mIndex'].dtype.name != ground_truth['d3mIndex'].dtype.name:
                     ground_truth['d3mIndex'] = ground_truth['d3mIndex'].astype(str).copy()
                     prediction['d3mIndex'] = prediction['d3mIndex'].astype(str).copy()
 
@@ -219,7 +282,7 @@ def calculate_score(ground_truth: DataFrame, prediction: DataFrame,
         prediction = graph_problem_conversion(task_type, prediction)
 
     for metric_description in performance_metrics:
-        metricDesc = PerformanceMetric.parse(metric_description['metric'])
+        metricDesc = problem.PerformanceMetric.parse(metric_description['metric'])
         params: typing.Dict = metric_description['params']
         metric: typing.Callable = metricDesc.get_class()(**params)
 
