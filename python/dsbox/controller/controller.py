@@ -1,20 +1,19 @@
 import enum
 import json
 import logging
-import os
 import operator
+import os
 import pathlib
 import pickle
 import pprint
 import random
-import typing
 import shutil
 import traceback
+import typing
 
 import pandas as pd  # type: ignore
 
 from d3m.base import utils as d3m_utils
-from d3m.container.list import List
 from d3m.container.dataset import Dataset, D3MDatasetLoader
 from d3m.metadata.base import ALL_ELEMENTS
 from d3m.metadata.problem import TaskType
@@ -1052,12 +1051,12 @@ class Controller:
             if n_splits == 1:
                 from common_primitives.train_score_split import TrainScoreDatasetSplitPrimitive, Hyperparams as hyper_train_split
                 hyperparams_split = hyper_train_split.defaults()
-                hyperparams_split = hyperparams_split.replace({"train_score_ratio":train_ratio, "shuffle":True})
+                hyperparams_split = hyperparams_split.replace({"train_score_ratio": train_ratio, "shuffle": True})
                 if task_type == 'CLASSIFICATION':
-                    hyperparams_split = hyperparams_split.replace({"stratified":True})
-                else:# if not task_type == "REGRESSION":
-                    hyperparams_split = hyperparams_split.replace({"stratified":False})
-                split_primitive = TrainScoreDatasetSplitPrimitive(hyperparams = hyperparams_split)
+                    hyperparams_split = hyperparams_split.replace({"stratified": True})
+                else:  # if not task_type == "REGRESSION":
+                    hyperparams_split = hyperparams_split.replace({"stratified": False})
+                split_primitive = TrainScoreDatasetSplitPrimitive(hyperparams=hyperparams_split)
 
             else:
                 from common_primitives.kfold_split import KFoldDatasetSplitPrimitive, Hyperparams as hyper_k_fold
@@ -1558,6 +1557,9 @@ class Controller:
         else:
             # split the dataset first time
             self.train_dataset1, self.test_dataset1 = self.split_dataset(dataset=self.all_dataset, test_size = 0.1)
+            if self._logger.getEffectiveLevel() <= 10:
+                self._save_dataset(self.train_dataset1, pathlib.Path(self.config.dsbox_scratch_dir) / 'train_dataset1')
+                self._save_dataset(self.train_dataset2, pathlib.Path(self.config.dsbox_scratch_dir) / 'test_dataset1')
 
         # here we only split one times, so no need to use list to include the dataset
         if len(self.train_dataset1) == 1:
@@ -1593,6 +1595,11 @@ class Controller:
         else:
             self.train_dataset2 = None
             self.test_dataset2 = None
+
+    def _save_dataset(dataset: Dataset, self, save_dir: pathlib.Path):
+        if not save_dir.exists():
+            save_dir.mkdir()
+        dataset.save((save_dir / "datasetDoc.json").as_uri())
 
     # Methods used by TA3
 
