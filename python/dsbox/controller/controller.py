@@ -85,7 +85,7 @@ class Controller:
         # hard coded unsplit dataset type
         # TODO: check whether "speech" type should be put into this list or not
         self.data_type_cannot_split = ["graph", "edgeList", "audio"]
-        self.task_type_can_split = ["CLASSIFICATION", "REGRESSION"]
+        self.task_type_can_split = ["CLASSIFICATION", "REGRESSION", "SEMISUPERVISED_CLASSIFICATION", "SEMISUPERVISED_REGRESSION"]
 
         # !!! hard code here
         # TODO: add if statement to determine it
@@ -604,37 +604,29 @@ class Controller:
     def do_data_augmentation(self, input_all_dataset: Dataset) -> Dataset:
         """
             use datamart primitives to do data augmentation on given dataset
-            return the augmented dataset (if success)
+            return the augmented dataset (if success), otherwise return the original input
         """
         try:
-            # from dsbox.datapreprocessing.cleaner.wikifier import WikifierHyperparams ,Wikifier
-            # wikifier_hyperparams = WikifierHyperparams.defaults()
-            # # wikifier_hyperparams = wikifier_hyperparams.replace({"use_columns":(1,)})
-            # wikifier_primitive = Wikifier(hyperparams = wikifier_hyperparams)
-            # augment_res = copy.copy(self.all_dataset)
-            # augment_res = wikifier_primitive.produce(inputs = augment_res).value
-            # self.extra_primitive.add("wikifier")
-            # self.dump_primitive(wikifier_primitive, "wikifier")
-            # import pdb
-            # pdb.set_trace()
+            # initialize
             from datamart_isi import entries
             isi_datamart_url = "http://dsbox02.isi.edu:9001/blazegraph/namespace/datamart4/sparql"
             datamart_unit = entries.Datamart(connection_url=isi_datamart_url)
             from common_primitives.datamart_augment import Hyperparams as hyper_augment, DataMartAugmentPrimitive
             hyper_augment_default = hyper_augment.defaults()
             hyper_augment_default = hyper_augment_default.replace({"system_identifier":"ISI"})
+
             # run wikifier first
             augment_times = 0
             search_result_wikifier = entries.DatamartSearchResult(search_result={}, supplied_data=None, query_json={}, search_type="wikifier")
             hyper_temp = hyper_augment_default.replace({"search_result":search_result_wikifier.serialize()})
             augment_primitive = DataMartAugmentPrimitive(hyperparams=hyper_temp)
             augment_res = augment_primitive.produce(inputs = self.all_dataset).value
+            # this part's code is only used for saving the pipeline afterwards in TA2 system
             self.extra_primitive.add("augment" + str(augment_times))
             self.dump_primitive(augment_primitive, "augment" + str(augment_times))
-
             augment_times += 1
 
-            # this special change only for running for DA_medical dataset
+            # this special change only for running for DA_medical dataset, so that we can also use this column as a join candidate
             # meta =     {
             #      "name": "SEQNO",
             #      "structural_type": str,
@@ -647,8 +639,8 @@ class Controller:
             #     }
             # augment_res.metadata = augment_res.metadata.update(selector=('learningData', ALL_ELEMENTS, 1), metadata = meta)
 
+            # run search, it will return wikidata search results first (if found) and then the general search results with highest score first
             search_unit = datamart_unit.search_with_data(query=None, supplied_data=augment_res)
-
             all_results1 = search_unit.get_next_page()
 
             for each_search in all_results1:
@@ -656,16 +648,19 @@ class Controller:
                     hyper_temp = hyper_augment_default.replace({"search_result":each_search.serialize()})
                     augment_primitive = DataMartAugmentPrimitive(hyperparams=hyper_temp)
                     augment_res = augment_primitive.produce(inputs = augment_res).value
+                    # this part's code is only used for saving the pipeline afterwards in TA2 system
                     self.extra_primitive.add("augment" + str(augment_times))
                     self.dump_primitive(augment_primitive, "augment" + str(augment_times))
                     augment_times += 1
 
+            # you can search another time if you want
             # all_results2 = datamart_unit.search_with_data(query=None, supplied_data=augment_res).get_next_page()
 
             all_results1.sort(key=lambda x: x.score(), reverse=True)
 
             for each_search in all_results1:
                 if each_search.search_type == "general":
+                    # now only augment 1 times on gneral search results
                     hyper_temp = hyper_augment_default.replace({"search_result":each_search.serialize()})
                     augment_primitive = DataMartAugmentPrimitive(hyperparams=hyper_temp)
                     augment_res = augment_primitive.produce(inputs = augment_res).value
@@ -977,18 +972,18 @@ class Controller:
 
         # TODO: update to use D3M's method to accelerate the processing speed
 
-        droplist = []
-        for i, v in dataset[resID].iterrows():
-            if v[colIndex] == "":
-                droplist.append(i)
-        if droplist != []:
-            self._logger.warning('!!!! THIS IS MOST LIKELY A SEMI-SUPERVISED LEARNING DATASET !!!!')
-            dataset[resID] = dataset[resID].drop(dataset[resID].index[droplist])
-            meta = dict(dataset.metadata.query((resID,)))
-            dimension = dict(meta['dimension'])
-            meta['dimension'] = dimension
-            dimension['length'] = dataset[resID].shape[0]
-            dataset.metadata = dataset.metadata.update((resID,), meta)
+        # droplist = []
+        # for i, v in dataset[resID].iterrows():
+        #     if v[colIndex] == "":
+        #         droplist.append(i)
+        # if droplist != []:
+        #     self._logger.warning('!!!! THIS IS MOST LIKELY A SEMI-SUPERVISED LEARNING DATASET !!!!')
+        #     dataset[resID] = dataset[resID].drop(dataset[resID].index[droplist])
+        #     meta = dict(dataset.metadata.query((resID,)))
+        #     dimension = dict(meta['dimension'])
+        #     meta['dimension'] = dimension
+        #     dimension['length'] = dataset[resID].shape[0]
+        #     dataset.metadata = dataset.metadata.update((resID,), meta)
 
         return dataset
 
