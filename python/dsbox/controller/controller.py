@@ -1559,7 +1559,7 @@ class Controller:
             self.train_dataset1, self.test_dataset1 = self.split_dataset(dataset=self.all_dataset, test_size = 0.1)
             if self._logger.getEffectiveLevel() <= 10:
                 self._save_dataset(self.train_dataset1, pathlib.Path(self.config.dsbox_scratch_dir) / 'train_dataset1')
-                self._save_dataset(self.train_dataset2, pathlib.Path(self.config.dsbox_scratch_dir) / 'test_dataset1')
+                self._save_dataset(self.test_dataset1, pathlib.Path(self.config.dsbox_scratch_dir) / 'test_dataset1')
 
         # here we only split one times, so no need to use list to include the dataset
         if len(self.train_dataset1) == 1:
@@ -1596,10 +1596,14 @@ class Controller:
             self.train_dataset2 = None
             self.test_dataset2 = None
 
-    def _save_dataset(dataset: Dataset, self, save_dir: pathlib.Path):
-        if not save_dir.exists():
+    def _save_dataset(self, dataset_list: typing.List[Dataset], save_dir: pathlib.Path):
+        if save_dir.exists():
+            shutil.rmtree(save_dir)
+        else:
             save_dir.mkdir()
-        dataset.save((save_dir / "datasetDoc.json").as_uri())
+        for i, dataset in enumerate(dataset_list):
+            dataset_dir = save_dir / f'dataset_{i}'
+            dataset.save((dataset_dir / "datasetDoc.json").as_uri())
 
     # Methods used by TA3
 
