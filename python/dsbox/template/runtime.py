@@ -153,6 +153,7 @@ class Runtime(runtime_base.Runtime):
         primitive_base: PrimitiveBaseMeta = step.primitive
 
         time_start = time.time()
+        cache_hit: bool = False
 
         self.pipeline_run.add_primitive_step(step)
         arguments = self._prepare_primitive_arguments(step)
@@ -167,9 +168,11 @@ class Runtime(runtime_base.Runtime):
                 primitive_hyperparams=hyperparams
             )
 
-            if self.cache.is_hit_key(prim_hash=prim_hash, prim_name=prim_name):
-                fitting_time, primitive = self.cache.lookup_key(prim_name=prim_name, prim_hash=prim_hash)
+            # Store cache_hit state. In parallel mode, cache may change state and cause primitive_actual not to be set.
+            cache_hit = self.cache.is_hit_key(prim_hash=prim_hash, prim_name=prim_name)
 
+            if cache_hit:
+                fitting_time, primitive = self.cache.lookup_key(prim_name=prim_name, prim_hash=prim_hash)
                 if self.validate_cache:
                     primitive_actual = self._create_pipeline_primitive(step.primitive, hyperparams)
             else:
@@ -195,7 +198,7 @@ class Runtime(runtime_base.Runtime):
         do_cross_validation = '_dsbox_runtime' in step.__dict__ and "cross_validation" in step._dsbox_runtime
         if (do_cross_validation
             and self.phase == metadata_base.PipelineRunPhase.FIT
-            and not self.cache.is_hit_key(prim_hash=prim_hash, prim_name=prim_name)):
+            and not cache_hit):
 
             hyperparams = self._prepare_primitive_hyperparams(step)
             fit_multi_produce_arguments = self._filter_arguments(step.primitive, 'fit_multi_produce', dict(arguments, produce_methods=step.outputs))
@@ -204,7 +207,7 @@ class Runtime(runtime_base.Runtime):
                 primitive_base, hyperparams, fit_multi_produce_arguments, multi_produce_arguments, step._dsbox_runtime)
 
         if self.phase == metadata_base.PipelineRunPhase.FIT:
-            if self.cache.is_hit_key(prim_hash=prim_hash, prim_name=prim_name):
+            if cache_hit:
                 fit_multi_produce_arguments = self._filter_arguments(step.primitive, 'multi_produce', dict(arguments, produce_methods=step.outputs))
                 while True:
                     multi_call_result = self._call_primitive_method(primitive.multi_produce, fit_multi_produce_arguments)
