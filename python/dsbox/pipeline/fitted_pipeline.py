@@ -254,10 +254,12 @@ class FittedPipeline:
         # ForkedPdb().set_trace()
         steps_state_old = self.runtime.steps_state
         # generate new runtime
+        cross_validation_result = self.runtime.cross_validation_result
         self.runtime = Runtime(self.pipeline, fitted_pipeline_id=self.id,
                                random_seed=self.random_seed,
                                volumes_dir=FittedPipeline.runtime_setting.volumes_dir,
                                log_dir=FittedPipeline.runtime_setting.log_dir)
+        self.runtime.cross_validation_result = cross_validation_result
         self.runtime.steps_state = steps_state_old
 
     def fit(self, **arguments):
@@ -406,7 +408,8 @@ class FittedPipeline:
         structure = {
             'fitted_pipeline_id': self.id,
             'pipeline_id': self.pipeline.id,
-            'dataset_id': self.dataset_id
+            'dataset_id': self.dataset_id,
+            'random_seed': self.random_seed
         }
         json_loc = os.path.join(pipelines_fitted_dir, self.id, self.id + '.json')
         with open(json_loc, 'w') as out:
@@ -448,7 +451,7 @@ class FittedPipeline:
             value: float = self.metric['value']
             rank = self.get_set_rank()
             structure['pipeline_rank'] = rank
-            structure['metric'] = metric
+            structure['metric'] = metric.unparse()
             structure['metric_value'] = value
             if "values" in self.metric:
                 structure['k_fold_validation_score'] = self.metric["values"]
@@ -456,17 +459,19 @@ class FittedPipeline:
             _logger.warn("Metric type of the pipeline is unknown, unable to calculate the rank of the pipeline")
 
         if self.runtime.cross_validation_result:
-            structure['cross_validation'] = self.runtime.cross_validation_result
+            structure['cross_validation'] = []
+            for minfo in self.runtime.cross_validation_result:
+                minfo['metric'] = minfo['metric'].unparse()
+                structure['cross_validation'].append(minfo)
 
         structure['template_name'] = self.template_name
         structure['template_task'] = self.template_task
         structure['template_subtask'] = self.template_subtask
 
         if self.problem:
-            problem_meta = self.problem.query(())['about']
-            structure['problem_taskType'] = str(problem_meta['taskType'])
+            structure['problem_taskType'] = self.problem['problem']['task_type'].unparse()
             try:
-                structure['problem_taskSubType'] = str(problem_meta['taskSubType'])
+                structure['problem_taskSubType'] = self.problem['problem']['task_subtype'].unparse()
             except Exception:
                 structure['problem_taskSubType'] = "NONE"
         else:
@@ -506,7 +511,8 @@ class FittedPipeline:
         runtime: Runtime = FittedPipeline.load_pickle_files(
             pipeline, structure['fitted_pipeline_id'], pipelines_fitted_dir=pipelines_fitted_dir)
 
-        fitted_pipeline = FittedPipeline(pipeline, dataset_id=structure['dataset_id'], id=fitted_pipeline_id)
+        fitted_pipeline = FittedPipeline(pipeline, dataset_id=structure['dataset_id'], id=fitted_pipeline_id,
+                                         random_seed=structure['dataset_id'])
         fitted_pipeline.runtime = runtime
         fitted_pipeline._set_fitted(runtime.steps_state)
 

@@ -1,15 +1,19 @@
-import traceback
-import typing
 import copy
 import logging
+import pprint
+import traceback
+import typing
+
 from multiprocessing import Manager
-from dsbox.template.configuration_space import ConfigurationPoint
+
 from d3m.metadata.pipeline import PrimitiveStep
 from d3m.container.dataset import Dataset
 from d3m.container.pandas import DataFrame
 from d3m.container.numpy import ndarray as d3m_ndarray
 from d3m.primitive_interfaces.base import PrimitiveBase
+
 from dsbox.combinatorial_search.search_utils import comparison_metrics
+from dsbox.template.configuration_space import ConfigurationPoint
 
 T = typing.TypeVar("T")
 _logger = logging.getLogger(__name__)
@@ -259,9 +263,11 @@ class PrimitivesCache:
 
     @staticmethod
     def _get_hash(pipe_step: PrimitiveStep, primitive_arguments: typing.Dict,
+                  primitive_hyperparams: typing.Dict,  # 2019-7-11: must pass in hyperparams
                   hash_prefix: int=None) -> typing.Tuple[int, int]:
         prim_name = str(pipe_step.primitive)
-        hyperparam_hash = hash(str(pipe_step.hyperparams.items()))
+        hyperparam_hash = hash(str(primitive_hyperparams.items()))
+
         dataset_id = ""
         dataset_digest = ""
         try:
@@ -277,7 +283,7 @@ class PrimitivesCache:
                 isinstance(primitive_arguments['inputs'], typing.List)), \
                f"inputs type not valid {type(primitive_arguments['inputs'])}"
 
-        # v2019.6.30 
+        # v2019.6.30
         # this added part used to check whether the input dataframe has column with ndarray
         # hashing large ndarray is very slow so we should not do hash on this part
         hash_part = copy.copy(primitive_arguments['inputs'])
