@@ -239,6 +239,8 @@ class TemplateLibrary:
         self.templates.append(DefaultTimeseriesRegressionTemplate)
 
         self.templates.append(DefaultLinkPredictionTemplate)
+        
+
         self.templates.append(SRICommunityDetectionTemplate)
         self.templates.append(SRIGraphMatchingTemplate)
         self.templates.append(SRIVertexNominationTemplate)
@@ -3157,11 +3159,28 @@ class SRIGraphMatchingTemplate(DSBoxTemplate):
             # for some special condition, the taskSubtype can be "NONE" which indicate no taskSubtype given
             "taskSubtype": "NONE",
             "inputType": "graph",
-            "output": "model_step",
+            "output": "predict_step",
             "steps": [
+                {
+                    "name": "parse_step",
+                    "primitives": ["d3m.primitives.data_transformation.graph_matching_parser.GraphMatchingParser"],
+                    "inputs":['template_input']
+                    },
+                {
+                    "name": "transform_step",
+                    "primitives":["d3m.primitives.data_transformation.graph_transformer.GraphTransformer"],
+                    "inputs":["parse_step"]
+                },
                 {
                     "name": "model_step",
                     "primitives": [
+                        {
+                          "primitive": "d3m.primitives.link_prediction.link_prediction.LinkPrediction",  
+                          "hyperparameters":
+                            {
+                                "prediction_column": [('match')],
+                                }
+                        },
                         {
                             "primitive": "d3m.primitives.link_prediction.graph_matching_link_prediction.GraphMatchingLinkPrediction",
                             "hyperparameters": {
@@ -3173,7 +3192,12 @@ class SRIGraphMatchingTemplate(DSBoxTemplate):
                             }
                         }
                     ],
-                    "inputs": ["template_input"]
+                    "inputs": ["transform_step", "transform_step"]
+                },
+                {
+                    "name":"predict_step",
+                    "primitives":["d3m.primitives.data_transformation.construct_predictions.DataFrameCommon"],
+                    "inputs":["model_step"]
                 }
             ]
         }
@@ -4499,7 +4523,7 @@ class ISIGraphNormClf(DSBoxTemplate):
         DSBoxTemplate.__init__(self)
         self.template = {
             "name": "ISI_graph_norm_clf",
-            "taskType": {TaskType.COLLABORATIVE_FILTERING.name, TaskType.VERTEX_NOMINATION.name, TaskType.COMMUNITY_DETECTION.name, TaskType.LINK_PREDICTION.name},
+            "taskType": {TaskType.VERTEX_NOMINATION.name, TaskType.COMMUNITY_DETECTION.name, TaskType.LINK_PREDICTION.name}, #TaskType.COLLABORATIVE_FILTERING.name, 
             "taskSubtype": {"NONE", TaskSubtype.NONOVERLAPPING.name, TaskSubtype.OVERLAPPING.name},
             #"taskSubtype": "NONE",
             #"inputType": "table",
