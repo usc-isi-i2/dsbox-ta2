@@ -622,7 +622,7 @@ class TemplateSteps:
                     "name": "base_impute_step",
                     "primitives": [
                         {"primitive": "d3m.primitives.data_preprocessing.mean_imputation.DSBOX", },
-                        # {"primitive": "d3m.primitives.data_preprocessing.greedy_imputation.DSBOX", },
+                        {"primitive": "d3m.primitives.data_preprocessing.low_rank_imputer.Cornell", },
                         {"primitive": "d3m.primitives.data_preprocessing.mean_imputation.DSBOX", },
                         {"primitive": "d3m.primitives.data_preprocessing.iterative_regression_imputation.DSBOX", },
                         # {"primitive": "d3m.primitives.data_preprocessing.do_nothing.DSBOX", },
@@ -692,7 +692,15 @@ class TemplateSteps:
                                     'add_index_columns': [True],
                                     'alpha': [(1)],
                                 }
-                    },
+                    },{
+                            "primitive":
+                                "d3m.primitives.classification.xgboost_gbtree.DataFrameCommon",
+                            "hyperparameters":
+                                {
+                                    'use_semantic_types': [True],
+                                    'add_index_columns': [True]
+                                }
+                    }
                     ],
                     "inputs": [feature_name, target_name]
                 }
