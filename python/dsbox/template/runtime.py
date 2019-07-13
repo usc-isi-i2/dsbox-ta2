@@ -1,12 +1,12 @@
-import os
-import typing
 import contextlib
 import logging
 import pprint
+import os
 import sys
 import tempfile
 import time
 import traceback
+import typing
 import pdb
 
 import numpy as np
@@ -127,7 +127,8 @@ class Runtime(runtime_base.Runtime):
         self.timing: typing.Dict = {}
         self.timing["total_time_used"] = 0.0
         self.task_type = task_type
-        self.use_cache = True
+        # 2019-7-12: Not working turning cache off for now
+        self.use_cache = False
         # self.timing["total_time_used_without_cache"] = 0.0
 
         # !
@@ -169,9 +170,10 @@ class Runtime(runtime_base.Runtime):
             )
 
             # Store cache_hit state. In parallel mode, cache may change state and cause primitive_actual not to be set.
-            cache_hit = self.cache.is_hit_key(prim_hash=prim_hash, prim_name=prim_name)
+            cache_hit = self.use_cache and self.cache.is_hit_key(prim_hash=prim_hash, prim_name=prim_name)
 
             if cache_hit:
+                _logger.debug(f'Using cached primitive: {prim_name}, {prim_hash}')
                 fitting_time, primitive = self.cache.lookup_key(prim_name=prim_name, prim_hash=prim_hash)
                 if self.validate_cache:
                     primitive_actual = self._create_pipeline_primitive(step.primitive, hyperparams)
@@ -222,12 +224,15 @@ class Runtime(runtime_base.Runtime):
                         if multi_call_result.has_finished:
                             outputs_actual = multi_call_result.values
                             break
-                    if not self._equals(outputs_actual, outputs):
-                        _logger.error('========== CACHED PRIMITIVE OUTPUT DIFFERS ==========')
+                    is_equal, reason = self._equals(outputs_actual, outputs)
+                    if not is_equal:
+                        _logger.error(f'========== CACHED PRIMITIVE OUTPUT DIFFERS : {reason}')
                         _logger.error('==== Output from new created primtive')
                         _logger.error(pprint.pformat(outputs_actual))
                         _logger.error('==== Output from cached primitive')
                         _logger.error(pprint.pformat(outputs))
+                        import pdb
+                        pdb.set_trace()
 
             else:
                 # Primitve is newly create, must fit it
@@ -277,20 +282,34 @@ class Runtime(runtime_base.Runtime):
         self.timing["total_time_used"] += (time.time() - time_start)
         _logger.debug(f"   done primitive: {step.primitive.metadata.query()['name']}")
 
-    def _equals(self, outputs_actual: typing.Dict, outputs: typing.Dict) -> bool:
-        for key, actual in outputs_actual.items():
-            if not key in outputs:
-                return False
-            if isinstance(actual, container.DataFrame):
-                if not actual.equals(outputs[key]):
-                    return False
-            elif isinstance(actual, container.ndarray):
-                if not np.equal(actual, outputs[key]):
-                    return False
-            else:
-                if not actual==outputs[key]:
-                    return False
-        return True
+    def _equals(self, outputs_actual: typing.Dict, outputs: typing.Dict) -> typing.Tuple[bool, str]:
+        try:
+            for key, actual in outputs_actual.items():
+                if not key in outputs:
+                    return False, f'Missing key {key}'
+                if isinstance(actual, container.DataFrame):
+                    if not actual.shape == outputs[key].shape:
+                        return False, f'Dataframe shape different: {actual.shape} != {outputs[key].shape}'
+                    for col in range(actual.shape[1]):
+                        if actual.dtypes[col] == np.object_:
+                            if not actual.iloc[:, col].equals(outputs[key].iloc[:, col]):
+                                return False, f'column {col} does not match'
+                        else:
+                            if not np.allclose(actual.iloc[:, col], outputs[key].iloc[:, col], equal_nan=True):
+                                return False, f'Column {col} of {actual.dtypes[col]} is not close'
+                elif isinstance(actual, container.ndarray):
+                    if not actual.shape == outputs[key].shape:
+                        return False, f'Ndarray shape different: {actual.shape} != {outputs[key].shape}'
+                    if not np.allclose(actual, outputs[key], equal_nan=True):
+                        return False, f'Ndarray do not close'
+                else:
+                    if not actual==outputs[key]:
+                        return False, f'Object not equal'
+        except Exception as e:
+            print('Exception: ', e)
+            import pdb
+            pdb.set_trace()
+        return True, ""
 
     # def _run_primitive_old(self, this_step: pipeline_module.PrimitiveStep) -> None:
     #     '''
