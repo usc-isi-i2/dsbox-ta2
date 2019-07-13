@@ -1207,12 +1207,19 @@ def to_proto_score_solution_request(problem, fitted_pipeline_id, metrics_result)
     problem_dict = problem
     for inputs_dict in problem_dict['inputs']:
         for target in inputs_dict['targets']:
-            targets.append(ProblemTarget(
-                target_index=target['target_index'],
-                resource_id=target['resource_id'],
-                column_index=target['column_index'],
-                column_name=target['column_name'],
-                clusters_number=target['clusters_number']))
+            if 'clusters_number' in target:
+                targets.append(ProblemTarget(
+                    target_index=target['target_index'],
+                    resource_id=target['resource_id'],
+                    column_index=target['column_index'],
+                    column_name=target['column_name'],
+                    clusters_number=target['clusters_number']))
+            else:
+                targets.append(ProblemTarget(
+                    target_index=target['target_index'],
+                    resource_id=target['resource_id'],
+                    column_index=target['column_index'],
+                    column_name=target['column_name']))
     score_list = []
     for metric in metrics_result:
         ppm = ProblemPerformanceMetric(metric=d3m_problem.PerformanceMetric.parse(metric['metric']).name)
