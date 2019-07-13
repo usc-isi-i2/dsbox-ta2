@@ -58,7 +58,7 @@ class TemplateLibrary:
             "random_forest_classification_template": RandomForestClassificationTemplate,
             "extra_trees_classification_template": ExtraTreesClassificationTemplate,
             "gradient_boosting_classification_template": GradientBoostingClassificationTemplate,
-            "svc_classification_template": SVCClassificationTemplate,
+            # "svc_classification_template": SVCClassificationTemplate,
             "naive_bayes_classification_template": NaiveBayesClassificationTemplate,
 
             # new regression
@@ -201,7 +201,7 @@ class TemplateLibrary:
         # self.templates.append(GradientBoostingClassificationTemplate)
 
         # takes too long to run
-        self.templates.append(SVCClassificationTemplate)
+        # self.templates.append(SVCClassificationTemplate)
 
         # new tabular regression
         self.templates.append(RandomForestRegressionTemplate)
@@ -239,7 +239,7 @@ class TemplateLibrary:
         self.templates.append(DefaultTimeseriesRegressionTemplate)
 
         self.templates.append(DefaultLinkPredictionTemplate)
-        
+
 
         self.templates.append(SRICommunityDetectionTemplate)
         self.templates.append(SRIGraphMatchingTemplate)
@@ -253,7 +253,7 @@ class TemplateLibrary:
 
         self.templates.append(JHUVertexNominationTemplate)
         self.templates.append(JHUGraphMatchingTemplate)
-        
+
         self.templates.append(CornellMatrixFactorization)
         self.templates.append(ISIGraphNormClf)
         # 2019-7-3: Uses too much memory
@@ -270,7 +270,7 @@ class TemplateLibrary:
         # move dsboxClassificationTemplate to last execution because sometimes this template have bugs
         self.templates.append(dsboxClassificationTemplate)
         self.templates.append(dsboxRegressionTemplate)
-        
+
         self._validate_templates(self.templates)
 
     def _load_single_inline_templates(self, template_name):
@@ -450,7 +450,7 @@ class DefaultSemisupervisedClassificationTemplate(DSBoxTemplate):
                      TemplateSteps.dsbox_feature_selector("classification",
                                                           first_input='data',
                                                           second_input='target') + [
-                
+
                 {
                     "name": "model_step", # step 6
                     "primitives": [
@@ -3175,7 +3175,7 @@ class SRIGraphMatchingTemplate(DSBoxTemplate):
                     "name": "model_step",
                     "primitives": [
                         {
-                          "primitive": "d3m.primitives.link_prediction.link_prediction.LinkPrediction",  
+                          "primitive": "d3m.primitives.link_prediction.link_prediction.LinkPrediction",
                           "hyperparameters":
                             {
                                 "prediction_column": [('match')],
@@ -4461,24 +4461,24 @@ class CornellMatrixFactorization(DSBoxTemplate):
             "inputType": {"graph","table"},
             "output": "model_step",
             "steps": [
-                {                                                             
+                {
                     "name": "denormalize_step",
                     "primitives": ["d3m.primitives.data_transformation.denormalize.Common"],
-                    "inputs": ["template_input"]                   
-                },  
+                    "inputs": ["template_input"]
+                },
                 {
                     "name": "to_df_step",
                     "primitives":["d3m.primitives.data_transformation.dataset_to_dataframe.Common"],
                     "inputs":["denormalize_step"]
                 },
                 {
-                    "name": "parser_step", 
+                    "name": "parser_step",
                     "primitives":[{
                         "primitive":"d3m.primitives.data_transformation.extract_columns_by_semantic_types.DataFrameCommon",
-                        "hyperparams":{
-                                "semantic_types": ('https://metadata.datadrivendiscovery.org/types/Attribute',)
-                            }
-                        }],
+                        "hyperparameters": {
+                            "semantic_types": ('https://metadata.datadrivendiscovery.org/types/Attribute',)
+                        }
+                    }],
                     "inputs":["to_df_step"]
                 },
                 {
@@ -4494,7 +4494,7 @@ class CornellMatrixFactorization(DSBoxTemplate):
                     "primitives": [
                         {
                             "primitive": "d3m.primitives.collaborative_filtering.high_rank_imputer.Cornell",
-                            "hyperparams": {
+                            "hyperparameters": {
                                 "d": [0, 10, 20, 50, 100],
                                 "alpha": [0.01, 0.1, 0.5, 1.0],
                                 "beta":[0.01, 0.1, 0.5, 1.0],
@@ -4507,14 +4507,14 @@ class CornellMatrixFactorization(DSBoxTemplate):
                     "name": "extract_target_step",
                     "primitives":[{
                         "primitive":"d3m.primitives.data_transformation.extract_columns_by_semantic_types.DataFrameCommon",
-                        "hyperparams": {
+                        "hyperparameters": {
                                 "semantic_types":("https://metadata.datadrivendiscovery.org/types/TrueTarget",)}
                 }],
                     "inputs":["to_df_step"]
                 },
                 *TemplateSteps.classifier_model(feature_name="matrix_factorization",
                                                 target_name='extract_target_step')
-                # low rank hyperparams : k 
+                # low rank hyperparams : k
                 ]
             }
 
@@ -4523,18 +4523,18 @@ class ISIGraphNormClf(DSBoxTemplate):
         DSBoxTemplate.__init__(self)
         self.template = {
             "name": "ISI_graph_norm_clf",
-            "taskType": {TaskType.VERTEX_NOMINATION.name, TaskType.COMMUNITY_DETECTION.name, TaskType.LINK_PREDICTION.name}, #TaskType.COLLABORATIVE_FILTERING.name, 
+            "taskType": {TaskType.VERTEX_NOMINATION.name, TaskType.COMMUNITY_DETECTION.name, TaskType.LINK_PREDICTION.name}, #TaskType.COLLABORATIVE_FILTERING.name,
             "taskSubtype": {"NONE", TaskSubtype.NONOVERLAPPING.name, TaskSubtype.OVERLAPPING.name},
             #"taskSubtype": "NONE",
             #"inputType": "table",
             "inputType": {"graph","table"},
             "output": "model_step",
             "steps": [
-                {                                                                                                                                         
-                    "name": "denormalize_step",                                                                                                           
-                    "primitives": ["d3m.primitives.data_transformation.denormalize.Common"],                                                              
-                    "inputs": ["template_input"]                                                                                                          
-                },  
+                {
+                    "name": "denormalize_step",
+                    "primitives": ["d3m.primitives.data_transformation.denormalize.Common"],
+                    "inputs": ["template_input"]
+                },
                 {
                     "name": "readgraph_step",
                     "primitives": [
@@ -4614,7 +4614,7 @@ class ISIGraphNormClf(DSBoxTemplate):
                 #        #"d3m.primitives.classification.gaussian_classification.JHU"
                 #    ],
                 #        "d3m.primitives.classification.gaussian_classification.JHU"
-                
+
                 #    ],
                 #    "inputs": ["to_numeric_step", "extract_target_step"]
                 #}
