@@ -29,7 +29,7 @@ def score_prediction(
         predictions_random_seed=predictions_random_seed, scoring_params=scoring_params, random_seed=random_seed,
         volumes_dir=volumes_dir, scratch_dir=scratch_dir, runtime_environment=runtime_environment)
     results = []
-    if df:
+    if df is not None:
         for index, row in df.iterrows():
             results.append({
                 'metric': problem.PerformanceMetric[row['metric']],
