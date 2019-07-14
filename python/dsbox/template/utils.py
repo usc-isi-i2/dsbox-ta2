@@ -29,14 +29,15 @@ def score_prediction(
         predictions_random_seed=predictions_random_seed, scoring_params=scoring_params, random_seed=random_seed,
         volumes_dir=volumes_dir, scratch_dir=scratch_dir, runtime_environment=runtime_environment)
     results = []
-    for index, row in df.iterrows():
-        results.append({
-            'metric': problem.PerformanceMetric[row['metric']],
-            'value': row['value'],
-            'normalized': row['normalized'],
-            'random_seed': row['randomSeed'],
-            'column_name': 'TO_DO'
-            })
+    if df:
+        for index, row in df.iterrows():
+            results.append({
+                'metric': problem.PerformanceMetric[row['metric']],
+                'value': row['value'],
+                'normalized': row['normalized'],
+                'random_seed': row['randomSeed'],
+                'column_name': 'TO_DO'
+                })
     return results
 
 def score_prediction_dataframe(
@@ -64,12 +65,15 @@ def score_prediction_dataframe(
         pipeline_search_paths=[],
     )
     context: metadata_base.Context = metadata_base.Context.TESTING
-    result, _ = d3m_runtime.score(
+    score, result = d3m_runtime.score(
         scoring_pipeline=scoring_pipeline, problem_description=problem_description, predictions=predictions,
         score_inputs=score_inputs, metrics=metrics, predictions_random_seed=predictions_random_seed,
         context=context, scoring_params=scoring_params, random_seed=random_seed, volumes_dir=volumes_dir,
         scratch_dir=scratch_dir, runtime_environment=runtime_environment)
-    return result
+    if score is None:
+        _logger.exception(result.error, exc_info=True)
+        raise ValueError('Metric missing') from result.error
+    return score
 
 
 def calculate_score(ground_truth: container.DataFrame, prediction: container.DataFrame,
