@@ -311,7 +311,7 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
                     test_prediction = None
                     test_metrics_each = copy.deepcopy(training_metrics_each)
                     for each in test_metrics_each:
-                        each["value"] = PerformanceMetric.parse(each['metric']).worst_value()
+                        each["value"] = each['metric'].worst_value()
 
                 training_metrics.append(training_metrics_each)
                 test_metrics.append(test_metrics_each)
