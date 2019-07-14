@@ -1118,6 +1118,21 @@ def to_proto_pipeline(pipeline: Pipeline, id: str , allow_value_types: typing.Se
     # )
 
 
+def to_proto_problem_target(target: dict):
+    if 'clusters_number' in target:
+        problem_target = ProblemTarget(
+            target_index=target['target_index'],
+            resource_id=target['resource_id'],
+            column_index=target['column_index'],
+            column_name=target['column_name'],
+            clusters_number=target['clusters_number'])
+    else:
+        problem_target = ProblemTarget(
+            target_index=target['target_index'],
+            resource_id=target['resource_id'],
+            column_index=target['column_index'],
+            column_name=target['column_name'])
+
 def to_proto_search_solution_request(problem, fitted_pipeline_id, metrics_result) -> GetSearchSolutionsResultsResponse:
 
     # search_solutions_results = []
@@ -1134,12 +1149,7 @@ def to_proto_search_solution_request(problem, fitted_pipeline_id, metrics_result
     problem_dict = problem
     for inputs_dict in problem_dict['inputs']:
         for target in inputs_dict['targets']:
-            targets.append(ProblemTarget(
-                target_index=target['target_index'],
-                resource_id=target['resource_id'],
-                column_index=target['column_index'],
-                column_name=target['column_name'],
-                clusters_number=target['clusters_number']))
+            targets.append(to_proto_problem_target(target))
     score_list = []
     internal_score = np.nan
     first = True
@@ -1207,19 +1217,7 @@ def to_proto_score_solution_request(problem, fitted_pipeline_id, metrics_result)
     problem_dict = problem
     for inputs_dict in problem_dict['inputs']:
         for target in inputs_dict['targets']:
-            if 'clusters_number' in target:
-                targets.append(ProblemTarget(
-                    target_index=target['target_index'],
-                    resource_id=target['resource_id'],
-                    column_index=target['column_index'],
-                    column_name=target['column_name'],
-                    clusters_number=target['clusters_number']))
-            else:
-                targets.append(ProblemTarget(
-                    target_index=target['target_index'],
-                    resource_id=target['resource_id'],
-                    column_index=target['column_index'],
-                    column_name=target['column_name']))
+            targets.append(to_proto_problem_target(target))
     score_list = []
     for metric in metrics_result:
         ppm = ProblemPerformanceMetric(metric=d3m_problem.PerformanceMetric.parse(metric['metric']).name)
