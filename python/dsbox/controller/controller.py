@@ -1598,7 +1598,10 @@ class Controller:
             save_dir.mkdir()
         for i, dataset in enumerate(dataset_list):
             dataset_dir = save_dir / f'dataset_{i}'
-            dataset.save((dataset_dir / "datasetDoc.json").as_uri())
+            if dataset is None:
+                self._logger.warn(f'Data is none for {save_dir}')
+            else:
+                dataset.save((dataset_dir / "datasetDoc.json").as_uri())
 
     # Methods used by TA3
 
