@@ -614,8 +614,7 @@ class Controller:
             from common_primitives.datamart_augment import Hyperparams as hyper_augment, DataMartAugmentPrimitive
             hyper_augment_default = hyper_augment.defaults()
             hyper_augment_default = hyper_augment_default.replace({"system_identifier":"ISI"})
-            import pdb
-            pdb.set_trace()
+
             # run wikifier first
             augment_times = 0
             search_result_wikifier = entries.DatamartSearchResult(search_result={}, supplied_data=None, query_json={}, search_type="wikifier")
