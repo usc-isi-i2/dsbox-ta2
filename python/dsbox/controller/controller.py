@@ -13,6 +13,7 @@ import typing
 
 import pandas as pd  # type: ignore
 
+from d3m import exceptions
 from d3m.base import utils as d3m_utils
 from d3m.container.dataset import Dataset, D3MDatasetLoader
 from d3m.metadata.base import ALL_ELEMENTS
@@ -1596,12 +1597,15 @@ class Controller:
             shutil.rmtree(save_dir)
         else:
             save_dir.mkdir()
-        for i, dataset in enumerate(dataset_list):
-            dataset_dir = save_dir / f'dataset_{i}'
-            if dataset is None:
-                self._logger.warn(f'Data is none for {save_dir}')
-            else:
-                dataset.save((dataset_dir / "datasetDoc.json").as_uri())
+        try:
+            for i, dataset in enumerate(dataset_list):
+                dataset_dir = save_dir / f'dataset_{i}'
+                if dataset is None:
+                    self._logger.warn(f'Data is none for {save_dir}')
+                else:
+                    dataset.save((dataset_dir / "datasetDoc.json").as_uri())
+        except exceptions.NotSupportedError:
+            pass
 
     # Methods used by TA3
 
