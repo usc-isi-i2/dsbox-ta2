@@ -1,4 +1,5 @@
 import copy
+import datetime
 import logging
 import os
 import pickle
@@ -9,11 +10,9 @@ import time
 import typing
 import uuid
 
-from datetime import datetime
-
-
 import pandas as pd
 import numpy as np
+
 from keras import backend as keras_backend
 from pprint import pprint
 
@@ -413,7 +412,7 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
         request_id = self.generateId()
         self.produce_solution[request_id] = {
             'request': request,
-            'start': utils.encode_timestamp(datetime.now())
+            'start': utils.encode_timestamp(datetime.datetime.now(datetime.timezone.utc))
         }
         return ProduceSolutionResponse(request_id=request_id)
 
@@ -443,7 +442,7 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
         fitted_pipeline = FittedPipeline.load(fitted_pipeline_id=fitted_pipeline_id, folder_loc=self.config.output_dir)
         fitted_pipeline.produce(inputs=[dataset])
 
-        timestamp = datetime.now()
+        timestamp = datetime.datetime.now(datetime.timezone.utc)
 
         steps_progress = []
         for i, step in enumerate(fitted_pipeline.pipeline.steps):
@@ -453,7 +452,7 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
                         state=core_pb2.COMPLETED,
                         status="Done",
                         start=start_time,
-                        end=utils.encode_timestamp(datetime.now()))))
+                        end=utils.encode_timestamp(datetime.datetime.now(datetime.timezone.utc)))))
 
         step_outputs = {}
         for expose_output in produce_request.expose_outputs:
@@ -490,7 +489,7 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
             progress=Progress(state=core_pb2.COMPLETED,
                               status="Done",
                               start=start_time,
-                              end=utils.encode_timestamp(datetime.now())),
+                              end=utils.encode_timestamp(datetime.datetime.now(datetime.timezone.utc))),
             steps=steps_progress,
             exposed_outputs=step_outputs
         ))
@@ -505,7 +504,7 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
         request_id = self.generateId()
         self.fit_solution[request_id] = {
             'request': request,
-            'start': utils.encode_timestamp(datetime.now())
+            'start': utils.encode_timestamp(datetime.datetime.now(datetime.timezone.utc))
         }
         response = FitSolutionResponse(request_id=request_id)
         self.log_msg(response)
@@ -545,7 +544,7 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
                 progress=Progress(state=core_pb2.COMPLETED,
                                   status="Done",
                                   start=start_time,
-                                  end=utils.encode_timestamp(datetime.now())),
+                                  end=utils.encode_timestamp(datetime.datetime.now(datetime.timezone.utc))),
                 steps=[],
                 exposed_outputs=[],
                 fitted_solution_id=old_fitted_pipeline.id
@@ -564,7 +563,7 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
 
             fitted_pipeline.save(self.config.output_dir)
 
-            timestamp = datetime.now()
+            timestamp = datetime.datetime.now(datetime.timezone.utc)
 
             steps_progress = []
             for i, step in enumerate(fitted_pipeline.pipeline.steps):
@@ -576,7 +575,7 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
                             state=core_pb2.COMPLETED,
                             status="Done",
                             start=start_time,
-                            end=utils.encode_timestamp(datetime.now()))))
+                            end=utils.encode_timestamp(datetime.datetime.now(datetime.timezone.utc)))))
 
             step_outputs = {}
             for expose_output in fit_request.expose_outputs:
@@ -614,7 +613,7 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
                 progress=Progress(state=core_pb2.COMPLETED,
                                   status="Done",
                                   start=start_time,
-                                  end=utils.encode_timestamp(datetime.now())),
+                                  end=utils.encode_timestamp(datetime.datetime.now(datetime.timezone.utc))),
                 steps=steps_progress,
                 exposed_outputs=step_outputs,
                 fitted_solution_id=fitted_pipeline.id
@@ -1154,8 +1153,9 @@ def to_proto_search_solution_request(problem, fitted_pipeline_id, metrics_result
     internal_score = np.nan
     first = True
     for metric in metrics_result:
-        performance_matric: d3m_problem.PerformanceMetric = d3m_problem.PerformanceMetric.parse(metric['metric'])
-        ppm = ProblemPerformanceMetric(metric=performance_matric.name)
+        # performance_metric: d3m_problem.PerformanceMetric = d3m_problem.PerformanceMetric.parse(metric['metric'])
+        performance_metric: d3m_problem.PerformanceMetric = metric['metric']
+        ppm = ProblemPerformanceMetric(metric=performance_metric.name)
         if 'k' in metric:
             ppm = metric['k']
         if 'pos_label' in metric:
@@ -1178,7 +1178,7 @@ def to_proto_search_solution_request(problem, fitted_pipeline_id, metrics_result
             ))
         if internal_score is np.nan:
             # Return the first metric as the internal score
-            internal_score = performance_matric.normalize(metric['value'])
+            internal_score = performance_metric.normalize(metric['value'])
 
     scores = []
     scores.append(
@@ -1188,8 +1188,8 @@ def to_proto_search_solution_request(problem, fitted_pipeline_id, metrics_result
     result = GetSearchSolutionsResultsResponse(
         progress=Progress(state=core_pb2.COMPLETED,
                           status="Done",
-                          start=utils.encode_timestamp(datetime.now()),
-                          end=utils.encode_timestamp(datetime.now())),
+                          start=utils.encode_timestamp(datetime.datetime.now(datetime.timezone.utc)),
+                          end=utils.encode_timestamp(datetime.datetime.now(datetime.timezone.utc))),
         done_ticks=0,  # TODO: Figure out how we want to support this
         all_ticks=0,  # TODO: Figure out how we want to support this
         solution_id=fitted_pipeline_id,  # TODO: Populate this with the pipeline id
@@ -1221,6 +1221,7 @@ def to_proto_score_solution_request(problem, fitted_pipeline_id, metrics_result)
     score_list = []
     for metric in metrics_result:
         ppm = ProblemPerformanceMetric(metric=d3m_problem.PerformanceMetric.parse(metric['metric']).name)
+        ppm = ProblemPerformanceMetric(metric=metric['metric'].name)
         if 'k' in metric:
             ppm = metric['k']
         if 'pos_label' in metric:
@@ -1238,8 +1239,8 @@ def to_proto_score_solution_request(problem, fitted_pipeline_id, metrics_result)
     result = GetScoreSolutionResultsResponse(
         progress=Progress(state=core_pb2.COMPLETED,
                           status="Done",
-                          start=utils.encode_timestamp(datetime.now()),
-                          end=utils.encode_timestamp(datetime.now())),
+                          start=utils.encode_timestamp(datetime.datetime.now(datetime.timezone.utc)),
+                          end=utils.encode_timestamp(datetime.datetime.now(datetime.timezone.utc))),
         scores=score_list
     )
 
