@@ -1,4 +1,5 @@
 import copy
+import datetime
 import logging
 import os
 import pickle
@@ -11,6 +12,7 @@ import uuid
 
 import pandas as pd
 import numpy as np
+
 from keras import backend as keras_backend
 from pprint import pprint
 
@@ -146,7 +148,9 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
         if not os.path.exists(self.file_transfer_directory):
             os.makedirs(self.file_transfer_directory)
 
-        self.problem_parsed = {}
+        # self.problem_parsed = {}
+        self.problem: typing.Optional[d3m_problem.Problem] = None
+
         # maps search solution id to config file
         self.search_solution = {}
         self.search_solution_results = {}
@@ -208,15 +212,16 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
             _logger.warning("Protocol Version does NOT match supported version {} != {}".format(
                 core_pb2.DESCRIPTOR.GetOptions().Extensions[core_pb2.protocol_version], request.version))
 
-        # TODO: Check if there is util function that does problem parsing
-        problem_json_dict = problem_to_json(request.problem)
-        problem_parsed = problem_to_dict(request.problem)
-        print('==json')
-        pprint(problem_json_dict)
-        print('==parsed')
-        pprint(problem_parsed)
+        self.problem = utils.decode_problem_description(request.problem)
+        pprint(self.problem)
 
-        self.problem_parsed = problem_parsed
+        # problem_json_dict = problem_to_json(request.problem)
+        # problem_parsed = problem_to_dict(request.problem)
+        # print('==json')
+        # pprint(problem_json_dict)
+        # print('==parsed')
+        # pprint(problem_parsed)
+        # self.problem_parsed = problem_parsed
 
         # Although called uri, it's just a filepath to datasetDoc.json
         self.dataset_uris = [input.dataset_uri for input in request.inputs]
@@ -239,7 +244,7 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
         self.config.time_bound_run = request.time_bound_run
 
         self.config.dataset_schema_files = dataset_uris
-        self.config.set_problem(problem_json_dict, problem_parsed)
+        self.config.set_problem(self.problem)
 
         print('===config')
         print(self.config)
@@ -367,7 +372,7 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
         Non streaming
         '''
         self.log_msg(msg="EndSearchSolutions invoked with search_id: " + request.search_id)
-        self.problem_parsed = {}
+        self.problem = None
         self.search_solution.pop(request.search_id, None)
         self.search_solution_results.pop(request.search_id, None)
 
@@ -407,7 +412,7 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
         request_id = self.generateId()
         self.produce_solution[request_id] = {
             'request': request,
-            'start': Timestamp().GetCurrentTime()
+            'start': utils.encode_timestamp(datetime.datetime.now(datetime.timezone.utc))
         }
         return ProduceSolutionResponse(request_id=request_id)
 
@@ -432,12 +437,12 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
         dataset_uri = self._map_directories(dataset_uri)
         dataset = loader.load(dataset_uri=dataset_uri)
 
-        add_true_target(dataset, self.problem_parsed)
+        add_true_target(dataset, self.problem)
 
         fitted_pipeline = FittedPipeline.load(fitted_pipeline_id=fitted_pipeline_id, folder_loc=self.config.output_dir)
         fitted_pipeline.produce(inputs=[dataset])
 
-        timestamp = Timestamp()
+        timestamp = datetime.datetime.now(datetime.timezone.utc)
 
         steps_progress = []
         for i, step in enumerate(fitted_pipeline.pipeline.steps):
@@ -447,7 +452,7 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
                         state=core_pb2.COMPLETED,
                         status="Done",
                         start=start_time,
-                        end=timestamp.GetCurrentTime())))
+                        end=utils.encode_timestamp(datetime.datetime.now(datetime.timezone.utc)))))
 
         step_outputs = {}
         for expose_output in produce_request.expose_outputs:
@@ -467,7 +472,7 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
                                            index=False)
                 else:
                     entry_id = find_entry_id(dataset)
-                    if self.problem_parsed:
+                    if self.problem:
                         target_column_name = self.problem_parsed['inputs'][0]['targets'][0]['column_name']
                     else:
                         target_column_name = find_target_column_name(dataset, entry_id)
@@ -484,7 +489,7 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
             progress=Progress(state=core_pb2.COMPLETED,
                               status="Done",
                               start=start_time,
-                              end=timestamp.GetCurrentTime()),
+                              end=utils.encode_timestamp(datetime.datetime.now(datetime.timezone.utc))),
             steps=steps_progress,
             exposed_outputs=step_outputs
         ))
@@ -499,7 +504,7 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
         request_id = self.generateId()
         self.fit_solution[request_id] = {
             'request': request,
-            'start': Timestamp().GetCurrentTime()
+            'start': utils.encode_timestamp(datetime.datetime.now(datetime.timezone.utc))
         }
         response = FitSolutionResponse(request_id=request_id)
         self.log_msg(response)
@@ -526,7 +531,7 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
         dataset_uri = self._map_directories(dataset_uri)
         dataset = loader.load(dataset_uri=dataset_uri)
 
-        add_true_target(dataset, self.problem_parsed)
+        add_true_target(dataset, self.problem)
 
         old_fitted_pipeline = FittedPipeline.load(fitted_pipeline_id=fitted_pipeline_id, folder_loc=self.config.output_dir)
 
@@ -539,7 +544,7 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
                 progress=Progress(state=core_pb2.COMPLETED,
                                   status="Done",
                                   start=start_time,
-                                  end=Timestamp().GetCurrentTime()),
+                                  end=utils.encode_timestamp(datetime.datetime.now(datetime.timezone.utc))),
                 steps=[],
                 exposed_outputs=[],
                 fitted_solution_id=old_fitted_pipeline.id
@@ -558,7 +563,7 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
 
             fitted_pipeline.save(self.config.output_dir)
 
-            timestamp = Timestamp()
+            timestamp = datetime.datetime.now(datetime.timezone.utc)
 
             steps_progress = []
             for i, step in enumerate(fitted_pipeline.pipeline.steps):
@@ -570,7 +575,7 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
                             state=core_pb2.COMPLETED,
                             status="Done",
                             start=start_time,
-                            end=timestamp.GetCurrentTime())))
+                            end=utils.encode_timestamp(datetime.datetime.now(datetime.timezone.utc)))))
 
             step_outputs = {}
             for expose_output in fit_request.expose_outputs:
@@ -590,8 +595,8 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
                                                index=False)
                     else:
                         entry_id = find_entry_id(dataset)
-                        if self.problem_parsed:
-                            target_column_name = self.problem_parsed['inputs'][0]['targets'][0]['column_name']
+                        if self.problem:
+                            target_column_name = self.problem['inputs'][0]['targets'][0]['column_name']
                         else:
                             target_column_name = find_target_column_name(dataset, entry_id)
                         index_column_name, index_column = find_index_column_name_index(dataset, entry_id)
@@ -608,7 +613,7 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
                 progress=Progress(state=core_pb2.COMPLETED,
                                   status="Done",
                                   start=start_time,
-                                  end=timestamp.GetCurrentTime()),
+                                  end=utils.encode_timestamp(datetime.datetime.now(datetime.timezone.utc))),
                 steps=steps_progress,
                 exposed_outputs=step_outputs,
                 fitted_solution_id=fitted_pipeline.id
@@ -682,6 +687,7 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
         return uri
 
 
+# TODO: should let Controller do this:
 def add_true_target(dataset, problem):
     # Get target resource ids
     success = False
@@ -1111,6 +1117,21 @@ def to_proto_pipeline(pipeline: Pipeline, id: str , allow_value_types: typing.Se
     # )
 
 
+def to_proto_problem_target(target: dict):
+    if 'clusters_number' in target:
+        problem_target = ProblemTarget(
+            target_index=target['target_index'],
+            resource_id=target['resource_id'],
+            column_index=target['column_index'],
+            column_name=target['column_name'],
+            clusters_number=target['clusters_number'])
+    else:
+        problem_target = ProblemTarget(
+            target_index=target['target_index'],
+            resource_id=target['resource_id'],
+            column_index=target['column_index'],
+            column_name=target['column_name'])
+
 def to_proto_search_solution_request(problem, fitted_pipeline_id, metrics_result) -> GetSearchSolutionsResultsResponse:
 
     # search_solutions_results = []
@@ -1127,18 +1148,14 @@ def to_proto_search_solution_request(problem, fitted_pipeline_id, metrics_result
     problem_dict = problem
     for inputs_dict in problem_dict['inputs']:
         for target in inputs_dict['targets']:
-            targets.append(ProblemTarget(
-                target_index=target['target_index'],
-                resource_id=target['resource_id'],
-                column_index=target['column_index'],
-                column_name=target['column_name'],
-                clusters_number=target['clusters_number']))
+            targets.append(to_proto_problem_target(target))
     score_list = []
     internal_score = np.nan
     first = True
     for metric in metrics_result:
-        performance_matric: d3m_problem.PerformanceMetric = d3m_problem.PerformanceMetric.parse(metric['metric'])
-        ppm = ProblemPerformanceMetric(metric=performance_matric.name)
+        # performance_metric: d3m_problem.PerformanceMetric = d3m_problem.PerformanceMetric.parse(metric['metric'])
+        performance_metric: d3m_problem.PerformanceMetric = metric['metric']
+        ppm = ProblemPerformanceMetric(metric=performance_metric.name)
         if 'k' in metric:
             ppm = metric['k']
         if 'pos_label' in metric:
@@ -1161,7 +1178,7 @@ def to_proto_search_solution_request(problem, fitted_pipeline_id, metrics_result
             ))
         if internal_score is np.nan:
             # Return the first metric as the internal score
-            internal_score = performance_matric.normalize(metric['value'])
+            internal_score = performance_metric.normalize(metric['value'])
 
     scores = []
     scores.append(
@@ -1171,8 +1188,8 @@ def to_proto_search_solution_request(problem, fitted_pipeline_id, metrics_result
     result = GetSearchSolutionsResultsResponse(
         progress=Progress(state=core_pb2.COMPLETED,
                           status="Done",
-                          start=timestamp.GetCurrentTime(),
-                          end=timestamp.GetCurrentTime()),
+                          start=utils.encode_timestamp(datetime.datetime.now(datetime.timezone.utc)),
+                          end=utils.encode_timestamp(datetime.datetime.now(datetime.timezone.utc))),
         done_ticks=0,  # TODO: Figure out how we want to support this
         all_ticks=0,  # TODO: Figure out how we want to support this
         solution_id=fitted_pipeline_id,  # TODO: Populate this with the pipeline id
@@ -1200,15 +1217,11 @@ def to_proto_score_solution_request(problem, fitted_pipeline_id, metrics_result)
     problem_dict = problem
     for inputs_dict in problem_dict['inputs']:
         for target in inputs_dict['targets']:
-            targets.append(ProblemTarget(
-                target_index=target['target_index'],
-                resource_id=target['resource_id'],
-                column_index=target['column_index'],
-                column_name=target['column_name'],
-                clusters_number=target['clusters_number']))
+            targets.append(to_proto_problem_target(target))
     score_list = []
     for metric in metrics_result:
-        ppm = ProblemPerformanceMetric(metric=d3m_problem.PerformanceMetric.parse(metric['metric']).name)
+        # ppm = ProblemPerformanceMetric(metric=d3m_problem.PerformanceMetric.parse(metric['metric']).name)
+        ppm = ProblemPerformanceMetric(metric=metric['metric'].name)
         if 'k' in metric:
             ppm = metric['k']
         if 'pos_label' in metric:
@@ -1226,8 +1239,8 @@ def to_proto_score_solution_request(problem, fitted_pipeline_id, metrics_result)
     result = GetScoreSolutionResultsResponse(
         progress=Progress(state=core_pb2.COMPLETED,
                           status="Done",
-                          start=timestamp.GetCurrentTime(),
-                          end=timestamp.GetCurrentTime()),
+                          start=utils.encode_timestamp(datetime.datetime.now(datetime.timezone.utc)),
+                          end=utils.encode_timestamp(datetime.datetime.now(datetime.timezone.utc))),
         scores=score_list
     )
 

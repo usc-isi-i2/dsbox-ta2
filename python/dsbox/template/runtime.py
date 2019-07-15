@@ -1,23 +1,29 @@
-import os
-import typing
 import contextlib
 import logging
+import pprint
+import os
 import sys
 import tempfile
-import traceback
 import time
+import traceback
+import typing
 import pdb
 
-from pandas import DataFrame  # type: ignore
-from collections import defaultdict
-from sklearn.model_selection import KFold, StratifiedKFold  # type: ignore
+import numpy as np
 
 import d3m.runtime as runtime_base
-from d3m.metadata import base as metadata_base, hyperparams as hyperparams_module, pipeline as pipeline_module, pipeline_run as pipeline_run_module, problem
 
-from d3m.primitive_interfaces import base
-from d3m import exceptions
+from collections import defaultdict
 from multiprocessing import current_process
+
+from pandas import DataFrame  # type: ignore
+from sklearn.model_selection import KFold, StratifiedKFold  # type: ignore
+
+from d3m import container
+from d3m import exceptions
+from d3m.metadata import base as metadata_base, hyperparams as hyperparams_module, pipeline as pipeline_module, pipeline_run as pipeline_run_module, problem
+from d3m.primitive_interfaces import base
+
 from dsbox.JobManager.cache import PrimitivesCache
 from dsbox.template.utils import calculate_score, SpecialMetric
 
@@ -107,7 +113,7 @@ class Runtime(runtime_base.Runtime):
         # super().__init__(pipeline=pipeline_description, hyperparams=None, problem_description=None)
 
         self.cache: PrimitivesCache = None
-        self.cross_validation_result = None
+        self.cross_validation_result: typing.List = []
         if fitted_pipeline_id is None:
             # Occurs when runtime is not initialized by DSBox
             self.fitted_pipeline_id = pipeline.id
@@ -118,14 +124,18 @@ class Runtime(runtime_base.Runtime):
         self.log_dir = log_dir
         self.metric_descriptions: typing.List[typing.Dict] = []
         self.produce_outputs = None
-        self.timing = {}
+        self.timing: typing.Dict = {}
         self.timing["total_time_used"] = 0.0
         self.task_type = task_type
-        self.use_cache = True
+        # 2019-7-12: Not working turning cache off for now
+        self.use_cache = False
         # self.timing["total_time_used_without_cache"] = 0.0
 
         # !
         self.skip_fit_phase = False
+
+        # Debug mode. If true compare cache with actual result.
+        self.validate_cache = True
 
     def set_not_use_cache(self) -> None:
         self.use_cache = False
@@ -133,162 +143,330 @@ class Runtime(runtime_base.Runtime):
     def set_metric_descriptions(self, metric_descriptions):
         self.metric_descriptions = metric_descriptions
 
-    def _run_primitive(self, this_step: pipeline_module.PrimitiveStep) -> None:
+    def _run_primitive(self, step: pipeline_module.PrimitiveStep) -> None:
         '''
             Override the d3m_runtime's function
             And add the cache support
         '''
-        if this_step.primitive is None:
+        if step.primitive is None:
             raise exceptions.InvalidPipelineError("Primitive has not been resolved.")
 
+        primitive_base: PrimitiveBaseMeta = step.primitive
+
         time_start = time.time()
+        cache_hit: bool = False
 
-        _logger.debug(f"running primitive: {this_step.primitive.metadata.query()['name']}")
-        # call d3m's run primitive directly if not use cache
-        # NOTE: But need to perform cross validation!
-        if not self.use_cache:
-            super()._run_primitive(this_step)
+        self.pipeline_run.add_primitive_step(step)
+        arguments = self._prepare_primitive_arguments(step)
 
-        elif self.phase == metadata_base.PipelineRunPhase.FIT:
+        if self.phase == metadata_base.PipelineRunPhase.FIT:
+            hyperparams = self._prepare_primitive_hyperparams(step)
 
-            # Same as old codes, use argument as the cache system's key
-            primitive_arguments = self._prepare_primitive_arguments(this_step)
-            primitive_arguments["produce_methods"] = this_step.outputs
             prim_name, prim_hash = self.cache._get_hash(
-                hash_prefix=None, pipe_step=self.pipeline.steps[self.current_step],
-                primitive_arguments=primitive_arguments)
-
-            if not self.skip_fit_phase:
-                # if we need to do cross validation, do it before normal fit() step
-                if '_dsbox_runtime' in this_step.__dict__ and "cross_validation" in this_step._dsbox_runtime:
-
-                    primitive: typing.Type[base.PrimitiveBase] = this_step.primitive
-                    # TODO: add one more "if" to restrict runtime to run cross validation only for tuning steps
-                    primitive_hyperparams = primitive.metadata.query()['primitive_code']['class_type_arguments']['Hyperparams']
-                    custom_hyperparams = dict()
-                    # produce_params only have 'inputs'
-                    produce_params = dict((k, primitive_arguments[k]) for k in ["inputs"])
-                    # training_arguments have ['inputs', 'outputs']
-                    training_arguments = dict((k, primitive_arguments[k]) for k in ["inputs","outputs"])
-
-                    if bool(this_step.hyperparams):
-                        for hyperparam, value in this_step.hyperparams.items():
-                            if isinstance(value, dict):
-                                custom_hyperparams[hyperparam] = value['data']
-                            else:
-                                custom_hyperparams[hyperparam] = value
-
-                    # self.cross_validation_result = None
-                    self.cross_validation_result = self._cross_validation(
-                        primitive, training_arguments, produce_params, primitive_hyperparams,
-                        custom_hyperparams, this_step._dsbox_runtime)
-
-                    # print("!@#$$%$$$,cvfinished!!!")
-                    # print(self.cross_validation_result)
-                # END for cross-validation process
-
-            cache_hit = False
-            _logger.debug(
-                "Primitive Fit. 'id': '%(primitive_id)s', '(name, hash)': ('%(name)s', "
-                "'%(hash)s'), 'worker_id': '%(worker_id)s'.",
-                {
-                    'primitive_id':
-                        self.pipeline.steps[self.current_step].get_primitive_id(),
-                    'name': prim_name,
-                    'hash': prim_hash,
-                    'worker_id': current_process()
-                },
+                hash_prefix=None,
+                pipe_step=self.pipeline.steps[self.current_step],
+                primitive_arguments=arguments,
+                primitive_hyperparams=hyperparams
             )
 
-            # if this primitive hitted
-            if self.cache.is_hit_key(prim_hash=prim_hash, prim_name=prim_name):
-                # TODO: How to handle pipeline_run for cache hit?
-                self.pipeline_run.add_primitive_step(this_step)
+            # Store cache_hit state. In parallel mode, cache may change state and cause primitive_actual not to be set.
+            cache_hit = self.use_cache and self.cache.is_hit_key(prim_hash=prim_hash, prim_name=prim_name)
 
-                fitting_time, model = self.cache.lookup_key(prim_name=prim_name, prim_hash=prim_hash)
-                self.steps_state[self.current_step] = model
+            if cache_hit:
+                _logger.debug(f'Using cached primitive: {prim_name}, {prim_hash}')
+                fitting_time, primitive = self.cache.lookup_key(prim_name=prim_name, prim_hash=prim_hash)
+                if self.validate_cache:
+                    primitive_actual = self._create_pipeline_primitive(step.primitive, hyperparams)
+            else:
+                # We create a primitive just before it is being fitted for the first time. This assures that any primitives
+                # it depends on through its hyper-parameters have already been fitted (because they are in prior steps).
+                # Similarly, any pipeline-based value being passed to a hyper-parameter has already been computed.
+                primitive = self._create_pipeline_primitive(step.primitive, hyperparams)
 
-                # print cache reading time
-                cache_reading_time = (time.time() - time_start)
-                _logger.debug(f"[INFO] cache reading took {cache_reading_time} s and "
-                              f"fitting time took {fitting_time} s")
-                cache_hit = True
-                # print("!!!!Fit step with hitted finished!!!!")
+            assert self.steps_state[self.current_step] is None
+            self.steps_state[self.current_step] = primitive
 
-                # HERE the code adapted from d3m's runtime!!! If new version of runtime changd,
-                # remember to change here
-                # this part use the primitive adapted from cache to regenerate the prediction of
-                # training dataset
-                # and output the results to self.environment which is used to store the
-                # intermediate results of each steps
+        else:
+            primitive = typing.cast(base.PrimitiveBase, self.steps_state[self.current_step])
 
-                # === From v2018.7
-                # multi_produce_arguments = self._filter_arguments(this_step.primitive,
-                #                                                  'multi_produce',
-                #                                                  dict(primitive_arguments,
-                #                                                       produce_methods=this_step.outputs))
-                # while True:
-                #     multi_call_result = model.multi_produce(**multi_produce_arguments)
-                #     if multi_call_result.has_finished:
-                #         outputs = multi_call_result.values
-                #         break
-                # for output_id in this_step.outputs:
-                #     output_data_reference = 'steps.{i}.{output_id}'.format(i=this_step.index,
-                #                                                            output_id=output_id)
-                #     self.environment[output_data_reference] = outputs[output_id]
+            assert isinstance(primitive, base.PrimitiveBase), type(primitive)
 
-                primitive = model
-                # === From v2019.1.21
-                fit_multi_produce_arguments = self._filter_arguments(this_step.primitive, 'fit_multi_produce', dict(primitive_arguments, produce_methods=this_step.outputs))
+        # If primitive step has no arguments we do not fit or produce it. It is meant to be used as
+        # unfitted primitive for another primitive's hyper-parameter.
+        if not arguments:
+            return
+
+        # Do cross validation
+        do_cross_validation = '_dsbox_runtime' in step.__dict__ and "cross_validation" in step._dsbox_runtime
+        if (do_cross_validation
+            and self.phase == metadata_base.PipelineRunPhase.FIT
+            and not cache_hit):
+
+            hyperparams = self._prepare_primitive_hyperparams(step)
+            fit_multi_produce_arguments = self._filter_arguments(step.primitive, 'fit_multi_produce', dict(arguments, produce_methods=step.outputs))
+            multi_produce_arguments = self._filter_arguments(step.primitive, 'multi_produce', dict(arguments, produce_methods=step.outputs))
+            self.cross_validation_result = self._cross_validation(
+                primitive_base, hyperparams, fit_multi_produce_arguments, multi_produce_arguments, step._dsbox_runtime)
+
+        if self.phase == metadata_base.PipelineRunPhase.FIT:
+            if cache_hit:
+                fit_multi_produce_arguments = self._filter_arguments(step.primitive, 'multi_produce', dict(arguments, produce_methods=step.outputs))
+                while True:
+                    multi_call_result = self._call_primitive_method(primitive.multi_produce, fit_multi_produce_arguments)
+                    if multi_call_result.has_finished:
+                        outputs = multi_call_result.values
+                        break
+
+                if self.validate_cache:
+                    fit_multi_produce_arguments = self._filter_arguments(step.primitive, 'fit_multi_produce', dict(arguments, produce_methods=step.outputs))
+                    while True:
+                        multi_call_result = self._call_primitive_method(primitive_actual.fit_multi_produce, fit_multi_produce_arguments)
+                        if multi_call_result.has_finished:
+                            outputs_actual = multi_call_result.values
+                            break
+                    is_equal, reason = self._equals(outputs_actual, outputs)
+                    if not is_equal:
+                        _logger.error(f'========== CACHED PRIMITIVE OUTPUT DIFFERS : {reason}')
+                        _logger.error('==== Output from new created primtive')
+                        _logger.error(pprint.pformat(outputs_actual))
+                        _logger.error('==== Output from cached primitive')
+                        _logger.error(pprint.pformat(outputs))
+                        import pdb
+                        pdb.set_trace()
+
+            else:
+                # Primitve is newly create, must fit it
+                fit_multi_produce_arguments = self._filter_arguments(step.primitive, 'fit_multi_produce', dict(arguments, produce_methods=step.outputs))
+
+                # We fit and produce until fitting and producing finishes.
+                # TODO: Support configuring limits on iterations/time.
+                # TODO: Produce again only those produce methods which have not finished, currently we simply run all of them again.
                 while True:
                     multi_call_result = self._call_primitive_method(primitive.fit_multi_produce, fit_multi_produce_arguments)
                     if multi_call_result.has_finished:
                         outputs = multi_call_result.values
                         break
 
-                for output_id in this_step.outputs:
-                    output_data_reference = 'steps.{i}.{output_id}'.format(i=this_step.index, output_id=output_id)
-
-                    if output_id in outputs:
-                        self.data_values[output_data_reference] = outputs[output_id]
-                    else:
-                        raise exceptions.InvalidReturnValueError("Missing declared output '{output_id}' in computed primitive's outputs.".format(output_id=output_id))
-
-
-                # if we did not find the cache, run the primitive with d3m's inner function
-            else:
-                # print("!!!!Fit step with not hit!!!!")
-                super()._run_primitive(this_step)
+                # Add fitted primitive to cache
                 fitting_time = (time.time() - time_start)
-                # get the model after fitting
-                model = self.steps_state[self.current_step]
-                # push the model to cache
-                self.cache.push_key(prim_name=prim_name, prim_hash=prim_hash, model=model,
-                                    fitting_time=fitting_time)
-
-                self._check_primitive_output(this_step, self.data_values)
-
-                # log fitting results
-                for output_id in this_step.outputs:
-                    output_data_reference = 'steps.{i}.{output_id}'.format(i=this_step.index, output_id=output_id)
-                self._log_fitted_step(self.cache, output_data_reference, this_step, self.data_values)
-
-            # END processing part for FIT Phase
+                self.cache.push_key(prim_name=prim_name, prim_hash=prim_hash, model=primitive, fitting_time=fitting_time)
 
         elif self.phase == metadata_base.PipelineRunPhase.PRODUCE:
-            # if in produce step, always use the d3m's codes
-            super()._run_primitive(this_step)
+            multi_produce_arguments = self._filter_arguments(step.primitive, 'multi_produce', dict(arguments, produce_methods=step.outputs))
 
-            for output_id in this_step.outputs:
-                output_data_reference = 'steps.{i}.{output_id}'.format(i=this_step.index, output_id=output_id)
-            self._log_produce_step(output_data_reference, this_step, self.data_values)
-
+            # We produce until producing finishes.
+            # TODO: Support configuring limits on iterations/time.
+            # TODO: Produce again only those produce methods which have not finished, currently we simply run all of them again.
+            while True:
+                multi_call_result = self._call_primitive_method(primitive.multi_produce, multi_produce_arguments)
+                if multi_call_result.has_finished:
+                    outputs = multi_call_result.values
+                    break
         else:
+            # TODO: Allow dispatch to a general method so that subclasses of this class can handle them if necessary.
             raise exceptions.UnexpectedValueError("Unknown phase: {phase}".format(phase=self.phase))
+
+        for output_id in step.outputs:
+            output_data_reference = 'steps.{i}.{output_id}'.format(i=step.index, output_id=output_id)
+
+            if output_id in outputs:
+                self.data_values[output_data_reference] = outputs[output_id]
+            else:
+                raise exceptions.InvalidReturnValueError("Missing declared output '{output_id}' in computed primitive's outputs.".format(output_id=output_id))
+        if self.phase == metadata_base.PipelineRunPhase.FIT:
+            self._log_step_output('fit', output_data_reference, step, self.data_values)
+        else:
+            self._log_step_output('pro', output_data_reference, step, self.data_values)
 
         # add up the timing
         self.timing["total_time_used"] += (time.time() - time_start)
-        _logger.debug(f"   done primitive: {this_step.primitive.metadata.query()['name']}")
+        _logger.debug(f"   done primitive: {step.primitive.metadata.query()['name']}")
+
+    def _equals(self, outputs_actual: typing.Dict, outputs: typing.Dict) -> typing.Tuple[bool, str]:
+        try:
+            for key, actual in outputs_actual.items():
+                if not key in outputs:
+                    return False, f'Missing key {key}'
+                if isinstance(actual, container.DataFrame):
+                    if not actual.shape == outputs[key].shape:
+                        return False, f'Dataframe shape different: {actual.shape} != {outputs[key].shape}'
+                    for col in range(actual.shape[1]):
+                        if actual.dtypes[col] == np.object_:
+                            if not actual.iloc[:, col].equals(outputs[key].iloc[:, col]):
+                                return False, f'column {col} does not match'
+                        else:
+                            if not np.allclose(actual.iloc[:, col], outputs[key].iloc[:, col], equal_nan=True):
+                                return False, f'Column {col} of {actual.dtypes[col]} is not close'
+                elif isinstance(actual, container.ndarray):
+                    if not actual.shape == outputs[key].shape:
+                        return False, f'Ndarray shape different: {actual.shape} != {outputs[key].shape}'
+                    if not np.allclose(actual, outputs[key], equal_nan=True):
+                        return False, f'Ndarray do not close'
+                else:
+                    if not actual==outputs[key]:
+                        return False, f'Object not equal'
+        except Exception as e:
+            print('Exception: ', e)
+            import pdb
+            pdb.set_trace()
+        return True, ""
+
+    # def _run_primitive_old(self, this_step: pipeline_module.PrimitiveStep) -> None:
+    #     '''
+    #         Override the d3m_runtime's function
+    #         And add the cache support
+    #     '''
+    #     if this_step.primitive is None:
+    #         raise exceptions.InvalidPipelineError("Primitive has not been resolved.")
+
+    #     time_start = time.time()
+
+    #     _logger.debug(f"running primitive: {this_step.primitive.metadata.query()['name']}")
+    #     # call d3m's run primitive directly if not use cache
+    #     # NOTE: But need to perform cross validation!
+    #     if not self.use_cache:
+    #         super()._run_primitive(this_step)
+
+    #     elif self.phase == metadata_base.PipelineRunPhase.FIT:
+
+    #         # Same as old codes, use argument as the cache system's key
+    #         primitive_arguments = self._prepare_primitive_arguments(this_step)
+    #         primitive_arguments["produce_methods"] = this_step.outputs
+    #         prim_name, prim_hash = self.cache._get_hash(
+    #             hash_prefix=None, pipe_step=self.pipeline.steps[self.current_step],
+    #             primitive_arguments=primitive_arguments)
+
+    #         if not self.skip_fit_phase:
+    #             # if we need to do cross validation, do it before normal fit() step
+    #             if '_dsbox_runtime' in this_step.__dict__ and "cross_validation" in this_step._dsbox_runtime:
+
+    #                 primitive: typing.Type[base.PrimitiveBase] = this_step.primitive
+    #                 # TODO: add one more "if" to restrict runtime to run cross validation only for tuning steps
+    #                 primitive_hyperparams = primitive.metadata.query()['primitive_code']['class_type_arguments']['Hyperparams']
+    #                 custom_hyperparams = dict()
+    #                 # produce_params only have 'inputs'
+    #                 produce_params = dict((k, primitive_arguments[k]) for k in ["inputs"])
+    #                 # training_arguments have ['inputs', 'outputs']
+    #                 training_arguments = dict((k, primitive_arguments[k]) for k in ["inputs","outputs"])
+
+    #                 if bool(this_step.hyperparams):
+    #                     for hyperparam, value in this_step.hyperparams.items():
+    #                         if isinstance(value, dict):
+    #                             custom_hyperparams[hyperparam] = value['data']
+    #                         else:
+    #                             custom_hyperparams[hyperparam] = value
+
+    #                 # self.cross_validation_result = None
+    #                 self.cross_validation_result = self._cross_validation(
+    #                     primitive, training_arguments, produce_params, primitive_hyperparams,
+    #                     custom_hyperparams, this_step._dsbox_runtime)
+
+    #                 # print("!@#$$%$$$,cvfinished!!!")
+    #                 # print(self.cross_validation_result)
+    #             # END for cross-validation process
+
+    #         cache_hit = False
+    #         _logger.debug(
+    #             "Primitive Fit. 'id': '%(primitive_id)s', '(name, hash)': ('%(name)s', "
+    #             "'%(hash)s'), 'worker_id': '%(worker_id)s'.",
+    #             {
+    #                 'primitive_id':
+    #                     self.pipeline.steps[self.current_step].get_primitive_id(),
+    #                 'name': prim_name,
+    #                 'hash': prim_hash,
+    #                 'worker_id': current_process()
+    #             },
+    #         )
+
+    #         # if this primitive hitted
+    #         if self.cache.is_hit_key(prim_hash=prim_hash, prim_name=prim_name):
+    #             # TODO: How to handle pipeline_run for cache hit?
+    #             self.pipeline_run.add_primitive_step(this_step)
+
+    #             fitting_time, model = self.cache.lookup_key(prim_name=prim_name, prim_hash=prim_hash)
+    #             self.steps_state[self.current_step] = model
+
+    #             # print cache reading time
+    #             cache_reading_time = (time.time() - time_start)
+    #             _logger.debug(f"[INFO] cache reading took {cache_reading_time} s and "
+    #                           f"fitting time took {fitting_time} s")
+    #             cache_hit = True
+    #             # print("!!!!Fit step with hitted finished!!!!")
+
+    #             # HERE the code adapted from d3m's runtime!!! If new version of runtime changd,
+    #             # remember to change here
+    #             # this part use the primitive adapted from cache to regenerate the prediction of
+    #             # training dataset
+    #             # and output the results to self.environment which is used to store the
+    #             # intermediate results of each steps
+
+    #             # === From v2018.7
+    #             # multi_produce_arguments = self._filter_arguments(this_step.primitive,
+    #             #                                                  'multi_produce',
+    #             #                                                  dict(primitive_arguments,
+    #             #                                                       produce_methods=this_step.outputs))
+    #             # while True:
+    #             #     multi_call_result = model.multi_produce(**multi_produce_arguments)
+    #             #     if multi_call_result.has_finished:
+    #             #         outputs = multi_call_result.values
+    #             #         break
+    #             # for output_id in this_step.outputs:
+    #             #     output_data_reference = 'steps.{i}.{output_id}'.format(i=this_step.index,
+    #             #                                                            output_id=output_id)
+    #             #     self.environment[output_data_reference] = outputs[output_id]
+
+    #             primitive = model
+    #             # === From v2019.1.21
+    #             fit_multi_produce_arguments = self._filter_arguments(this_step.primitive, 'fit_multi_produce', dict(primitive_arguments, produce_methods=this_step.outputs))
+    #             while True:
+    #                 multi_call_result = self._call_primitive_method(primitive.fit_multi_produce, fit_multi_produce_arguments)
+    #                 if multi_call_result.has_finished:
+    #                     outputs = multi_call_result.values
+    #                     break
+
+    #             for output_id in this_step.outputs:
+    #                 output_data_reference = 'steps.{i}.{output_id}'.format(i=this_step.index, output_id=output_id)
+
+    #                 if output_id in outputs:
+    #                     self.data_values[output_data_reference] = outputs[output_id]
+    #                 else:
+    #                     raise exceptions.InvalidReturnValueError("Missing declared output '{output_id}' in computed primitive's outputs.".format(output_id=output_id))
+
+
+    #             # if we did not find the cache, run the primitive with d3m's inner function
+    #         else:
+    #             # print("!!!!Fit step with not hit!!!!")
+    #             super()._run_primitive(this_step)
+    #             fitting_time = (time.time() - time_start)
+    #             # get the model after fitting
+    #             model = self.steps_state[self.current_step]
+    #             # push the model to cache
+    #             self.cache.push_key(prim_name=prim_name, prim_hash=prim_hash, model=model,
+    #                                 fitting_time=fitting_time)
+
+    #             self._check_primitive_output(this_step, self.data_values)
+
+    #             # log fitting results
+    #             for output_id in this_step.outputs:
+    #                 output_data_reference = 'steps.{i}.{output_id}'.format(i=this_step.index, output_id=output_id)
+    #             self._log_fitted_step(self.cache, output_data_reference, this_step, self.data_values)
+
+    #         # END processing part for FIT Phase
+
+    #     elif self.phase == metadata_base.PipelineRunPhase.PRODUCE:
+    #         # if in produce step, always use the d3m's codes
+    #         super()._run_primitive(this_step)
+
+    #         for output_id in this_step.outputs:
+    #             output_data_reference = 'steps.{i}.{output_id}'.format(i=this_step.index, output_id=output_id)
+    #         self._log_produce_step(output_data_reference, this_step, self.data_values)
+
+    #     else:
+    #         raise exceptions.UnexpectedValueError("Unknown phase: {phase}".format(phase=self.phase))
+
+    #     # add up the timing
+    #     self.timing["total_time_used"] += (time.time() - time_start)
+    #     _logger.debug(f"   done primitive: {this_step.primitive.metadata.query()['name']}")
 
     def _check_primitive_output(self, primitive_step, primitives_outputs):
         for output_id in primitive_step.outputs:
@@ -300,14 +478,13 @@ class Runtime(runtime_base.Runtime):
                     if len(output.metadata.query((metadata_base.ALL_ELEMENTS, col))) == 0:
                         _logger.warning(f'Incomplete metadata at col {col}. Primitive={primitive_step.primitive}')
 
-    def _log_fitted_step(self, cache, output_data_reference, primitive_step, primitives_outputs):
+    def _log_step_output(self, prefix: str, output_data_reference, primitive_step, primitives_outputs):
         '''
             The function use to record the intermediate output of each primitive and save into
             the logs
 
             Parameters
             ---------
-            cache: indicate the cache object
             output_data_reference: a str use to indicate the dict key of the step output stored
             in self.environment
             primitive_step: indicate the primitive for logging
@@ -315,16 +492,12 @@ class Runtime(runtime_base.Runtime):
         '''
         if _logger.getEffectiveLevel() <= 10:
 
-            # _logger.debug('cache keys')
-            # for key in sorted(cache.storage.keys()):
-            #     _logger.debug('   {}'.format(key))
-
             n_step = int(output_data_reference.split('.')[1])
             debug_file = os.path.join(
                 self.log_dir, 'dfs',
-                'fit_{}_{}_{}_{:02}_{}'.format(self.template_name, self.pipeline.id.split('-')[0],
-                                               self.fitted_pipeline_id.split('-')[0], n_step,
-                                               primitive_step.primitive))
+                '{}_{}_{}_{}_{:02}_{}'.format(prefix, self.template_name, self.pipeline.id.split('-')[0],
+                                              self.fitted_pipeline_id.split('-')[0], n_step,
+                                              primitive_step.primitive))
             _logger.debug(
                 "'template': '%(template)s', 'id': '%(pipeline_id)s', 'fitted': '%(fitted_pipeline_id)s', 'name': '%("
                 "name)s', 'worker_id': '%(worker_id)s'. Output is written to: '%(path)s'.",
@@ -353,68 +526,23 @@ class Runtime(runtime_base.Runtime):
                 except Exception:
                     pass
 
-    def _log_produce_step(self, output_data_reference, primitive_step, primitives_outputs):
-        '''
-            The function use to record the intermediate output of each primitive and save into
-            the logs
-
-            Parameters
-            ---------
-            output_data_reference: a str use to indicate the dict key of the step output stored
-            in self.environment
-            primitive_step: indicate the primitive for logging
-            primitives_outputs: the dict used to store outputs
-        '''
-        if _logger.getEffectiveLevel() <= 10:
-
-            n_step = int(output_data_reference.split('.')[1])
-            debug_file = os.path.join(
-                self.log_dir, 'dfs',
-                'pro_{}_{}_{}_{:02}_{}'.format(self.template_name, self.pipeline.id.split('-')[0],
-                                               self.fitted_pipeline_id.split('-')[0], n_step,
-                                               primitive_step.primitive))
-            _logger.debug(
-                "'template': '%(template)s', 'id': '%(pipeline_id)s', 'fitted': '%(fitted_pipeline_id)s', 'name': '%("
-                "name)s', 'worker_id': '%(worker_id)s'. Output is written to: '%(path)s'.",
-                {
-                    'template': self.template_name,
-                    'pipeline_id': self.pipeline.id,
-                    'fitted_pipeline_id': self.fitted_pipeline_id,
-                    'name': primitive_step.primitive,
-                    'worker_id': current_process(),
-                    'path': debug_file
-                },
-            )
-            if primitives_outputs[output_data_reference] is None:
-                with open(debug_file) as f:
-                    f.write("None")
-            else:
-                if isinstance(primitives_outputs[output_data_reference], DataFrame):
-                    try:
-                        primitives_outputs[output_data_reference][:MAX_DUMP_SIZE].to_csv(debug_file)
-                        metadata_filepath = debug_file + '_meta'
-                        with open(metadata_filepath, 'w') as out:
-                            primitives_outputs[output_data_reference].metadata.pretty_print(handle=out)
-                    except Exception:
-                        pass
-
-    def _cross_validation(self, primitive: typing.Type[base.PrimitiveBase],
-                          training_arguments: typing.Dict,
-                          produce_params: typing.Dict,
-                          primitive_hyperparams: hyperparams_module.Hyperparams,
-                          custom_hyperparams: typing.Dict,
+    def _cross_validation(self,
+                          primitive_base: typing.Type[base.PrimitiveBase],
+                          hyperparams: typing.Dict,
+                          fit_multi_produce_arguments: typing.Dict,
+                          multi_produce_arguments: typing.Dict,
                           runtime_instr: typing.Dict,
-                          seed: int = 4767) -> typing.List:
+                          seed: int = 4767
+    ) -> typing.List:
+        _logger.debug('cross-val primitive: %s' % str(primitive_base))
 
-        _logger.debug('cross-val primitive: %s' % str(primitive))
-
-        results: typing.List[str, typing.Dict] = []
+        results: typing.List[typing.Dict] = []
 
         validation_metrics: typing.Dict[str, typing.List[float]] = defaultdict(list)
         targets: typing.Dict[str, typing.List[list]] = defaultdict(list)
 
-        X = training_arguments['inputs']
-        y = training_arguments['outputs']
+        X = fit_multi_produce_arguments['inputs']
+        y = fit_multi_produce_arguments['outputs']
 
         cv = runtime_instr.get('cross_validation', 10)
         use_stratified = runtime_instr.get('stratified', False)
@@ -424,7 +552,7 @@ class Runtime(runtime_base.Runtime):
         # Redirect stderr to an error file
         #  Directly assigning stderr to tempfile.TemporaryFile cause printing str to fail
         with tempfile.TemporaryDirectory() as tmpdir:
-            with open(os.path.join(tmpdir, str(primitive)), 'w') as errorfile:
+            with open(os.path.join(tmpdir, str(primitive_base)), 'w') as errorfile:
                 with contextlib.redirect_stderr(errorfile):
 
                     if use_stratified:
@@ -433,36 +561,16 @@ class Runtime(runtime_base.Runtime):
                         kf = KFold(n_splits=cv, shuffle=True, random_state=seed)
 
                     try:
-                        temp = kf
-                        temp.__next__()
-                    except:
-                        _logger.error("Stratified failed, use KFold instead.")
+                        temp = StratifiedKFold(n_splits=cv, shuffle=True, random_state=seed)
+                        for k, (train, test) in enumerate(temp.split(X, y)):
+                            pass
+                    except Exception as e:
+                        _logger.error(f"Stratified failed, use KFold instead: {e}")
                         kf = KFold(n_splits=cv, shuffle=True, random_state=seed)
 
                     num = 0.0
                     for k, (train, test) in enumerate(kf.split(X, y)):
-                        try:
-                            # !!!
-                            # Temporary fix
-                            # Still ignore the use_semantic types hyperparameters
-                            if "use_semantic_types" in custom_hyperparams:
-                                custom_hyperparams.pop("use_semantic_types")
-                            if "return_result" in custom_hyperparams:
-                                custom_hyperparams.pop("return_result")
-                            if "add_index_columns" in custom_hyperparams:
-                                custom_hyperparams.pop("add_index_columns")
-
-                            model = primitive(hyperparams=primitive_hyperparams(
-                                primitive_hyperparams.defaults(), **custom_hyperparams))
-                        except Exception:
-                            _logger(
-                                "******************\n[ERROR]Hyperparameters unsuccesfully set - "
-                                "using defaults")
-                            model = primitive(
-                                hyperparams=primitive_hyperparams(primitive_hyperparams.defaults()))
-
-                        if model is None:
-                            return results
+                        primitive = self._create_pipeline_primitive(primitive_base, hyperparams)
 
                         trainX = X.take(train, axis=0)
                         trainY = y.take(train, axis=0)#.values.ravel()
@@ -479,17 +587,27 @@ class Runtime(runtime_base.Runtime):
                         testX = testX.iloc[:, 1:]
                         testY = testY.iloc[:, 1:]
 
-                        validation_train = dict(training_arguments)
-                        validation_train['inputs'] = trainX
-                        validation_train['outputs'] = trainY
+                        validation_train_arguments = dict(fit_multi_produce_arguments)
+                        validation_train_arguments['inputs'] = trainX
+                        validation_train_arguments['outputs'] = trainY
 
-                        validation_test = dict(produce_params)
-                        validation_test['inputs'] = testX
+                        validation_test_arguments = dict(multi_produce_arguments)
+                        validation_test_arguments['inputs'] = testX
 
                         try:
-                            model.set_training_data(**validation_train)
-                            model.fit()
-                            ypred = model.produce(**validation_test).value
+                            while True:
+                                multi_call_result = self._call_primitive_method(primitive.fit_multi_produce, validation_train_arguments)
+                                if multi_call_result.has_finished:
+                                    train_outputs = multi_call_result.values
+                                    break
+
+                            while True:
+                                multi_call_result = self._call_primitive_method(primitive.multi_produce, validation_test_arguments)
+                                if multi_call_result.has_finished:
+                                    test_outputs = multi_call_result.values
+                                    break
+
+                            ypred = test_outputs['produce']
 
                             num = num + 1.0
 
@@ -519,9 +637,9 @@ class Runtime(runtime_base.Runtime):
 
                         except Exception as e:
                             sys.stderr.write(
-                                "ERROR: cross_validation {}: {}\n".format(primitive, e))
-                            _logger.error("ERROR: cross_validation {}: {}\n".format(primitive, e))
-                            traceback.print_exc(e)
+                                "ERROR: cross_validation {}: {}\n".format(primitive_base, e))
+                            # _logger.error("ERROR: cross_validation {}: {}\n".format(primitive_base, e))
+                            _logger.exception("ERROR: cross_validation {}: {}\n".format(primitive_base, e))
 
         if num == 0:
             return results
@@ -547,6 +665,155 @@ class Runtime(runtime_base.Runtime):
 
         return results
 
+    # def _cross_validation_old(self, primitive: typing.Type[base.PrimitiveBase],
+    #                       training_arguments: typing.Dict,
+    #                       produce_params: typing.Dict,
+    #                       primitive_hyperparams: hyperparams_module.Hyperparams,
+    #                       custom_hyperparams: typing.Dict,
+    #                       runtime_instr: typing.Dict,
+    #                       seed: int = 4767) -> typing.List:
+
+    #     _logger.debug('cross-val primitive: %s' % str(primitive))
+
+    #     results: typing.List[typing.Dict] = []
+
+    #     validation_metrics: typing.Dict[str, typing.List[float]] = defaultdict(list)
+    #     targets: typing.Dict[str, typing.List[list]] = defaultdict(list)
+
+    #     X = training_arguments['inputs']
+    #     y = training_arguments['outputs']
+
+    #     cv = runtime_instr.get('cross_validation', 10)
+    #     use_stratified = runtime_instr.get('stratified', False)
+
+    #     # TODO: cross validation need to be update to fit with new requirement with adding indexes!!
+
+    #     # Redirect stderr to an error file
+    #     #  Directly assigning stderr to tempfile.TemporaryFile cause printing str to fail
+    #     with tempfile.TemporaryDirectory() as tmpdir:
+    #         with open(os.path.join(tmpdir, str(primitive)), 'w') as errorfile:
+    #             with contextlib.redirect_stderr(errorfile):
+
+    #                 if use_stratified:
+    #                     kf = StratifiedKFold(n_splits=cv, shuffle=True, random_state=seed)
+    #                 else:
+    #                     kf = KFold(n_splits=cv, shuffle=True, random_state=seed)
+
+    #                 try:
+    #                     temp = kf
+    #                     temp.__next__()
+    #                 except:
+    #                     _logger.error("Stratified failed, use KFold instead.")
+    #                     kf = KFold(n_splits=cv, shuffle=True, random_state=seed)
+
+    #                 num = 0.0
+    #                 for k, (train, test) in enumerate(kf.split(X, y)):
+    #                     try:
+    #                         # !!!
+    #                         # Temporary fix
+    #                         # Still ignore the use_semantic types hyperparameters
+    #                         if "use_semantic_types" in custom_hyperparams:
+    #                             custom_hyperparams.pop("use_semantic_types")
+    #                         if "return_result" in custom_hyperparams:
+    #                             custom_hyperparams.pop("return_result")
+    #                         if "add_index_columns" in custom_hyperparams:
+    #                             custom_hyperparams.pop("add_index_columns")
+
+    #                         model = primitive(hyperparams=primitive_hyperparams(
+    #                             primitive_hyperparams.defaults(), **custom_hyperparams))
+    #                     except Exception:
+    #                         _logger.error(
+    #                             "******************\n[ERROR]Hyperparameters unsuccesfully set - "
+    #                             "using defaults")
+    #                         model = primitive(
+    #                             hyperparams=primitive_hyperparams(primitive_hyperparams.defaults()))
+
+    #                     if model is None:
+    #                         return results
+
+    #                     trainX = X.take(train, axis=0)
+    #                     trainY = y.take(train, axis=0)#.values.ravel()
+    #                     testX = X.take(test, axis=0)
+    #                     testY = y.take(test, axis=0)#.values.ravel()
+
+    #                     # reset index to be continuous
+    #                     trainX = trainX.reset_index()
+    #                     trainY = trainY.reset_index()
+    #                     testX = testX.reset_index()
+    #                     testY = testY.reset_index()
+    #                     trainX = trainX.iloc[:, 1:]
+    #                     trainY = trainY.iloc[:, 1:]
+    #                     testX = testX.iloc[:, 1:]
+    #                     testY = testY.iloc[:, 1:]
+
+    #                     validation_train = dict(training_arguments)
+    #                     validation_train['inputs'] = trainX
+    #                     validation_train['outputs'] = trainY
+
+    #                     validation_test = dict(produce_params)
+    #                     validation_test['inputs'] = testX
+
+    #                     try:
+    #                         model.set_training_data(**validation_train)
+    #                         model.fit()
+    #                         ypred = model.produce(**validation_test).value
+
+    #                         num = num + 1.0
+
+    #                         # if task type not given, take a guess
+    #                         if self.task_type == "":
+    #                             self._guess_task_type()
+
+    #                         if 'd3mIndex' not in testY.columns:
+    #                             testY.insert(0,'d3mIndex' ,testX['d3mIndex'].copy())
+    #                         if 'd3mIndex' not in ypred.columns:
+    #                             ypred.insert(0,'d3mIndex' ,testX['d3mIndex'].copy())
+
+    #                         # update 2019.5.13: use calculate_score method instead from ConfigurationSpaceBaseSearch
+    #                         # !!!! TODO: Use utils.score. How to fix this.
+    #                         metric_score = calculate_score(
+    #                             ground_truth=testY, prediction=ypred, performance_metrics=self.metric_descriptions,
+    #                             task_type=self.task_type, regression_metric=SpecialMetric().regression_metric)
+
+    #                         # targets['ground_truth'].append(testY)
+    #                         # targets['prediction'].append(ypred)
+    #                         for metric_description in metric_score:
+    #                         #     metricDesc = problem.PerformanceMetric.parse(metric_description['metric'])
+    #                         #     metric: typing.Callable = metricDesc.get_function()
+    #                         #     params: typing.Dict = metric_description['params']
+    #                             validation_metrics[metric_description['metric']].append(metric_description['value'])
+    #                         # validation_metrics.append(metric_score)
+
+    #                     except Exception as e:
+    #                         sys.stderr.write(
+    #                             "ERROR: cross_validation {}: {}\n".format(primitive, e))
+    #                         _logger.error("ERROR: cross_validation {}: {}\n".format(primitive, e))
+    #                         traceback.print_exc()
+
+    #     if num == 0:
+    #         return results
+
+    #     average_metrics: typing.Dict[str, float] = {}
+    #     for name, values in validation_metrics.items():
+    #         if len(values) == 0:
+    #             return results
+    #         average_metrics[name] = sum(values) / len(values)
+
+    #     for metric_description in validation_metrics:
+    #         result_by_metric = {}
+    #         result_by_metric['metric'] = metric_description
+    #         result_by_metric['value'] = average_metrics[metric_description]
+    #         result_by_metric['values'] = validation_metrics[metric_description]
+    #         result_by_metric['targets'] = targets[metric_description]
+    #         results.append(result_by_metric)
+
+    #     for result in results:
+    #         _logger.debug('cross-validation metric: %s=%.4f', result['metric'], result['value'])
+    #         _logger.debug('cross-validation details: %s %s',
+    #                       result['metric'], str(['%.4f' % x for x in result['values']]))
+
+    #     return results
+
     def _guess_task_type(self):
         for each in self.metric_descriptions:
             if 'error' in each['metric'].unparse():
@@ -565,7 +832,7 @@ class Runtime(runtime_base.Runtime):
         """
         if 'cache' in arguments:
             _logger.debug("Using global cache")
-            self.cache: PrimitivesCache = arguments['cache']
+            self.cache = arguments['cache']
         else:
             _logger.debug("Using local cache")
             self.cache = PrimitivesCache()
@@ -603,7 +870,7 @@ import uuid
 from urllib import parse as url_parse
 from pathlib import Path
 
-from d3m import container, deprecate, utils
+from d3m import deprecate, utils
 from d3m.container import dataset as dataset_module
 from d3m.container import utils as container_utils
 
@@ -1404,7 +1671,7 @@ def score_handler(
     if expose_produced_outputs:
         save_steps_outputs(produce_result, arguments.expose_produced_outputs_dir)
 
-    scores, score_result = score_prediction(
+    scores, score_result = score(
         scoring_pipeline,
         fitted_pipeline.problem_description,
         predictions,

@@ -216,7 +216,9 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
 
             # [{'column_name': 'Class', 'metric': 'f1', 'value': 0.1}]
             data = {
-                'id': fitted_pipeline.id,
+                # 2019-7-10: return pipeline.id as id to make debugging easier
+                'id': fitted_pipeline.pipeline.id,
+                'fid': fitted_pipeline.id,
                 'fitted_pipeline': fitted_pipeline,
                 'training_metrics': fake_metric,
                 'cross_validation_metrics': None,
@@ -309,7 +311,7 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
                     test_prediction = None
                     test_metrics_each = copy.deepcopy(training_metrics_each)
                     for each in test_metrics_each:
-                        each["value"] = PerformanceMetric.parse(each['metric']).worst_value()
+                        each["value"] = each['metric'].worst_value()
 
                 training_metrics.append(training_metrics_each)
                 test_metrics.append(test_metrics_each)
@@ -347,7 +349,9 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
                 cv = []
 
             data = {
-                'id': fitted_pipeline2.id,
+                # 2019-7-10: return pipeline.id as id to make debugging easier
+                'id': fitted_pipeline2.pipeline.id,
+                'fid': fitted_pipeline2.id,
                 'fitted_pipeline': fitted_pipeline2,
                 'training_metrics': training_metrics,
                 'cross_validation_metrics': cv,
@@ -388,7 +392,7 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
                     fitted_pipeline2.save(self.output_directory)
                     pickled = True
                 except Exception as e:
-                    _logger.warning('SKIPPING Pickle test. Saving pipeline failed: {e.message}')
+                    _logger.warning(f'SKIPPING Pickle test. Saving pipeline failed: {e.message}')
 
             # Pickle test
             try:
@@ -518,7 +522,9 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
                 # CandidateCache asserts cv must be a list
                 cv = []
             data = {
-                'id': fitted_pipeline_final.id,
+                # 2019-7-10: return pipeline.id as id to make debugging easier
+                'id': fitted_pipeline_final.pipeline.id,
+                'fid': fitted_pipeline_final.id,
                 'fitted_pipeline': fitted_pipeline_final,
                 'training_metrics': training_metrics,
                 'cross_validation_metrics': cv,

@@ -114,10 +114,6 @@ class DsboxConfig:
         self.root_logger_level = min(self.file_logging_level, self.console_logging_level)
 
         # ==== Derived variables
-        # Problem spec in json dict (Should not use)
-        self.problem_doc: typing.Dict = {}
-        # Use this version
-        # Parsed problem spec (e.g.. string value for task converted to d3m.metadata.problem.TaskType enum)
         self.problem: Problem = {}
 
         # List of file path to datasetDoc.json files
@@ -142,8 +138,14 @@ class DsboxConfig:
         self._load_dsbox()
         self._setup()
 
-    def set_problem(self, problem_doc, problem: Problem):
-        self.problem_doc = problem_doc
+    def set_problem(self, problem: Problem):
+
+        if not isinstance(problem, Problem):
+            raise VauleError(f"Argument problem must be an instance of Problem: {problem}")
+
+        if 'id' not in problem:
+            raise VauleError(f"Problem missing id: {problem}")
+
         self.problem = problem
         self._load_problem_rest()
 
@@ -214,9 +216,6 @@ class DsboxConfig:
     def _load_problem(self):
         if self.problem_schema == '':
             return
-        with open(os.path.abspath(self.problem_schema)) as file:
-            self.problem_doc = json.load(file)
-        # self.problem = parse_problem_description(os.path.abspath(self.problem_schema))
         self.problem = Problem.load('file://' + os.path.abspath(self.problem_schema))
         self._load_problem_rest()
 
