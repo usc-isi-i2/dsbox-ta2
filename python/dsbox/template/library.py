@@ -3164,7 +3164,7 @@ class SRIGraphMatchingTemplate(DSBoxTemplate):
             "name": "SRI_GraphMatching_Template",
             "taskType": {TaskType.GRAPH_MATCHING.name, TaskType.LINK_PREDICTION.name},
             # for some special condition, the taskSubtype can be "NONE" which indicate no taskSubtype given
-            "taskSubtype": "NONE",
+            "taskSubtype":  {"NONE", TaskSubtype.NONOVERLAPPING.name, TaskSubtype.OVERLAPPING.name, TaskSubtype.MULTICLASS.name, TaskSubtype.BINARY.name, TaskSubtype.MULTILABEL, TaskSubtype.MULTIVARIATE, TaskSubtype.UNIVARIATE},
             "inputType": "graph",
             "output": "predict_step",
             "steps": [
@@ -3218,7 +3218,7 @@ class SRIVertexNominationTemplate(DSBoxTemplate):
         self.template = {
             "name": "SRI_Vertex_Nomination_Template",
             "taskType": {TaskType.VERTEX_NOMINATION.name},
-            "taskSubtype": {"NONE", TaskSubtype.NONOVERLAPPING.name, TaskSubtype.OVERLAPPING.name},
+            "taskSubtype":  {"NONE", TaskSubtype.NONOVERLAPPING.name, TaskSubtype.OVERLAPPING.name, TaskSubtype.MULTICLASS.name, TaskSubtype.BINARY.name, TaskSubtype.MULTILABEL, TaskSubtype.MULTIVARIATE, TaskSubtype.UNIVARIATE},
             #"taskType": TaskType.VERTEX_NOMINATION.name,
             #"taskSubtype": "NONE",
             "inputType": {"graph", "edgeList", "table"},
@@ -3247,7 +3247,7 @@ class SRICollaborativeFilteringTemplate(DSBoxTemplate):
         self.template = {
             "name": "SRI_Collaborative_Filtering_Template",
             "taskType": {TaskType.COLLABORATIVE_FILTERING.name},
-            "taskSubtype": "NONE",
+            "taskSubtype":  {"NONE", TaskSubtype.NONOVERLAPPING.name, TaskSubtype.OVERLAPPING.name, TaskSubtype.MULTICLASS.name, TaskSubtype.BINARY.name, TaskSubtype.MULTILABEL, TaskSubtype.MULTIVARIATE, TaskSubtype.UNIVARIATE},
             "inputType": "table",
             "output": "model_step",
             "steps": [
@@ -3266,7 +3266,7 @@ class SRICommunityDetectionTemplate(DSBoxTemplate):
         self.template = {
             "name": "SRI_Community_Detection_Template",
             "taskType": {TaskType.COMMUNITY_DETECTION.name},
-            "taskSubtype": {TaskSubtype.NONOVERLAPPING.name, TaskSubtype.OVERLAPPING.name},
+            "taskSubtype":  {"NONE", TaskSubtype.NONOVERLAPPING.name, TaskSubtype.OVERLAPPING.name, TaskSubtype.MULTICLASS.name, TaskSubtype.BINARY.name, TaskSubtype.MULTILABEL, TaskSubtype.MULTIVARIATE, TaskSubtype.UNIVARIATE},
             "inputType": "graph",
             "output": "model_step",
             "steps": [
@@ -4462,7 +4462,7 @@ class CornellMatrixFactorization(DSBoxTemplate):
         self.template = {
             "name": "Cornell_matrix_factorization",
             "taskType": {TaskType.COLLABORATIVE_FILTERING.name, TaskType.VERTEX_NOMINATION.name, TaskType.COMMUNITY_DETECTION.name, TaskType.LINK_PREDICTION.name},
-            "taskSubtype": {"NONE", TaskSubtype.NONOVERLAPPING.name, TaskSubtype.OVERLAPPING.name},
+            "taskSubtype":  {"NONE", TaskSubtype.NONOVERLAPPING.name, TaskSubtype.OVERLAPPING.name, TaskSubtype.MULTICLASS.name, TaskSubtype.BINARY.name, TaskSubtype.MULTILABEL, TaskSubtype.MULTIVARIATE, TaskSubtype.UNIVARIATE},
             #"taskSubtype": "NONE",
             #"inputType": "table",
             "inputType": {"graph","table"},
@@ -4502,10 +4502,10 @@ class CornellMatrixFactorization(DSBoxTemplate):
                         {
                             "primitive": "d3m.primitives.collaborative_filtering.high_rank_imputer.Cornell",
                             "hyperparameters": {
-                                "d": [0, 10, 20, 50, 100],
+                                "d": [0, 10, 20, 50, 100, 200],
                                 "alpha": [0.01, 0.1, 0.5, 1.0],
                                 "beta":[0.01, 0.1, 0.5, 1.0],
-                                "maxiter": [200, 500, 1000]
+                                "maxiter": [200, 500, 1000, 2000]
                                 }
                         }],
                     "inputs":["scaler_step"]
@@ -4531,7 +4531,7 @@ class ISIGraphNormClf(DSBoxTemplate):
         self.template = {
             "name": "ISI_graph_norm_clf",
             "taskType": {TaskType.VERTEX_NOMINATION.name, TaskType.COMMUNITY_DETECTION.name, TaskType.LINK_PREDICTION.name}, #TaskType.COLLABORATIVE_FILTERING.name,
-            "taskSubtype": {"NONE", TaskSubtype.NONOVERLAPPING.name, TaskSubtype.OVERLAPPING.name},
+            "taskSubtype": {"NONE", TaskSubtype.NONOVERLAPPING.name, TaskSubtype.OVERLAPPING.name, TaskSubtype.MULTICLASS.name, TaskSubtype.BINARY.name, TaskSubtype.MULTILABEL, TaskSubtype.MULTIVARIATE, TaskSubtype.UNIVARIATE},
             #"taskSubtype": "NONE",
             #"inputType": "table",
             "inputType": {"graph","table"},
@@ -4581,6 +4581,10 @@ class ISIGraphNormClf(DSBoxTemplate):
                         "d3m.primitives.feature_construction.graph_transformer.SDNE"
                     ],
                     "hyperparameters": {
+                        "epochs": [20, 50, 100, 200, 499],
+                        "beta":[1, 2, 4, 8, 16, 32, 64],
+                        "alpha":[0.0000001, 0.000001, 0.00001, 0.0001, 0.001, 0.01, .1],
+                        "lr":[0.0001, 0.0005, 0.001],
                         "return_list": [False]
                     },
                     "inputs": ["extract_graph_tables"]#["to_dataframe_nodes", "to_dataframe_edges"] #["readgraph_step"]
@@ -4635,7 +4639,7 @@ class ISI_GCN(DSBoxTemplate):
         self.template = {
             "name": "ISI_gcn",
             "taskType": {TaskType.COLLABORATIVE_FILTERING.name, TaskType.VERTEX_NOMINATION.name, TaskType.COMMUNITY_DETECTION.name, TaskType.LINK_PREDICTION.name},
-            "taskSubtype": {"NONE", TaskSubtype.NONOVERLAPPING.name, TaskSubtype.OVERLAPPING.name},
+            "taskSubtype":  {"NONE", TaskSubtype.NONOVERLAPPING.name, TaskSubtype.OVERLAPPING.name, TaskSubtype.MULTICLASS.name, TaskSubtype.BINARY.name, TaskSubtype.MULTILABEL, TaskSubtype.MULTIVARIATE, TaskSubtype.UNIVARIATE},
             #"taskSubtype": "NONE",
             #"inputType": "table",
             "inputType": {"graph", "table"},
