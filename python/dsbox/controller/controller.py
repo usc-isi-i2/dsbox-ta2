@@ -1604,8 +1604,8 @@ class Controller:
                     self._logger.warn(f'Data is none for {save_dir}')
                 else:
                     dataset.save((dataset_dir / "datasetDoc.json").as_uri())
-        except exceptions.NotSupportedError:
-            pass
+        except Exception:
+            logger.debug("Failed to save dataset splits", exc_info=True)
 
     # Methods used by TA3
 
