@@ -310,6 +310,8 @@ class FittedPipeline:
             if larger_is_better(metric):
                 if value > 0.0:
                     rank = 1 / value
+                else:
+                    rank = 10**5
             else:
                 rank = value
             self.metric['rank'] = rank
