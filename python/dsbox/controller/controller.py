@@ -644,7 +644,7 @@ class Controller:
             all_results1 = search_unit.get_next_page()
 
             for each_search in all_results1:
-                if each_search.search_type == "wikidata":
+                if each_search.search_type == "wikidata" and len(each_search.search_result["p_nodes_needed"]) > 0:
                     hyper_temp = hyper_augment_default.replace({"search_result":each_search.serialize()})
                     augment_primitive = DataMartAugmentPrimitive(hyperparams=hyper_temp)
                     augment_res = augment_primitive.produce(inputs = augment_res).value
