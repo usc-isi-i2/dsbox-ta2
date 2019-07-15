@@ -1220,7 +1220,7 @@ def to_proto_score_solution_request(problem, fitted_pipeline_id, metrics_result)
             targets.append(to_proto_problem_target(target))
     score_list = []
     for metric in metrics_result:
-        ppm = ProblemPerformanceMetric(metric=d3m_problem.PerformanceMetric.parse(metric['metric']).name)
+        # ppm = ProblemPerformanceMetric(metric=d3m_problem.PerformanceMetric.parse(metric['metric']).name)
         ppm = ProblemPerformanceMetric(metric=metric['metric'].name)
         if 'k' in metric:
             ppm = metric['k']
