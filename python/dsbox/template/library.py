@@ -454,7 +454,7 @@ class DefaultSemisupervisedClassificationTemplate(DSBoxTemplate):
         self.template = {
             "name": "Default_semisupervised_classification_template",
             "taskSubtype": {TaskSubtype.BINARY.name, TaskSubtype.MULTICLASS.name},
-            "taskType": TaskType.SEMISUPERVISED_CLASSIFICATION.name,
+            "taskType": [TaskType.SEMISUPERVISED_CLASSIFICATION.name],
             # See TaskType, range include 'CLASSIFICATION', 'CLUSTERING', 'COLLABORATIVE_FILTERING',
             # 'COMMUNITY_DETECTION', 'GRAPH_CLUSTERING', 'GRAPH_MATCHING', 'LINK_PREDICTION',
             # 'REGRESSION', 'TIME_SERIES_FORECASTING', 'VERTEX_NOMINATION'
@@ -546,7 +546,7 @@ class CMUSemisupervisedClassificationTemplate(DSBoxTemplate):
         self.template = {
             "name": "CMU_semisupervised_classification_template",
             "taskSubtype": {TaskSubtype.BINARY.name, TaskSubtype.MULTICLASS.name},
-            "taskType": TaskType.SEMISUPERVISED_CLASSIFICATION.name,
+            "taskType": [TaskType.SEMISUPERVISED_CLASSIFICATION.name],
             # See TaskType, range include 'CLASSIFICATION', 'CLUSTERING', 'COLLABORATIVE_FILTERING',
             # 'COMMUNITY_DETECTION', 'GRAPH_CLUSTERING', 'GRAPH_MATCHING', 'LINK_PREDICTION',
             # 'REGRESSION', 'TIME_SERIES_FORECASTING', 'VERTEX_NOMINATION'
