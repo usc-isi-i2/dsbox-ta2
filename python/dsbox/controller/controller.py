@@ -633,6 +633,7 @@ class Controller:
                      "description": "Record Number. SEQNO is a unique number assigned to each record. The assigned numbers are not necessarily continuous or sequential."
                     }
                 augment_res.metadata = augment_res.metadata.update(selector=('learningData', ALL_ELEMENTS, 1), metadata = meta)
+                search_unit = datamart_unit.search_with_data(query=None, supplied_data=augment_res, need_wikidata=False)
 
             else:
                 # in general condition, run wikifier first
@@ -644,9 +645,12 @@ class Controller:
                 self.extra_primitive.add("augment" + str(augment_times))
                 self.dump_primitive(augment_primitive, "augment" + str(augment_times))
                 augment_times += 1
+                search_unit = datamart_unit.search_with_data(query=None, supplied_data=augment_res)
 
+            import pdb
+            pdb.set_trace()
             # run search, it will return wikidata search results first (if found) and then the general search results with highest score first
-            search_unit = datamart_unit.search_with_data(query=None, supplied_data=augment_res, need_wikidata=False)
+            
             all_results1 = search_unit.get_next_page()
 
             for each_search in all_results1:
