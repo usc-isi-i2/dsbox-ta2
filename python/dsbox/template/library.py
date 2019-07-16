@@ -26,7 +26,13 @@ else:
     SEMANTIC_TYPES = D3M_ROLE_CONSTANTS_TO_SEMANTIC_TYPES.copy()
     SEMANTIC_TYPES.update(D3M_RESOURCE_TYPE_CONSTANTS_TO_SEMANTIC_TYPES)
     SEMANTIC_TYPES.update(D3M_COLUMN_TYPE_CONSTANTS_TO_SEMANTIC_TYPES)
-
+"""
+Attention!!!!!!
+For anyone who add new templates here:
+DO NOT ADD denomalize step from the original pipeline to here,
+we will do denormalize at initilaization step
+so everything passed from template_input is the Datasets already denormalized!
+"""
 
 class TemplateLibrary:
     """
@@ -115,6 +121,7 @@ class TemplateLibrary:
             "ARIMA_Template": ARIMATemplate,
             "TimeSeriesForcastingTestingTemplate": TimeSeriesForcastingTestingTemplate,
             "DefaultObjectDetectionTemplate": DefaultObjectDetectionTemplate,
+            "JPLObjectDetectionTemplate":JPLObjectDetectionTemplate,
             "DefaultVideoClassificationTemplate": DefaultVideoClassificationTemplate,
 
             # Specialized problems: privileged data
@@ -226,6 +233,7 @@ class TemplateLibrary:
 
         # Image related
         self.templates.append(DefaultImageProcessingRegressionTemplate)
+        self.templates.append(JPLObjectDetectionTemplate)
         self.templates.append(DefaultObjectDetectionTemplate)
         self.templates.append(DefaultVideoClassificationTemplate)
         self.templates.append(DefaultImageProcessingClassificationTemplate)
@@ -446,7 +454,7 @@ class DefaultSemisupervisedClassificationTemplate(DSBoxTemplate):
         self.template = {
             "name": "Default_semisupervised_classification_template",
             "taskSubtype": {TaskSubtype.BINARY.name, TaskSubtype.MULTICLASS.name},
-            "taskType": TaskType.SEMISUPERVISED_CLASSIFICATION.name,
+            "taskType": [TaskType.SEMISUPERVISED_CLASSIFICATION.name],
             # See TaskType, range include 'CLASSIFICATION', 'CLUSTERING', 'COLLABORATIVE_FILTERING',
             # 'COMMUNITY_DETECTION', 'GRAPH_CLUSTERING', 'GRAPH_MATCHING', 'LINK_PREDICTION',
             # 'REGRESSION', 'TIME_SERIES_FORECASTING', 'VERTEX_NOMINATION'
@@ -538,7 +546,7 @@ class CMUSemisupervisedClassificationTemplate(DSBoxTemplate):
         self.template = {
             "name": "CMU_semisupervised_classification_template",
             "taskSubtype": {TaskSubtype.BINARY.name, TaskSubtype.MULTICLASS.name},
-            "taskType": TaskType.SEMISUPERVISED_CLASSIFICATION.name,
+            "taskType": [TaskType.SEMISUPERVISED_CLASSIFICATION.name],
             # See TaskType, range include 'CLASSIFICATION', 'CLUSTERING', 'COLLABORATIVE_FILTERING',
             # 'COMMUNITY_DETECTION', 'GRAPH_CLUSTERING', 'GRAPH_MATCHING', 'LINK_PREDICTION',
             # 'REGRESSION', 'TIME_SERIES_FORECASTING', 'VERTEX_NOMINATION'
@@ -1665,14 +1673,9 @@ class AlphaZeroEvalTemplate(DSBoxTemplate): # this is a template from succeed pi
             "target": "extract_target_step",  # Name of the step generating the ground truth
             "steps":[
                 {
-                    "name": "denormalize_step", # step 0
-                    "primitives": ["d3m.primitives.data_transformation.denormalize.Common"],
-                    "inputs": ["template_input"]
-                },
-                {
                     "name": "to_dataframe_step", # step 1
                     "primitives": ["d3m.primitives.data_transformation.dataset_to_dataframe.Common"],
-                    "inputs": ["denormalize_step"]
+                    "inputs": ["template_input"]
                 },
                 {
                     "name": "column_parser_step", # step 2
@@ -1794,22 +1797,13 @@ class TESTINGTemplate(DSBoxTemplate): # this is a template from succeed pipeline
                     "inputs": ["template_input"]
                 },
                 {
-                    "name": "denormalize_step", # step 1
-                    "primitives": [
-                        {
-                            "primitive": "d3m.primitives.data_transformation.denormalize.Common"
-                        }
-                    ],
-                    "inputs": ["update_semantic_step"]
-                },
-                {
                     "name": "to_dataframe_step", # step 2
                     "primitives": [
                         {
                             "primitive": "d3m.primitives.data_transformation.dataset_to_dataframe.Common"
                         }
                     ],
-                    "inputs": ["denormalize_step"]
+                    "inputs": ["update_semantic_step"]
                 },
                 {
                     "name": "column_parser_step", # step 3
@@ -2362,6 +2356,70 @@ class DefaultObjectDetectionTemplate(DSBoxTemplate):
                 },
             ]
         }
+
+class JPLObjectDetectionTemplate(DSBoxTemplate):
+    def __init__(self):
+        DSBoxTemplate.__init__(self)
+        self.template = {
+            "name": "JPL_object_detection_template",
+            "taskType": TaskType.OBJECT_DETECTION.name,
+            # See TaskType, range include 'CLASSIFICATION', 'CLUSTERING', 'COLLABORATIVE_FILTERING',
+            # 'COMMUNITY_DETECTION', 'GRAPH_CLUSTERING', 'GRAPH_MATCHING', 'LINK_PREDICTION',
+            # 'REGRESSION', 'TIME_SERIES_FORECASTING', 'VERTEX_NOMINATION'
+            "taskSubtype": "NONE",
+            "inputType": {"table", "image"},  # See SEMANTIC_TYPES.keys() for range of values
+            "output": "model_step",  # Name of the final step generating the prediction
+            "target": "extract_target_step",  # Name of the step generating the ground truth
+            "steps": [
+                {
+                    "name": "to_dataframe_step",#step 1
+                    "primitives": ["d3m.primitives.data_transformation.dataset_to_dataframe.Common"],
+                    "inputs": ["template_input"]
+                },
+                # read X,Y value
+                {
+                    "name": "extrac_step",# step 2
+                    "primitives": [{
+                        "primitive": "d3m.primitives.data_transformation.column_parser.DataFrameCommon",
+                        "hyperparameters":
+                            {
+                                'parse_semantic_types': (
+                                    "http://schema.org/Boolean",
+                                  "http://schema.org/Integer",
+                                  "http://schema.org/Float",
+                                  "https://metadata.datadrivendiscovery.org/types/FloatVector",
+                                  "http://schema.org/DateTime"),
+                            }
+                    }],
+                    "inputs": ["to_dataframe_step"]
+                },
+                {
+                    "name": "image_reader_step", # step 3
+                    "primitives": [
+                        {
+                            "primitive": "d3m.primitives.data_preprocessing.image_reader.DataFrameCommon",
+                            "hyperparameters": {
+                            }
+                        }
+                    ],
+                    "inputs": ["extrac_step"]
+                },
+                {
+                    "name": "model_step", # step 4
+                    "primitives": [
+                        {
+                            "primitive": "d3m.primitives.object_detection.faster_rcnn.JPLPrimitives",
+                            "hyperparameters": {
+                                "use_gpu":[False, True],
+                                "classes":['person'],
+                                "confidence":[0.7, 0.8, 0.9],
+                            }
+                        }
+                    ],
+                    "inputs": ["image_reader_step", "image_reader_step"]
+                },
+            ]
+        }
 ################################################################################################################
 #####################################   VideoClassificationTemplate   #############################################
 ################################################################################################################
@@ -2654,32 +2712,6 @@ class UCHITimeSeriesClassificationTemplate(DSBoxTemplate):
             "output": "model_step",  # Name of the final step generating the prediction
             "target": "extract_target_step",  # Name of the step generating the ground truth
             "steps": [
-                # {
-                #     "name": "denormalize_step",
-                #     "primitives": ["d3m.primitives.data_transformation.denormalize.Common"],
-                #     "inputs": ["template_input"]
-                # },
-                # {
-                #     "name": "to_dataframe_step",
-                #     "primitives": ["d3m.primitives.data_transformation.dataset_to_dataframe.Common"],
-                #     "inputs": ["denormalize_step"]
-                # },
-                # # read Y value
-                # {
-                #     "name": "extract_target_step",
-                #     "primitives": [{
-                #         "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.DataFrameCommon",
-                #         "hyperparameters":
-                #             {
-                #                 'semantic_types': (
-                #                 'https://metadata.datadrivendiscovery.org/types/TrueTarget',),
-                #                 'use_columns': (),
-                #                 'exclude_columns': ()
-                #             }
-                #     }],
-                #     "inputs": ["to_dataframe_step"]
-                # },
-
                 {
                     "name": "model_step",
                     "primitives": ["d3m.primitives.datasmash.d3m_XG2"],
@@ -3356,29 +3388,6 @@ class BBNAudioClassificationTemplate(DSBoxTemplate):
             "inputType": "audio",
             "output": "model_step",
             "steps": [
-                # {
-                #     "name": "denormalize_step",
-                #     "primitives": ["d3m.primitives.data_transformation.denormalize.Common"],
-                #     "inputs": ["template_input"]
-                # },
-                # {
-                #     "name": "to_dataframe_step",
-                #     "primitives": ["d3m.primitives.data_transformation.dataset_to_dataframe.Common"],
-                #     "inputs": ["denormalize_step"]
-                # },
-                # {
-                #     "name": "readtarget_step",
-                #     "primitives": [{
-                #         "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.DataFrameCommon",
-                #         "hyperparameters":
-                #             {
-                #                 'semantic_types': ('https://metadata.datadrivendiscovery.org/types/TrueTarget',),
-                #                 'use_columns': (),
-                #                 'exclude_columns': ()
-                #             }
-                #     }],
-                #     "inputs": ["to_dataframe_step"]
-                # },
                 {
                     "name": "readtarget_step",
                     "primitives":["d3m.primitives.bbn.time_series.TargetsReader"],
@@ -4193,14 +4202,9 @@ class DefaultImageClassificationWithCNNTemplate(DSBoxTemplate):
             "target": "extract_target_step",  # Name of the step generating the ground truth
             "steps": [
                 {
-                    "name": "denormalize_step",
-                    "primitives": ["d3m.primitives.data_transformation.denormalize.Common"],
-                    "inputs": ["template_input"]
-                },
-                {
                     "name": "to_dataframe_step",
                     "primitives": ["d3m.primitives.data_transformation.dataset_to_dataframe.Common"],
-                    "inputs": ["denormalize_step"]
+                    "inputs": ["template_input"]
                 },
                 {
                     "name": "extract_attribute_step",
@@ -4469,14 +4473,9 @@ class CornellMatrixFactorization(DSBoxTemplate):
             "output": "model_step",
             "steps": [
                 {
-                    "name": "denormalize_step",
-                    "primitives": ["d3m.primitives.data_transformation.denormalize.Common"],
-                    "inputs": ["template_input"]
-                },
-                {
                     "name": "to_df_step",
                     "primitives":["d3m.primitives.data_transformation.dataset_to_dataframe.Common"],
-                    "inputs":["denormalize_step"]
+                    "inputs":["template_input"]
                 },
                 {
                     "name": "parser_step",
@@ -4538,17 +4537,12 @@ class ISIGraphNormClf(DSBoxTemplate):
             "output": "model_step",
             "steps": [
                 {
-                    "name": "denormalize_step",
-                    "primitives": ["d3m.primitives.data_transformation.denormalize.Common"],
-                    "inputs": ["template_input"]
-                },
-                {
                     "name": "readgraph_step",
                     "primitives": [
                         "d3m.primitives.data_transformation.normalize_graphs.Common"
                         #"d3m.primitives.data_preprocessing.largest_connected_component.JHU"
                     ],
-                    "inputs": ["denormalize_step"]
+                    "inputs": ["template_input"]
                 },
                 {
                     "name": "extract_graph_tables",#_learning",
@@ -4734,14 +4728,9 @@ class LupiSvmClassification(DSBoxTemplate):
             "output": "prediction_step",
             "steps": [
                 {
-                    "name": "denormalize_step",
-                    "primitives": ["d3m.primitives.data_transformation.denormalize.Common"],
-                    "inputs": ["template_input"]
-                },
-                {
                     "name": "to_dataframe_step",
                     "primitives": ["d3m.primitives.data_transformation.dataset_to_dataframe.Common"],
-                    "inputs": ["denormalize_step"]
+                    "inputs": ["template_input"]
                 },
                 {
                     "name": "model_step",
@@ -4790,14 +4779,9 @@ class LupiRfClassification(DSBoxTemplate):
             "output": "prediction_step",
             "steps": [
                 {
-                    "name": "denormalize_step",
-                    "primitives": ["d3m.primitives.data_transformation.denormalize.Common"],
-                    "inputs": ["template_input"]
-                },
-                {
                     "name": "to_dataframe_step",
                     "primitives": ["d3m.primitives.data_transformation.dataset_to_dataframe.Common"],
-                    "inputs": ["denormalize_step"]
+                    "inputs": ["template_input"]
                 },
                 {
                     "name": "extract_target_step",

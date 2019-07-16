@@ -108,6 +108,7 @@ class FittedPipeline:
         self.auxiliary: typing.Dict = {}
         self._datamart_query_step_location = 0
         self.location_offset = 0
+        self.finished_add_extra_primitives = False
 
         _logger.debug('Creating fitted pipeline %s', self.id)
 
@@ -310,6 +311,8 @@ class FittedPipeline:
             if larger_is_better(metric):
                 if value > 0.0:
                     rank = 1 / value
+                else:
+                    rank = 10**5
             else:
                 rank = value
             self.metric['rank'] = rank
@@ -333,37 +336,40 @@ class FittedPipeline:
         pipeline_dir = os.path.join(folder_loc, pipeline_schema_subdir)
 
         structure = self.pipeline.to_json_structure()
-        # if we has DoNothingForDataset, we need update pipeline again
-        if self.extra_primitive and "splitter" in self.extra_primitive:
-            self.add_extra_primitive(["splitter"], self.location_offset)
-            structure = self.pipeline.to_json_structure()
-            _logger.info("Primitive Splitter has been added to pipeline.")
-            self.location_offset += 1
 
-        if self.extra_primitive and "denormalize" in self.extra_primitive:
-            self.add_extra_primitive(["denormalize"], self.location_offset)
-            structure = self.pipeline.to_json_structure()
-            _logger.info("Primitive Denormalize has been added to pipeline.")
-            self.location_offset += 1
+        if  not self.finished_add_extra_primitives:
+            if self.extra_primitive and "splitter" in self.extra_primitive:
+                self.add_extra_primitive(["splitter"], self.location_offset)
+                structure = self.pipeline.to_json_structure()
+                _logger.info("Primitive Splitter has been added to pipeline.")
+                self.location_offset += 1
 
-        if self.extra_primitive and "wikifier" in self.extra_primitive:
-            self.add_extra_primitive(["wikifier"], self.location_offset)
-            structure = self.pipeline.to_json_structure()
-            _logger.info("Primitive Wikifier has been added to pipeline.")
-            self.location_offset += 1
+            if self.extra_primitive and "denormalize" in self.extra_primitive:
+                self.add_extra_primitive(["denormalize"], self.location_offset)
+                structure = self.pipeline.to_json_structure()
+                _logger.info("Primitive Denormalize has been added to pipeline.")
+                self.location_offset += 1
 
-        augment_count = -1
-        for each in self.extra_primitive:
-            if "augment" in each:
-                augment_count += 1
+            if self.extra_primitive and "wikifier" in self.extra_primitive:
+                self.add_extra_primitive(["wikifier"], self.location_offset)
+                structure = self.pipeline.to_json_structure()
+                _logger.info("Primitive Wikifier has been added to pipeline.")
+                self.location_offset += 1
 
-        current_augment = "augment" + str(augment_count)
-        while current_augment in self.extra_primitive:
-            self.add_extra_primitive([current_augment], self.location_offset)
-            structure = self.pipeline.to_json_structure()
-            _logger.info("Primitive " + current_augment +" has been added to pipeline.")
-            augment_count -= 1
+            augment_count = -1
+            for each in self.extra_primitive:
+                if "augment" in each:
+                    augment_count += 1
+
             current_augment = "augment" + str(augment_count)
+            while current_augment in self.extra_primitive:
+                self.add_extra_primitive([current_augment], self.location_offset)
+                structure = self.pipeline.to_json_structure()
+                _logger.info("Primitive " + current_augment +" has been added to pipeline.")
+                augment_count -= 1
+                current_augment = "augment" + str(augment_count)
+            # no second time update
+            self.finished_add_extra_primitives = True
 
         # update from d3m v2019.5.8: update digest to ensure the digest value is correct
         updated_digest = d3m_utils.compute_digest(Pipeline._canonical_pipeline_description(structure))
