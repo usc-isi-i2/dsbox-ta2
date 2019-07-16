@@ -242,11 +242,11 @@ class TemplateLibrary:
         # Privileged information
         # self.templates.append(LupiSvmClassification)
         self.templates.append(LupiRfClassification)
-        
+
         # Others
         self.templates.append(BBNacledProblemTemplate)
         self.templates.append(DistilacledProblemTemplate)
-        
+
         self.templates.append(DefaultTimeseriesCollectionTemplate)
         self.templates.append(TimeSeriesForcastingTestingTemplate)
         self.templates.append(ARIMATemplate)
@@ -393,6 +393,10 @@ class DefaultClassificationTemplate(DSBoxTemplate):
                                             'min_samples_leaf': [1, 2],
                                          }
                                  },
+                                 "d3m.primitives.classification.logistic_regression.SKlearn",
+                                 "d3m.primitives.classification.linear_discriminant_analysis.SKlearn",
+                                 "d3m.primitives.classification.passive_aggressive.SKlearn",
+                                 "d3m.primitives.classification.k_neighbors.SKlearn",
                              ],
                              "inputs": ["feature_selector_step", "target"]
                          }
@@ -2586,12 +2590,39 @@ class DefaultTimeseriesCollectionTemplate(DSBoxTemplate):
                     "name": "random_forest_step",
                     "primitives": [
                         {
-                            "primitive": "d3m.primitives.classification.random_forest.SKlearn",
-                            "hyperparameters": {
+                            "primitive":
+                            "d3m.primitives.classification.random_forest.SKlearn",
+                            "hyperparameters":
+                            {
+                                'use_semantic_types': [True],
+                                'return_result': ['new'],
                                 'add_index_columns': [True],
-                                'use_semantic_types':[True],
+                                'bootstrap': [True, False],
+                                'max_depth': [15, 30, None],
+                                'min_samples_leaf': [1, 2, 4],
+                                'min_samples_split': [2, 5, 10],
+                                'max_features': ['auto', 'sqrt'],
+                                'n_estimators': [10, 50, 100],
                             }
-                        }
+                        },
+                        {
+                            "primitive":
+                            "d3m.primitives.classification.extra_trees.SKlearn",
+                            "hyperparameters":
+                            {
+                                'use_semantic_types': [True],
+                                'return_result': ['new'],
+                                'add_index_columns': [True],
+                                'bootstrap': [True, False],
+                                'max_depth': [15, 30, None],
+                                'min_samples_leaf': [1, 2, 4],
+                                'min_samples_split': [2, 5, 10],
+                                'max_features': ['auto', 'sqrt'],
+                                'n_estimators': [10, 50, 100],
+                            }
+                        },
+                        "d3m.primitives.classification.bagging.SKlearn",
+                        "d3m.primitives.classification.logistic_regression.SKlearn"
                     ],
                     "inputs": ["random_projection_step", "extract_target_step"]
                 },
@@ -2897,7 +2928,8 @@ class DefaultImageProcessingRegressionTemplate(DSBoxTemplate):
                                 'add_index_columns': [True],
                                 'use_semantic_types':[True],
                             }
-                        }
+                        },
+                        "d3m.primitives.regression.gradient_boosting.SKlearn"
                     ],
                     "inputs": ["PCA_step", "extract_target_step"]
                 },
@@ -2977,7 +3009,8 @@ class DefaultImageProcessingClassificationTemplate(DSBoxTemplate):
                                 'add_index_columns': [True],
                                 'use_semantic_types': [True]
                             }
-                        }
+                        },
+                        "d3m.primitives.data_preprocessing.do_nothing.DSBOX"
                     ],
                     "inputs": ["feature_extraction"]
                 },
@@ -2991,6 +3024,9 @@ class DefaultImageProcessingClassificationTemplate(DSBoxTemplate):
                                 'add_index_columns': [True],
                                 'use_semantic_types':[True],
                             }
+                        },
+                        {
+                            "primitive": "d3m.primitives.classification.logistic_regression.SKlearn",
                         }
                     ],
                     "inputs": ["PCA_step", "extract_target_step"]
@@ -4947,7 +4983,7 @@ class BBNacledProblemTemplate(DSBoxTemplate):
                         "primitive": "d3m.primitives.classification.mlp.SKlearn",
                         # TODO: need to add hyperparams tunning for mlp primitive here
                         "hyperparameters": {
-                            
+
                         }
                     }
                     ],
@@ -5102,7 +5138,7 @@ class DistilacledProblemTemplate(DSBoxTemplate):
                     "primitives": [{
                         "primitive": "d3m.primitives.learner.random_forest.DistilEnsembleForest",
                         # TODO: need to add hyperparams tunning for mlp primitive here
-                        "hyperparameters": 
+                        "hyperparameters":
                         {
                             "metric":["f1Macro"]
                         }
