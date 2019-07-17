@@ -609,7 +609,7 @@ class Controller:
         try:
             # initialize
             from datamart_isi import entries
-            isi_datamart_url = "http://dsbox02.isi.edu:9001/blazegraph/namespace/datamart4/sparql"
+            isi_datamart_url = "http://dsbox02.isi.edu:9001/blazegraph/namespace/datamart3/sparql"
             datamart_unit = entries.Datamart(connection_url=isi_datamart_url)
             from common_primitives.datamart_augment import Hyperparams as hyper_augment, DataMartAugmentPrimitive
             hyper_augment_default = hyper_augment.defaults()
@@ -617,30 +617,36 @@ class Controller:
 
             # run wikifier first
             augment_times = 0
-            search_result_wikifier = entries.DatamartSearchResult(search_result={}, supplied_data=None, query_json={}, search_type="wikifier")
-            hyper_temp = hyper_augment_default.replace({"search_result":search_result_wikifier.serialize()})
-            augment_primitive = DataMartAugmentPrimitive(hyperparams=hyper_temp)
-            augment_res = augment_primitive.produce(inputs = self.all_dataset).value
-            # this part's code is only used for saving the pipeline afterwards in TA2 system
-            self.extra_primitive.add("augment" + str(augment_times))
-            self.dump_primitive(augment_primitive, "augment" + str(augment_times))
-            augment_times += 1
 
-            # this special change only for running for DA_medical dataset, so that we can also use this column as a join candidate
-            # meta =     {
-            #      "name": "SEQNO",
-            #      "structural_type": str,
-            #      "semantic_types": [
-            #       "http://schema.org/Text",
-            #       "http://schema.org/DateTime",
-            #       "https://metadata.datadrivendiscovery.org/types/UniqueKey"
-            #      ],
-            #      "description": "Record Number. SEQNO is a unique number assigned to each record. The assigned numbers are not necessarily continuous or sequential."
-            #     }
-            # augment_res.metadata = augment_res.metadata.update(selector=('learningData', ALL_ELEMENTS, 1), metadata = meta)
+            if self.all_dataset.metadata.query(())['id'].startswith("DA_medical_malpractice"):
+                # this special change only for running for DA_medical dataset, so that we can also use this column as a join candidate
+                # also, due to the reason that both supplied data and searched results are very large, skip wikidata part
+                augment_res = self.all_dataset
+                meta =     {
+                     "name": "SEQNO",
+                     "structural_type": str,
+                     "semantic_types": [
+                      "http://schema.org/Text",
+                      "http://schema.org/DateTime",
+                      "https://metadata.datadrivendiscovery.org/types/UniqueKey"
+                     ],
+                     "description": "Record Number. SEQNO is a unique number assigned to each record. The assigned numbers are not necessarily continuous or sequential."
+                    }
+                augment_res.metadata = augment_res.metadata.update(selector=('learningData', ALL_ELEMENTS, 1), metadata = meta)
+
+            else:
+                # in general condition, run wikifier first
+                search_result_wikifier = entries.DatamartSearchResult(search_result={}, supplied_data=None, query_json={}, search_type="wikifier")
+                hyper_temp = hyper_augment_default.replace({"search_result":search_result_wikifier.serialize()})
+                augment_primitive = DataMartAugmentPrimitive(hyperparams=hyper_temp)
+                augment_res = augment_primitive.produce(inputs = self.all_dataset).value
+                # this part's code is only used for saving the pipeline afterwards in TA2 system
+                self.extra_primitive.add("augment" + str(augment_times))
+                self.dump_primitive(augment_primitive, "augment" + str(augment_times))
+                augment_times += 1
 
             # run search, it will return wikidata search results first (if found) and then the general search results with highest score first
-            search_unit = datamart_unit.search_with_data(query=None, supplied_data=augment_res)
+            search_unit = datamart_unit.search_with_data(query=None, supplied_data=augment_res, need_wikidata=False)
             all_results1 = search_unit.get_next_page()
 
             for each_search in all_results1:

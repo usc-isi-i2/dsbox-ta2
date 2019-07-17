@@ -61,7 +61,7 @@ daset_docs = {}
 def config_datasets(datasets, use_docker_server) -> typing.List:
     global dataset_base_path, dataset_docs
     if use_docker_server:
-        dataset_base_path = '/input/'
+        dataset_base_path = '/input'
     elif datasets == 'seed_aug':
         dataset_base_path = '/nfs1/dsbox-repo/data/datasets-v32/seed_datasets_data_augmentation'
     elif datasets == 'seed':
@@ -359,23 +359,28 @@ class Client(object):
     '''
     def searchSolutions(self, stub, problem):
         _logger.info("Calling Search Solutions:")
+        metric = problem['problem']['performance_metrics'][0]
         request = SearchSolutionsRequest(
             user_agent="Test Client",
             version="2019.1.22",
-            time_bound=self.time_bound,
+            time_bound_search=self.time_bound,
             priority=0,
             allowed_value_types=[value_pb2.RAW],
             problem=ProblemDescription(
                 problem=Problem(
-                    id=problem['id'],
-                    version="3.1.2",
-                    name=problem['id'],
-                    description=problem['id'],
+                    # id=problem['id'],
+                    # version="3.1.2",
+                    # name=problem['id'],
+                    # description=problem['id'],
                     task_type=problem['problem']['task_type'].value,
                     task_subtype=problem['problem']['task_subtype'].value,
                     performance_metrics=[
                         ProblemPerformanceMetric(
-                            metric=problem['problem']['performance_metrics'][0]['metric'].value,
+                            # metric=problem['problem']['performance_metrics'][0]['metric'].value,
+                            metric=metric['metric'].value,
+                            k=metric.get('params', {}).get('k', None),
+                            pos_label=metric.get('params', {}).get('pos_label', None),
+
                         )]
                     ),
                 inputs=[ProblemInput(
@@ -390,7 +395,9 @@ class Client(object):
                         ])]
                 ),
             template=PipelineDescription(), # TODO: We will handle pipelines later D3M-61
-            inputs=[Value(dataset_uri='file://' + dataset_docs[problem['inputs'][0]['dataset_id']])]
+            inputs=[Value(dataset_uri='file://' + dataset_docs[problem['inputs'][0]['dataset_id']]),],
+            time_bound_run=5, # in minutes
+            rank_solutions_limit=20
         )
         print_request(request)
         reply = stub.SearchSolutions(request)
