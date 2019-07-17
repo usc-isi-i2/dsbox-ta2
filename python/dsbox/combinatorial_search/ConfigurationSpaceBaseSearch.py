@@ -163,13 +163,18 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
         cache: PrimitivesCache = args[1]
         dump2disk = args[2] if len(args) == 3 else True
 
-        _logger.info(f"START Evaluation of {hash(str(configuration))} in {current_process()}")
+        evaluation_result = None
 
-        evaluation_result = self._evaluate(configuration, cache, dump2disk)
+        try:
+            _logger.info(f"START Evaluation of {hash(str(configuration))} in {current_process()}")
 
-        evaluation_result.pop('fitted_pipeline')
+            evaluation_result = self._evaluate(configuration, cache, dump2disk)
 
-        _logger.info(f"END Evaluation of {hash(str(configuration))} in {current_process()}")
+            evaluation_result.pop('fitted_pipeline')
+
+            _logger.info(f"END Evaluation of {hash(str(configuration))} in {current_process()}")
+        except Exception as exc:
+            raise RuntimeError(f'Failed template {self.template.template["name"]}') from exc
 
         return evaluation_result
         # assert hasattr(evaluation_result['fitted_pipeline'], 'runtime'), \
