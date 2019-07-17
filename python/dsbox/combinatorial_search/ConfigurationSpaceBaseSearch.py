@@ -166,13 +166,13 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
         evaluation_result = None
 
         try:
-            _logger.info(f"START Evaluation of {hash(str(configuration))} in {current_process()}")
+            _logger.info(f"START Evaluation of template {self.template.template['name']} {hash(str(configuration))} in {current_process()}")
 
             evaluation_result = self._evaluate(configuration, cache, dump2disk)
 
             evaluation_result.pop('fitted_pipeline')
 
-            _logger.info(f"END Evaluation of {hash(str(configuration))} in {current_process()}")
+            _logger.info(f"END Evaluation of template {self.template.template['name']} {hash(str(configuration))} in {current_process()}")
         except Exception as exc:
             raise RuntimeError(f'Failed template {self.template.template["name"]}') from exc
 
