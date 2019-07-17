@@ -5083,7 +5083,7 @@ class DistilacledProblemTemplate(DSBoxTemplate):
                         {
                         }
                     }],
-                    "inputs": ["imputer_step"]
+                    "inputs": ["imputer_step", "extract_target_step"]
                 },
                 {
                     "name": "one_hot_encoder_step",
@@ -5239,7 +5239,7 @@ class DistilPreprocessingTemplate(DSBoxTemplate):
                         {
                         }
                     }],
-                    "inputs": ["imputer_step"]
+                    "inputs": ["imputer_step", "extract_target_step"]
                 },
                 {
                     "name": "one_hot_encoder_step",
