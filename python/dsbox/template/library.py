@@ -3094,7 +3094,7 @@ class DefaultLinkPredictionTemplate(DSBoxTemplate):
         DSBoxTemplate.__init__(self)
         self.template = {
             "name": "Default_LinkPrediction_Template",
-            "taskType": {TaskType.LINK_PREDICTION.name, TaskType.GRAPH_MATCHING.name, TaskType.VERTEX_NOMINATION.name},
+            "taskType": {TaskType.LINK_PREDICTION.name, TaskType.GRAPH_MATCHING.name, TaskType.VERTEX_CLASSIFICATION.name},
             "taskSubtype": "NONE",
             "inputType": "graph",
             "output": "model_step",
@@ -3217,7 +3217,7 @@ class SRIVertexNominationTemplate(DSBoxTemplate):
         DSBoxTemplate.__init__(self)
         self.template = {
             "name": "SRI_Vertex_Nomination_Template",
-            "taskType": {TaskType.VERTEX_NOMINATION.name},
+            "taskType": {TaskType.VERTEX_CLASSIFICATION.name},
             "taskSubtype":  {"NONE", TaskSubtype.NONOVERLAPPING.name, TaskSubtype.OVERLAPPING.name, TaskSubtype.MULTICLASS.name, TaskSubtype.BINARY.name, TaskSubtype.MULTILABEL, TaskSubtype.MULTIVARIATE, TaskSubtype.UNIVARIATE},
             #"taskType": TaskType.VERTEX_NOMINATION.name,
             #"taskSubtype": "NONE",
@@ -3294,7 +3294,7 @@ class JHUVertexNominationTemplate(DSBoxTemplate):
         DSBoxTemplate.__init__(self)
         self.template = {
             "name": "JHU_Vertex_Nomination_Template",
-            "taskType": TaskType.VERTEX_NOMINATION.name,
+            "taskType": TaskType.VERTEX_CLASSIFICATION.name,
             "taskSubtype": "NONE",
             "inputType": "graph",
             "output": "model_step",
@@ -4530,7 +4530,7 @@ class ISIGraphNormClf(DSBoxTemplate):
         DSBoxTemplate.__init__(self)
         self.template = {
             "name": "ISI_graph_norm_clf",
-            "taskType": {TaskType.VERTEX_NOMINATION.name, TaskType.COMMUNITY_DETECTION.name, TaskType.LINK_PREDICTION.name}, #TaskType.COLLABORATIVE_FILTERING.name,
+            "taskType": {TaskType.VERTEX_CLASSIFICATION.name, TaskType.COMMUNITY_DETECTION.name, TaskType.LINK_PREDICTION.name}, #TaskType.COLLABORATIVE_FILTERING.name,
             "taskSubtype": {"NONE", TaskSubtype.NONOVERLAPPING.name, TaskSubtype.OVERLAPPING.name, TaskSubtype.MULTICLASS.name, TaskSubtype.BINARY.name, TaskSubtype.MULTILABEL, TaskSubtype.MULTIVARIATE, TaskSubtype.UNIVARIATE},
             #"taskSubtype": "NONE",
             #"inputType": "table",
@@ -4638,7 +4638,7 @@ class ISI_GCN(DSBoxTemplate):
         DSBoxTemplate.__init__(self)
         self.template = {
             "name": "ISI_gcn",
-            "taskType": {TaskType.COLLABORATIVE_FILTERING.name, TaskType.VERTEX_NOMINATION.name, TaskType.COMMUNITY_DETECTION.name, TaskType.LINK_PREDICTION.name},
+            "taskType": {TaskType.COLLABORATIVE_FILTERING.name, TaskType.VERTEX_CLASSIFICATION.name, TaskType.COMMUNITY_DETECTION.name, TaskType.LINK_PREDICTION.name},
             "taskSubtype":  {"NONE", TaskSubtype.NONOVERLAPPING.name, TaskSubtype.OVERLAPPING.name, TaskSubtype.MULTICLASS.name, TaskSubtype.BINARY.name, TaskSubtype.MULTILABEL, TaskSubtype.MULTIVARIATE, TaskSubtype.UNIVARIATE},
             #"taskSubtype": "NONE",
             #"inputType": "table",
