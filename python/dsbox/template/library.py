@@ -3343,7 +3343,7 @@ class SRICommunityDetectionTemplate(DSBoxTemplate):
             "name": "SRI_Community_Detection_Template",
             "taskType": {TaskType.COMMUNITY_DETECTION.name},
             "taskSubtype":  {"NONE", TaskSubtype.NONOVERLAPPING.name, TaskSubtype.OVERLAPPING.name, TaskSubtype.MULTICLASS.name, TaskSubtype.BINARY.name, TaskSubtype.MULTILABEL.name, TaskSubtype.MULTIVARIATE.name, TaskSubtype.UNIVARIATE.name},
-            "inputType": {"edgeList", "graph"},
+            "inputType": {"edgeList", "graph", "table"},
             "output": "model_step",
             "steps": [
                 {
@@ -4513,7 +4513,7 @@ class CornellMatrixFactorization(DSBoxTemplate):
             "taskSubtype":  {"NONE", TaskSubtype.NONOVERLAPPING.name, TaskSubtype.OVERLAPPING.name, TaskSubtype.MULTICLASS.name, TaskSubtype.BINARY.name, TaskSubtype.MULTILABEL.name, TaskSubtype.MULTIVARIATE.name, TaskSubtype.UNIVARIATE.name},
             #"taskSubtype": "NONE",
             #"inputType": "table",
-            "inputType": {"graph","table"},
+            "inputType": {"graph","table", "edgeList"},
             "output": "model_step",
             "steps": [
                 {
