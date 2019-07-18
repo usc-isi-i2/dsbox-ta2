@@ -476,8 +476,8 @@ class DefaultSemisupervisedClassificationTemplate(DSBoxTemplate):
                         {
                             "primitive": "d3m.primitives.semisupervised_classification.iterative_labeling.AutonBox",
                             "hyperparameters": {
-                                "iters":[5, 10, 50, 99],
-                                "frac":[0.01, 0.2, 0.5, 0.99],
+                                "iters":[20],
+                                "frac":[0.2, 0.1, 0.05, 0.3],
                                 "blackbox": [SKRandomForestClassifier, SKGradientBoostingClassifier, SKExtraTreesClassifier, SKBaggingClassifier, SKAdaBoostClassifier],
                             }
                         }
@@ -2164,6 +2164,7 @@ class TimeSeriesForcastingTestingTemplate(DSBoxTemplate):
                             "hyperparameters": {
                                 'add_index_columns': [True],
                                 'use_semantic_types':[True],
+                                'n_estimators': [10, 80, 100, 120, 150],
                             }
                         }
                     ],
@@ -2411,12 +2412,18 @@ class JPLObjectDetectionTemplate(DSBoxTemplate):
                 {
                     "name": "model_step", # step 4
                     "primitives": [
+                        # {
+                        #     "primitive": "d3m.primitives.object_detection.faster_rcnn.JPLPrimitives",
+                        #     "hyperparameters": {
+                        #         "use_gpu":[False, True],
+                        #         "classes":['person'],
+                        #         "confidence":[0.7, 0.8, 0.9],
+                        #     }
+                        # },
                         {
-                            "primitive": "d3m.primitives.object_detection.faster_rcnn.JPLPrimitives",
+                            "primitive": "d3m.primitives.object_detection.retina_net.JPLPrimitives",
                             "hyperparameters": {
-                                "use_gpu":[False, True],
-                                "classes":['person'],
-                                "confidence":[0.7, 0.8, 0.9],
+                                "batch_size": [3],
                             }
                         }
                     ],
@@ -5000,6 +5007,7 @@ class BBNacledProblemTemplate(DSBoxTemplate):
 
 
 class DistilacledProblemTemplate(DSBoxTemplate):
+    # From primitives/v2019.6.7/Distil/d3m.primitives.data_transformation.encoder.DistilTextEncoder/0.1.0/pipelines/0ed6fbca-2afd-4ba6-87cd-a3234e9846c3.json
     def __init__(self):
         DSBoxTemplate.__init__(self)
         self.template = {
@@ -5007,150 +5015,174 @@ class DistilacledProblemTemplate(DSBoxTemplate):
             "taskType": {TaskType.CLASSIFICATION.name},
             "taskSubtype": {TaskSubtype.BINARY.name, TaskSubtype.MULTICLASS.name},
             "inputType": {"table"},
-            "output": "prediction_step",
+            "output": "steps.13",
             "steps": [
                 {
-                    "name": "to_dataframe_step",
-                    "primitives": ["d3m.primitives.data_transformation.dataset_to_dataframe.Common"],
-                    "inputs": ["template_input"]
-                },
-                {
-                    "name": "parser_step",
-                    "primitives": ["d3m.primitives.data_transformation.column_parser.DataFrameCommon"],
-                    "inputs": ["to_dataframe_step"]
-                },
-                {
-                    "name": "extract_target_step",
-                    "primitives": [{
-                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.DataFrameCommon",
-                        "hyperparameters":
+                    'name': 'steps.0',
+                    'primitives': [
                         {
-                            'semantic_types': ('https://metadata.datadrivendiscovery.org/types/TrueTarget',),
-                            'use_columns': (),
-                            'exclude_columns': ()
-                        }
-                    }],
-                    "inputs": ["parser_step"]
+                            'primitive': 'd3m.primitives.data_transformation.dataset_to_dataframe.Common',
+                            'hyperparameters': {
+                            },
+                        },
+                    ],
+                    'inputs': ['template_input'],
                 },
                 {
-                    "name": "extract_attribute_step",
-                    "primitives": [{
-                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.DataFrameCommon",
-                        "hyperparameters":
+                    'name': 'steps.1',
+                    'primitives': [
                         {
-                            'semantic_types': ('https://metadata.datadrivendiscovery.org/types/Attribute',),
-                            'use_columns': (),
-                            'exclude_columns': ()
-                        }
-                    }],
-                    "inputs": ["parser_step"]
+                            'primitive': 'd3m.primitives.data_transformation.column_parser.DataFrameCommon',
+                            'hyperparameters': {
+                                'parse_semantic_types': [('http://schema.org/Boolean', 'http://schema.org/Integer', 'http://schema.org/Float', 'https://metadata.datadrivendiscovery.org/types/FloatVector')],
+                            },
+                        },
+                    ],
+                    'inputs': ['steps.0'],
                 },
                 {
-                    "name": "data_clean_step1",
-                    "primitives": [{
-                        "primitive": "d3m.primitives.data_transformation.data_cleaning.DistilEnrichDates",
-                        "hyperparameters":
+                    'name': 'steps.2',
+                    'primitives': [
                         {
-                        }
-                    }],
-                    "inputs": ["extract_attribute_step"]
+                            'primitive': 'd3m.primitives.data_transformation.extract_columns_by_semantic_types.DataFrameCommon',
+                            'hyperparameters': {
+                                'semantic_types': [('https://metadata.datadrivendiscovery.org/types/Attribute',)],
+                            },
+                        },
+                    ],
+                    'inputs': ['steps.1'],
                 },
                 {
-                    "name": "data_clean_step2",
-                    "primitives": [{
-                        "primitive": "d3m.primitives.data_transformation.data_cleaning.DistilReplaceSingletons",
-                        "hyperparameters":
+                    'name': 'steps.3',
+                    'primitives': [
                         {
-                        }
-                    }],
-                    "inputs": ["data_clean_step1"]
+                            'primitive': 'd3m.primitives.data_transformation.extract_columns_by_semantic_types.DataFrameCommon',
+                            'hyperparameters': {
+                                'semantic_types': [('https://metadata.datadrivendiscovery.org/types/Target', 'https://metadata.datadrivendiscovery.org/types/TrueTarget')],
+                            },
+                        },
+                    ],
+                    'inputs': ['steps.1'],
                 },
                 {
-                    "name": "imputer_step",
-                    "primitives": [{
-                        "primitive": "d3m.primitives.data_transformation.imputer.DistilCategoricalImputer",
-                        "hyperparameters":
+                    'name': 'steps.4',
+                    'primitives': [
                         {
-                        }
-                    }],
-                    "inputs": ["data_clean_step2"]
+                            'primitive': 'd3m.primitives.data_transformation.data_cleaning.DistilEnrichDates',
+                            'hyperparameters': {
+                            },
+                        },
+                    ],
+                    'inputs': ['steps.2'],
                 },
                 {
-                    "name": "encoder_step",
-                    "primitives": [{
-                        "primitive": "d3m.primitives.data_transformation.encoder.DistilTextEncoder",
-                        "hyperparameters":
+                    'name': 'steps.5',
+                    'primitives': [
                         {
-                        }
-                    }],
-                    "inputs": ["imputer_step", "extract_target_step"]
+                            'primitive': 'd3m.primitives.data_transformation.data_cleaning.DistilReplaceSingletons',
+                            'hyperparameters': {
+                            },
+                        },
+                    ],
+                    'inputs': ['steps.4'],
                 },
                 {
-                    "name": "one_hot_encoder_step",
-                    "primitives": [{
-                        "primitive": "d3m.primitives.data_transformation.one_hot_encoder.DistilOneHotEncoder",
-                        "hyperparameters":
+                    'name': 'steps.6',
+                    'primitives': [
                         {
-                            "max_one_hot":[16],
-                        }
-                    }],
-                    "inputs": ["encoder_step"]
+                            'primitive': 'd3m.primitives.data_transformation.imputer.DistilCategoricalImputer',
+                            'hyperparameters': {
+                            },
+                        },
+                    ],
+                    'inputs': ['steps.5'],
                 },
                 {
-                    "name": "binary_encoder_step",
-                    "primitives": [{
-                        "primitive": "d3m.primitives.data_transformation.encoder.DistilBinaryEncoder",
-                        "hyperparameters":
+                    'name': 'steps.7',
+                    'primitives': [
                         {
-                            "min_binary":[17],
-                        }
-                    }],
-                    "inputs": ["one_hot_encoder_step"]
+                            'primitive': 'd3m.primitives.data_transformation.encoder.DistilTextEncoder',
+                            'hyperparameters': {
+                            },
+                        },
+                    ],
+                    'inputs': ['steps.6', 'steps.3'],
                 },
                 {
-                    "name": "missing_indicator_step",
-                    "primitives": [{
-                        "primitive": "d3m.primitives.data_cleaning.missing_indicator.SKlearn",
-                        "hyperparameters":
+                    'name': 'steps.8',
+                    'primitives': [
                         {
-                            "use_semantic_types":[True],
-                            "return_result":["append"],
-                            "error_on_new":[False],
-                            "error_on_no_input":[False]
-                        }
-                    }],
-                    "inputs": ["binary_encoder_step"]
+                            'primitive': 'd3m.primitives.data_transformation.one_hot_encoder.DistilOneHotEncoder',
+                            'hyperparameters': {
+                                'max_one_hot': [16],
+                            },
+                        },
+                    ],
+                    'inputs': ['steps.7'],
                 },
                 {
-                    "name": "imputer_step2",
-                    "primitives": [{
-                        "primitive": "d3m.primitives.data_cleaning.imputer.SKlearn",
-                        "hyperparameters":
+                    'name': 'steps.9',
+                    'primitives': [
                         {
-                            "use_semantic_types":[True],
-                            "return_result":["replace"],
-                        }
-                    }],
-                    "inputs": ["missing_indicator_step"]
+                            'primitive': 'd3m.primitives.data_transformation.encoder.DistilBinaryEncoder',
+                            'hyperparameters': {
+                                'min_binary': [17],
+                            },
+                        },
+                    ],
+                    'inputs': ['steps.8'],
                 },
                 {
-                    "name": "model_step",
-                    "primitives": [{
-                        "primitive": "d3m.primitives.learner.random_forest.DistilEnsembleForest",
-                        # TODO: need to add hyperparams tunning for mlp primitive here
-                        "hyperparameters":
+                    'name': 'steps.10',
+                    'primitives': [
                         {
-                            "metric":["f1Macro"]
-                        }
-                    }],
-                    "inputs": ["imputer_step2", "extract_target_step"]
+                            'primitive': 'd3m.primitives.data_cleaning.missing_indicator.SKlearn',
+                            'hyperparameters': {
+                                'use_semantic_types': [True],
+                                'return_result': ['append'],
+                                'error_on_new': [False],
+                                'error_on_no_input': [False],
+                            },
+                        },
+                    ],
+                    'inputs': ['steps.9'],
                 },
                 {
-                    "name": "prediction_step",
-                    "primitives": ["d3m.primitives.data_transformation.construct_predictions.DataFrameCommon"],
-                    "inputs": ["model_step", "to_dataframe_step"]
-                }
-
+                    'name': 'steps.11',
+                    'primitives': [
+                        {
+                            'primitive': 'd3m.primitives.data_cleaning.imputer.SKlearn',
+                            'hyperparameters': {
+                                'use_semantic_types': [True],
+                                'return_result': ['replace'],
+                            },
+                        },
+                    ],
+                    'inputs': ['steps.10'],
+                },
+                {
+                    'name': 'steps.12',
+                    'primitives': [
+                        {
+                            'primitive': 'd3m.primitives.learner.random_forest.DistilEnsembleForest',
+                            'hyperparameters': {
+                                'metric': ['f1Macro'],
+                            },
+                        },
+                    ],
+                    'inputs': ['steps.11', 'steps.3'],
+                },
+                {
+                    'name': 'steps.13',
+                    'primitives': [
+                        {
+                            'primitive': 'd3m.primitives.data_transformation.construct_predictions.DataFrameCommon',
+                            'hyperparameters': {
+                            },
+                        },
+                    ],
+                    'inputs': ['steps.12', 'steps.1'],
+                },
             ]
         }
 

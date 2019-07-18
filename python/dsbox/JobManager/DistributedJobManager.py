@@ -111,7 +111,7 @@ class DistributedJobManager:
                     #     '[DJM] Eval does not have runtime'
                 except:
                     _logger.exception(
-                        f'{current_process()} > Target evaluation failed {hash(str(kwargs))}')
+                        f'{current_process()} > Target evaluation failed {hash(str(kwargs))}', exc_info=True)
                     # print(f'[INFO] {current_process()} > Target evaluation failed {hash(str(kwargs))}')
                     traceback.print_exc()
                     # _logger.error(traceback.format_exc())

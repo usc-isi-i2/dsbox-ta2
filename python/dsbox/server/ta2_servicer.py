@@ -5,6 +5,7 @@ import os
 import pickle
 import random
 import string
+import sys
 import tempfile
 import time
 import traceback
@@ -290,9 +291,24 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
             self.search_solution_results[request.search_id] = candidates
             _logger.info('    Found {} solutions.'.format(len(candidates)))
 
+            results = candidates.values()
+            try:
+                if len(candidates) > problem_config.rank_solutions_limit:
+                    ranked_list = []
+                    for solution in candidates.values():
+                        if 'test_metrics' in solution and solution['test_metrics'] is not None:
+                            rank = solution['test_metrics'][0]['rank']
+                            ranked_list.append((rank, solution))
+                        else:
+                            ranked_list.append((sys.float_info.max, solution))
+                    ranked_list = sorted(ranked_list, key=operator.itemgetter(0))
+                    results = [item[1] for item in ranked_list]
+            except Exception:
+                print("Unexpected error:", sys.exc_info()[0])
+
             search_solutions_results = []
             problem = self.controller.get_problem()
-            for solution in candidates.values():
+            for solution in results:
                 # Use fitted pipeline id, 'fid'
                 fitted_pipeline_id = solution['fid']
                 if 'test_metrics' in solution and solution['test_metrics'] is not None:
@@ -553,7 +569,20 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
 
         add_true_target(dataset, self.problem)
 
-        old_fitted_pipeline = FittedPipeline.load(fitted_pipeline_id=fitted_pipeline_id, folder_loc=self.config.output_dir)
+        try:
+            old_fitted_pipeline = FittedPipeline.load(fitted_pipeline_id=fitted_pipeline_id, folder_loc=self.config.output_dir)
+        except:
+            traceback.print_exc()
+            response = GetFitSolutionResultsResponse(
+                progress=Progress(
+                    state=ProgressState.ERRORED,
+                    status="Error occured while trying to fit solution results",
+                    start=start_time,
+                    end=utils.encode_timestamp(datetime.datetime.now(datetime.timezone.utc))
+                )
+            )
+            yield response
+            return
 
         if old_fitted_pipeline.dataset_id == dataset.metadata.query(())['id']:
             # Nothigh to do. Old fitted pipeline was trained on the same dataset
@@ -573,12 +602,12 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
         else:
             self.log_msg(msg="Training new fitted pipeline")
 
-            fitted_pipeline = FittedPipeline(old_fitted_pipeline.pipeline,
-                                             dataset.metadata.query(())['id'],
-                                             id=str(uuid.uuid4()),
-                                             metric_descriptions=old_fitted_pipeline.metric_descriptions)
-
             try:
+                fitted_pipeline = FittedPipeline(old_fitted_pipeline.pipeline,
+                                                 dataset.metadata.query(())['id'],
+                                                 id=str(uuid.uuid4()),
+                                                 metric_descriptions=old_fitted_pipeline.metric_descriptions)
+
                 fitted_pipeline.fit(inputs=[dataset])
                 fitted_pipeline.produce(inputs=[dataset])
                 fitted_pipeline.save(self.config.output_dir)

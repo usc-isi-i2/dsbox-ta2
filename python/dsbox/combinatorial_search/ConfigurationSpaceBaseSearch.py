@@ -166,13 +166,13 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
         evaluation_result = None
 
         try:
-            _logger.info(f"START Evaluation of {hash(str(configuration))} in {current_process()}")
+            _logger.info(f"START Evaluation of template {self.template.template['name']} {hash(str(configuration))} in {current_process()}")
 
             evaluation_result = self._evaluate(configuration, cache, dump2disk)
 
             evaluation_result.pop('fitted_pipeline')
 
-            _logger.info(f"END Evaluation of {hash(str(configuration))} in {current_process()}")
+            _logger.info(f"END Evaluation of template {self.template.template['name']} {hash(str(configuration))} in {current_process()}")
         except Exception as exc:
             raise RuntimeError(f'Failed template {self.template.template["name"]}') from exc
 
@@ -213,9 +213,21 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
             fitted_pipeline.save(self.output_directory)
 
             training_ground_truth = get_target_columns(self.train_dataset1)
+
             # fake_metric = calculate_score(training_ground_truth, training_ground_truth,
             #     self.performance_metrics, self.task_type, SpecialMetric().regression_metric)
+
             fake_metric = score_prediction(training_ground_truth, [self.train_dataset1], self.problem, self.performance_metrics, self.random_seed)
+
+            # HACK, if mean_base_line then make it slightly worse
+            if fitted_pipeline.template_name == 'SRI_Mean_Baseline_Template':
+                result = fake_metric[0]
+                if result['metric'].best_value() < result['metric'].worst_value():
+                    result['value'] = result['value'] + 0.1
+                    fake_metric[0].normalize(result['value'])
+                else:
+                    result['value'] = result['value'] - 0.1
+                    fake_metric[0].normalize(result['value'])
 
             fitted_pipeline.set_metric(fake_metric[0])
 

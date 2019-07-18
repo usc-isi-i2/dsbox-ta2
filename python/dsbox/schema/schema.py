@@ -87,6 +87,10 @@ def get_target_columns(dataset: container.Dataset):
             ),
         )
 
+    dataframe = container.DataFrame(dataframe)
+    dataframe.metadata = dataframe.metadata.add_semantic_type((metadata_base.ALL_ELEMENTS, 0), 'https://metadata.datadrivendiscovery.org/types/PrimaryKey')
+    dataframe.metadata = dataframe.metadata.add_semantic_type((metadata_base.ALL_ELEMENTS, 0), 'http://schema.org/Integer')
+    dataframe.metadata = dataframe.metadata.add_semantic_type((metadata_base.ALL_ELEMENTS, 1), 'https://metadata.datadrivendiscovery.org/types/TrueTarget')
     return dataframe
 
 
