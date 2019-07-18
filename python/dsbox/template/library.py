@@ -138,6 +138,7 @@ class TemplateLibrary:
 
     def get_templates(self, task: TaskType, subtype: TaskSubtype, taskSourceType: typing.Set,
                       specialized_problem: SpecializedProblem = SpecializedProblem.NONE) -> typing.List[DSBoxTemplate]:
+        _logger.debug(f'Finding templates for Task={task.name} and TaskSubtype={subtype.name} resource={taskSourceType} special={specialized_problem}')
         results: typing.List[DSBoxTemplate] = []
         results.append(SRIMeanBaselineTemplate())  # put the meanbaseline here so whatever dataset will have a result
         for template_class in self.templates:
@@ -3171,7 +3172,7 @@ class DefaultLinkPredictionTemplate(DSBoxTemplate):
             "name": "Default_LinkPrediction_Template",
             "taskType": {TaskType.LINK_PREDICTION.name, TaskType.GRAPH_MATCHING.name, TaskType.VERTEX_CLASSIFICATION.name},
             "taskSubtype": "NONE",
-            "inputType": "graph",
+            "inputType": {"edgeList", "graph"},
             "output": "model_step",
             "steps": [
                 {
@@ -3240,7 +3241,7 @@ class SRIGraphMatchingTemplate(DSBoxTemplate):
             "taskType": {TaskType.GRAPH_MATCHING.name, TaskType.LINK_PREDICTION.name},
             # for some special condition, the taskSubtype can be "NONE" which indicate no taskSubtype given
             "taskSubtype":  {"NONE", TaskSubtype.NONOVERLAPPING.name, TaskSubtype.OVERLAPPING.name, TaskSubtype.MULTICLASS.name, TaskSubtype.BINARY.name, TaskSubtype.MULTILABEL.name, TaskSubtype.MULTIVARIATE.name, TaskSubtype.UNIVARIATE.name},
-            "inputType": "graph",
+            "inputType": {"edgeList", "graph"},
             "output": "predict_step",
             "steps": [
                 {
@@ -3342,7 +3343,7 @@ class SRICommunityDetectionTemplate(DSBoxTemplate):
             "name": "SRI_Community_Detection_Template",
             "taskType": {TaskType.COMMUNITY_DETECTION.name},
             "taskSubtype":  {"NONE", TaskSubtype.NONOVERLAPPING.name, TaskSubtype.OVERLAPPING.name, TaskSubtype.MULTICLASS.name, TaskSubtype.BINARY.name, TaskSubtype.MULTILABEL.name, TaskSubtype.MULTIVARIATE.name, TaskSubtype.UNIVARIATE.name},
-            "inputType": "graph",
+            "inputType": {"edgeList", "graph"},
             "output": "model_step",
             "steps": [
                 {
@@ -3371,7 +3372,7 @@ class JHUVertexNominationTemplate(DSBoxTemplate):
             "name": "JHU_Vertex_Nomination_Template",
             "taskType": TaskType.VERTEX_CLASSIFICATION.name,
             "taskSubtype": "NONE",
-            "inputType": "graph",
+            "inputType": {"edgeList", "graph"},
             "output": "model_step",
             "steps": [
                 {
@@ -3406,7 +3407,7 @@ class JHUGraphMatchingTemplate(DSBoxTemplate):
             "name": "JHU_Graph_Matching_Template",
             "taskType": TaskType.GRAPH_MATCHING.name,
             "taskSubtype": "NONE",
-            "inputType": "graph",
+            "inputType": {"edgeList", "graph"},
             "output": "model_step",
             "steps": [
                 {
@@ -4576,7 +4577,7 @@ class ISIGraphNormClf(DSBoxTemplate):
             "taskSubtype": {"NONE", TaskSubtype.NONOVERLAPPING.name, TaskSubtype.OVERLAPPING.name, TaskSubtype.MULTICLASS.name, TaskSubtype.BINARY.name, TaskSubtype.MULTILABEL.name, TaskSubtype.MULTIVARIATE.name, TaskSubtype.UNIVARIATE.name},
             #"taskSubtype": "NONE",
             #"inputType": "table",
-            "inputType": {"graph","table"},
+            "inputType": {"edgeList", "graph", "table"},
             "output": "model_step",
             "steps": [
                 {
@@ -4679,7 +4680,7 @@ class ISI_GCN(DSBoxTemplate):
             "taskSubtype":  {"NONE", TaskSubtype.NONOVERLAPPING.name, TaskSubtype.OVERLAPPING.name, TaskSubtype.MULTICLASS.name, TaskSubtype.BINARY.name, TaskSubtype.MULTILABEL, TaskSubtype.MULTIVARIATE, TaskSubtype.UNIVARIATE},
             #"taskSubtype": "NONE",
             #"inputType": "table",
-            "inputType": {"graph", "table"},
+            "inputType": {"edgeList", "graph", "table"},
             "output": "model_step",
             "steps": [
                 {
