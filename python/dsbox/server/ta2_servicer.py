@@ -569,7 +569,20 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
 
         add_true_target(dataset, self.problem)
 
-        old_fitted_pipeline = FittedPipeline.load(fitted_pipeline_id=fitted_pipeline_id, folder_loc=self.config.output_dir)
+        try:
+            old_fitted_pipeline = FittedPipeline.load(fitted_pipeline_id=fitted_pipeline_id, folder_loc=self.config.output_dir)
+        except:
+            traceback.print_exc()
+            response = GetFitSolutionResultsResponse(
+                progress=Progress(
+                    state=ProgressState.ERRORED,
+                    status="Error occured while trying to fit solution results",
+                    start=start_time,
+                    end=utils.encode_timestamp(datetime.datetime.now(datetime.timezone.utc))
+                )
+            )
+            yield response
+            return
 
         if old_fitted_pipeline.dataset_id == dataset.metadata.query(())['id']:
             # Nothigh to do. Old fitted pipeline was trained on the same dataset
@@ -589,12 +602,12 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
         else:
             self.log_msg(msg="Training new fitted pipeline")
 
-            fitted_pipeline = FittedPipeline(old_fitted_pipeline.pipeline,
-                                             dataset.metadata.query(())['id'],
-                                             id=str(uuid.uuid4()),
-                                             metric_descriptions=old_fitted_pipeline.metric_descriptions)
-
             try:
+                fitted_pipeline = FittedPipeline(old_fitted_pipeline.pipeline,
+                                                 dataset.metadata.query(())['id'],
+                                                 id=str(uuid.uuid4()),
+                                                 metric_descriptions=old_fitted_pipeline.metric_descriptions)
+
                 fitted_pipeline.fit(inputs=[dataset])
                 fitted_pipeline.produce(inputs=[dataset])
                 fitted_pipeline.save(self.config.output_dir)
