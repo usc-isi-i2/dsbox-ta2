@@ -171,7 +171,7 @@ class TemplateSpaceBaseSearch(typing.Generic[T]):
             self.cacheManager.candidate_cache.push(report)
         else:
             _logger.info(f"Search Failed on candidate {hash(str(candidate))}")
-            _logger.warning(traceback.format_exc())
+            # _logger.warning(traceback.format_exc())
             self.history.update_none(fail_report=None, template_name=template_name)
             self.cacheManager.candidate_cache.push_None(candidate=candidate)
 

@@ -5,8 +5,10 @@ import os
 import pickle
 import random
 import string
+import sys
 import tempfile
 import time
+import traceback
 import typing
 import uuid
 
@@ -289,10 +291,26 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
             self.search_solution_results[request.search_id] = candidates
             _logger.info('    Found {} solutions.'.format(len(candidates)))
 
+            results = candidates.values()
+            try:
+                if len(candidates) > problem_config.rank_solutions_limit:
+                    ranked_list = []
+                    for solution in candidates.values():
+                        if 'test_metrics' in solution and solution['test_metrics'] is not None:
+                            rank = solution['test_metrics'][0]['rank']
+                            ranked_list.append((rank, solution))
+                        else:
+                            ranked_list.append((sys.float_info.max, solution))
+                    ranked_list = sorted(ranked_list, key=operator.itemgetter(0))
+                    results = [item[1] for item in ranked_list]
+            except Exception:
+                print("Unexpected error:", sys.exc_info()[0])
+
             search_solutions_results = []
             problem = self.controller.get_problem()
-            for solution in candidates.values():
-                fitted_pipeline_id = solution['id']
+            for solution in results:
+                # Use fitted pipeline id, 'fid'
+                fitted_pipeline_id = solution['fid']
                 if 'test_metrics' in solution and solution['test_metrics'] is not None:
                     search_solutions_results.append(to_proto_search_solution_request(
                         problem, fitted_pipeline_id, solution['test_metrics']))
@@ -302,6 +320,8 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
             self._search_cache[request.search_id] = search_solutions_results
 
         for solution in search_solutions_results:
+            #! kyao
+            self.log_msg(solution)
             yield solution
 
         self.log_msg(msg="DONE: GetSearchSolutionsResults invoked with search_id: " + request.search_id)
@@ -352,9 +372,11 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
         problem = self.controller.get_problem()
         for results in self.search_solution_results.values():
             for solution in results.values():
-                if score_request.solution_id == solution['id']:
+                # Used fitted pipeline id, 'fid'
+                if score_request.solution_id == solution['fid']:
                     self.log_msg(msg='    Return search solution: {}'.format(solution))
-                    fitted_pipeline_id = solution['id']
+                    # Used fitted pipeline id, 'fid'
+                    fitted_pipeline_id = solution['fid']
                     if 'test_metrics' in solution and solution['test_metrics'] is not None:
                         search_solutions_results.append(to_proto_score_solution_request(
                             problem, fitted_pipeline_id, solution['test_metrics']))
@@ -440,7 +462,21 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
         add_true_target(dataset, self.problem)
 
         fitted_pipeline = FittedPipeline.load(fitted_pipeline_id=fitted_pipeline_id, folder_loc=self.config.output_dir)
-        fitted_pipeline.produce(inputs=[dataset])
+
+        try:
+            fitted_pipeline.produce(inputs=[dataset])
+        except:
+            traceback.print_exc()
+            response = GetProduceSolutionResultsResponse(
+                progress=Progress(
+                    state=ProgressState.ERRORED,
+                    status="Error occured while trying to produce results",
+                    start=start_time,
+                    end=utils.encode_timestamp(datetime.datetime.now(datetime.timezone.utc))
+                )
+            )
+            yield response
+            return
 
         timestamp = datetime.datetime.now(datetime.timezone.utc)
 
@@ -533,7 +569,20 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
 
         add_true_target(dataset, self.problem)
 
-        old_fitted_pipeline = FittedPipeline.load(fitted_pipeline_id=fitted_pipeline_id, folder_loc=self.config.output_dir)
+        try:
+            old_fitted_pipeline = FittedPipeline.load(fitted_pipeline_id=fitted_pipeline_id, folder_loc=self.config.output_dir)
+        except:
+            traceback.print_exc()
+            response = GetFitSolutionResultsResponse(
+                progress=Progress(
+                    state=ProgressState.ERRORED,
+                    status="Error occured while trying to fit solution results",
+                    start=start_time,
+                    end=utils.encode_timestamp(datetime.datetime.now(datetime.timezone.utc))
+                )
+            )
+            yield response
+            return
 
         if old_fitted_pipeline.dataset_id == dataset.metadata.query(())['id']:
             # Nothigh to do. Old fitted pipeline was trained on the same dataset
@@ -553,15 +602,27 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
         else:
             self.log_msg(msg="Training new fitted pipeline")
 
-            fitted_pipeline = FittedPipeline(old_fitted_pipeline.pipeline,
-                                             dataset.metadata.query(())['id'],
-                                             id=str(uuid.uuid4()),
-                                             metric_descriptions=old_fitted_pipeline.metric_descriptions)
+            try:
+                fitted_pipeline = FittedPipeline(old_fitted_pipeline.pipeline,
+                                                 dataset.metadata.query(())['id'],
+                                                 id=str(uuid.uuid4()),
+                                                 metric_descriptions=old_fitted_pipeline.metric_descriptions)
 
-            fitted_pipeline.fit(inputs=[dataset])
-            fitted_pipeline.produce(inputs=[dataset])
-
-            fitted_pipeline.save(self.config.output_dir)
+                fitted_pipeline.fit(inputs=[dataset])
+                fitted_pipeline.produce(inputs=[dataset])
+                fitted_pipeline.save(self.config.output_dir)
+            except:
+                traceback.print_exc()
+                response = GetFitSolutionResultsResponse(
+                    progress=Progress(
+                        state=ProgressState.ERRORED,
+                        status="Error occured while trying to fit solution results",
+                        start=start_time,
+                        end=utils.encode_timestamp(datetime.datetime.now(datetime.timezone.utc))
+                    )
+                )
+                yield response
+                return
 
             timestamp = datetime.datetime.now(datetime.timezone.utc)
 
@@ -1256,11 +1317,12 @@ def to_proto_steps_description(pipeline: Pipeline) -> typing.List[StepDescriptio
     for step in pipeline.steps:
         print(step)
         if isinstance(step, PrimitiveStep):
-            free = step.get_free_hyperparms()
             values = {}
-            for name, hyperparam_class in free.items():
-                default = hyperparam_class.get_default()
-                values[name] = to_proto_value_raw(default)
+            # 2019-7-15: Method get_free_hyperparms is gone. Skip for now.
+            # free = step.get_free_hyperparms()
+            # for name, hyperparam_class in free.items():
+            #     default = hyperparam_class.get_default()
+            #     values[name] = to_proto_value_raw(default)
             descriptions.append(StepDescription(
                 primitive=PrimitiveStepDescription(hyperparams=values)))
         else:
