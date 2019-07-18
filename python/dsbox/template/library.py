@@ -3293,7 +3293,7 @@ class SRIVertexNominationTemplate(DSBoxTemplate):
         self.template = {
             "name": "SRI_Vertex_Nomination_Template",
             "taskType": {TaskType.VERTEX_CLASSIFICATION.name},
-            "taskSubtype":  {"NONE", TaskSubtype.NONOVERLAPPING.name, TaskSubtype.OVERLAPPING.name, TaskSubtype.MULTICLASS.name, TaskSubtype.BINARY.name, TaskSubtype.MULTILABEL, TaskSubtype.MULTIVARIATE, TaskSubtype.UNIVARIATE},
+            "taskSubtype":  {"NONE", TaskSubtype.NONOVERLAPPING.name, TaskSubtype.OVERLAPPING.name, TaskSubtype.MULTICLASS.name, TaskSubtype.BINARY.name, TaskSubtype.MULTILABEL.name, TaskSubtype.MULTIVARIATE.name, TaskSubtype.UNIVARIATE.name},
             #"taskType": TaskType.VERTEX_NOMINATION.name,
             #"taskSubtype": "NONE",
             "inputType": {"graph", "edgeList", "table"},
@@ -4676,7 +4676,7 @@ class ISI_GCN(DSBoxTemplate):
         self.template = {
             "name": "ISI_gcn",
             "taskType": {TaskType.COLLABORATIVE_FILTERING.name, TaskType.VERTEX_CLASSIFICATION.name, TaskType.COMMUNITY_DETECTION.name, TaskType.LINK_PREDICTION.name},
-            "taskSubtype":  {"NONE", TaskSubtype.NONOVERLAPPING.name, TaskSubtype.OVERLAPPING.name, TaskSubtype.MULTICLASS.name, TaskSubtype.BINARY.name, TaskSubtype.MULTILABEL, TaskSubtype.MULTIVARIATE, TaskSubtype.UNIVARIATE},
+            "taskSubtype":  {"NONE", TaskSubtype.NONOVERLAPPING.name, TaskSubtype.OVERLAPPING.name, TaskSubtype.MULTICLASS.name, TaskSubtype.BINARY.name, TaskSubtype.MULTILABEL.name, TaskSubtype.MULTIVARIATE.name, TaskSubtype.UNIVARIATE.name},
             #"taskSubtype": "NONE",
             #"inputType": "table",
             "inputType": {"graph", "table"},
