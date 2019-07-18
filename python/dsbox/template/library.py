@@ -3232,7 +3232,7 @@ class SRIGraphMatchingTemplate(DSBoxTemplate):
             "name": "SRI_GraphMatching_Template",
             "taskType": {TaskType.GRAPH_MATCHING.name, TaskType.LINK_PREDICTION.name},
             # for some special condition, the taskSubtype can be "NONE" which indicate no taskSubtype given
-            "taskSubtype":  {"NONE", TaskSubtype.NONOVERLAPPING.name, TaskSubtype.OVERLAPPING.name, TaskSubtype.MULTICLASS.name, TaskSubtype.BINARY.name, TaskSubtype.MULTILABEL, TaskSubtype.MULTIVARIATE, TaskSubtype.UNIVARIATE},
+            "taskSubtype":  {"NONE", TaskSubtype.NONOVERLAPPING.name, TaskSubtype.OVERLAPPING.name, TaskSubtype.MULTICLASS.name, TaskSubtype.BINARY.name, TaskSubtype.MULTILABEL.name, TaskSubtype.MULTIVARIATE.name, TaskSubtype.UNIVARIATE.name},
             "inputType": "graph",
             "output": "predict_step",
             "steps": [
@@ -3315,7 +3315,7 @@ class SRICollaborativeFilteringTemplate(DSBoxTemplate):
         self.template = {
             "name": "SRI_Collaborative_Filtering_Template",
             "taskType": {TaskType.COLLABORATIVE_FILTERING.name},
-            "taskSubtype":  {"NONE", TaskSubtype.NONOVERLAPPING.name, TaskSubtype.OVERLAPPING.name, TaskSubtype.MULTICLASS.name, TaskSubtype.BINARY.name, TaskSubtype.MULTILABEL, TaskSubtype.MULTIVARIATE, TaskSubtype.UNIVARIATE},
+            "taskSubtype":  {"NONE", TaskSubtype.NONOVERLAPPING.name, TaskSubtype.OVERLAPPING.name, TaskSubtype.MULTICLASS.name, TaskSubtype.BINARY.name, TaskSubtype.MULTILABEL.name, TaskSubtype.MULTIVARIATE.name, TaskSubtype.UNIVARIATE.name},
             "inputType": "table",
             "output": "model_step",
             "steps": [
@@ -3334,7 +3334,7 @@ class SRICommunityDetectionTemplate(DSBoxTemplate):
         self.template = {
             "name": "SRI_Community_Detection_Template",
             "taskType": {TaskType.COMMUNITY_DETECTION.name},
-            "taskSubtype":  {"NONE", TaskSubtype.NONOVERLAPPING.name, TaskSubtype.OVERLAPPING.name, TaskSubtype.MULTICLASS.name, TaskSubtype.BINARY.name, TaskSubtype.MULTILABEL, TaskSubtype.MULTIVARIATE, TaskSubtype.UNIVARIATE},
+            "taskSubtype":  {"NONE", TaskSubtype.NONOVERLAPPING.name, TaskSubtype.OVERLAPPING.name, TaskSubtype.MULTICLASS.name, TaskSubtype.BINARY.name, TaskSubtype.MULTILABEL.name, TaskSubtype.MULTIVARIATE.name, TaskSubtype.UNIVARIATE.name},
             "inputType": "graph",
             "output": "model_step",
             "steps": [
@@ -4502,7 +4502,7 @@ class CornellMatrixFactorization(DSBoxTemplate):
         self.template = {
             "name": "Cornell_matrix_factorization",
             "taskType": {TaskType.COLLABORATIVE_FILTERING.name, TaskType.VERTEX_NOMINATION.name, TaskType.COMMUNITY_DETECTION.name, TaskType.LINK_PREDICTION.name},
-            "taskSubtype":  {"NONE", TaskSubtype.NONOVERLAPPING.name, TaskSubtype.OVERLAPPING.name, TaskSubtype.MULTICLASS.name, TaskSubtype.BINARY.name, TaskSubtype.MULTILABEL, TaskSubtype.MULTIVARIATE, TaskSubtype.UNIVARIATE},
+            "taskSubtype":  {"NONE", TaskSubtype.NONOVERLAPPING.name, TaskSubtype.OVERLAPPING.name, TaskSubtype.MULTICLASS.name, TaskSubtype.BINARY.name, TaskSubtype.MULTILABEL.name, TaskSubtype.MULTIVARIATE.name, TaskSubtype.UNIVARIATE.name},
             #"taskSubtype": "NONE",
             #"inputType": "table",
             "inputType": {"graph","table"},
@@ -4566,7 +4566,7 @@ class ISIGraphNormClf(DSBoxTemplate):
         self.template = {
             "name": "ISI_graph_norm_clf",
             "taskType": {TaskType.VERTEX_CLASSIFICATION.name, TaskType.COMMUNITY_DETECTION.name, TaskType.LINK_PREDICTION.name}, #TaskType.COLLABORATIVE_FILTERING.name,
-            "taskSubtype": {"NONE", TaskSubtype.NONOVERLAPPING.name, TaskSubtype.OVERLAPPING.name, TaskSubtype.MULTICLASS.name, TaskSubtype.BINARY.name, TaskSubtype.MULTILABEL, TaskSubtype.MULTIVARIATE, TaskSubtype.UNIVARIATE},
+            "taskSubtype": {"NONE", TaskSubtype.NONOVERLAPPING.name, TaskSubtype.OVERLAPPING.name, TaskSubtype.MULTICLASS.name, TaskSubtype.BINARY.name, TaskSubtype.MULTILABEL.name, TaskSubtype.MULTIVARIATE.name, TaskSubtype.UNIVARIATE.name},
             #"taskSubtype": "NONE",
             #"inputType": "table",
             "inputType": {"graph","table"},
