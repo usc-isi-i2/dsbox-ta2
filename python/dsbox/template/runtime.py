@@ -231,8 +231,6 @@ class Runtime(runtime_base.Runtime):
                         _logger.error(pprint.pformat(outputs_actual))
                         _logger.error('==== Output from cached primitive')
                         _logger.error(pprint.pformat(outputs))
-                        import pdb
-                        pdb.set_trace()
 
             else:
                 # Primitve is newly create, must fit it
@@ -307,8 +305,6 @@ class Runtime(runtime_base.Runtime):
                         return False, f'Object not equal'
         except Exception as e:
             print('Exception: ', e)
-            import pdb
-            pdb.set_trace()
         return True, ""
 
     # def _run_primitive_old(self, this_step: pipeline_module.PrimitiveStep) -> None:
