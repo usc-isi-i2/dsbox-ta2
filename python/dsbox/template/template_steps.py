@@ -104,7 +104,7 @@ class TemplateSteps:
                             'n_components': [10, 15, 25]
                         }
                     },
-                    "d3m.primitives.data_preprocessing.do_nothing.DSBOX",
+                "d3m.primitives.data_preprocessing.do_nothing.DSBOX",
                 ],
                 "inputs": ["scaler_step"]
             },
@@ -131,7 +131,7 @@ class TemplateSteps:
                     }
                 }],
                 "inputs": ["pre_"+target]
-            },
+            }
         ]
 
     # Returns a list of dicts with the most common steps
@@ -367,6 +367,13 @@ class TemplateSteps:
                                 "param": [5, 7, 10, 15, 30, 50, 75],
                             }
                         },
+                        {
+                            "primitive": "d3m.primitives.feature_selection.joint_mutual_information.AutoRPI",
+                            "hyperparameters": {
+                                #'method': ["counting", "pseudoBayesian", "fullBayesian"],
+                                'nbins': [2, 5, 10, 13, 20]
+                                }
+                        },
                         "d3m.primitives.data_preprocessing.do_nothing.DSBOX"
                     ],
                     "inputs":[first_input, second_input]
@@ -399,8 +406,8 @@ class TemplateSteps:
                         {
                             "primitive": "d3m.primitives.feature_selection.joint_mutual_information.AutoRPI",
                             "hyperparameters": {
-                                'method': ["counting", "pseudoBayesian", "fullBayesian"],
-                                'nbins': [2, 5, 13]
+                                #'method': ["counting", "pseudoBayesian", "fullBayesian"],
+                                'nbins': [2, 5, 10, 13, 20]
                                 }
                         },
                         "d3m.primitives.feature_selection.simultaneous_markov_blanket.AutoRPI",

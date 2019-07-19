@@ -1361,7 +1361,7 @@ class Controller:
 
         hyper_sampler = SplitterHyperparameter.defaults()
         # for test purpose here
-        # hyper_sampler = hyper_sampler.replace({"threshold_column_length":20,"further_reduce_threshold_column_length":20})
+        hyper_sampler = hyper_sampler.replace({"threshold_column_length":2000,"further_reduce_threshold_column_length":2000})
         sampler = Splitter(hyperparams = hyper_sampler)
         sampler.set_training_data(inputs = self.all_dataset)
         sampler.fit()

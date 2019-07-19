@@ -3233,6 +3233,7 @@ class DefaultLinkPredictionTemplate(DSBoxTemplate):
             ]
         }
 
+    
 class SRIGraphMatchingTemplate(DSBoxTemplate):
     def __init__(self):
         DSBoxTemplate.__init__(self)
@@ -3406,7 +3407,7 @@ class JHUGraphMatchingTemplate(DSBoxTemplate):
         self.template = {
             "name": "JHU_Graph_Matching_Template",
             "taskType": TaskType.GRAPH_MATCHING.name,
-            "taskSubtype": "NONE",
+            "taskSubtype": {"NONE", TaskSubtype.NONOVERLAPPING.name, TaskSubtype.OVERLAPPING.name, TaskSubtype.MULTICLASS.name, TaskSubtype.BINARY.name, TaskSubtype.MULTILABEL.name, TaskSubtype.MULTIVARIATE.name, TaskSubtype.UNIVARIATE.name},
             "inputType": {"edgeList", "graph"},
             "output": "model_step",
             "steps": [
