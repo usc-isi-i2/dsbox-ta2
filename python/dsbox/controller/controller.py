@@ -585,9 +585,31 @@ class Controller:
 
         use_multiprocessing = True
 
-        # 2019.7.19: added here to let system always run with serial mode for acled dataset
-        if "LL0_acled" in self.config.problem['id'] :
+        # 2019.7.19: added here to let system always run with serial mode for some speical dataset
+        import networkx
+        from d3m import container
+        loader = D3MDatasetLoader()
+        json_file = os.path.abspath(self.config.dataset_schema_files[0])
+        all_dataset_uri = 'file://{}'.format(json_file)
+        inputs = loader.load(dataset_uri=all_dataset_uri)
+        # inputs = Dataset object
+        max_accept_graph_size_for_parallel = 4000
+        try:
+            for resource_id, resource in inputs.items():
+                if isinstance(resource, networkx.classes.graph.Graph):
+                    edgelist = networkx.to_pandas_edgelist(resource)
+                if isinstance(resource, container.DataFrame) and inputs.metadata.has_semantic_type((resource_id,), 'https://metadata.datadrivendiscovery.org/types/EdgeList'):
+                    edgelist = resource #self._update_edge_list(outputs, resource_id)
+            graph_size = edgelist.shape[0]
+        except:
+            graph_size = None
+        if graph_size and graph_size > max_accept_graph_size_for_parallel:
+            self._logger.warning("Change to serial mode for the graph problem with size larger than " + str(max_accept_graph_size_for_parallel))
             self.config.search_method = "serial"
+        if "LL0_acled" in self.config.problem['id'] or "LL1_VTXC_1343_cora" in self.config.problem['id']:
+            self._logger.warning("Change to serial mode for the speical problem id: " + str(self.config.problem['id']))
+            self.config.search_method = "serial"
+        # END change for 2019.7.19
 
         if self.config.search_method == 'serial':
             self._search_method = TemplateSpaceBaseSearch()
