@@ -584,6 +584,11 @@ class Controller:
             FittedPipeline.runtime_setting = self.config.get_runtime_setting()
 
         use_multiprocessing = True
+
+        # 2019.7.19: added here to let system always run with serial mode for acled dataset
+        if "LL0_acled" in self.config.problem['id'] :
+            self.config.search_method = "serial"
+
         if self.config.search_method == 'serial':
             self._search_method = TemplateSpaceBaseSearch()
             use_multiprocessing = False

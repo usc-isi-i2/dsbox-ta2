@@ -260,8 +260,9 @@ class TemplateLibrary:
         self.templates.append(LupiRfClassification)
 
         # Others
-        self.templates.append(BBNacledProblemTemplate)
-        self.templates.append(DistilacledProblemTemplate)
+        # 2019.7.19: those 2 templates should be not added for any other dataset using
+        # self.templates.append(BBNacledProblemTemplate)
+        # self.templates.append(DistilacledProblemTemplate)
 
         self.templates.append(DefaultTimeseriesCollectionTemplate)
         self.templates.append(TimeSeriesForcastingTestingTemplate)

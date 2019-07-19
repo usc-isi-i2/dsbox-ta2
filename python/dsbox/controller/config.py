@@ -131,7 +131,9 @@ class DsboxConfig:
     @timeout.setter
     def timeout(self, value: int):
         self._timeout = value
-        self.timeout_search = max(self._timeout - 180, int(self._timeout * 0.8))
+        # self.timeout_search = max(self._timeout - 180, int(self._timeout * 0.93))
+        # 2019.7.19: add more time for system clean up job
+        self.timeout_search = int(self._timeout * 0.93)
 
     def load(self, ta2ta3_mode: bool = False):
         self._load_d3m_environment(ta2ta3_mode)
