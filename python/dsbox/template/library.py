@@ -290,8 +290,8 @@ class TemplateLibrary:
         self.templates.append(JHUGraphMatchingTemplate)
 
         self.templates.append(CornellMatrixFactorization)
-        self.templates.append(ISIGraphNormClf)
         self.templates.append(SRIVertexClassificationTemplate)
+        self.templates.append(ISIGraphNormClf)
         # 2019-7-3: Uses too much memory
         # self.templates.append(ISI_GCN)
 
@@ -660,9 +660,9 @@ class CMUSemisupervisedClassificationTemplate(DSBoxTemplate):
                         "primitive": "d3m.primitives.data_cleaning.imputer.SKlearn",
                         "hyperparameters":
                             {
-                                # 'use_semantic_types': [True],
-                                # 'return_result': ['replace'],
-                                # 'strategy': ['median']
+                                'use_semantic_types': [True],
+                                'return_result': ['replace'],
+                                'strategy': ['median','most_frequent', 'mean']
                             }
                     }],
                     "inputs": ["extract_attribute_step"]
