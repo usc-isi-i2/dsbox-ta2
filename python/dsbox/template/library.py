@@ -141,6 +141,11 @@ class TemplateLibrary:
                       specialized_problem: SpecializedProblem = SpecializedProblem.NONE) -> typing.List[DSBoxTemplate]:
         _logger.debug(f'Finding templates for Task={task.name} and TaskSubtype={subtype.name} resource={taskSourceType} special={specialized_problem}')
         results: typing.List[DSBoxTemplate] = []
+        # 2019.7.18: temporary hacking here: only run special template for acled like problem
+        if specialized_problem == "Acled_problem":
+            results = [BBNacledProblemTemplate(), DistilacledProblemTemplate()]
+            return results
+
         # for timeseries forcating and semi problem, not use MeanBaseline template, it will make meanbaseline to be top rank
         not_add_mean_base_line_task_types = [TaskType.TIME_SERIES_FORECASTING.name, TaskType.SEMISUPERVISED_CLASSIFICATION.name, TaskType.SEMISUPERVISED_REGRESSION.name]
         if task.name not in not_add_mean_base_line_task_types:

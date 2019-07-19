@@ -182,6 +182,9 @@ class Controller:
 
         # Set privileged data columns
         for dataset in self.config.problem['inputs']:
+            if 'LL0_acled' in dataset['dataset_id']:
+                self.specialized_problem = SpecializedProblem.ACLED_LIKE_PROBLEM
+
             if 'privileged_data' not in dataset:
                 continue
             self.specialized_problem = SpecializedProblem.PRIVILEGED_INFORMATION
