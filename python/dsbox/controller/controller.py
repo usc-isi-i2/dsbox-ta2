@@ -635,6 +635,16 @@ class Controller:
             # self.ensemble_voting_candidate_choose_method = 'resultSimilarity'
 
     def do_data_augmentation_rest_api(self, input_all_dataset: Dataset) -> Dataset:
+        # 2019.7.19: not run augment on medical one!
+        try:
+            if input_all_dataset.metadata.query(()).get('id'):
+                dataset_id = input_all_dataset.metadata.query(()).get('id')
+                if "medical_malpractice" in dataset_id:
+                    self._logger.warning("Pass medical_malpractice for augment!")
+                    return input_all_dataset
+        except:
+            pass
+            
         import datamart_nyu
         import datamart
         augment_times = 0
