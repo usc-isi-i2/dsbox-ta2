@@ -584,6 +584,11 @@ class Controller:
             FittedPipeline.runtime_setting = self.config.get_runtime_setting()
 
         use_multiprocessing = True
+
+        # 2019.7.19: added here to let system always run with serial mode for acled dataset
+        if "LL0_acled" in self.config.problem['id'] :
+            self.config.search_method = "serial"
+
         if self.config.search_method == 'serial':
             self._search_method = TemplateSpaceBaseSearch()
             use_multiprocessing = False
@@ -742,8 +747,6 @@ class Controller:
                 augment_times += 1
                 search_unit = datamart_unit.search_with_data(query=None, supplied_data=augment_res)
 
-            import pdb
-            pdb.set_trace()
             # run search, it will return wikidata search results first (if found) and then the general search results with highest score first
             
             all_results1 = search_unit.get_next_page()
@@ -760,7 +763,6 @@ class Controller:
 
             # you can search another time if you want
             # all_results2 = datamart_unit.search_with_data(query=None, supplied_data=augment_res).get_next_page()
-            pdb.set_trace()
             all_results1.sort(key=lambda x: x.score(), reverse=True)
 
             for each_search in all_results1:
