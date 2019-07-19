@@ -644,7 +644,7 @@ class Controller:
                     return input_all_dataset
         except:
             pass
-            
+
         import datamart_nyu
         import datamart
         augment_times = 0
@@ -1748,7 +1748,8 @@ class Controller:
                 else:
                     dataset.save((dataset_dir / "datasetDoc.json").as_uri())
         except Exception:
-            logger.debug("Failed to save dataset splits", exc_info=True)
+            # self._logger.debug("Failed to save dataset splits", exc_info=True)
+            pass
 
     # Methods used by TA3
 
