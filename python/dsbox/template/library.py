@@ -4713,7 +4713,7 @@ class CornellMatrixFactorization(DSBoxTemplate):
                                 "maxiter": [200, 500, 1000, 2000]
                                 }
                         }],
-                    "inputs":["scaler_step"]
+                    "inputs":["scaler_step", "scaler_step"]
                 },
                 {
                     "name": "extract_target_step",
