@@ -216,4 +216,5 @@ class ColumnType:
 class SpecializedProblem:
     PRIVILEGED_INFORMATION = "PrivilegedInformation"
     SEMI_SUPERVISED = "SemiSupervised"
+    ACLED_LIKE_PROBLEM = "Acled_problem"
     NONE = "None"

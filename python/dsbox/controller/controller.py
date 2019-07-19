@@ -10,9 +10,9 @@ import random
 import shutil
 import traceback
 import typing
-
+import copy
 import pandas as pd  # type: ignore
-
+import multiprocessing
 from d3m import exceptions
 from d3m.base import utils as d3m_utils
 from d3m.container.dataset import Dataset, D3MDatasetLoader
@@ -21,7 +21,6 @@ from d3m.metadata.problem import TaskType
 
 from dsbox.combinatorial_search.TemplateSpaceBaseSearch import TemplateSpaceBaseSearch
 from dsbox.combinatorial_search.TemplateSpaceParallelBaseSearch import TemplateSpaceParallelBaseSearch
-from dsbox.combinatorial_search.RandomDimensionalSearch import RandomDimensionalSearch
 from dsbox.combinatorial_search.BanditDimensionalSearch import BanditDimensionalSearch
 from dsbox.combinatorial_search.MultiBanditSearch import MultiBanditSearch
 from dsbox.controller.config import DsboxConfig
@@ -183,6 +182,9 @@ class Controller:
 
         # Set privileged data columns
         for dataset in self.config.problem['inputs']:
+            if 'LL0_acled' in dataset['dataset_id']:
+                self.specialized_problem = SpecializedProblem.ACLED_LIKE_PROBLEM
+
             if 'privileged_data' not in dataset:
                 continue
             self.specialized_problem = SpecializedProblem.PRIVILEGED_INFORMATION
@@ -601,6 +603,95 @@ class Controller:
             self.ensemble_voting_candidate_choose_method = 'lastStep'
             # self.ensemble_voting_candidate_choose_method = 'resultSimilarity'
 
+    def do_data_augmentation_rest_api(self, input_all_dataset: Dataset) -> Dataset:
+        import datamart_nyu
+        import datamart
+        augment_times = 0
+        datamart_unit = datamart_nyu.RESTDatamart()
+
+        # if self.all_dataset.metadata.query(())['id'].startswith("DA_medical_malpractice"):
+            # pass
+        # elif self.all_dataset.metadata.query(())['id'].startswith("DA_ny_taxi_demand"):
+        augment_res = copy.copy(self.all_dataset)
+        
+        keywords = []
+        keywrods_from_data = input_all_dataset.metadata.query(()).get('keywords')
+        if keywrods_from_data:
+            keywords.extend(keywrods_from_data)
+        for each_domain in self.config.problem['data_augmentation']:
+            for each in each_domain.values():
+                keywords.extend(each)
+
+        keywrods = list(set(keywords))
+
+        variables = []
+
+        for i in range(self.all_dataset[self.problem_info["res_id"]].shape[1]):
+            selector = (self.problem_info["res_id"], ALL_ELEMENTS, i)
+            each_column_meta = self.all_dataset.metadata.query(selector)
+            if "http://schema.org/DateTime" in each_column_meta['semantic_types']:
+                try:
+                    time_column = self.all_dataset[self.problem_info["res_id"]].iloc[:,i]
+                    column_data_datetime_format = pd.to_datetime(time_column)
+                    start_date = min(column_data_datetime_format)
+                    end_date = max(column_data_datetime_format)
+                    if any(column_data_datetime_format.dt.second != 0):
+                        time_granularity = 5
+                    elif any(column_data_datetime_format.dt.minute != 0):
+                        time_granularity = 4
+                    elif any(column_data_datetime_format.dt.hour != 0):
+                        time_granularity = 4
+                    elif any(column_data_datetime_format.dt.day != 0):
+                        time_granularity = 3
+                    elif any(column_data_datetime_format.dt.month != 0):
+                        time_granularity = 2
+                    elif any(column_data_datetime_format.dt.year != 0):
+                        time_granularity = 1
+                    variables.append(datamart.TemporalVariable(start=start_date, end=end_date, granularity=datamart.TemporalGranularity(time_granularity)))
+                except:
+                    self._logger.error("Parsing the DateTime column No." + str(i) + " for augment failed.")
+
+        query_search = datamart.DatamartQuery(keywords=keywords, variables=variables)
+        search_unit = datamart_unit.search_with_data(query=query_search, supplied_data=augment_res)
+        all_results1 = search_unit.get_next_page()
+
+        if not all_results1:
+            self._logger.warning("No search ressult returned!")
+            return self.all_dataset
+
+        # if we get some search result
+        from common_primitives.datamart_augment import Hyperparams as hyper_augment, DataMartAugmentPrimitive
+        hyper_augment_default = hyper_augment.defaults()
+        hyper_augment_default = hyper_augment_default.replace({"system_identifier":"NYU"})
+
+        search_result_list = all_results1[:5]
+        augment_res_list = []
+        for search_res in search_result_list:
+            try:
+                hyper_temp = hyper_augment_default.replace({"search_result":search_res.serialize()})
+                augment_primitive = DataMartAugmentPrimitive(hyperparams=hyper_temp)
+                augment_res = augment_primitive.produce(inputs=augment_res).value
+                self.dump_primitive(augment_primitive, "augment" + str(augment_times))
+                self.extra_primitive.add("augment" + str(augment_times))
+                augment_times += 1
+            except:
+                continue
+        self._logger.info("Totally augmented " + str(augment_times) + " times.")
+
+        # # update the metadata of original information
+        res_id, result_df = d3m_utils.get_tabular_resource(dataset=augment_res, resource_id=None)
+        augment_res.metadata = augment_res.metadata.update((),input_all_dataset.metadata.query(()))
+
+        # # return the augmented dataset
+        original_shape = self.all_dataset[self.problem_info["res_id"]].shape
+        _, augment_res_df = d3m_utils.get_tabular_resource(dataset=augment_res, resource_id=None)
+        augmented_shape = augment_res_df.shape
+        self._logger.info("The original dataset shape is (" + str(original_shape[0]) + ", " + str(original_shape[1]) + ")")
+        self._logger.info("The augmented dataset shape is (" + str(augmented_shape[0]) + ", " + str(augmented_shape[1]) + ")")
+
+        return augment_res
+
+
     def do_data_augmentation(self, input_all_dataset: Dataset) -> Dataset:
         """
             use datamart primitives to do data augmentation on given dataset
@@ -619,20 +710,25 @@ class Controller:
             augment_times = 0
 
             if self.all_dataset.metadata.query(())['id'].startswith("DA_medical_malpractice"):
-                # this special change only for running for DA_medical dataset, so that we can also use this column as a join candidate
-                # also, due to the reason that both supplied data and searched results are very large, skip wikidata part
+                # # this special change only for running for DA_medical dataset, so that we can also use this column as a join candidate
+                # # also, due to the reason that both supplied data and searched results are very large, skip wikidata part
                 augment_res = self.all_dataset
-                meta =     {
-                     "name": "SEQNO",
-                     "structural_type": str,
-                     "semantic_types": [
-                      "http://schema.org/Text",
-                      "http://schema.org/DateTime",
-                      "https://metadata.datadrivendiscovery.org/types/UniqueKey"
-                     ],
-                     "description": "Record Number. SEQNO is a unique number assigned to each record. The assigned numbers are not necessarily continuous or sequential."
-                    }
-                augment_res.metadata = augment_res.metadata.update(selector=('learningData', ALL_ELEMENTS, 1), metadata = meta)
+                # meta =     {
+                #      "name": "SEQNO",
+                #      "structural_type": str,
+                #      "semantic_types": [
+                #       "http://schema.org/Text",
+                #       "http://schema.org/DateTime",
+                #       "https://metadata.datadrivendiscovery.org/types/UniqueKey"
+                #      ],
+                #      "description": "Record Number. SEQNO is a unique number assigned to each record. The assigned numbers are not necessarily continuous or sequential."
+                #     }
+                # augment_res.metadata = augment_res.metadata.update(selector=('learningData', ALL_ELEMENTS, 1), metadata = meta)
+                search_unit = datamart_unit.search_with_data(query=None, supplied_data=augment_res, need_wikidata=False)
+
+            elif self.all_dataset.metadata.query(())['id'].startswith("DA_ny_taxi_demand"):
+                augment_res = self.all_dataset
+                search_unit = datamart_unit.search_with_data(query=None, supplied_data=augment_res, need_wikidata=False)
 
             else:
                 # in general condition, run wikifier first
@@ -644,9 +740,12 @@ class Controller:
                 self.extra_primitive.add("augment" + str(augment_times))
                 self.dump_primitive(augment_primitive, "augment" + str(augment_times))
                 augment_times += 1
+                search_unit = datamart_unit.search_with_data(query=None, supplied_data=augment_res)
 
+            import pdb
+            pdb.set_trace()
             # run search, it will return wikidata search results first (if found) and then the general search results with highest score first
-            search_unit = datamart_unit.search_with_data(query=None, supplied_data=augment_res, need_wikidata=False)
+            
             all_results1 = search_unit.get_next_page()
 
             for each_search in all_results1:
@@ -661,7 +760,7 @@ class Controller:
 
             # you can search another time if you want
             # all_results2 = datamart_unit.search_with_data(query=None, supplied_data=augment_res).get_next_page()
-
+            pdb.set_trace()
             all_results1.sort(key=lambda x: x.score(), reverse=True)
 
             for each_search in all_results1:
@@ -873,7 +972,7 @@ class Controller:
         self.extra_primitive.add("denormalize")
         self.dump_primitive(denormalize_primitive, "denormalize")
         if "data_augmentation" in self.config.problem.keys():
-            self.all_dataset = self.do_data_augmentation(self.all_dataset)
+            self.all_dataset = self.do_data_augmentation_rest_api(self.all_dataset)
         # load templates
         self.load_templates()
 
@@ -922,7 +1021,7 @@ class Controller:
         self.extra_primitive.add("denormalize")
         self.dump_primitive(denormalize_primitive, "denormalize")
         if "data_augmentation" in self.config.problem.keys():
-            self.all_dataset = self.do_data_augmentation(self.all_dataset)
+            self.all_dataset = self.do_data_augmentation_rest_api(self.all_dataset)
         # load templates
         self.load_templates()
 
