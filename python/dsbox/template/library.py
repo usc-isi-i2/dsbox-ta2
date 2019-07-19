@@ -97,6 +97,7 @@ class TemplateLibrary:
 
             # graph
             "ISI_graph_norm_clf": ISIGraphNormClf,
+            "SRI_vertex_classification_template":SRIVertexClassificationTemplate,
             # "ISI_gcn": ISI_GCN,
 
             # text
@@ -290,6 +291,7 @@ class TemplateLibrary:
 
         self.templates.append(CornellMatrixFactorization)
         self.templates.append(ISIGraphNormClf)
+        self.templates.append(SRIVertexClassificationTemplate)
         # 2019-7-3: Uses too much memory
         # self.templates.append(ISI_GCN)
 
@@ -5533,5 +5535,103 @@ class DistilPreprocessingTemplate(DSBoxTemplate):
                     "inputs": ["model_step", "to_dataframe_step"]
                 }
 
+            ]
+        }
+
+
+
+class SRIVertexClassificationTemplate(DSBoxTemplate):
+    def __init__(self):
+        DSBoxTemplate.__init__(self)
+        self.template = {
+            "name": "SRI_vertex_classification_template",
+            "taskType": {TaskType.VERTEX_CLASSIFICATION.name, TaskType.COMMUNITY_DETECTION.name, TaskType.LINK_PREDICTION.name}, #TaskType.COLLABORATIVE_FILTERING.name,
+            "taskSubtype": {"NONE", TaskSubtype.NONOVERLAPPING.name, TaskSubtype.OVERLAPPING.name, TaskSubtype.MULTICLASS.name, TaskSubtype.BINARY.name, TaskSubtype.MULTILABEL.name, TaskSubtype.MULTIVARIATE.name, TaskSubtype.UNIVARIATE.name},
+            #"taskSubtype": "NONE",
+            #"inputType": "table",
+            "inputType": {"edgeList", "graph", "table"},
+            "output": "prediction_step",
+            "steps": [
+                {
+                    "name": "text_reader_step",
+                    "primitives": ["d3m.primitives.data_preprocessing.dataset_text_reader.DatasetTextReader"],
+                    "inputs": ["template_input"]
+                },
+                {
+                    "name": "to_dataframe_step",
+                    "primitives": ["d3m.primitives.data_transformation.dataset_to_dataframe.Common"],
+                    "inputs": ["text_reader_step"]
+                },
+                {
+                    "name": "parser_step",
+                    "primitives": ["d3m.primitives.data_transformation.column_parser.DataFrameCommon"],
+                    "inputs": ["to_dataframe_step"]
+                },
+                {
+                    "name": "extract_target_step",
+                    "primitives": [{
+                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.DataFrameCommon",
+                        "hyperparameters":
+                        {
+                            'semantic_types': ('https://metadata.datadrivendiscovery.org/types/TrueTarget',),
+                            'use_columns': (),
+                            'exclude_columns': ()
+                        }
+                    }],
+                    "inputs": ["parser_step"]
+                },
+                {
+                    "name": "extract_attribute_step",
+                    "primitives": [{
+                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.DataFrameCommon",
+                        "hyperparameters":
+                        {
+                            'semantic_types': ('https://metadata.datadrivendiscovery.org/types/Attribute',),
+                            'use_columns': (),
+                            'exclude_columns': ()
+                        }
+                    }],
+                    "inputs": ["parser_step"]
+                },
+                {
+                    "name": "data_conditioner_step",
+                    "primitives": [{
+                        "primitive": "d3m.primitives.data_transformation.conditioner.Conditioner",
+                        "hyperparameters":
+                        {
+                            "ensure_numeric":[True, False],
+                            "maximum_expansion": [30]
+                        }
+                    }],
+                    "inputs": ["extract_attribute_step"]
+                },
+                {
+                    "name": "model_step",
+                    "runtime": {
+                        "cross_validation": 5,
+                        "stratified": True
+                    },
+                    "primitives": [
+                        {
+                            "primitive":
+                            "d3m.primitives.classification.bernoulli_naive_bayes.SKlearn",
+                            "hyperparameters":
+                            {
+                                'alpha': [0.1],
+                                'binarize': [0.0],
+                                'fit_prior': [False],
+                                'return_result': ["new"],
+                                'use_semantic_types': [False],
+                                'add_index_columns': [False],
+                                'error_on_no_input':[True],
+                            }
+                        }],
+                    "inputs": ["data_conditioner_step", "extract_target_step"]
+                },
+                {
+                    "name": "prediction_step",
+                    "primitives": ["d3m.primitives.data_transformation.construct_predictions.DataFrameCommon"],
+                    "inputs": ["model_step", "to_dataframe_step"]
+                }
             ]
         }
