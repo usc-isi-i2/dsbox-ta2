@@ -464,7 +464,7 @@ class Controller:
             timeout_sec=self.config.timeout_search,
             extra_primitive=self.extra_primitive,
         )
-        report = self._search_method.search(num_iter=500)
+        report = self._search_method.search(num_iter=1000)
 
         if report_ensemble:
             report_ensemble['report'] = report
