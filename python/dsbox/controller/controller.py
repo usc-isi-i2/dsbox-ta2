@@ -464,7 +464,7 @@ class Controller:
             timeout_sec=self.config.timeout_search,
             extra_primitive=self.extra_primitive,
         )
-        report = self._search_method.search(num_iter=500)
+        report = self._search_method.search(num_iter=1000)
 
         if report_ensemble:
             report_ensemble['report'] = report
@@ -640,7 +640,7 @@ class Controller:
             # pass
         # elif self.all_dataset.metadata.query(())['id'].startswith("DA_ny_taxi_demand"):
         augment_res = copy.copy(self.all_dataset)
-        
+
         keywords = []
         keywrods_from_data = input_all_dataset.metadata.query(()).get('keywords')
         if keywrods_from_data:
@@ -770,7 +770,7 @@ class Controller:
                 search_unit = datamart_unit.search_with_data(query=None, supplied_data=augment_res)
 
             # run search, it will return wikidata search results first (if found) and then the general search results with highest score first
-            
+
             all_results1 = search_unit.get_next_page()
 
             for each_search in all_results1:
@@ -1484,7 +1484,7 @@ class Controller:
 
         hyper_sampler = SplitterHyperparameter.defaults()
         # for test purpose here
-        # hyper_sampler = hyper_sampler.replace({"threshold_column_length":20,"further_reduce_threshold_column_length":20})
+        hyper_sampler = hyper_sampler.replace({"threshold_column_length":2000,"further_reduce_threshold_column_length":2000})
         sampler = Splitter(hyperparams = hyper_sampler)
         sampler.set_training_data(inputs = self.all_dataset)
         sampler.fit()
