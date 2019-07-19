@@ -23,7 +23,7 @@ TOP_NUM = 20
 
 from dsbox.pipeline.fitted_pipeline import FittedPipeline
 from dsbox.template.runtime import Runtime, add_target_columns_metadata
-from dsbox.template.search import get_target_columns
+from dsbox.schema import get_target_columns
 
 
 def load_one_pipeline(path) -> tuple:
@@ -98,7 +98,7 @@ def create_fitted_pipelines_for_dataset(path, pipelines, log_dir) -> list:
     '''
     result = []
     for p in pipelines:
-        result.append(FittedPipeline.load(folder_loc=path, fitted_pipeline_id=p[0], log_dir=log_dir))
+        result.append(FittedPipeline.load(folder_loc=path, fitted_pipeline_id=p[0]))
     return result
 
 
@@ -137,7 +137,7 @@ def predict_and_write(pipeline, test_dataset, test_problem, saving_path) -> str:
 
     pipeline.produce(inputs=[test_dataset])
     prediction = pipeline.runtime.produce_outputs[-1]
-    d3m_index = get_target_columns(test_dataset, test_problem)["d3mIndex"]
+    d3m_index = get_target_columns(test_dataset)["d3mIndex"]
     d3m_index = d3m_index.reset_index().drop(columns=["index"])
     prediction_col_name = prediction.columns[-1]
     prediction["d3mIndex"] = d3m_index

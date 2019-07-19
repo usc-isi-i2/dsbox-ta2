@@ -29,7 +29,7 @@ from dsbox.template.runtime import Runtime, add_target_columns_metadata
 from dsbox.template.template import TemplatePipeline, TemplateStep, DSBoxTemplate
 from dsbox.template.library import TemplateLibrary
 from dsbox.template.configuration_space import DimensionName, ConfigurationSpace, SimpleConfigurationSpace, ConfigurationPoint
-from dsbox.template.search import get_target_columns
+from dsbox.schema import get_target_columns
 
 
 def load_data(data_path, problem_path) -> tuple:
@@ -65,7 +65,7 @@ def run_pipeline_and_predict(pipeline, train_data, test_data, problem, outdir, d
     '''
     Predicting and write results to a path
     '''
-    pipeline_runtime = Runtime(pipeline, fitted_pipeline_id="", log_dir=outdir)
+    pipeline_runtime = Runtime(pipeline, fitted_pipeline_id="", random_seed=0)
     pipeline_runtime.fit(inputs=[train_data])
     resID = problem.query(())["inputs"]["data"][0]["targets"][0]["resID"]
     test_length = test_data.metadata.query((resID, ALL_ELEMENTS))["dimension"]["length"]
@@ -82,7 +82,7 @@ def run_pipeline_and_predict(pipeline, train_data, test_data, problem, outdir, d
     # prediction.to_csv(outdir)
     print(prediction.head())
 
-    d3m_index = get_target_columns(test_data, problem)["d3mIndex"]
+    d3m_index = get_target_columns(test_data)["d3mIndex"]
     d3m_index = d3m_index.reset_index().drop(columns=["index"])
     prediction_col_name = prediction.columns[-1]
     prediction["d3mIndex"] = d3m_index

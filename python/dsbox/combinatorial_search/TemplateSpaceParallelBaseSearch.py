@@ -6,6 +6,8 @@ import typing
 
 from pprint import pprint
 
+import d3m.metadata.problem as problem
+
 from d3m.container.dataset import Dataset
 from d3m.metadata.base import Metadata
 from dsbox.JobManager.DistributedJobManager import DistributedJobManager
@@ -50,11 +52,12 @@ class TemplateSpaceParallelBaseSearch(TemplateSpaceBaseSearch[T]):
 
     def initialize_problem(self, template_list: typing.List[DSBoxTemplate],
                            performance_metrics: typing.List[typing.Dict],
-                           problem: Metadata, train_dataset1: Dataset,
+                           problem: problem.Problem, train_dataset1: Dataset,
                            train_dataset2: typing.List[Dataset], test_dataset1: Dataset,
                            test_dataset2: typing.List[Dataset], all_dataset: Dataset,
                            ensemble_tuning_dataset: Dataset,
-                           output_directory: str, log_dir: str,
+                           extra_primitive:typing.Set[str],
+                           output_directory: str,
                            start_time: float = 0, timeout_sec: float = 3300) -> None:
         # Start timer
         self.job_manager.timeout_sec = timeout_sec
@@ -64,7 +67,8 @@ class TemplateSpaceParallelBaseSearch(TemplateSpaceBaseSearch[T]):
             problem=problem, train_dataset1=train_dataset1, train_dataset2=train_dataset2,
             test_dataset1=test_dataset1, test_dataset2=test_dataset2, all_dataset=all_dataset,
             ensemble_tuning_dataset=ensemble_tuning_dataset,
-            output_directory=output_directory, log_dir=log_dir,
+            extra_primitive=extra_primitive,
+            output_directory=output_directory,
             start_time=start_time, timeout_sec=timeout_sec
         )
 

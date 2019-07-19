@@ -6,6 +6,16 @@ import typing
 
 import d3m.metadata.base as metadata_base
 from d3m.metadata.problem import parse_problem_description
+from d3m.metadata.problem import Problem
+
+class RuntimeSetting:
+    '''
+    Class for storing information needed for Runtime
+    '''
+    def __init__(self, *, volumes_dir: str = None, scratch_dir: str = None, log_dir: str = None):
+        self.volumes_dir = volumes_dir
+        self.scratch_dir = scratch_dir
+        self.log_dir = log_dir
 
 
 class DsboxConfig:
@@ -13,7 +23,8 @@ class DsboxConfig:
     Class for loading and managing DSBox configurations.
 
     The following variables are defined in D3M OS environment
-    * d3m_run: Run either in 'ta2' for 'ta2ta3' mode (os.environ['D3MRun'])
+    * d3m_run: valid values are 'ta2' or 'ta2ta3' (os.environ['D3MRun'])
+    * deprecated: d3m_context: values are 'TESTING', 'EVALUATION', 'PRODUCTION' (os.environ['D3MCONTEXT'])
     * input_dir: Top-level directory for all inputs (os.environ['D3MINPUTDIR'])
     * problem_schema: File path to problemDoc.json (os.environ['D3MPROBLEMPATH'])
     * output_dir: Top-level directory for all outputs (os.environ['D3MOUTPUTDIR'])
@@ -25,8 +36,8 @@ class DsboxConfig:
 
     D3M output directory structure:
     * pipelines_ranked (pipelines_ranked_dir) - a directory with ranked pipelines to be
-      evaluated, named <pipeline id>.json; these files should have additional field
-      pipeline_rank
+      evaluated, named <pipeline id>.json; Each json file should have a corresponding
+      <pipeline id>.rank file
     * pipelines_scored (pipelines_scored_dir) - a directory with successfully scored
       pipelines during the search, named <pipeline id>.json
     * pipelines_searched (pipelines_searched_dir) - a directory of full pipelines which
@@ -77,8 +88,15 @@ class DsboxConfig:
         self.pipeline_runs_dir: str = ''
         self.additional_inputs_dir: str = ''
 
+        ## D3M TA3 SearchSolutionsRequest parameters
+        # Number of ranked solution to return
+        self.rank_solutions_limit: int = 0
+        # time bound on individual pipeline run
+        self.time_bound_run: int = 0
+
         # DSBox output directories
         self.dsbox_output_dir: str = ''
+        self.dsbox_scratch_dir: str = ''
         self.log_dir: str = ''
         self.dfs_log_dir: str = ''
 
@@ -96,12 +114,7 @@ class DsboxConfig:
         self.root_logger_level = min(self.file_logging_level, self.console_logging_level)
 
         # ==== Derived variables
-        # problem spec in json dict
-        self.problem_doc: typing.Dict = {}
-        # parsed problem spec (e.g.. string value for task converted to d3m.metadata.problem.TaskType enum)
-        self.problem: typing.Dict = {}
-        # Should use self.problem_doc
-        self.problem_metadata = None
+        self.problem: Problem = {}
 
         # List of file path to datasetDoc.json files
         self.dataset_schema_files: typing.List[str] = []
@@ -118,37 +131,74 @@ class DsboxConfig:
     @timeout.setter
     def timeout(self, value: int):
         self._timeout = value
-        self.timeout_search = max(self._timeout - 180, int(self._timeout * 0.8))
+        # self.timeout_search = max(self._timeout - 180, int(self._timeout * 0.93))
+        # 2019.7.19: add more time for system clean up job
+        self.timeout_search = int(self._timeout * 0.93)
 
     def load(self, ta2ta3_mode: bool = False):
         self._load_d3m_environment(ta2ta3_mode)
         self._load_dsbox()
         self._setup()
 
-    def set_problem(self, problem_doc, problem):
-        self.problem_doc = problem_doc
+    def set_problem(self, problem: Problem):
+
+        if not isinstance(problem, Problem):
+            raise VauleError(f"Argument problem must be an instance of Problem: {problem}")
+
+        if 'id' not in problem:
+            raise VauleError(f"Problem missing id: {problem}")
+
         self.problem = problem
-        self.problem_metadata = metadata_base.Metadata(self.problem_doc)
         self._load_problem_rest()
+
+    def get_runtime_setting(self) -> RuntimeSetting:
+        return RuntimeSetting(
+            volumes_dir=self.static_dir,
+            scratch_dir=self.dsbox_scratch_dir,
+            log_dir=self.log_dir)
 
     def _load_d3m_environment(self, ta2ta3_mode: bool):
         '''
         Get D3M environmental variable values.
         '''
+        for key, value in os.environ.items():
+            if 'D3M' in key:
+                print(f'{key}={value}')
+
         self.d3m_run = os.environ['D3MRUN']
+        # self.d3m_context = os.environ.get('D3MCONTEXT', default='TEST')
         self.input_dir = os.environ['D3MINPUTDIR']
         self.output_dir = os.environ['D3MOUTPUTDIR']
         self.local_dir = os.environ['D3MLOCALDIR']
         self.static_dir = os.environ['D3MSTATICDIR']
-        self.problem_schema = os.environ['D3MPROBLEMPATH']
-        self.cpu = int(os.environ['D3MCPU'])
-        self.ram = os.environ['D3MRAM']
+        if 'D3MCPU' in os.environ:
+            self.cpu = int(os.environ['D3MCPU'])
+        else:
+            import multiprocessing
+            self.cpu = multiprocessing.cpu_count() - 1
+        if self.cpu < 1:
+            self.cpu = 1
+        if 'D3MRAM' in os.environ:
+            self.ram = os.environ['D3MRAM']
+
         if ta2ta3_mode:
             # Timeout should not be used in ta2ta3_mode. Set to a large number
             self.timeout = 9999999
             print(f'In ta2ta3_mode, set timeout to {self.timeout}')
+            if 'D3MPROBLEMPATH' in os.environ:
+                self.problem_schema = os.environ['D3MPROBLEMPATH']
         else:
-            self.timeout = int(os.environ['D3MTIMEOUT'])
+            if 'D3MTIMEOUT' in os.environ:
+                self.timeout = int(os.environ['D3MTIMEOUT'])
+            else:
+                self.timeout = 9999999
+                print('D3MTIMEOUT environment variable not defined. Setting to a large value')
+            if 'D3MPROBLEMPATH' in os.environ:
+                self.problem_schema = os.environ['D3MPROBLEMPATH']
+            else:
+                print('D3MPROBLEMPATH environment variable not defined.')
+        self.datamart_nyu_url = os.environ.get('DATAMART_NYU_URL', default='')
+        self.datamart_isi_url = os.environ.get('DATAMART_ISI_URL', default='')
 
     def _load_dsbox(self):
         self._load_logging()
@@ -166,17 +216,16 @@ class DsboxConfig:
             self.serial_search_iterations = 30
 
     def _load_problem(self):
-        with open(os.path.abspath(self.problem_schema)) as file:
-            self.problem_doc = json.load(file)
-        self.problem = parse_problem_description(os.path.abspath(self.problem_schema))
-        self.problem_metadata = metadata_base.Metadata(self.problem_doc)
+        if self.problem_schema == '':
+            return
+        self.problem = Problem.load('file://' + os.path.abspath(self.problem_schema))
         self._load_problem_rest()
 
     def _load_problem_rest(self) -> None:
         self.task_type = self.problem['problem']['task_type']
         self.task_subtype = self.problem['problem']['task_subtype']
 
-        dataset_ids = [obj['datasetID'] for obj in self.problem_doc['inputs']['data']]
+        dataset_ids = [obj['dataset_id'] for obj in self.problem['inputs']]
         if len(dataset_ids) > 1:
             self._logger.warning(f"ProblemDoc specifies more than one dataset id: {dataset_ids}")
 
@@ -207,6 +256,8 @@ class DsboxConfig:
         # DSBox directories
         self.dsbox_output_dir = self.output_dir
         self.pipelines_fitted_dir = os.path.join(self.dsbox_output_dir, 'pipelines_fitted')
+        self.pipelines_info_dir = os.path.join(self.dsbox_output_dir, 'pipelines_info')
+        self.dsbox_scratch_dir = os.path.join(self.dsbox_output_dir, 'scratch')
         self.log_dir = os.path.join(self.dsbox_output_dir, 'logs')
         self.dfs_log_dir = os.path.join(self.log_dir, 'dfs')
 
@@ -215,7 +266,8 @@ class DsboxConfig:
                 self.pipelines_ranked_dir, self.pipelines_scored_dir,
                 self.pipelines_searched_dir, self.subpipelines_dir, self.pipeline_runs_dir,
                 self.additional_inputs_dir, self.local_dir,
-                self.dsbox_output_dir, self.pipelines_fitted_dir, self.log_dir, self.dfs_log_dir]:
+                self.dsbox_output_dir, self.pipelines_fitted_dir, self.pipelines_info_dir,
+                self.log_dir, self.dfs_log_dir, self.dsbox_scratch_dir]:
             if not os.path.exists(directory):
                 os.mkdir(directory)
 
@@ -224,10 +276,10 @@ class DsboxConfig:
         Config logging level.
 
         Example:
-            export DSBOX_LOGGING_LEVEL="dsbox=WARNING:dsbox.controller=DEBUG:console_logging_level=WARNING:file_logging_level=DEBUG"
+            export DSBOX_LOGGING_LEVEL="dsbox=WARNING:dsbox.template.runtime=DEBUG:console_logging_level=WARNING:file_logging_level=DEBUG"
 
-            All classes under 'dsbox*' hierarchy log at WARNING level, except 'dsbox.controller*' log at DEBUG level.
-            Console handler at WARNING level. File handler at DEBUG level
+            All classes under 'dsbox*' hierarchy log at WARNING level, except 'dsbox.template.runtime.*' log at DEBUG level.
+            Console handler at WARNING level. File handler at DEBUG level.
         '''
 
         LEVELS = ('DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL')

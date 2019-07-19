@@ -4,6 +4,8 @@ import time
 import traceback
 import typing
 
+import d3m.metadata.problem as problem
+
 from d3m.container.dataset import Dataset
 from d3m.metadata.base import Metadata
 from dsbox.combinatorial_search.ConfigurationSpaceBaseSearch import ConfigurationSpaceBaseSearch
@@ -46,21 +48,22 @@ class TemplateSpaceBaseSearch(typing.Generic[T]):
 
     def initialize_problem(self, template_list: typing.List[DSBoxTemplate],
                            performance_metrics: typing.List[typing.Dict],
-                           problem: Metadata, train_dataset1: Dataset,
+                           problem: problem.Problem, train_dataset1: Dataset,
                            train_dataset2: typing.List[Dataset], test_dataset1: Dataset,
                            test_dataset2: typing.List[Dataset], all_dataset: Dataset,
                            ensemble_tuning_dataset: Dataset,
-                           output_directory: str, log_dir: str,
+                           extra_primitive: typing.Set[str],
+                           output_directory: str,
                            start_time: float = 0,
                            timeout_sec: float = -1) -> None:
 
-        self.cacheManager.timeout_sec = timeout_sec
+        # self.cacheManager.timeout_sec = timeout_sec
         self.template_list = template_list
 
         self.configuration_space_list = list(
             map(lambda t: t.generate_configuration_space(), template_list))
 
-        self.confSpaceBaseSearch = list(
+        self.confSpaceBaseSearch: typing.List[ConfigurationSpaceBaseSearch] = list(
             map(
                 lambda tup: ConfigurationSpaceBaseSearch(
                     template=tup[0],
@@ -69,7 +72,8 @@ class TemplateSpaceBaseSearch(typing.Generic[T]):
                     test_dataset1=test_dataset1, test_dataset2=test_dataset2,
                     all_dataset=all_dataset, performance_metrics=performance_metrics,
                     ensemble_tuning_dataset=ensemble_tuning_dataset,
-                    output_directory=output_directory, log_dir=log_dir
+                    extra_primitive=extra_primitive,
+                    output_directory=output_directory,
                 ),
                 zip(template_list, self.configuration_space_list)
             )
@@ -79,7 +83,7 @@ class TemplateSpaceBaseSearch(typing.Generic[T]):
         # setup the execution history to store the results of each template separately
         self._setup_exec_history(template_list=self.template_list)
 
-        self.ensemble_tuning_result = {}
+        self.ensemble_tuning_result: typing.Dict = {}
 
         if start_time > 0:
             self.start_time = start_time
@@ -167,7 +171,7 @@ class TemplateSpaceBaseSearch(typing.Generic[T]):
             self.cacheManager.candidate_cache.push(report)
         else:
             _logger.info(f"Search Failed on candidate {hash(str(candidate))}")
-            _logger.warning(traceback.format_exc())
+            # _logger.warning(traceback.format_exc())
             self.history.update_none(fail_report=None, template_name=template_name)
             self.cacheManager.candidate_cache.push_None(candidate=candidate)
 
@@ -209,7 +213,7 @@ class TemplateSpaceBaseSearch(typing.Generic[T]):
     def _sample_random_pipeline(self,
                                 search: ConfigurationSpaceBaseSearch,
                                 num_iter: int = 1) \
-            -> typing.Iterable[ConfigurationPoint]:
+            -> typing.Iterable[typing.Dict]:
         for _ in range(num_iter):
             candidate = search.configuration_space.get_random_assignment()
 

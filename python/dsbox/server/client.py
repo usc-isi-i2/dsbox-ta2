@@ -29,6 +29,7 @@ from ta3ta2_api.core_pb2 import FitSolutionRequest
 from ta3ta2_api.core_pb2 import GetFitSolutionResultsRequest
 from ta3ta2_api.core_pb2 import ProduceSolutionRequest
 from ta3ta2_api.core_pb2 import GetProduceSolutionResultsRequest
+from ta3ta2_api.core_pb2 import ListPrimitivesRequest
 
 from ta3ta2_api.value_pb2 import Value
 from ta3ta2_api.value_pb2 import ValueType
@@ -52,17 +53,22 @@ logging.basicConfig(level=logging.DEBUG, format='%(asctime)s [%(levelname)s] %(n
 _logger = logging.getLogger(__name__)
 
 
-PRINT_REQUEST = False
+PRINT_REQUEST = True
 dataset_base_path = ''
 daset_docs = {}
 
 
-def config_datasets(use_docker_server) -> typing.List:
+def config_datasets(datasets, use_docker_server) -> typing.List:
     global dataset_base_path, dataset_docs
     if use_docker_server:
-        dataset_base_path = '/input/'
+        dataset_base_path = '/input'
+    elif datasets == 'seed_aug':
+        dataset_base_path = '/nfs1/dsbox-repo/data/datasets-v32/seed_datasets_data_augmentation'
+    elif datasets == 'seed':
+        dataset_base_path = '/nfs1/dsbox-repo/data/datasets-v32/seed_datasets_current'
     else:
         dataset_base_path = '/nfs1/dsbox-repo/data/datasets-v32/seed_datasets_current'
+
     print('Using dataset base path:', dataset_base_path)
     dataset_docs = find_dataset_docs(dataset_base_path, _logger)
     return dataset_base_path
@@ -164,11 +170,15 @@ class Client(object):
         parser = argparse.ArgumentParser(description='Dummy TA3 client')
         parser.add_argument('--docker', action='store_true',
                             help='The dataset path deepnds on if server is running on docker or not')
+        parser.add_argument('--seed', action='store_const', const='seed', dest='datasets')
+        parser.add_argument('--seed-aug', action='store_const', const='seed_aug', dest='datasets')
 
         parser.add_argument('--sick', action='store_const', const='38_sick', dest='dataset')
         parser.add_argument('--kids', action='store_const', const='LL0_1100_popularkids', dest='dataset')
         parser.add_argument('--baseball', action='store_const', const='185_baseball', dest='dataset')
         parser.add_argument('--dataset', dest='dataset')
+
+        parser.add_argument('--list', action='store_true', help='List primitives')
 
         parser.add_argument('--basic', action='store_true')
         parser.add_argument('--complete', action='store_true')
@@ -182,7 +192,10 @@ class Client(object):
 
         self.time_bound = args.time_bound
 
-        config_datasets(args.docker)
+        datasets = 'seed'
+        if args.datasets:
+            datasets = args.datasets
+        config_datasets(datasets, args.docker)
         train_problem_desc = get_problem_description(dataset_base_path, args.dataset, 'TRAIN')
         test_problem_desc = get_problem_description(dataset_base_path, args.dataset, 'TEST')
 
@@ -215,6 +228,8 @@ class Client(object):
         elif args.end_search:
             search_id = args.end_search
             self.endSearchSolutions(stub, search_id)
+        elif args.list:
+            self.listPrimitives(stub)
         else:
             print('Try adding --basic')
 
@@ -320,6 +335,16 @@ class Client(object):
             log_msg(produce_solution_results_response)
 
     '''
+    Invoke List Primitives
+    '''
+    def listPrimitives(self, stub):
+        _logger.info('Listing primitives')
+        request = ListPrimitivesRequest()
+        reply = stub.ListPrimitives(request)
+        for i, primitive in enumerate(reply.primitives):
+            print(f'{i} {primitive}')
+
+    '''
     Invoke Hello call
     '''
     def hello(self, stub):
@@ -334,23 +359,28 @@ class Client(object):
     '''
     def searchSolutions(self, stub, problem):
         _logger.info("Calling Search Solutions:")
+        metric = problem['problem']['performance_metrics'][0]
         request = SearchSolutionsRequest(
             user_agent="Test Client",
             version="2019.1.22",
-            time_bound=self.time_bound,
+            time_bound_search=self.time_bound,
             priority=0,
             allowed_value_types=[value_pb2.RAW],
             problem=ProblemDescription(
                 problem=Problem(
-                    id=problem['id'],
-                    version="3.1.2",
-                    name=problem['id'],
-                    description=problem['id'],
+                    # id=problem['id'],
+                    # version="3.1.2",
+                    # name=problem['id'],
+                    # description=problem['id'],
                     task_type=problem['problem']['task_type'].value,
                     task_subtype=problem['problem']['task_subtype'].value,
                     performance_metrics=[
                         ProblemPerformanceMetric(
-                            metric=problem['problem']['performance_metrics'][0]['metric'].value,
+                            # metric=problem['problem']['performance_metrics'][0]['metric'].value,
+                            metric=metric['metric'].value,
+                            k=metric.get('params', {}).get('k', None),
+                            pos_label=metric.get('params', {}).get('pos_label', None),
+
                         )]
                     ),
                 inputs=[ProblemInput(
@@ -365,7 +395,9 @@ class Client(object):
                         ])]
                 ),
             template=PipelineDescription(), # TODO: We will handle pipelines later D3M-61
-            inputs=[Value(dataset_uri='file://' + dataset_docs[problem['inputs'][0]['dataset_id']])]
+            inputs=[Value(dataset_uri='file://' + dataset_docs[problem['inputs'][0]['dataset_id']]),],
+            time_bound_run=5, # in minutes
+            rank_solutions_limit=20
         )
         print_request(request)
         reply = stub.SearchSolutions(request)

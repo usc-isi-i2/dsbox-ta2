@@ -1,13 +1,17 @@
-import pandas as pd
-import typing
-import operator
-import logging
 import copy
 import math
+import logging
+import operator
+import typing
+
 from pprint import pprint
 from functools import reduce
-from dsbox.template.configuration_space import ConfigurationPoint
+
 import numpy as np
+import pandas as pd
+
+from dsbox.template.configuration_space import ConfigurationPoint
+from dsbox.schema import larger_is_better
 
 _logger = logging.getLogger(__name__)
 
@@ -211,19 +215,6 @@ class ExecutionHistory:
             return len(base_comparison_metrics) < len(check_comparison_metrics)
             # true if check is more complete and false if base is the more complete
 
-        larger_is_better = ['accuracy', 'precision', 'recall', 'f1', 'f1Micro', 'f1Macro', 'rocAuc',
-                            'rocAucMicro', 'rocAucMacro', 'rSquared', 'jaccardSimilarityScore',
-                            'precisionAtTopK', 'objectDetectionAP', 'normalizedMutualInformation', ]
-        # Larger is better
-        # 'accuracy', 'precision', 'recall', 'f1', 'f1Micro', 'f1Macro', 'rocAuc',
-        # 'rocAucMicro', 'rocAucMacro', 'rSquared', 'jaccardSimilarityScore',
-        # 'precisionAtTopK', 'objectDetectionAP', 'normalizedMutualInformation',
-        smaller_is_better = ['meanSquaredError', 'rootMeanSquaredError', 'rootMeanSquaredErrorAvg',
-                             'meanAbsoluteError']
-        # Smaller is better
-        # 'meanSquaredError', 'rootMeanSquaredError', 'rootMeanSquaredErrorAvg',
-        # 'meanAbsoluteError'
-
         comparison_results = {}
         for s in base_comparison_metrics:
             if len(base[s]) == 0:
@@ -233,9 +224,9 @@ class ExecutionHistory:
             assert base[s][0]["metric"] == check[s][0]["metric"], "{} not equal".format(s)
 
             opr = lambda a, b: False
-            if check[s][0]["metric"] in larger_is_better:
+            if larger_is_better(check[s][0]["metric"]):
                 opr = operator.gt
-            elif check[s][0]["metric"] in smaller_is_better:
+            else:
                 opr = operator.lt
 
             comparison_results[s] = opr(check[s][0]['value'], base[s][0]['value'])
@@ -253,12 +244,12 @@ class ExecutionHistory:
         else:
             return list(comparison_results.values())[0]
 
-    def get_best_history(self) -> typing.List[typing.Dict]:
-        best = None
+    def get_best_history(self) -> typing.Dict:
+        best_row = None
         for t_name, row in self.storage.iterrows():
-            if ExecutionHistory._is_better(base=best, check=row, key_attribute=self.key_attribute):
-                best = row
-        best = best.to_dict()
+            if ExecutionHistory._is_better(base=best_row, check=row, key_attribute=self.key_attribute):
+                best_row = row
+        best = best_row.to_dict()
         best["ensemble_dataset_predictions"] = self.ensemble_dataset_predictions
         return best
 

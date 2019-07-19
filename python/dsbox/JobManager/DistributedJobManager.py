@@ -111,7 +111,7 @@ class DistributedJobManager:
                     #     '[DJM] Eval does not have runtime'
                 except:
                     _logger.exception(
-                        f'{current_process()} > Target evaluation failed {hash(str(kwargs))}')
+                        f'{current_process()} > Target evaluation failed {hash(str(kwargs))}', exc_info=True)
                     # print(f'[INFO] {current_process()} > Target evaluation failed {hash(str(kwargs))}')
                     traceback.print_exc()
                     # _logger.error(traceback.format_exc())
@@ -123,8 +123,8 @@ class DistributedJobManager:
                     if "ensemble_tunning_result" in result:
                         result_simplified.pop("ensemble_tunning_result")
 
-                print(f"Pushing Results {current_process()} > {result}")
-                _logger.info(f"{current_process()} Pushing Results > {result}")
+                _logger.info(f"{current_process()} Pushing Results: {result['id'] if result and 'id' in result else 'NONE'}")
+                _logger.debug(f"{current_process()} Pushing Results > {result}")
 
                 pushed = False
                 # while not pushed:
@@ -259,7 +259,8 @@ class DistributedJobManager:
         Cancel timer and clear the job queue.
         '''
         self._timeout_sec = -1
-        self.timer.cancel()
+        if self.timer:
+            self.timer.cancel()
         self._clear_jobs()
 
     def kill_job_manager(self):
@@ -282,8 +283,9 @@ class DistributedJobManager:
         self.kill_timer()
 
     def kill_timer(self):
-        _logger.warning(f"timer killed")
-        self.timer.cancel()
+        if self.timer:
+            _logger.warning(f"timer killed")
+            self.timer.cancel()
 
     def _setup_timeout_timer(self):
         self.start_time = time.perf_counter()

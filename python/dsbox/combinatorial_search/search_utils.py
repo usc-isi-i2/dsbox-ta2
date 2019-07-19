@@ -3,6 +3,8 @@ import enum
 import operator
 import random
 from d3m.metadata.base import ALL_ELEMENTS
+from d3m.base import utils
+from d3m.metadata.base import DataMetadata
 
 comparison_metrics = ['training_metrics', 'cross_validation_metrics', 'test_metrics']
 
@@ -37,36 +39,6 @@ def accumulate(iterable, func=operator.add):
     for element in it:
         total = func(total, element)
         yield total
-
-
-def get_target_columns(dataset: 'Dataset', problem_doc_metadata: 'Metadata'):
-    targetcol = None
-    problem = problem_doc_metadata.query(())["inputs"]["data"]
-    datameta = dataset.metadata
-    target = problem[0]["targets"]
-    resID_list = []
-    colIndex_list = []
-    targetlist = []
-    # sometimes we will have multiple targets, so we need to add a for loop here
-    for i in range(len(target)):
-        resID_list.append(target[i]["resID"])
-        colIndex_list.append(target[i]["colIndex"])
-    if len(set(resID_list)) > 1:
-        print("[ERROR] Multiple targets in different dataset???")
-
-    datalength = datameta.query((resID_list[0], ALL_ELEMENTS,))["dimension"]['length']
-
-    for v in range(datalength):
-        types = datameta.query((resID_list[0], ALL_ELEMENTS, v))["semantic_types"]
-        for t in types:
-            if t == 'https://metadata.datadrivendiscovery.org/types/PrimaryKey':
-                targetlist.append(v)
-    for each in targetlist:
-        colIndex_list.append(each)
-    colIndex_list.sort()
-
-    targetcol = dataset[resID_list[0]].iloc[:, colIndex_list]
-    return targetcol
 
 
 class Status(enum.Enum):
