@@ -220,7 +220,7 @@ class TemplateLibrary:
 
         # takes too long to run
         # self.templates.append(SVCClassificationTemplate)
-        """
+        
         # new tabular regression
         self.templates.append(RandomForestRegressionTemplate)
         self.templates.append(ExtraTreesRegressionTemplate)
@@ -270,9 +270,9 @@ class TemplateLibrary:
         self.templates.append(BBNAudioClassificationTemplate)
         self.templates.append(SRICollaborativeFilteringTemplate)
         self.templates.append(DefaultTimeSeriesForcastingTemplate)
-        """
+        
         self.templates.append(CMUTimeSeriesForcastingTemplate)
-        """
+        
         self.templates.append(CMUClusteringTemplate)
         self.templates.append(MichiganVideoClassificationTemplate)
 
@@ -296,7 +296,7 @@ class TemplateLibrary:
         self.templates.append(DistilPreprocessingTemplate)
         self.templates.append(dsboxClassificationTemplate)
         self.templates.append(dsboxRegressionTemplate)
-        """
+        
         self._validate_templates(self.templates)
 
     def _load_single_inline_templates(self, template_name):
@@ -2170,7 +2170,7 @@ class CMUTimeSeriesForcastingTemplate(DSBoxTemplate):
                 },
                 # read Y value
                 {
-                    "name": "pre_extract_target_step",
+                    "name": "extract_target_step",
                     "primitives": [{
                         "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.DataFrameCommon",
                         "hyperparameters":
@@ -2180,16 +2180,6 @@ class CMUTimeSeriesForcastingTemplate(DSBoxTemplate):
                              }
                     }],
                     "inputs": ["column_parser_step"]
-                },
-                {
-                    "name": "extract_target_step",
-                    "primitives": [{
-                        "primitive": "d3m.primitives.data_transformation.to_numeric.DSBOX",
-                        "hyperparameters": {
-                            "drop_non_numeric_columns": [False]
-                        }
-                    }],
-                    "inputs": ["pre_extract_target_step"]
                 },
                 {
                     "name": "model_step",
@@ -2205,6 +2195,11 @@ class CMUTimeSeriesForcastingTemplate(DSBoxTemplate):
                     ],
                     "inputs": ["scaler_step", "extract_target_step"]
                 },
+                {
+                    "name":"predict_step",
+                    "primitives":["d3m.primitives.data_transformation.construct_predictions.DataFrameCommon"],
+                    "inputs":["model_step", "column_parser_step"]
+                }
             ]
         }
 
