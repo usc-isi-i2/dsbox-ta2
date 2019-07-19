@@ -4510,7 +4510,7 @@ class CornellMatrixFactorization(DSBoxTemplate):
         DSBoxTemplate.__init__(self)
         self.template = {
             "name": "Cornell_matrix_factorization",
-            "taskType": {TaskType.COLLABORATIVE_FILTERING.name, TaskType.VERTEX_NOMINATION.name, TaskType.COMMUNITY_DETECTION.name, TaskType.LINK_PREDICTION.name},
+            "taskType": {TaskType.COLLABORATIVE_FILTERING.name, TaskType.VERTEX_CLASSIFICATION.name, TaskType.COMMUNITY_DETECTION.name, TaskType.LINK_PREDICTION.name},
             "taskSubtype":  {"NONE", TaskSubtype.NONOVERLAPPING.name, TaskSubtype.OVERLAPPING.name, TaskSubtype.MULTICLASS.name, TaskSubtype.BINARY.name, TaskSubtype.MULTILABEL.name, TaskSubtype.MULTIVARIATE.name, TaskSubtype.UNIVARIATE.name},
             #"taskSubtype": "NONE",
             #"inputType": "table",
