@@ -97,7 +97,7 @@ class TemplateLibrary:
 
             # graph
             "ISI_graph_norm_clf": ISIGraphNormClf,
-            "":SRIVertexClassificationTemplate,
+            "SRI_vertex_classification_template":SRIVertexClassificationTemplate,
             # "ISI_gcn": ISI_GCN,
 
             # text
