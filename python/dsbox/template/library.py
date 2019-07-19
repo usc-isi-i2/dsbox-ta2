@@ -130,6 +130,8 @@ class TemplateLibrary:
             "LupiRfClassification": LupiRfClassification,
             "BBN_acled_problem_template": BBNacledProblemTemplate,
             "Distil_acled_problem_template":DistilacledProblemTemplate,
+
+            "alternative_classification_template": AlternativeClassificationTemplate,
         }
 
         if run_single_template:
@@ -216,6 +218,7 @@ class TemplateLibrary:
         self.templates.append(DefaultClassificationTemplate)
         self.templates.append(NaiveBayesClassificationTemplate)
         self.templates.append(DefaultRegressionTemplate)
+        self.templates.append(AlternativeClassificationTemplate)
 
         # new tabular classification
         # Muxin said it was already included in DefaultClassification
@@ -225,7 +228,7 @@ class TemplateLibrary:
 
         # takes too long to run
         # self.templates.append(SVCClassificationTemplate)
-        
+
         # new tabular regression
         self.templates.append(RandomForestRegressionTemplate)
         self.templates.append(ExtraTreesRegressionTemplate)
@@ -275,9 +278,9 @@ class TemplateLibrary:
         self.templates.append(BBNAudioClassificationTemplate)
         self.templates.append(SRICollaborativeFilteringTemplate)
         self.templates.append(DefaultTimeSeriesForcastingTemplate)
-        
+
         self.templates.append(CMUTimeSeriesForcastingTemplate)
-        
+
         self.templates.append(CMUClusteringTemplate)
         self.templates.append(MichiganVideoClassificationTemplate)
 
@@ -301,7 +304,7 @@ class TemplateLibrary:
         self.templates.append(DistilPreprocessingTemplate)
         self.templates.append(dsboxClassificationTemplate)
         self.templates.append(dsboxRegressionTemplate)
-        
+
         self._validate_templates(self.templates)
 
     def _load_single_inline_templates(self, template_name):
@@ -409,6 +412,40 @@ class DefaultClassificationTemplate(DSBoxTemplate):
                                             'min_samples_leaf': [1, 2],
                                          }
                                  },
+                             ],
+                             "inputs": ["feature_selector_step", "target"]
+                         }
+                     ]
+        }
+
+################################################################################################
+# Alternative classifiers. Now that we have three hours.
+################################################################################################
+class AlternativeClassificationTemplate(DSBoxTemplate):
+    def __init__(self):
+        DSBoxTemplate.__init__(self)
+        self.template = {
+            "name": "alternative_classification_template",
+            "taskSubtype": {TaskSubtype.BINARY.name, TaskSubtype.MULTICLASS.name},
+            "taskType": TaskType.CLASSIFICATION.name,
+            # See TaskType, range include 'CLASSIFICATION', 'CLUSTERING', 'COLLABORATIVE_FILTERING',
+            # 'COMMUNITY_DETECTION', 'GRAPH_CLUSTERING', 'GRAPH_MATCHING', 'LINK_PREDICTION',
+            # 'REGRESSION', 'TIME_SERIES_FORECASTING', 'VERTEX_NOMINATION'
+            "inputType": "table",  # See SEMANTIC_TYPES.keys() for range of values
+            "output": "model_step",  # Name of the final step generating the prediction
+            "target": "extract_target_step",  # Name of the step generating the ground truth
+            "steps": TemplateSteps.dsbox_generic_steps() +
+                     TemplateSteps.dsbox_feature_selector("classification",
+                                                          first_input='data',
+                                                          second_input='target') +
+                     [
+                         {
+                             "name": "model_step",
+                             "runtime": {
+                                 "cross_validation": 5,
+                                 "stratified": True
+                             },
+                             "primitives": [
                                  "d3m.primitives.classification.logistic_regression.SKlearn",
                                  "d3m.primitives.classification.linear_discriminant_analysis.SKlearn",
                                  "d3m.primitives.classification.passive_aggressive.SKlearn",
@@ -418,6 +455,7 @@ class DefaultClassificationTemplate(DSBoxTemplate):
                          }
                      ]
         }
+
 ################################################################################################
 # semisupervised classification template, combine for dsbox's steps
 ################################################################################################
@@ -3355,7 +3393,7 @@ class DefaultLinkPredictionTemplate(DSBoxTemplate):
             ]
         }
 
-    
+
 class SRIGraphMatchingTemplate(DSBoxTemplate):
     def __init__(self):
         DSBoxTemplate.__init__(self)
