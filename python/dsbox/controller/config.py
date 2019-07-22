@@ -197,8 +197,8 @@ class DsboxConfig:
                 self.problem_schema = os.environ['D3MPROBLEMPATH']
             else:
                 print('D3MPROBLEMPATH environment variable not defined.')
-        self.datamart_nyu_url = os.environ.get('DATAMART_NYU_URL', default='')
-        self.datamart_isi_url = os.environ.get('DATAMART_ISI_URL', default='')
+        self.datamart_nyu_url = os.environ.get('DATAMART_URL_NYU', default='')
+        self.datamart_isi_url = os.environ.get('DATAMART_URL_ISI', default='')
 
     def _load_dsbox(self):
         self._load_logging()
