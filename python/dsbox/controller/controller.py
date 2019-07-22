@@ -648,7 +648,8 @@ class Controller:
         import datamart_nyu
         import datamart
         augment_times = 0
-        datamart_unit = datamart_nyu.RESTDatamart()
+
+        datamart_unit = datamart_nyu.RESTDatamart(connection_url=self.config.datamart_nyu_url)
 
         # if self.all_dataset.metadata.query(())['id'].startswith("DA_medical_malpractice"):
             # pass
@@ -1748,8 +1749,7 @@ class Controller:
                 else:
                     dataset.save((dataset_dir / "datasetDoc.json").as_uri())
         except Exception:
-            # self._logger.debug("Failed to save dataset splits", exc_info=True)
-            pass
+            logger.debug("Failed to save dataset splits", exc_info=True)
 
     # Methods used by TA3
 
