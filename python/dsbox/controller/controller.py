@@ -336,93 +336,93 @@ class Controller:
             (directory / rank_file).with_suffix('.json').unlink()
             (directory / rank_file).with_suffix('.rank').unlink()
 
-    def _process_pipeline_submission_old(self) -> None:
-        self._logger.info(f'Moving top 20 pipelines to {self.config.pipelines_ranked_dir}')
+    # def _process_pipeline_submission_old(self) -> None:
+    #     self._logger.info(f'Moving top 20 pipelines to {self.config.pipelines_ranked_dir}')
 
-        # Get list of (rank, pipeline) pairs
-        pipeline_files = os.listdir(self.config.pipelines_scored_dir)
-        ranked_list = []
-        for filename in pipeline_files:
-            if filename.endswith("json"):
-                filepath = os.path.join(self.config.pipelines_scored_dir, filename)
-                with open(filepath) as f:
-                    pipeline = json.load(f)
-                    try:
-                        if 'pipeline_rank' in pipeline:
-                            ranked_list.append((pipeline['pipeline_rank'], filename))
-                        else:
-                            # Move pipelines without scores to pipelines_searched directory
-                            self._logger.info(f'Pipeline does not have score. id={pipeline["id"]}')
-                            shutil.move(filepath, self.config.pipelines_searched_dir)
-                    except:
-                        self._logger.warning("Broken or unfinished pipeline: " + str(filepath))
-        if not ranked_list:
-            self._logger.warning('No ranked pipelines found.')
-            return
+    #     # Get list of (rank, pipeline) pairs
+    #     pipeline_files = os.listdir(self.config.pipelines_scored_dir)
+    #     ranked_list = []
+    #     for filename in pipeline_files:
+    #         if filename.endswith("json"):
+    #             filepath = os.path.join(self.config.pipelines_scored_dir, filename)
+    #             with open(filepath) as f:
+    #                 pipeline = json.load(f)
+    #                 try:
+    #                     if 'pipeline_rank' in pipeline:
+    #                         ranked_list.append((pipeline['pipeline_rank'], filename))
+    #                     else:
+    #                         # Move pipelines without scores to pipelines_searched directory
+    #                         self._logger.info(f'Pipeline does not have score. id={pipeline["id"]}')
+    #                         shutil.move(filepath, self.config.pipelines_searched_dir)
+    #                 except:
+    #                     self._logger.warning("Broken or unfinished pipeline: " + str(filepath))
+    #     if not ranked_list:
+    #         self._logger.warning('No ranked pipelines found.')
+    #         return
 
-        # Copy top 20 pipelines to pipelines_ranked directory
-        sorted(ranked_list, key=operator.itemgetter(0))
-        for _, filename in ranked_list[:20]:
-            shutil.copy(os.path.join(self.config.pipelines_scored_dir, filename), self.config.pipelines_ranked_dir)
+    #     # Copy top 20 pipelines to pipelines_ranked directory
+    #     sorted(ranked_list, key=operator.itemgetter(0))
+    #     for _, filename in ranked_list[:20]:
+    #         shutil.copy(os.path.join(self.config.pipelines_scored_dir, filename), self.config.pipelines_ranked_dir)
 
-    def _process_pipeline_submission_old2(self) -> None:
-        output_dir = os.path.dirname(self.output_pipelines_dir)
-        print("[PROSKA]:", output_dir)
-        pipelines_root: str = os.path.join(output_dir, 'pipelines')
-        executables_root: str = os.path.join(output_dir, 'executables')
-        supporting_root: str = os.path.join(output_dir, 'supporting_files')
-        # os.path.join(os.path.dirname(executables_root), 'pipelines')
+    # def _process_pipeline_submission_old2(self) -> None:
+    #     output_dir = os.path.dirname(self.output_pipelines_dir)
+    #     print("[PROSKA]:", output_dir)
+    #     pipelines_root: str = os.path.join(output_dir, 'pipelines')
+    #     executables_root: str = os.path.join(output_dir, 'executables')
+    #     supporting_root: str = os.path.join(output_dir, 'supporting_files')
+    #     # os.path.join(os.path.dirname(executables_root), 'pipelines')
 
-        # Read all the json files in the pipelines
-        piplines_name_list = os.listdir(pipelines_root)
-        if len(piplines_name_list) < 20:
-            for name in piplines_name_list:
-                try:
-                    with open(os.path.join(pipelines_root, name)) as f:
-                        rank = json.load(f)['pipeline_rank']
-                except:
-                    os.remove(os.path.join(pipelines_root, name))
-            return
+    #     # Read all the json files in the pipelines
+    #     piplines_name_list = os.listdir(pipelines_root)
+    #     if len(piplines_name_list) < 20:
+    #         for name in piplines_name_list:
+    #             try:
+    #                 with open(os.path.join(pipelines_root, name)) as f:
+    #                     rank = json.load(f)['pipeline_rank']
+    #             except:
+    #                 os.remove(os.path.join(pipelines_root, name))
+    #         return
 
-        pipelines_df = pd.DataFrame(0.0, index=piplines_name_list, columns=["rank"])
-        for name in piplines_name_list:
-            try:
-                with open(os.path.join(pipelines_root, name)) as f:
-                    rank = json.load(f)['pipeline_rank']
-                pipelines_df.at[name, 'rank'] = rank
-            except:
-                os.remove(os.path.join(pipelines_root, name))
+    #     pipelines_df = pd.DataFrame(0.0, index=piplines_name_list, columns=["rank"])
+    #     for name in piplines_name_list:
+    #         try:
+    #             with open(os.path.join(pipelines_root, name)) as f:
+    #                 rank = json.load(f)['pipeline_rank']
+    #             pipelines_df.at[name, 'rank'] = rank
+    #         except:
+    #             os.remove(os.path.join(pipelines_root, name))
 
 
-        # sort them based on their rank field
-        pipelines_df.sort_values(by='rank', ascending=True, inplace=True)
+    #     # sort them based on their rank field
+    #     pipelines_df.sort_values(by='rank', ascending=True, inplace=True)
 
-        # make sure that "pipeline_considered" directory exists
-        considered_root = os.path.join(os.path.dirname(pipelines_root), 'pipelines_considered')
-        try:
-            os.mkdir(considered_root)
-        except FileExistsError:
-            pass
+    #     # make sure that "pipeline_considered" directory exists
+    #     considered_root = os.path.join(os.path.dirname(pipelines_root), 'pipelines_considered')
+    #     try:
+    #         os.mkdir(considered_root)
+    #     except FileExistsError:
+    #         pass
 
-        # pick the top 20 and move the rest to "pipeline_considered" directory
-        for name in pipelines_df.index[20:]:
-            os.rename(src=os.path.join(pipelines_root, name),
-                      dst=os.path.join(considered_root, name))
+    #     # pick the top 20 and move the rest to "pipeline_considered" directory
+    #     for name in pipelines_df.index[20:]:
+    #         os.rename(src=os.path.join(pipelines_root, name),
+    #                   dst=os.path.join(considered_root, name))
 
-        # delete the exec and supporting files related the moved pipelines
-        for name in pipelines_df.index[20:]:
-            pipeName = name.split('.')[0]
-            try:
-                os.remove(os.path.join(executables_root, pipeName + '.json'))
-            except FileNotFoundError:
-                traceback.print_exc()
-                pass
+    #     # delete the exec and supporting files related the moved pipelines
+    #     for name in pipelines_df.index[20:]:
+    #         pipeName = name.split('.')[0]
+    #         try:
+    #             os.remove(os.path.join(executables_root, pipeName + '.json'))
+    #         except FileNotFoundError:
+    #             traceback.print_exc()
+    #             pass
 
-            try:
-                shutil.rmtree(os.path.join(supporting_root, pipeName))
-            except FileNotFoundError:
-                traceback.print_exc()
-                pass
+    #         try:
+    #             shutil.rmtree(os.path.join(supporting_root, pipeName))
+    #         except FileNotFoundError:
+    #             traceback.print_exc()
+    #             pass
 
     def _run_SerialBaseSearch(self, report_ensemble, *, one_pipeline_only=False):
         self._search_method.initialize_problem(
