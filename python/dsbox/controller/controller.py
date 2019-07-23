@@ -12,8 +12,6 @@ import traceback
 import typing
 import copy
 import pandas as pd  # type: ignore
-import multiprocessing
-from d3m import exceptions
 from d3m.base import utils as d3m_utils
 from d3m.container.dataset import Dataset, D3MDatasetLoader
 from d3m.metadata.base import ALL_ELEMENTS
@@ -21,8 +19,8 @@ from d3m.metadata.problem import TaskType
 
 from dsbox.combinatorial_search.TemplateSpaceBaseSearch import TemplateSpaceBaseSearch
 from dsbox.combinatorial_search.TemplateSpaceParallelBaseSearch import TemplateSpaceParallelBaseSearch
-from dsbox.combinatorial_search.BanditDimensionalSearch import BanditDimensionalSearch
-from dsbox.combinatorial_search.MultiBanditSearch import MultiBanditSearch
+# from dsbox.combinatorial_search.BanditDimensionalSearch import BanditDimensionalSearch
+# from dsbox.combinatorial_search.MultiBanditSearch import MultiBanditSearch
 from dsbox.controller.config import DsboxConfig
 from dsbox.schema import ColumnRole, SpecializedProblem
 from dsbox.pipeline.fitted_pipeline import FittedPipeline
@@ -472,82 +470,82 @@ class Controller:
 
         self._search_method.job_manager.reset()
 
-    def _run_RandomDimSearch(self, report_ensemble):
-        # !! Need to updated
-        self._search_method = RandomDimensionalSearch(
-            template_list=self.template,
-            performance_metrics=self.config.problem['problem']['performance_metrics'],
-            problem=self.config.problem,
-            test_dataset1=self.test_dataset1,
-            train_dataset1=self.train_dataset1,
-            test_dataset2=self.test_dataset2,
-            train_dataset2=self.train_dataset2,
-            all_dataset=self.all_dataset,
-            ensemble_tuning_dataset=self.ensemble_dataset,
-            output_directory=self.config.output_dir,
-            log_dir=self.config.log_dir,
-            num_proc=self.config.cpu,
-            timeout=self.config.timeout_search,
-            extra_primitive=self.extra_primitive,
-        )
-        report = self._search_method.search(num_iter=10)
-        if report_ensemble:
-            report_ensemble['report'] = report
-        self._log_search_results(report=report)
+    # def _run_RandomDimSearch(self, report_ensemble):
+    #     # !! Need to updated
+    #     self._search_method = RandomDimensionalSearch(
+    #         template_list=self.template,
+    #         performance_metrics=self.config.problem['problem']['performance_metrics'],
+    #         problem=self.config.problem,
+    #         test_dataset1=self.test_dataset1,
+    #         train_dataset1=self.train_dataset1,
+    #         test_dataset2=self.test_dataset2,
+    #         train_dataset2=self.train_dataset2,
+    #         all_dataset=self.all_dataset,
+    #         ensemble_tuning_dataset=self.ensemble_dataset,
+    #         output_directory=self.config.output_dir,
+    #         log_dir=self.config.log_dir,
+    #         num_proc=self.config.cpu,
+    #         timeout=self.config.timeout_search,
+    #         extra_primitive=self.extra_primitive,
+    #     )
+    #     report = self._search_method.search(num_iter=10)
+    #     if report_ensemble:
+    #         report_ensemble['report'] = report
+    #     self._log_search_results(report=report)
 
-        self._search_method.job_manager.reset()
+    #     self._search_method.job_manager.reset()
 
-    def _run_BanditDimSearch(self, report_ensemble):
-        # !! Need to updated
-        self._search_method = BanditDimensionalSearch(
-            template_list=self.template,
-            performance_metrics=self.config.problem['problem']['performance_metrics'],
-            problem=self.config.problem,
-            test_dataset1=self.test_dataset1,
-            train_dataset1=self.train_dataset1,
-            test_dataset2=self.test_dataset2,
-            train_dataset2=self.train_dataset2,
-            all_dataset=self.all_dataset,
-            ensemble_tuning_dataset = self.ensemble_dataset,
-            output_directory=self.config.output_dir,
-            log_dir=self.config.log_dir,
-            num_proc=self.config.cpu,
-            start_time=self.config.start_time,
-            timeout=self.config.timeout_search,
-            extra_primitive=self.extra_primitive,
-        )
-        report = self._search_method.search(num_iter=5)
-        if report_ensemble:
-            report_ensemble['report'] = report
-        self._log_search_results(report=report)
+    # def _run_BanditDimSearch(self, report_ensemble):
+    #     # !! Need to updated
+    #     self._search_method = BanditDimensionalSearch(
+    #         template_list=self.template,
+    #         performance_metrics=self.config.problem['problem']['performance_metrics'],
+    #         problem=self.config.problem,
+    #         test_dataset1=self.test_dataset1,
+    #         train_dataset1=self.train_dataset1,
+    #         test_dataset2=self.test_dataset2,
+    #         train_dataset2=self.train_dataset2,
+    #         all_dataset=self.all_dataset,
+    #         ensemble_tuning_dataset = self.ensemble_dataset,
+    #         output_directory=self.config.output_dir,
+    #         log_dir=self.config.log_dir,
+    #         num_proc=self.config.cpu,
+    #         start_time=self.config.start_time,
+    #         timeout=self.config.timeout_search,
+    #         extra_primitive=self.extra_primitive,
+    #     )
+    #     report = self._search_method.search(num_iter=5)
+    #     if report_ensemble:
+    #         report_ensemble['report'] = report
+    #     self._log_search_results(report=report)
 
-        self._search_method.job_manager.reset()
+    #     self._search_method.job_manager.reset()
 
-    def _run_MultiBanditSearch(self, report_ensemble):
-        # !! Need to updated
-        self._search_method = MultiBanditSearch(
-            template_list=self.template,
-            performance_metrics=self.config.problem['problem']['performance_metrics'],
-            problem=self.config.problem,
-            test_dataset1=self.test_dataset1,
-            train_dataset1=self.train_dataset1,
-            test_dataset2=self.test_dataset2,
-            train_dataset2=self.train_dataset2,
-            all_dataset=self.all_dataset,
-            ensemble_tuning_dataset = self.ensemble_dataset,
-            output_directory=self.config.output_dir,
-            log_dir=self.config.log_dir,
-            num_proc=self.config.cpu,
-            start_time=self.config.start_time,
-            timeout=self.config.timeout_search,
-            extra_primitive=self.extra_primitive,
-        )
-        report = self._search_method.search(num_iter=30)
-        if report_ensemble:
-            report_ensemble['report'] = report
-        self._log_search_results(report=report)
+    # def _run_MultiBanditSearch(self, report_ensemble):
+    #     # !! Need to updated
+    #     self._search_method = MultiBanditSearch(
+    #         template_list=self.template,
+    #         performance_metrics=self.config.problem['problem']['performance_metrics'],
+    #         problem=self.config.problem,
+    #         test_dataset1=self.test_dataset1,
+    #         train_dataset1=self.train_dataset1,
+    #         test_dataset2=self.test_dataset2,
+    #         train_dataset2=self.train_dataset2,
+    #         all_dataset=self.all_dataset,
+    #         ensemble_tuning_dataset = self.ensemble_dataset,
+    #         output_directory=self.config.output_dir,
+    #         log_dir=self.config.log_dir,
+    #         num_proc=self.config.cpu,
+    #         start_time=self.config.start_time,
+    #         timeout=self.config.timeout_search,
+    #         extra_primitive=self.extra_primitive,
+    #     )
+    #     report = self._search_method.search(num_iter=30)
+    #     if report_ensemble:
+    #         report_ensemble['report'] = report
+    #     self._log_search_results(report=report)
 
-        self._search_method.job_manager.reset()
+    #     self._search_method.job_manager.reset()
 
     """
         **********************************************************************
@@ -664,7 +662,7 @@ class Controller:
             for each in each_domain.values():
                 keywords.extend(each)
 
-        keywrods = list(set(keywords))
+        keywords = list(set(keywords))
 
         variables = []
 
@@ -707,7 +705,7 @@ class Controller:
         hyper_augment_default = hyper_augment_default.replace({"system_identifier":"NYU"})
 
         search_result_list = all_results1[:5]
-        augment_res_list = []
+        # augment_res_list = []
         for search_res in search_result_list:
             try:
                 hyper_temp = hyper_augment_default.replace({"search_result":search_res.serialize()})
@@ -1108,11 +1106,11 @@ class Controller:
             return dataset
 
         resID, _ = d3m_utils.get_tabular_resource(dataset=dataset, resource_id=None)
-        targets = list(dataset.metadata.list_columns_with_semantic_types(
-            ['https://metadata.datadrivendiscovery.org/types/TrueTarget'],
-            at=(resID,),
-        ))
-        colIndex = targets[0]
+        # targets = list(dataset.metadata.list_columns_with_semantic_types(
+        #     ['https://metadata.datadrivendiscovery.org/types/TrueTarget'],
+        #     at=(resID,),
+        # ))
+        # colIndex = targets[0]
 
         # TODO: update to use D3M's method to accelerate the processing speed
 
@@ -1154,8 +1152,8 @@ class Controller:
             return dataset_with_new_meta
         '''
         task_type = self.problem_info["task_type"]  # ['problem']['task_type'].name  # 'classification' 'regression'
-        res_id = self.problem_info["res_id"]
-        target_index = self.problem_info["target_index"]
+        # res_id = self.problem_info["res_id"]
+        # target_index = self.problem_info["target_index"]
         data_type = self.problem_info["data_type"]
 
         cannot_split = False
@@ -1749,7 +1747,7 @@ class Controller:
                 else:
                     dataset.save((dataset_dir / "datasetDoc.json").as_uri())
         except Exception:
-            logger.debug("Failed to save dataset splits", exc_info=True)
+            self._logger.debug("Failed to save dataset splits", exc_info=True)
 
     # Methods used by TA3
 
