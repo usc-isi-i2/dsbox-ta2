@@ -95,7 +95,7 @@ class CandidateCache:
 
         key = CandidateCache._get_hash(candidate)
         if key in self.storage:
-            _logger.info("[INFO] hit@Candidate: ({})".format(key))
+            _logger.info("hit@Candidate: ({})".format(key))
             return self.storage[key]
         else:
             return None
@@ -220,7 +220,7 @@ class PrimitivesCache:
         try:
             if not self.is_hit_key(prim_name=prim_name, prim_hash=prim_hash):
                 self.storage[(prim_name, prim_hash)] = (fitting_time, model)
-                _logger.debug(f"[INFO] Push@cache:{prim_name},{prim_hash}")
+                _logger.debug(f"Push@cache:{prim_name},{prim_hash}")
                 # print(f"[INFO] Push@cache:{prim_name},{prim_hash}")
                 return 0
             else:
@@ -243,7 +243,7 @@ class PrimitivesCache:
 
     def lookup_key(self, prim_hash: int, prim_name: int) -> typing.Tuple[Dataset, PrimitiveBase]:
         if self.is_hit_key(prim_name=prim_name, prim_hash=prim_hash):
-            _logger.debug("[INFO] Hit@cache: {},{}".format(prim_name, prim_hash))
+            _logger.debug("Hit@cache: {},{}".format(prim_name, prim_hash))
             # print("[INFO] Hit@cache: {},{}".format(prim_name, prim_hash))
             return self.storage[(prim_name, prim_hash)]
         else:
@@ -301,5 +301,5 @@ class PrimitivesCache:
 
         dataset_hash = hash(str(dataset_value_hash) + dataset_id + dataset_digest)
         prim_hash = hash(str([hyperparam_hash, dataset_hash, hash_prefix]))
-        _logger.debug("[INFO] hash: {}, {}".format(prim_name, prim_hash))
+        _logger.debug("hash: {}, {}".format(prim_name, prim_hash))
         return prim_name, prim_hash

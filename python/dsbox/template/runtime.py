@@ -5,7 +5,6 @@ import os
 import sys
 import tempfile
 import time
-import traceback
 import typing
 import pdb
 
@@ -21,7 +20,7 @@ from sklearn.model_selection import KFold, StratifiedKFold  # type: ignore
 
 from d3m import container
 from d3m import exceptions
-from d3m.metadata import base as metadata_base, hyperparams as hyperparams_module, pipeline as pipeline_module, pipeline_run as pipeline_run_module, problem
+from d3m.metadata import base as metadata_base, pipeline as pipeline_module, pipeline_run as pipeline_run_module, problem
 from d3m.primitive_interfaces import base
 
 from dsbox.JobManager.cache import PrimitivesCache
@@ -50,6 +49,7 @@ class ForkedPdb(pdb.Pdb):
 logging.getLogger("urllib3").setLevel(logging.WARNING)
 logging.getLogger("theano").setLevel(logging.WARNING)
 logging.getLogger("dill").setLevel(logging.WARNING)
+logging.getLogger("d3m.metadata.pipeline_run").setLevel(logging.ERROR)
 
 
 class Runtime(runtime_base.Runtime):
@@ -151,7 +151,9 @@ class Runtime(runtime_base.Runtime):
         if step.primitive is None:
             raise exceptions.InvalidPipelineError("Primitive has not been resolved.")
 
-        primitive_base: PrimitiveBaseMeta = step.primitive
+        _logger.debug(f"Start primitive: {step.primitive.metadata.query()['name']}")
+
+        primitive_base: typing.Type[base.PrimitiveBase] = step.primitive
 
         time_start = time.time()
         cache_hit: bool = False
@@ -278,7 +280,7 @@ class Runtime(runtime_base.Runtime):
 
         # add up the timing
         self.timing["total_time_used"] += (time.time() - time_start)
-        _logger.debug(f"   done primitive: {step.primitive.metadata.query()['name']}")
+        _logger.debug(f"Done  primitive: {step.primitive.metadata.query()['name']}")
 
     def _equals(self, outputs_actual: typing.Dict, outputs: typing.Dict) -> typing.Tuple[bool, str]:
         try:
@@ -857,6 +859,7 @@ class Runtime(runtime_base.Runtime):
         else:
             raise res.error
 
+# Command-line related code copied from D3M runtime.py
 import argparse
 import json
 import frozendict  # type: ignore

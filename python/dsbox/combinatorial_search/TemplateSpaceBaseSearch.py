@@ -7,7 +7,6 @@ import typing
 import d3m.metadata.problem as problem
 
 from d3m.container.dataset import Dataset
-from d3m.metadata.base import Metadata
 from dsbox.combinatorial_search.ConfigurationSpaceBaseSearch import ConfigurationSpaceBaseSearch
 from dsbox.template.configuration_space import ConfigurationPoint
 from dsbox.combinatorial_search.ExecutionHistory import ExecutionHistory
