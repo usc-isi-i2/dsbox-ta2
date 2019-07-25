@@ -45,7 +45,11 @@ class TemplateSpaceParallelBaseSearch(TemplateSpaceBaseSearch[T]):
     def __init__(self, num_proc):
         super().__init__(is_multiprocessing=True)
         self.job_manager = DistributedJobManager(proc_num=num_proc)
+        self.num_proc = num_proc
         self.timeout_sec = None
+        self.jobs_completed = 0
+        self.jobs_pushed = 0
+
 
     def initialize_problem(self, template_list: typing.List[DSBoxTemplate],
                            performance_metrics: typing.List[typing.Dict],
@@ -133,19 +137,18 @@ class TemplateSpaceParallelBaseSearch(TemplateSpaceBaseSearch[T]):
             None
         """
         _logger.debug("Waiting for the results")
-        counter = 0
         try:
             wait_seconds = self.start_time + self.timeout_sec - time.perf_counter()
-            while (counter < max_num) and (not self.job_manager.is_idle()) and wait_seconds > 15:
-                # print("[INFO] Sleeping,", counter)
-                _logger.info(f"Main Process jobs_completed:{counter}, timeout={wait_seconds}")
+            while (self.jobs_completed < max_num) and (not self.job_manager.is_idle()) and wait_seconds > 15:
+                # print("[INFO] Sleeping,", self.jobs_completed)
+                _logger.info(f"Main Process jobs_completed:{self.jobs_completed}, timeout={wait_seconds}")
                 if wait_seconds > 15:
                     (kwargs_bundle, report) = self.job_manager.pop_job(block=True, timeout=wait_seconds)
                     _logger.info(f"kwargs: {kwargs_bundle}")
 
                     self._add_report_to_history(kwargs_bundle, report)
 
-                counter += 1
+                self.jobs_completed += 1
                 wait_seconds = self.start_time + self.timeout_sec - time.perf_counter()
 
             if wait_seconds > 15:
@@ -191,12 +194,19 @@ class TemplateSpaceParallelBaseSearch(TemplateSpaceBaseSearch[T]):
         for candidate in self._sample_random_pipeline(search=search, num_iter=num_iter):
 
             try:
-                wait_seconds = self.start_time + self.timeout_sec - time.perf_counter()
+                while True:
+                    wait_seconds = self.start_time + self.timeout_sec - time.perf_counter()
+                    long_queue: bool = self.jobs_pushed - self.jobs_completed > 2 * self.num_proc
+                    if long_queue and wait_seconds > 16:
+                        time.sleep(1)
+                    else:
+                        break
                 if wait_seconds > 15:
                     # push the candidate to the job manager
                     self.job_manager.push_job(
                         kwargs_bundle=self._prepare_job_posting(candidate=candidate,
                                                                 search=search))
+                    self.jobs_pushed += 1
                 else:
                     _logger.warning('Timed out before pushing all the candiates')
                     break
