@@ -131,11 +131,13 @@ class Runtime(runtime_base.Runtime):
         self.use_cache = False
         # self.timing["total_time_used_without_cache"] = 0.0
 
-        # !
+        # ! Not used?
         self.skip_fit_phase = False
 
         # Debug mode. If true compare cache with actual result.
         self.validate_cache = True
+
+        self.skip_cross_valiation = True
 
     def set_not_use_cache(self) -> None:
         self.use_cache = False
