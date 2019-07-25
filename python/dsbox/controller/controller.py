@@ -1086,10 +1086,10 @@ class Controller:
 
     def load_templates(self) -> None:
 
-        self.template = self.template_library.get_templates(self.config.task_type,
-                                                            self.config.task_subtype,
-                                                            self.taskSourceType,
-                                                            self.specialized_problem)
+        self.template_list = self.template_library.get_templates(self.config.task_type,
+                                                                 self.config.task_subtype,
+                                                                 self.taskSourceType,
+                                                                 self.specialized_problem)
         # find the maximum dataset split requirements
         for each_template in self.template_list:
             for each_step in each_template.template['steps']:
@@ -1442,7 +1442,7 @@ class Controller:
         Generate and train pipelines.
         """
         logging.getLogger("d3m").setLevel(logging.ERROR)
-        if not self.template:
+        if not self.template_list:
             return Status.PROBLEM_NOT_IMPLEMENT
 
         self.generate_dataset_splits()
