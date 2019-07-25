@@ -137,8 +137,6 @@ class Runtime(runtime_base.Runtime):
         # Debug mode. If true compare cache with actual result.
         self.validate_cache = True
 
-        self.skip_cross_valiation = True
-
     def set_not_use_cache(self) -> None:
         self.use_cache = False
 
@@ -201,7 +199,7 @@ class Runtime(runtime_base.Runtime):
             return
 
         # Do cross validation
-        do_cross_validation = '_dsbox_runtime' in step.__dict__ and "cross_validation" in step._dsbox_runtime and not self.skip_cross_valiation
+        do_cross_validation = '_dsbox_runtime' in step.__dict__ and "cross_validation" in step._dsbox_runtime
         if (do_cross_validation
             and self.phase == metadata_base.PipelineRunPhase.FIT
             and not cache_hit):
