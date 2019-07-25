@@ -133,7 +133,7 @@ class TemplateLibrary:
             "Distil_acled_problem_template":DistilacledProblemTemplate,
             "CMU_acled_problem_template":CMUacledProblemTemplate,
 
-            # "alternative_classification_template": AlternativeClassificationTemplate,
+            "alternative_classification_template": AlternativeClassificationTemplate,
 
             # Multi-label
             "Multi_Label_tempalte": MultiLabelTemplate,
@@ -223,7 +223,7 @@ class TemplateLibrary:
         self.templates.append(DefaultClassificationTemplate)
         self.templates.append(NaiveBayesClassificationTemplate)
         self.templates.append(DefaultRegressionTemplate)
-        # self.templates.append(AlternativeClassificationTemplate)
+        self.templates.append(AlternativeClassificationTemplate)
 
         # new tabular classification
         # Muxin said it was already included in DefaultClassification
