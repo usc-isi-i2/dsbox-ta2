@@ -201,7 +201,7 @@ class Runtime(runtime_base.Runtime):
             return
 
         # Do cross validation
-        do_cross_validation = '_dsbox_runtime' in step.__dict__ and "cross_validation" in step._dsbox_runtime
+        do_cross_validation = '_dsbox_runtime' in step.__dict__ and "cross_validation" in step._dsbox_runtime and not self.skip_cross_valiation
         if (do_cross_validation
             and self.phase == metadata_base.PipelineRunPhase.FIT
             and not cache_hit):
