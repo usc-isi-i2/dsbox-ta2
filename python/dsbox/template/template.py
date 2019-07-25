@@ -4,6 +4,7 @@ import typing
 from itertools import product
 from pprint import pprint
 
+
 from d3m import container, exceptions, utils, index as d3m_index
 from d3m.metadata import base as metadata_base
 from d3m.metadata.pipeline import Pipeline, PrimitiveStep
@@ -16,6 +17,7 @@ class HyperparamDirective(utils.Enum):
     """
     DEFAULT = 1
     RANDOM = 2
+
 
 
 class DSBoxTemplate():
@@ -434,6 +436,7 @@ class DSBoxTemplate():
         # END FOR
         return SimpleConfigurationSpace(conf_space)
 
+
     def description_to_configuration(self, description):
         value = []
         # if the desciption is an dictionary:
@@ -490,3 +493,138 @@ def _product_dict(dct):
     vals = dct.values()
     for instance in product(*vals):
         yield dict(zip(keys, instance))
+
+
+
+class DSBoxTemplate_Dragonfly(DSBoxTemplate):
+    SEP = "__:__"
+
+    def get_drgnfly_config(self) -> \
+        typing.Dict[str, typing.Union[str, float, int]]:
+
+        drgnfly_config = {"name": self.template['name'], "domain": {}}
+        steps = self.template["steps"]
+
+        # step_size: int = None
+        for each_step in steps:
+            step_name = each_step["name"]
+
+            # prim_name = primitive_list['primitive']
+            # prim_id = step_name + DRAGONFLY_CONFIG_SEP + prim_name
+
+            primitive_list = each_step["primitives"]
+            for step_prim_desc in primitive_list:
+                # one primitive with no hyperparameter
+                step_id = step_name+self.SEP
+                if isinstance(step_prim_desc, str):
+                    # entry = self._string_primitive(step_name, step_prim_desc)
+                    drgnfly_config['domain'][step_id] = (
+                        self.drgn_entry(n=step_id,t='discrete',
+                                        it=[step_prim_desc])
+                    )
+                    # entry[1]
+                # one primitive with hyperparamters
+                elif isinstance(step_prim_desc, dict):
+                    self._dict_primitive(drgnfly_config,
+                                         step_prim_desc,
+                                         step_id)
+
+                # list of primitives
+                elif isinstance(step_prim_desc, list):
+                    added_prims = []
+                    for one_prim in step_prim_desc:
+                        if isinstance(one_prim, str):
+                            added_prims.append(one_prim)
+                        elif isinstance(one_prim, dict):
+                            prim_id = self._dict_primitive(drgnfly_config,
+                                                           one_prim,
+                                                           step_id)
+                            added_prims.append(prim_id)
+                        else:
+                            assert False
+                    drgnfly_config['domain'][step_id] = added_prims
+                else:
+                    # other data format, not supported, raise error
+                    print("Error: Wrong format of the description: "
+                          "Unsupported data format found : ", type())
+                    assert False
+
+        return drgnfly_config
+
+    def _dict_primitive(self, drgnfly_config, one_prim, step_id):
+        prim_id = step_id + one_prim['primitive']
+
+        assert isinstance(one_prim['hyperparameters'], dict)
+
+        for h_name, h_vals in one_prim['hyperparameters'].items():
+            hyper_id = (prim_id + self.SEP + h_name)
+            assert isinstance(h_vals, list) and len(h_vals) > 0
+
+            hyper_type = self.extract_hyper_type(h_vals)
+
+            drgnfly_config['domain'][hyper_id] = (
+                self.drgn_entry(n=step_id, t=hyper_type, it=h_vals)
+            )
+        return one_prim['primitive']
+
+    def extract_hyper_type(self, h_vals: typing.List) -> str:
+        if isinstance(h_vals[0], float):
+            return 'float'
+        elif isinstance(h_vals[0], int):
+            return 'int'
+        elif isinstance(h_vals[0], list):
+            return 'discrete'
+        return ('float' if isinstance(h_vals[0],
+                                      float)
+                else None)
+
+    def drgnfly_config_to_confpoint(self, drgn_conf_p: typing.Dict[str, Any_t])\
+            -> ConfigurationPoint:
+
+        assert 'domain' in drgn_conf_p and 'name' in drgn_conf_p
+
+        assert isinstance(drgn_conf_p['domain'], dict)
+
+        for e_name, e_val in drgn_conf_p['domain'].items():
+            split_name = e_name.split(self.SEP)
+            assert len(split_name) > 1
+
+            # primitive options in each step
+            if len(split_name) == 2:
+                assert len(split_name[1]) == 0
+
+
+
+
+    @staticmethod
+    def drgn_entry (n: str, t: str, mi: float = None, mx: float = None,
+                    it: list = None) -> typing.Dict[str, typing.Any]:
+        assert isinstance(n, str)
+        assert len(n) > 0
+
+        assert t in ['int', 'float', 'discrete', 'discrete_numeric', 'boolean']
+
+        if t in ['discrete_numeric', 'discrete']:
+            assert it is not None
+            assert isinstance(it, list)
+
+            if t == 'discrete_numeric':
+                assert all([isinstance(e, float) for e in it])
+
+            assert mi is None and mx is None
+
+            return {
+                "name": n,
+                "type": "discrete",
+                "items": "-".join(it),
+            }
+        elif t in ['int', 'float']:
+            assert it is None
+            assert mi is not None and mx is not None
+            return {
+                "name": n,
+                "type": t,
+                "min": mi,
+                "max": mx
+            }
+
