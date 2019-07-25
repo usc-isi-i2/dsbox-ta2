@@ -578,7 +578,7 @@ class DSBoxTemplate_Dragonfly(DSBoxTemplate):
                                       float)
                 else None)
 
-    def drgnfly_config_to_confpoint(self, drgn_conf_p: typing.Dict[str, Any_t])\
+    def drgnfly_config_to_confpoint(self, drgn_conf_p: typing.Dict[str, typing.Any])\
             -> ConfigurationPoint:
 
         assert 'domain' in drgn_conf_p and 'name' in drgn_conf_p
@@ -627,4 +627,3 @@ class DSBoxTemplate_Dragonfly(DSBoxTemplate):
                 "min": mi,
                 "max": mx
             }
-
