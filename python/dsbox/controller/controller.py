@@ -101,7 +101,7 @@ class Controller:
             self.template_library = TemplateLibrary(run_single_template=run_single_template_name)
         else:
             self.template_library = TemplateLibrary()
-        self.template: typing.List[DSBoxTemplate] = []
+        self.template_list: typing.List[DSBoxTemplate] = []
         self.max_split_times = 1
 
         # Primitives
@@ -427,7 +427,7 @@ class Controller:
 
     def _run_SerialBaseSearch(self, report_ensemble, *, one_pipeline_only=False):
         self._search_method.initialize_problem(
-            template_list=self.template,
+            template_list=self.template_list,
             performance_metrics=self.config.problem['problem']['performance_metrics'],
             problem=self.config.problem,
             test_dataset1=self.test_dataset1,
@@ -449,7 +449,7 @@ class Controller:
 
     def _run_ParallelBaseSearch(self, report_ensemble):
         self._search_method.initialize_problem(
-            template_list=self.template,
+            template_list=self.template_list,
             performance_metrics=self.config.problem['problem']['performance_metrics'],
             problem=self.config.problem,
             test_dataset1=self.test_dataset1,
@@ -463,8 +463,8 @@ class Controller:
             timeout_sec=self.config.timeout_search,
             extra_primitive=self.extra_primitive,
         )
-        report = self._search_method.search(num_iter=1000)
 
+        report = self._search_method.search(num_iter=1000)
         if report_ensemble:
             report_ensemble['report'] = report
         self._log_search_results(report=report)
@@ -1085,12 +1085,13 @@ class Controller:
         return self.config.output_dir, pipeline_load, read_pipeline_id, pipeline_load.runtime
 
     def load_templates(self) -> None:
+
         self.template = self.template_library.get_templates(self.config.task_type,
                                                             self.config.task_subtype,
                                                             self.taskSourceType,
                                                             self.specialized_problem)
         # find the maximum dataset split requirements
-        for each_template in self.template:
+        for each_template in self.template_list:
             for each_step in each_template.template['steps']:
                 if "runtime" in each_step and "test_validation" in each_step["runtime"]:
                     split_times = int(each_step["runtime"]["test_validation"])
