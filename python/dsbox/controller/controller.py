@@ -654,47 +654,48 @@ class Controller:
         # elif self.all_dataset.metadata.query(())['id'].startswith("DA_ny_taxi_demand"):
         augment_res = copy.copy(self.all_dataset)
 
-        keywords = []
-        keywrods_from_data = input_all_dataset.metadata.query(()).get('keywords')
-        if keywrods_from_data:
-            keywords.extend(keywrods_from_data)
-        for each_domain in self.config.problem['data_augmentation']:
-            for each in each_domain.values():
-                keywords.extend(each)
+        # keywords = []
+        # keywrods_from_data = input_all_dataset.metadata.query(()).get('keywords')
+        # if keywrods_from_data:
+        #     keywords.extend(keywrods_from_data)
+        # for each_domain in self.config.problem['data_augmentation']:
+        #     for each in each_domain.values():
+        #         keywords.extend(each)
 
-        keywords = list(set(keywords))
+        # keywords = list(set(keywords))
 
-        variables = []
+        # variables = []
 
-        for i in range(self.all_dataset[self.problem_info["res_id"]].shape[1]):
-            selector = (self.problem_info["res_id"], ALL_ELEMENTS, i)
-            each_column_meta = self.all_dataset.metadata.query(selector)
-            if "http://schema.org/DateTime" in each_column_meta['semantic_types']:
-                try:
-                    time_column = self.all_dataset[self.problem_info["res_id"]].iloc[:,i]
-                    column_data_datetime_format = pd.to_datetime(time_column)
-                    start_date = min(column_data_datetime_format)
-                    end_date = max(column_data_datetime_format)
-                    if any(column_data_datetime_format.dt.second != 0):
-                        time_granularity = 5
-                    elif any(column_data_datetime_format.dt.minute != 0):
-                        time_granularity = 4
-                    elif any(column_data_datetime_format.dt.hour != 0):
-                        time_granularity = 4
-                    elif any(column_data_datetime_format.dt.day != 0):
-                        time_granularity = 3
-                    elif any(column_data_datetime_format.dt.month != 0):
-                        time_granularity = 2
-                    elif any(column_data_datetime_format.dt.year != 0):
-                        time_granularity = 1
-                    variables.append(datamart.TemporalVariable(start=start_date, end=end_date, granularity=datamart.TemporalGranularity(time_granularity)))
-                except:
-                    self._logger.error("Parsing the DateTime column No." + str(i) + " for augment failed.")
+        # for i in range(self.all_dataset[self.problem_info["res_id"]].shape[1]):
+        #     selector = (self.problem_info["res_id"], ALL_ELEMENTS, i)
+        #     each_column_meta = self.all_dataset.metadata.query(selector)
+        #     if "http://schema.org/DateTime" in each_column_meta['semantic_types']:
+        #         try:
+        #             time_column = self.all_dataset[self.problem_info["res_id"]].iloc[:,i]
+        #             column_data_datetime_format = pd.to_datetime(time_column)
+        #             start_date = min(column_data_datetime_format)
+        #             end_date = max(column_data_datetime_format)
+        #             if any(column_data_datetime_format.dt.second != 0):
+        #                 time_granularity = 5
+        #             elif any(column_data_datetime_format.dt.minute != 0):
+        #                 time_granularity = 4
+        #             elif any(column_data_datetime_format.dt.hour != 0):
+        #                 time_granularity = 4
+        #             elif any(column_data_datetime_format.dt.day != 0):
+        #                 time_granularity = 3
+        #             elif any(column_data_datetime_format.dt.month != 0):
+        #                 time_granularity = 2
+        #             elif any(column_data_datetime_format.dt.year != 0):
+        #                 time_granularity = 1
+        #             variables.append(datamart.TemporalVariable(start=start_date, end=end_date, granularity=datamart.TemporalGranularity(time_granularity)))
+        #         except:
+        #             self._logger.error("Parsing the DateTime column No." + str(i) + " for augment failed.")
 
-        query_search = datamart.DatamartQuery(keywords=keywords, variables=variables)
-        search_unit = datamart_unit.search_with_data(query=query_search, supplied_data=augment_res)
+        # query_search = datamart.DatamartQuery(keywords=keywords, variables=variables)
+        search_unit = datamart_unit.search_with_data(query=None, supplied_data=augment_res)
         all_results1 = search_unit.get_next_page()
-
+        import pdb
+        pdb.set_trace()
         if not all_results1:
             self._logger.warning("No search ressult returned!")
             return self.all_dataset
@@ -704,7 +705,8 @@ class Controller:
         hyper_augment_default = hyper_augment.defaults()
         hyper_augment_default = hyper_augment_default.replace({"system_identifier":"NYU"})
 
-        search_result_list = all_results1[:5]
+        # search_result_list = all_results1[:5]
+        search_result_list = [all_results1[7]]
         # augment_res_list = []
         for search_res in search_result_list:
             try:
