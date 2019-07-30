@@ -2,15 +2,13 @@ import copy
 import os
 import logging
 import psutil
-import sys
 import time
 import threading
-import traceback
 import typing
 
 from enum import Enum
 from math import ceil
-from multiprocessing import Pool, Process, Queue, Manager, current_process
+from multiprocessing import Pool, Queue, Manager, current_process
 from threading import Timer
 
 _logger = logging.getLogger(__name__)
@@ -154,6 +152,8 @@ class DistributedJobManager:
         counter: int = 0
         error_count: int = 0
         while True:
+            if error_count > 3:
+                break
             try:
                 # wait until a new job is available
                 # print(f"[INFO] {current_process().name} > waiting on new jobs")
@@ -170,9 +170,9 @@ class DistributedJobManager:
                     #     '[DJM] Eval does not have runtime'
                 except:
                     _logger.exception(
-                        f'{current_process().name} > Target evaluation failed {hash(str(kwargs))}', exc_info=True)
+                        f'Target evaluation failed {hash(str(kwargs))}', exc_info=True)
                     # print(f'[INFO] {current_process().name} > Target evaluation failed {hash(str(kwargs))}')
-                    traceback.print_exc()
+                    # traceback.print_exc()
                     # _logger.error(traceback.format_exc())
                     result = None
 
@@ -182,40 +182,45 @@ class DistributedJobManager:
                     if "ensemble_tunning_result" in result:
                         result_simplified.pop("ensemble_tunning_result")
 
-                _logger.info(f"{current_process().name} Pushing Results: {result['id'] if result and 'id' in result else 'NONE'}")
-                _logger.debug(f"{current_process().name} Pushing Results > {result}")
+                _logger.info(f"Pushing Results: {result['id'] if result and 'id' in result else 'NONE'}")
+                _logger.debug(f"Pushing Results > {result}")
 
-                pushed = False
-                # while not pushed:
                 try:
                     result_queue.put((kwargs, result))
-                    pushed = True
+                except BrokenPipeError:
+                    _logger.exception(f"Result queue put failed. Broken Pipe.")
+                    exit(1)
                 except:
-                    traceback.print_exc()
-                    _logger.exception(f"{current_process().name} > {traceback.format_exc()}")
-                    # print(f"[INFO] {current_process().name} > time out or "
-                    #       f"result_queue is full {result_queue.full()}")
-                    _logger.info("time out or "
-                                 f"result_queue is full {result_queue.full()}")
+                    # traceback.print_exc()
+                    _logger.exception(f"Result queue put failed.", exc_info=True)
+                    _logger.info(f"Result queue is full: {result_queue.full()}")
 
                     try:
-                        _logger.info("Pushing None due to pickling failure")
+                        _logger.info("Pushing result None. Maybe Result failed to pickle.")
                         result_queue.put((kwargs_copy, None))
                     except:
-                        traceback.print_exc()
-                        _logger.exception(f"{current_process().name} > {traceback.format_exc()}")
+                        # traceback.print_exc()
+                        # _logger.exception(f"{current_process().name} > {traceback.format_exc()}")
                         # print(f"[INFO] {current_process().name} > cannot even push None")
-                        _logger.info(" > cannot even push None")
+                        _logger.exception(f"Result queue put failed with empty Result.", exc_info=True)
+                        _logger.info("Cannot even push None")
                         exit(1)
 
                     # exit(1)
                 counter += 1
                 # print(f"[INFO] {current_process().name} > is Idle, done {counter} jobs")
                 _logger.info("is Idle, done {counter} jobs")
+            except BrokenPipeError:
+                error_count += 1
+                print(f"{current_process().name:17} > Broken Pipe. Error count={error_count}")
+                _logger.exception(f"Broken Pipe. Error count={error_count}")
             except Exception:
                 error_count += 1
-                _logger.warning("Unexpected Exception count={error_count}")
-                _logger.exception(f"{current_process().name} > {traceback.format_exc()}")
+                print(f"{current_process().name:17} > Unexpected Exception. Error count={error_count}")
+                _logger.exception(f"Unexpected Exception. Error count={error_count}", exc_info=True)
+        print(f"{current_process().name:17} > Worker EXITING")
+        _logger.warning('Worker EXITING')
+
 
     def push_job(self, kwargs_bundle: typing.Dict = {}) -> int:
         """

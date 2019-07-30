@@ -1,30 +1,36 @@
 import copy
+import io
+import json
 import logging
+import os
+import re
 import sys
 import time
+import traceback
 import typing
 import enum
 import collections
 import frozendict
-# import eventlet
+
+import d3m.exceptions as d3m_exceptions
 
 from multiprocessing import current_process
 from warnings import warn
 
 from d3m.container.dataset import Dataset
-from d3m.container.pandas import DataFrame
 from d3m.base import utils as d3m_utils
-from d3m.exceptions import NotSupportedError
-from d3m.metadata.base import Metadata, ALL_ELEMENTS
-from d3m.metadata.problem import PerformanceMetric, Problem, TaskType
+from d3m.metadata.base import ALL_ELEMENTS
+from d3m.metadata.pipeline import Pipeline
+from d3m.metadata.problem import Problem, TaskType
+
 from dsbox.JobManager.cache import PrimitivesCache
 from dsbox.pipeline.fitted_pipeline import FittedPipeline
-from dsbox.schema import get_target_columns, larger_is_better
+from dsbox.schema import get_target_columns
 from dsbox.template.configuration_space import ConfigurationPoint
 from dsbox.template.configuration_space import ConfigurationSpace
 from dsbox.template.template import DSBoxTemplate
 # from dsbox.template.utils import calculate_score, graph_problem_conversion, SpecialMetric
-from dsbox.template.utils import score_prediction, graph_problem_conversion, SpecialMetric
+from dsbox.template.utils import score_prediction, graph_problem_conversion
 from datamart_isi.entries import AUGMENTED_COLUMN_SEMANTIC_TYPE, Q_NODE_SEMANTIC_TYPE
 T = typing.TypeVar("T")
 # python path of primitive, i.e. 'd3m.primitives.common_primitives.RandomForestClassifier'
@@ -67,8 +73,7 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
                  ensemble_tuning_dataset: Dataset,
                  performance_metrics: typing.List[typing.Dict], output_directory: str,
                  extra_primitive: typing.Set[str] = set(), *,
-                 random_seed: int = 0
-    ) -> None:
+                 random_seed: int = 0) -> None:
 
         self.template = template
         self.task_type = self.template.template["taskType"]
@@ -125,6 +130,9 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
         self.go_quick_inputType = ["image", "audio", "video"]
         self.quick_mode = self._use_quick_mode_or_not()
 
+        # evulation state
+        self.evaluating_pipeline: typing.Optional[Pipeline] = None
+
     def _use_quick_mode_or_not(self) -> bool:
         """
         The function to determine whether to use quick mode or now
@@ -174,6 +182,7 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
 
             _logger.info(f"END Evaluation of template {self.template.template['name']} {hash(str(configuration))} in {current_process()}")
         except Exception as exc:
+            self._save_failed_pipeline(sys.exc_info(), self.evaluating_pipeline)
             raise RuntimeError(f'Failed template {self.template.template["name"]}') from exc
 
         return evaluation_result
@@ -194,6 +203,8 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
 
         start_time = time.time()
         pipeline = self.template.to_pipeline(configuration)
+        self.evaluating_pipeline = pipeline
+
         # Todo: update ResourceManager to run pipeline:  ResourceManager.add_pipeline(pipeline)
         # initlize repeat_time_level
         self._repeat_times_level_2 = 1
@@ -402,28 +413,32 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
                         'value': data_to_logger_info[1]
                     })
 
-            # Save fitted pipeline
-            pickled = False
+            # Save and test fitted pipeline
             if self.output_directory is not None and dump2disk:
-                try:
-                    fitted_pipeline2.save(self.output_directory)
-                    pickled = True
-                except Exception as e:
-                    _logger.warning(f'SKIPPING Pickle test. Saving pipeline failed: {e.message}')
+                self._pickle_and_test(fitted_pipeline2, self.train_dataset2[0])
 
-            # Pickle test
-            try:
-                if pickled and self.output_directory is not None and dump2disk:
-                    _logger.debug("Test pickled pipeline. id: {}".format(fitted_pipeline2.id))
-                    self.test_pickled_pipeline(
-                        folder_loc=self.output_directory,
-                        pipeline_id=fitted_pipeline2.id,
-                        test_dataset=self.train_dataset2[0],
-                        test_metrics=training_metrics
-                        # test_ground_truth=get_target_columns(self.train_dataset2[0], self.problem)
-                    )
-            except Exception as e:
-                _logger.exception('Pickle test Failed', exc_info=True)
+            # # Save fitted pipeline
+            # pickled = False
+            # if self.output_directory is not None and dump2disk:
+            #     try:
+            #         fitted_pipeline2.save(self.output_directory)
+            #         pickled = True
+            #     except Exception as e:
+            #         _logger.warning(f'SKIPPING Pickle test. Saving pipeline failed: {e.message}')
+
+            # # Pickle test
+            # try:
+            #     if pickled and self.output_directory is not None and dump2disk:
+            #         _logger.debug("Test pickled pipeline. id: {}".format(fitted_pipeline2.id))
+            #         self._test_pickled_pipeline(
+            #             folder_loc=self.output_directory,
+            #             pipeline_id=fitted_pipeline2.id,
+            #             test_dataset=self.train_dataset2[0],
+            #             test_metrics=training_metrics
+            #             # test_ground_truth=get_target_columns(self.train_dataset2[0], self.problem)
+            #         )
+            # except Exception:
+            #     _logger.exception('Pickle test Failed', exc_info=True)
         else:
             # update v2019.3.17, running k-fold corss validation on level_1 split
             if self.quick_mode:
@@ -520,8 +535,7 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
             # end uptdate v2019.3.17
 
             # finally, fit the model with all data and save it
-            _logger.info(
-                "[INFO] Now are training the pipeline with all dataset and saving the pipeline.")
+            _logger.info("Training final pipeline with all dataset and saving the pipeline.")
             fitted_pipeline_final.fit(cache=cache, inputs=[self.all_dataset])
 
             if self.ensemble_tuning_dataset:
@@ -553,64 +567,9 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
             }
             fitted_pipeline.auxiliary = dict(data)
 
-            # Save fiteed pipeline
-            pickled = False
+            # Save and test fitted pipeline
             if self.output_directory is not None and dump2disk:
-                try:
-                    fitted_pipeline_final.save(self.output_directory)
-                    pickled = True
-                except Exception as e:
-                    _logger.warning('SKIPPING Pickle test. Saving pipeline failed: {e.message}')
-
-            # Pickle test
-            if pickled and self.output_directory is not None and dump2disk:
-                try:
-                    # remove the augmented columns in self.test_dataset1 to ensure we can pass the picking test
-                    res_id, test_dataset1_df = d3m_utils.get_tabular_resource(dataset=self.test_dataset1, resource_id=None)
-
-                    original_columns = []
-                    remained_columns_number = 0
-                    for i in range(test_dataset1_df.shape[1]):
-                        current_selector = (res_id, ALL_ELEMENTS, i)
-                        meta = self.test_dataset1.metadata.query(current_selector)
-
-                        if AUGMENTED_COLUMN_SEMANTIC_TYPE in meta['semantic_types'] or Q_NODE_SEMANTIC_TYPE in meta['semantic_types']:
-                            self.test_dataset1.metadata = self.test_dataset1.metadata.remove(selector=current_selector)
-                        else:
-                            original_columns.append(i)
-                            if remained_columns_number != i:
-                                self.test_dataset1.metadata = self.test_dataset1.metadata.remove(selector=current_selector)
-                                updated_selector = (res_id, ALL_ELEMENTS, remained_columns_number)
-                                self.test_dataset1.metadata = self.test_dataset1.metadata.update(selector=updated_selector, metadata=meta)
-                            remained_columns_number += 1
-
-                    self.test_dataset1[res_id] = self.test_dataset1[res_id].iloc[:, original_columns]
-                    meta = dict(self.test_dataset1.metadata.query((res_id, ALL_ELEMENTS)))
-                    dimension = dict(meta['dimension'])
-                    dimension['length'] = remained_columns_number
-                    meta['dimension'] = frozendict.FrozenOrderedDict(dimension)
-                    self.test_dataset1.metadata = self.test_dataset1.metadata.update((res_id, ALL_ELEMENTS), frozendict.FrozenOrderedDict(meta))
-                    # end removing augmente columns
-
-                    _ = fitted_pipeline_final.produce(inputs=[self.test_dataset1])
-                    test_prediction3 = fitted_pipeline_final.get_produce_step_output(
-                        self.template.get_output_step_number())
-
-                    # test_ground_truth_for_test_pickle = get_target_columns(self.test_dataset1)
-                    # test_metrics3 = calculate_score(test_ground_truth_for_test_pickle, test_prediction3,
-                    #     self.performance_metrics, self.task_type, SpecialMetric().regression_metric)
-                    test_metrics3 = score_prediction(test_prediction3, [self.test_dataset1],
-                                                     self.problem, self.performance_metrics, self.random_seed)
-
-                    _logger.info("Test pickled pipeline. id: {}".format(fitted_pipeline_final.id))
-                    self.test_pickled_pipeline(folder_loc=self.output_directory,
-                                               pipeline_id=fitted_pipeline_final.id,
-                                               test_dataset=self.test_dataset1,
-                                               test_metrics=test_metrics3
-                                               # test_ground_truth=test_ground_truth_for_test_pickle
-                    )
-                except Exception as e:
-                    _logger.exception('Pickle test Failed', exc_info=True)
+                self._pickle_and_test(fitted_pipeline_final, self.test_dataset1, remove_extra_columns=True)
 
         # still return the original fitted_pipeline with relation to train_dataset1
         return data
@@ -639,11 +598,76 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
         output_metrics = [output_metrics_new]
         return output_metrics
 
-    def test_pickled_pipeline(self, folder_loc: str, pipeline_id: str, test_dataset: Dataset,
-                              test_metrics: typing.List) -> None:
+    def _pickle_and_test(self, fitted_pipeline: Pipeline, pickle_dataset: Dataset, *, remove_extra_columns=False):
+        '''
+        Pickle pipeline, and check if the pickled pipeline generate same metrics
+        '''
+        try:
+            fitted_pipeline.save(self.output_directory)
+        except Exception as e:
+            # Do not raise exception, since for TA2 evaluation pickling is no longer required.
+            # Note: Our TA3TA2 interface instill uses picked pipelines
+            _logger.warning(f'SKIPPING Pickle test. Saving pipeline failed: {e.args}')
+            return
+
+        if remove_extra_columns:
+            # remove the augmented columns in pickle_dataset to ensure we can pass the picking test
+            res_id, test_dataset1_df = d3m_utils.get_tabular_resource(dataset=pickle_dataset, resource_id=None)
+
+            original_columns = []
+            remained_columns_number = 0
+            for i in range(test_dataset1_df.shape[1]):
+                current_selector = (res_id, ALL_ELEMENTS, i)
+                meta = pickle_dataset.metadata.query(current_selector)
+
+                if AUGMENTED_COLUMN_SEMANTIC_TYPE in meta['semantic_types'] or Q_NODE_SEMANTIC_TYPE in meta['semantic_types']:
+                    pickle_dataset.metadata = pickle_dataset.metadata.remove(selector=current_selector)
+                else:
+                    original_columns.append(i)
+                    if remained_columns_number != i:
+                        pickle_dataset.metadata = pickle_dataset.metadata.remove(selector=current_selector)
+                        updated_selector = (res_id, ALL_ELEMENTS, remained_columns_number)
+                        pickle_dataset.metadata = pickle_dataset.metadata.update(selector=updated_selector, metadata=meta)
+                    remained_columns_number += 1
+
+            pickle_dataset[res_id] = pickle_dataset[res_id].iloc[:, original_columns]
+            meta = dict(pickle_dataset.metadata.query((res_id, ALL_ELEMENTS)))
+            dimension = dict(meta['dimension'])
+            dimension['length'] = remained_columns_number
+            meta['dimension'] = frozendict.FrozenOrderedDict(dimension)
+            pickle_dataset.metadata = pickle_dataset.metadata.update((res_id, ALL_ELEMENTS), frozendict.FrozenOrderedDict(meta))
+
+        try:
+            _ = fitted_pipeline.produce(inputs=[pickle_dataset])
+            test_prediction3 = fitted_pipeline.get_produce_step_output(
+                self.template.get_output_step_number())
+
+            # test_ground_truth_for_test_pickle = get_target_columns(pickle_dataset)
+            # test_metrics3 = calculate_score(test_ground_truth_for_test_pickle, test_prediction3,
+            #     self.performance_metrics, self.task_type, SpecialMetric().regression_metric)
+            test_metrics3 = score_prediction(test_prediction3, [pickle_dataset],
+                                             self.problem, self.performance_metrics, self.random_seed)
+
+            _logger.info("Test pickled pipeline. id: {}".format(fitted_pipeline.id))
+            self._test_pickled_pipeline(folder_loc=self.output_directory,
+                                        pipeline_id=fitted_pipeline.id,
+                                        test_dataset=pickle_dataset,
+                                        test_metrics=test_metrics3
+                                        # test_ground_truth=test_ground_truth_for_test_pickle
+            )
+        except Exception:
+            # Do not raise exception, since for TA2 evaluation pickling is no longer required.
+            # Note: Our TA3TA2 interface instill uses picked pipelines
+            _logger.exception('Pickle test Failed', exc_info=True)
+
+    def _test_pickled_pipeline(self, folder_loc: str, pipeline_id: str, test_dataset: Dataset,
+                               test_metrics: typing.List) -> None:
+        '''
+        Load pickled pipeline, run it, and compare resulting metric against given `test_metrics`
+        '''
 
         fitted_pipeline = FittedPipeline.load(folder_loc=folder_loc, fitted_pipeline_id=pipeline_id)
-        results = fitted_pipeline.produce(inputs=[test_dataset])
+        fitted_pipeline.produce(inputs=[test_dataset])
 
         pipeline_prediction = fitted_pipeline.get_produce_step_output(
             self.template.get_output_step_number())
@@ -690,3 +714,42 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
             print("\n" * 5)
         else:
             _logger.debug(("\n" * 5) + "Pickling succeeded" + ("\n" * 5))
+
+    def _save_failed_pipeline(self, exc_info: typing.Tuple, pipeline: Pipeline):
+
+        error_type = exc_info[0]
+        error_instance = exc_info[1]
+        tb = exc_info[2]
+        structure = pipeline.to_json_structure()
+
+        failed_dir = os.path.join(self.output_directory, 'pipelines_failed')
+        stem = pipeline.id
+
+        with open(os.path.join(failed_dir, stem + '.pipeline.json'), 'w') as out:
+            json.dump(structure, out, separators=(',', ':'), indent=4)
+
+        exception = io.StringIO()
+        traceback.print_exception(error_type, error_instance, tb, file=exception)
+
+        # with open(os.path.join(failed_dir, stem + '.exception.txt'), 'w') as out:
+        #     traceback.print_exception(error_type, error_instance, tb, file=out)
+
+        step = -1
+        python_path = ""
+        if error_type == d3m_exceptions.StepFailedError:
+            error_message = error_instance.args[0]
+            match = re.search('Step (\d+) for pipeline ([0-9a-fA-Z-]+) failed', error_message)
+            if match:
+                if not match.group(2) == pipeline.id:
+                    raise RuntimeError(f'Pipeline id from message does not match pipeline id: "{match.group(2)}" != "{pipeline.id}"')
+                step = int(match.group(1))
+                python_path = pipeline.steps[step].to_json_structure()['primitive']['python_path']
+
+        template_info = {}
+        template_info['template'] = structure['name'].split(':')[0]
+        template_info['step'] = step
+        template_info['python_path'] = python_path
+        template_info['exception'] = exception.getvalue()
+
+        with open(os.path.join(failed_dir, stem + '.failure.json'), 'w') as out:
+            json.dump(template_info, out)
