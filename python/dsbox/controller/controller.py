@@ -711,7 +711,7 @@ class Controller:
             search_result_list = [all_results1[0]]
         # poverty one, join with wikidata search on state, fips and poverty
         elif self.all_dataset.metadata.query(())['id'].startswith("DA_poverty"):
-            search_result_list = [all_results1[0], all_results1[1], all_results1[12]]
+            search_result_list = [all_results1[12]] # all_results1[0], all_results1[1],
         # augment_res_list = []
         for search_res in search_result_list:
             try:
