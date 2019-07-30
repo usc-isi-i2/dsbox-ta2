@@ -101,7 +101,7 @@ class Controller:
             self.template_library = TemplateLibrary(run_single_template=run_single_template_name)
         else:
             self.template_library = TemplateLibrary()
-        self.template: typing.List[DSBoxTemplate] = []
+        self.template_list: typing.List[DSBoxTemplate] = []
         self.max_split_times = 1
 
         # Primitives
@@ -180,8 +180,9 @@ class Controller:
 
         # Set privileged data columns
         for dataset in self.config.problem['inputs']:
-            if 'LL0_acled' in dataset['dataset_id']:
-                self.specialized_problem = SpecializedProblem.ACLED_LIKE_PROBLEM
+            # kyao 2019-7-24:
+            # if 'LL0_acled' in dataset['dataset_id']:
+            #     self.specialized_problem = SpecializedProblem.ACLED_LIKE_PROBLEM
 
             if 'privileged_data' not in dataset:
                 continue
@@ -426,7 +427,7 @@ class Controller:
 
     def _run_SerialBaseSearch(self, report_ensemble, *, one_pipeline_only=False):
         self._search_method.initialize_problem(
-            template_list=self.template,
+            template_list=self.template_list,
             performance_metrics=self.config.problem['problem']['performance_metrics'],
             problem=self.config.problem,
             test_dataset1=self.test_dataset1,
@@ -448,7 +449,7 @@ class Controller:
 
     def _run_ParallelBaseSearch(self, report_ensemble):
         self._search_method.initialize_problem(
-            template_list=self.template,
+            template_list=self.template_list,
             performance_metrics=self.config.problem['problem']['performance_metrics'],
             problem=self.config.problem,
             test_dataset1=self.test_dataset1,
@@ -462,8 +463,8 @@ class Controller:
             timeout_sec=self.config.timeout_search,
             extra_primitive=self.extra_primitive,
         )
-        report = self._search_method.search(num_iter=1000)
 
+        report = self._search_method.search(num_iter=1000)
         if report_ensemble:
             report_ensemble['report'] = report
         self._log_search_results(report=report)
@@ -605,9 +606,10 @@ class Controller:
             if graph_size and graph_size > max_accept_graph_size_for_parallel:
                 self._logger.warning("Change to serial mode for the graph problem with size larger than " + str(max_accept_graph_size_for_parallel))
                 self.config.search_method = "serial"
-            if "LL0_acled" in self.config.problem['id'] or "LL1_VTXC_1343_cora" in self.config.problem['id']:
-                self._logger.warning("Change to serial mode for the speical problem id: " + str(self.config.problem['id']))
-                self.config.search_method = "serial"
+            # kyao 2019-7-24: Try parallel
+            # if "LL0_acled" in self.config.problem['id'] or "LL1_VTXC_1343_cora" in self.config.problem['id']:
+            #     self._logger.warning("Change to serial mode for the speical problem id: " + str(self.config.problem['id']))
+            #     self.config.search_method = "serial"
 
         except:
             pass
@@ -1088,12 +1090,13 @@ class Controller:
         return self.config.output_dir, pipeline_load, read_pipeline_id, pipeline_load.runtime
 
     def load_templates(self) -> None:
-        self.template = self.template_library.get_templates(self.config.task_type,
-                                                            self.config.task_subtype,
-                                                            self.taskSourceType,
-                                                            self.specialized_problem)
+
+        self.template_list = self.template_library.get_templates(self.config.task_type,
+                                                                 self.config.task_subtype,
+                                                                 self.taskSourceType,
+                                                                 self.specialized_problem)
         # find the maximum dataset split requirements
-        for each_template in self.template:
+        for each_template in self.template_list:
             for each_step in each_template.template['steps']:
                 if "runtime" in each_step and "test_validation" in each_step["runtime"]:
                     split_times = int(each_step["runtime"]["test_validation"])
@@ -1444,7 +1447,7 @@ class Controller:
         Generate and train pipelines.
         """
         logging.getLogger("d3m").setLevel(logging.ERROR)
-        if not self.template:
+        if not self.template_list:
             return Status.PROBLEM_NOT_IMPLEMENT
 
         self.generate_dataset_splits()
