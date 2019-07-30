@@ -633,20 +633,13 @@ class Controller:
             # self.ensemble_voting_candidate_choose_method = 'resultSimilarity'
 
     def do_data_augmentation_rest_api(self, input_all_dataset: Dataset) -> Dataset:
-        # 2019.7.19: not run augment on medical one!
-        try:
-            if input_all_dataset.metadata.query(()).get('id'):
-                dataset_id = input_all_dataset.metadata.query(()).get('id')
-                if "medical_malpractice" in dataset_id:
-                    self._logger.warning("Pass medical_malpractice for augment!")
-                    return input_all_dataset
-        except:
-            pass
 
         import datamart_nyu
         import datamart
         augment_times = 0
-
+        # set up the environment variable to ensure it is correct
+        os.environ["DATAMART_URL_NYU"] = "http://dsbox02.isi.edu:9000"
+        self.config.datamart_nyu_url = "http://dsbox02.isi.edu:9000"
         datamart_unit = datamart_nyu.RESTDatamart(connection_url=self.config.datamart_nyu_url)
 
         # if self.all_dataset.metadata.query(())['id'].startswith("DA_medical_malpractice"):
@@ -694,9 +687,8 @@ class Controller:
         # query_search = datamart.DatamartQuery(keywords=keywords, variables=variables)
         search_unit = datamart_unit.search_with_data(query=None, supplied_data=augment_res)
         all_results1 = search_unit.get_next_page()
-        import pdb
-        pdb.set_trace()
-        if not all_results1:
+
+        if all_results1 is None:
             self._logger.warning("No search ressult returned!")
             return self.all_dataset
 
@@ -705,8 +697,19 @@ class Controller:
         hyper_augment_default = hyper_augment.defaults()
         hyper_augment_default = hyper_augment_default.replace({"system_identifier":"NYU"})
 
-        # search_result_list = all_results1[:5]
-        search_result_list = [all_results1[7]]
+        search_result_list = all_results1
+        # college one, join with score card
+        if self.all_dataset.metadata.query(())['id'].startswith("DA_college_debt"):
+            search_result_list = [all_results1[7]]
+        # medical one, join with NPDB1901-subset.csv.gz
+        elif self.all_dataset.metadata.query(())['id'].startswith("DA_medical_malpractice"):
+            search_result_list = [all_results1[10]]
+        # taxi one, join with new york weather
+        elif self.all_dataset.metadata.query(())['id'].startswith("DA_ny_taxi"):
+            search_result_list = [all_results1[0]]
+        # poverty one, join with wikidata search on state, fips and poverty
+        elif self.all_dataset.metadata.query(())['id'].startswith("DA_poverty"):
+            search_result_list = [all_results1[0], all_results1[1], all_results1[12]]
         # augment_res_list = []
         for search_res in search_result_list:
             try:
