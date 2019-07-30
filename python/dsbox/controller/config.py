@@ -2,6 +2,7 @@ import io
 import json
 import logging
 import os
+import time
 import typing
 
 from d3m.metadata.problem import Problem
@@ -65,7 +66,7 @@ class DsboxConfig:
     DSBox variables
     * search_method: pipeline search methods, possible values 'serial', 'parallel'. Can be
       controlled using environment variable DSBOX_SEARCH_METHOD.
-    * timeout_search: Timeout for search part. The remaining time is used for returning results.
+    * timeout_search: Timeout for search part. The remaining time after timeout_search is used for returning results.
 
     '''
 
@@ -101,9 +102,12 @@ class DsboxConfig:
         self.log_dir: str = ''
         self.dfs_log_dir: str = ''
 
-        # DSBox search
+        # == DSBox search
         self.search_method = 'serial'
         self.serial_search_iterations = 50
+        # Should be set using set_start_time() as soon as the search request is received
+        self._start_time: float = 0
+        # Search time
         self.timeout_search: int = 0
 
         # DSBox logging
@@ -135,6 +139,20 @@ class DsboxConfig:
         # self.timeout_search = max(self._timeout - 180, int(self._timeout * 0.93))
         # 2019.7.19: add more time for system clean up job
         self.timeout_search = int(self._timeout * 0.93)
+
+    @property
+    def start_time(self) -> float:
+        '''
+        Returns time.perf_counter counter clock in seconds
+        '''
+        return self._start_time
+
+    def set_start_time(self):
+        '''
+        Should be called as soon as the search request is made. Should be called by
+        TA2Servicer class and ta2_evaluation.py script.
+        '''
+        self._start_time = time.perf_counter()
 
     def load(self, ta2ta3_mode: bool = False):
         self._load_d3m_environment(ta2ta3_mode)

@@ -61,7 +61,8 @@ class TemplateSpaceParallelBaseSearch(TemplateSpaceBaseSearch[T]):
                            output_directory: str,
                            start_time: float = 0, timeout_sec: float = 3300) -> None:
         # Start timer
-        self.job_manager.timeout_sec = timeout_sec
+        delta_time = time.perf_counter() - start_time
+        self.job_manager.timeout_sec = timeout_sec - delta_time
 
         super().initialize_problem(
             template_list=template_list, performance_metrics=performance_metrics,
