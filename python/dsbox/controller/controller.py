@@ -180,8 +180,8 @@ class Controller:
 
         # Set privileged data columns
         for dataset in self.config.problem['inputs']:
-            if 'LL0_acled' in dataset['dataset_id']:
-                self.specialized_problem = SpecializedProblem.ACLED_LIKE_PROBLEM
+            # if 'LL0_acled' in dataset['dataset_id']:
+            #     self.specialized_problem = SpecializedProblem.ACLED_LIKE_PROBLEM
 
             if 'privileged_data' not in dataset:
                 continue
@@ -605,9 +605,9 @@ class Controller:
             if graph_size and graph_size > max_accept_graph_size_for_parallel:
                 self._logger.warning("Change to serial mode for the graph problem with size larger than " + str(max_accept_graph_size_for_parallel))
                 self.config.search_method = "serial"
-            if "LL0_acled" in self.config.problem['id'] or "LL1_VTXC_1343_cora" in self.config.problem['id']:
-                self._logger.warning("Change to serial mode for the speical problem id: " + str(self.config.problem['id']))
-                self.config.search_method = "serial"
+            # if "LL0_acled" in self.config.problem['id'] or "LL1_VTXC_1343_cora" in self.config.problem['id']:
+            #     self._logger.warning("Change to serial mode for the speical problem id: " + str(self.config.problem['id']))
+            #     self.config.search_method = "serial"
 
         except:
             pass
@@ -694,8 +694,8 @@ class Controller:
         # query_search = datamart.DatamartQuery(keywords=keywords, variables=variables)
         search_unit = datamart_unit.search_with_data(query=None, supplied_data=augment_res)
         all_results1 = search_unit.get_next_page()
-        import pdb
-        pdb.set_trace()
+        # import pdb
+        # pdb.set_trace()
         if not all_results1:
             self._logger.warning("No search ressult returned!")
             return self.all_dataset
@@ -706,7 +706,7 @@ class Controller:
         hyper_augment_default = hyper_augment_default.replace({"system_identifier":"NYU"})
 
         # search_result_list = all_results1[:5]
-        search_result_list = [all_results1[7]]
+        search_result_list = [all_results1[4],all_results1[5],all_results1[6],all_results1[7]]
         # augment_res_list = []
         for search_res in search_result_list:
             try:
