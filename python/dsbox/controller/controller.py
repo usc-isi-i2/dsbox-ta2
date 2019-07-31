@@ -702,16 +702,51 @@ class Controller:
         search_result_list = all_results1
         # college one, join with score card
         if self.all_dataset.metadata.query(())['id'].startswith("DA_college_debt"):
-            search_result_list = [all_results1[7]]
+            # search_result_list = [all_results1[7]]
+            search_result_list = []
+            for each_result in all_results1:
+                detail_info = each_result.get_json_metadata()
+                recommend_join_column = detail_info['summary']['Recommend Join Columns'].lower()
+                title = detail_info['summary']['title'].lower()
+                if "scorecard" in title and "instnm" in recommend_join_column:
+                    search_result_list.append(each_result)
+                    self._logger.info(each_result.id() + " has been added for augmenting list.")
+
         # medical one, join with NPDB1901-subset.csv.gz
         elif self.all_dataset.metadata.query(())['id'].startswith("DA_medical_malpractice"):
-            search_result_list = [all_results1[10]]
+            # search_result_list = [all_results1[10]]
+            search_result_list = []
+            for each_result in all_results1:
+                detail_info = each_result.get_json_metadata()
+                recommend_join_column = detail_info['summary']['Recommend Join Columns'].lower()
+                title = detail_info['summary']['title'].lower()
+                if "npdb1901" in title and "seqno" in recommend_join_column:
+                    search_result_list.append(each_result)
+                    self._logger.info(each_result.id() + " has been added for augmenting list.")
+
         # taxi one, join with new york weather
         elif self.all_dataset.metadata.query(())['id'].startswith("DA_ny_taxi"):
-            search_result_list = [all_results1[0]]
+            # currently only one can be found
+            search_result_list = all_results1
+
         # poverty one, join with wikidata search on state, fips and poverty
         elif self.all_dataset.metadata.query(())['id'].startswith("DA_poverty"):
-            search_result_list = [all_results1[12]] # all_results1[0], all_results1[1],
+            search_result_list = []
+            need_columns = {'FIPS_wikidata', 'State_wikidata'}
+            for each_result in all_results1:
+                detail_info = each_result.get_json_metadata()
+                # if it is wikidata search reuslts
+                if detail_info['summary']['Datamart ID'].startswith("wikidata_search"):
+                    if set([detail_info['summary']['Recommend Join Columns']]).intersection(need_columns):
+                        search_result_list.append(each_result)
+                        self._logger.info(each_result.id() + " has been added for augmenting list.")
+                else:
+                    recommend_join_column = detail_info['summary']['Recommend Join Columns'].lower()
+                    title = detail_info['summary']['title']
+                    if "fips" in recommend_join_column and "wikidata" in recommend_join_column and "poverty" in title:
+                        search_result_list.append(each_result)
+                        self._logger.info(each_result.id() + " has been added for augmenting list.")
+            # search_result_list = [all_results1[0], all_results1[1], all_results1[12]]
         # augment_res_list = []
         for search_res in search_result_list:
             try:
