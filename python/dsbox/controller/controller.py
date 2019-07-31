@@ -690,6 +690,8 @@ class Controller:
         search_unit = datamart_unit.search_with_data(query=None, supplied_data=augment_res)
         all_results1 = search_unit.get_next_page()
 
+        import pdb
+        pdb.set_trace()
         if all_results1 is None:
             self._logger.warning("No search ressult returned!")
             return self.all_dataset
@@ -747,7 +749,16 @@ class Controller:
                         search_result_list.append(each_result)
                         self._logger.info(each_result.id() + " has been added for augmenting list.")
             # search_result_list = [all_results1[0], all_results1[1], all_results1[12]]
-        # augment_res_list = []
+
+        # acled one, join with vectors
+        elif self.all_dataset.metadata.query(())['id'].startswith("LL0_acled"):
+            search_result_list = []
+            for each_result in all_results1:
+                if each_result.id().startswith("vector_search"):
+                    search_result_list.append(each_result)
+                    self._logger.info(each_result.id() + " has been added for augmenting list.")
+
+
         for search_res in search_result_list:
             try:
                 hyper_temp = hyper_augment_default.replace({"search_result":search_res.serialize()})
