@@ -2,12 +2,12 @@ import copy
 import datetime
 import logging
 import os
+import operator
 import pickle
 import random
 import string
 import sys
 import tempfile
-import time
 import traceback
 import typing
 import uuid
@@ -203,7 +203,7 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
         Search Solutions call
         Non streaming
         '''
-        self.config.start_time = time.perf_counter()
+        self.config.set_start_time()
         self.log_msg(msg="SearchSolutions invoked")
         self.log_msg(request)
 
