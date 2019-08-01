@@ -568,6 +568,9 @@ class FittedPipeline:
                     'value': info['metric_value']
                 }
             if 'cross_validation' in info:
+                for metric_info in info['cross_validation']:
+                    if 'metric' in metric_info:
+                        metric_info['metric_info'] = PerformanceMetric.get_map()[metric_info['metric_info']]
                 fitted_pipeline.runtime.cross_validation_result = info['cross_validation']
         return fitted_pipeline
 
