@@ -154,7 +154,7 @@ class TemplateSteps:
                         }
                     }
                 ],
-                "inputs": ["template_input" if i==0 else "augment_step" + str(i)]
+                "inputs": ["template_input" if i==0 else "augment_step" + str(i - 1)]
             }
             augment_steps.append(each_augment_step)
         

@@ -1154,6 +1154,7 @@ class Controller:
 
         if datamart_search_results is not None:
             from dsbox.template.template_steps import TemplateSteps
+            # now if we have more than 10 results, take the first 10 pipelines
             if len(datamart_search_results) >= 10:
                 datamart_search_results = datamart_search_results[:10]
             augment_steps = TemplateSteps.dsbox_augmentation_step(datamart_search_results)
@@ -1161,7 +1162,7 @@ class Controller:
             for each_template in self.template_list:
                 if "gradient" in each_template.template['name'] or "default_regression_template" in each_template.template['name']:
                     # if each_template.template['steps'][0]['name'] == 'to_dataframe_step':
-                    each_template.template['steps'].pop(0)
+                    each_template.template['steps'][0]['inputs'] = [augment_steps[-1]['name']]
                     each_template.template['steps'] = augment_steps + each_template.template['steps']
                     self._logger.info("Extra augmentation steps has been added for template " + each_template.template['name'])
 
