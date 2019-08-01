@@ -640,8 +640,8 @@ class Controller:
         import datamart
         augment_times = 0
         # set up the environment variable to ensure it is correct
-        os.environ["DATAMART_URL_NYU"] = "http://dsbox02.isi.edu:9000"
-        self.config.datamart_nyu_url = "http://dsbox02.isi.edu:9000"
+        # os.environ["DATAMART_URL_NYU"] = "http://dsbox02.isi.edu:9000"
+        # self.config.datamart_nyu_url = "http://dsbox02.isi.edu:9000"
         datamart_unit = datamart_nyu.RESTDatamart(connection_url=self.config.datamart_nyu_url)
 
         # if self.all_dataset.metadata.query(())['id'].startswith("DA_medical_malpractice"):
@@ -690,8 +690,6 @@ class Controller:
         search_unit = datamart_unit.search_with_data(query=None, supplied_data=augment_res)
         all_results1 = search_unit.get_next_page()
 
-        import pdb
-        pdb.set_trace()
         if all_results1 is None:
             self._logger.warning("No search ressult returned!")
             return self.all_dataset
@@ -701,6 +699,9 @@ class Controller:
         hyper_augment_default = hyper_augment.defaults()
         hyper_augment_default = hyper_augment_default.replace({"system_identifier":"NYU"})
 
+        return all_results1
+
+        """
         search_result_list = all_results1
         # college one, join with score card
         if self.all_dataset.metadata.query(())['id'].startswith("DA_college_debt"):
@@ -783,7 +784,7 @@ class Controller:
         self._logger.info("The augmented dataset shape is (" + str(augmented_shape[0]) + ", " + str(augmented_shape[1]) + ")")
 
         return augment_res
-
+        """
 
     def do_data_augmentation(self, input_all_dataset: Dataset) -> Dataset:
         """
@@ -1061,10 +1062,11 @@ class Controller:
         self.all_dataset = denormalize_primitive.produce(inputs = self.all_dataset).value
         self.extra_primitive.add("denormalize")
         self.dump_primitive(denormalize_primitive, "denormalize")
+        datamart_search_results = None
         if "data_augmentation" in self.config.problem.keys():
-            self.all_dataset = self.do_data_augmentation_rest_api(self.all_dataset)
+            datamart_search_results = self.do_data_augmentation_rest_api(self.all_dataset)
         # load templates
-        self.load_templates()
+        self.load_templates(datamart_search_results)
 
     def initialize_from_config_train_test(self, config: DsboxConfig) -> None:
         """
@@ -1110,10 +1112,11 @@ class Controller:
         self.all_dataset = denormalize_primitive.produce(inputs=self.all_dataset).value
         self.extra_primitive.add("denormalize")
         self.dump_primitive(denormalize_primitive, "denormalize")
+        datamart_search_results = None
         if "data_augmentation" in self.config.problem.keys():
-            self.all_dataset = self.do_data_augmentation_rest_api(self.all_dataset)
+            datamart_search_results = self.do_data_augmentation_rest_api(self.all_dataset)
         # load templates
-        self.load_templates()
+        self.load_templates(datamart_search_results)
 
 
 
@@ -1135,7 +1138,7 @@ class Controller:
                                             fitted_pipeline_id=read_pipeline_id)
         return self.config.output_dir, pipeline_load, read_pipeline_id, pipeline_load.runtime
 
-    def load_templates(self) -> None:
+    def load_templates(self, datamart_search_results=None) -> None:
 
         self.template_list = self.template_library.get_templates(self.config.task_type,
                                                                  self.config.task_subtype,
@@ -1148,6 +1151,20 @@ class Controller:
                     split_times = int(each_step["runtime"]["test_validation"])
                     if split_times > self.max_split_times:
                         self.max_split_times = split_times
+
+        if datamart_search_results is not None:
+            from dsbox.template.template_steps import TemplateSteps
+            if len(datamart_search_results) >= 10:
+                datamart_search_results = datamart_search_results[:10]
+            augment_steps = TemplateSteps.dsbox_augmentation_step(datamart_search_results)
+            self._logger.info("Totally " + str(len(augment_steps)) + " datamart search results will be considered!")
+            for each_template in self.template_list:
+                if "gradient" in each_template.template['name'] or "default_regression_template" in each_template.template['name']:
+                    # if each_template.template['steps'][0]['name'] == 'to_dataframe_step':
+                    each_template.template['steps'].pop(0)
+                    each_template.template['steps'] = augment_steps + each_template.template['steps']
+                    self._logger.info("Extra augmentation steps has been added for template " + each_template.template['name'])
+
 
     def remove_empty_targets(self, dataset: Dataset) -> Dataset:
         """

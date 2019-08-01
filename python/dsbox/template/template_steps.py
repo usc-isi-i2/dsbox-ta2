@@ -134,6 +134,32 @@ class TemplateSteps:
             }
         ]
 
+    @staticmethod
+    def dsbox_augmentation_step(search_results):
+        '''
+        dsbox generic step for classification and regression, directly lead to model step
+        '''
+        augment_steps = []
+        for i, each in enumerate(search_results):
+            each_augment_step = {
+                "name": "augment_step" + str(i),
+                "primitives": [
+                    "d3m.primitives.data_preprocessing.do_nothing_for_dataset.DSBOX", 
+                    {
+                        "primitive": "d3m.primitives.data_augmentation.datamart_augmentation.Common",
+                        "hyperparameters":
+                        {
+                            'system_identifier':["NYU"],
+                            'search_result':[search_results[i].serialize()],
+                        }
+                    }
+                ],
+                "inputs": ["template_input" if i==0 else "augment_step" + str(i)]
+            }
+            augment_steps.append(each_augment_step)
+        
+        return augment_steps
+
     # Returns a list of dicts with the most common steps
     @staticmethod
     def dsbox_generic_text_steps(data: str = "data", target: str = "target"):
