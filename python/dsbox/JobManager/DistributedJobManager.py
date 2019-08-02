@@ -183,7 +183,7 @@ class DistributedJobManager:
                         result_simplified.pop("ensemble_tunning_result")
 
                 _logger.info(f"Pushing Results: {result['id'] if result and 'id' in result else 'NONE'}")
-                _logger.debug(f"Pushing Results > {result}")
+                _logger.debug(f"Pushing Results={result} kwargs={kwargs}")
 
                 try:
                     result_queue.put((kwargs, result))
