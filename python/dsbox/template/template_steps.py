@@ -187,7 +187,7 @@ class TemplateSteps:
             }
             augment_steps.append(each_augment_step)
         
-        return augment_steps, i + 1
+        return augment_steps, start_step + len(search_results)
 
 
     @staticmethod
