@@ -1154,24 +1154,15 @@ class Controller:
 
         if datamart_search_results is not None:
             from dsbox.template.template_steps import TemplateSteps
-            # now if we have more than 10 results, take the first 10 pipelines
-            # if len(datamart_search_results) >= 10:
-            #     datamart_search_results = datamart_search_results[:10]
-            wikidata_search_results = []
-            vector_search_results = []
-            general_search_results = []
-            for each_result in datamart_search_results:
-                detail_info = each_result.get_json_metadata()
-                # if it is wikidata search reuslts
-                if detail_info['summary']['Datamart ID'].startswith("wikidata_search"):
-                    wikidata_search_results.append(each_result)
-                elif detail_info['summary']['Datamart ID'].startswith("vector_search"):
-                    vector_search_results.append(each_result)
-                else:
-                    general_search_results.append(each_result)
-            # search_result_list = [all_results1[0], all_results1[1], all_results1[12]]
-
-            augment_steps = TemplateSteps.dsbox_augmentation_step(datamart_search_results)
+            from dsbox.datapreprocessing.cleaner.splitter import SplitterHyperparameter
+            splitter_hyperparam = SplitterHyperparameter.defaults()
+            large_dataset_row_length = splitter_hyperparam['threshold_row_length']
+            large_dataset_column_length = splitter_hyperparam['threshold_column_length']
+            res_id, supplied_dataframe = d3m_utils.get_tabular_resource(dataset=self.all_dataset, resource_id=None)
+            is_large_dataset = supplied_dataframe.shape[0] >= large_dataset_row_length or supplied_dataframe.shape[1] >= large_dataset_column_length
+            if is_large_dataset:
+                self._logger.info("Large dataset detected! Will skip wikidata related parts!")
+            augment_steps = TemplateSteps.dsbox_augmentation_step(datamart_search_results, large_dataset=is_large_dataset)
             self._logger.info("Totally " + str(len(augment_steps)) + " datamart search results will be considered!")
             for each_template in self.template_list:
                 if "gradient" in each_template.template['name'] or "default_regression_template" in each_template.template['name']:

@@ -135,7 +135,7 @@ class TemplateSteps:
         ]
 
     @staticmethod
-    def dsbox_augmentation_step(datamart_search_results):
+    def dsbox_augmentation_step(datamart_search_results, large_dataset=False):
         '''
         dsbox generic step for classification and regression, directly lead to model step
         '''
@@ -154,10 +154,12 @@ class TemplateSteps:
         all_steps = []
         augment_step_number = 0
 
-        res1, augment_step_number = TemplateSteps.add_steps_serial(wikidata_search_results, augment_step_number)
-        all_steps.extend(res1)
-        res2, augment_step_number = TemplateSteps.add_steps_serial(vector_search_results, augment_step_number)
-        all_steps.extend(res2)
+        if not large_dataset:
+            res1, augment_step_number = TemplateSteps.add_steps_serial(wikidata_search_results, augment_step_number)
+            all_steps.extend(res1)
+            res2, augment_step_number = TemplateSteps.add_steps_serial(vector_search_results, augment_step_number)
+            all_steps.extend(res2)
+
         res3, augment_step_number = TemplateSteps.add_steps_parallel(general_search_results, augment_step_number)
         all_steps.extend(res3)
         return all_steps
