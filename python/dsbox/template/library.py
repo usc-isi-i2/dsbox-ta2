@@ -133,7 +133,10 @@ class TemplateLibrary:
             "Distil_acled_problem_template":DistilacledProblemTemplate,
             "CMU_acled_problem_template":CMUacledProblemTemplate,
 
-            # "alternative_classification_template": AlternativeClassificationTemplate,
+            "alternative_classification_template": AlternativeClassificationTemplate,
+
+            # Multi-label
+            "Multi_Label_tempalte": MultiLabelTemplate,
         }
 
         if run_single_template:
@@ -146,9 +149,9 @@ class TemplateLibrary:
         _logger.debug(f'Finding templates for Task={task.name} and TaskSubtype={subtype.name} resource={taskSourceType} special={specialized_problem}')
         results: typing.List[DSBoxTemplate] = []
         # 2019.7.18: temporary hacking here: only run special template for acled like problem
-        if specialized_problem == "Acled_problem":
-            results = [CMUacledProblemTemplate(), DistilacledProblemTemplate()]
-            return results
+        # if specialized_problem == "Acled_problem":
+        #     results = [CMUacledProblemTemplate(), DistilacledProblemTemplate()]
+        #     return results
 
         # for timeseries forcating and semi problem, not use MeanBaseline template, it will make meanbaseline to be top rank
         not_add_mean_base_line_task_types = [TaskType.TIME_SERIES_FORECASTING.name, TaskType.SEMISUPERVISED_CLASSIFICATION.name, TaskType.SEMISUPERVISED_REGRESSION.name]
@@ -220,7 +223,7 @@ class TemplateLibrary:
         self.templates.append(DefaultClassificationTemplate)
         self.templates.append(NaiveBayesClassificationTemplate)
         self.templates.append(DefaultRegressionTemplate)
-        # self.templates.append(AlternativeClassificationTemplate)
+        self.templates.append(AlternativeClassificationTemplate)
 
         # new tabular classification
         # Muxin said it was already included in DefaultClassification
@@ -264,8 +267,9 @@ class TemplateLibrary:
         # Others
         # 2019.7.19: those 3 templates should be not added for any other dataset using
         # self.templates.append(BBNacledProblemTemplate)
-        # self.templates.append(DistilacledProblemTemplate)
-        # self.templates.append(CMUacledProblemTemplate)
+        # kyao  2019-7-24: Enable for test
+        self.templates.append(DistilacledProblemTemplate)
+        self.templates.append(CMUacledProblemTemplate)
 
         self.templates.append(DefaultTimeseriesCollectionTemplate)
         self.templates.append(TimeSeriesForcastingTestingTemplate)
@@ -293,7 +297,8 @@ class TemplateLibrary:
 
         self.templates.append(CornellMatrixFactorization)
         self.templates.append(SRIVertexClassificationTemplate)
-        self.templates.append(ISIGraphNormClf)
+        # 2019-7-24: takign too long
+        # self.templates.append(ISIGraphNormClf)
         # 2019-7-3: Uses too much memory
         # self.templates.append(ISI_GCN)
 
@@ -303,6 +308,9 @@ class TemplateLibrary:
 
         self.templates.append(ClassificationWithSelection)
         self.templates.append(RegressionWithSelection)
+
+        # Multi-label problems
+        self.templates.append(MultiLabelTemplate),
 
         # dsbox all in one templates
         # move dsboxClassificationTemplate to last execution because sometimes this template have bugs
@@ -5738,17 +5746,13 @@ class SRIVertexClassificationTemplate(DSBoxTemplate):
                 },
                 {
                     "name": "model_step",
-                    "runtime": {
-                        "cross_validation": 5,
-                        "stratified": True
-                    },
                     "primitives": [
                         {
                             "primitive":
                             "d3m.primitives.classification.bernoulli_naive_bayes.SKlearn",
                             "hyperparameters":
                             {
-                                'alpha': [0.1],
+                                'alpha': [0.01, 0.1, 1.0],
                                 'binarize': [0.0],
                                 'fit_prior': [False],
                                 'return_result': ["new"],
@@ -5765,4 +5769,81 @@ class SRIVertexClassificationTemplate(DSBoxTemplate):
                     "inputs": ["model_step", "to_dataframe_step"]
                 }
             ]
+        }
+
+
+class MultiLabelTemplate(DSBoxTemplate):
+    def __init__(self):
+        DSBoxTemplate.__init__(self)
+        self.template = {
+            "name": "Multi_Label_tempalte",
+            "taskType": {TaskType.CLASSIFICATION.name},
+            "taskSubtype": {TaskSubtype.MULTILABEL.name},
+            "inputType": {"table"},
+            "output": "prediction_step",
+            'steps': [
+                {
+                    'name': 'steps.1',
+                    'primitives': [
+                        {
+                            'primitive': 'd3m.primitives.data_transformation.dataset_to_dataframe.Common',
+                            'hyperparameters': {
+                            },
+                        },
+                    ],
+                    'inputs': ['template_input'],
+                },
+                {
+                    'name': 'steps.2',
+                    'primitives': [
+                        {
+                            'primitive': 'd3m.primitives.data_transformation.extract_columns_by_semantic_types.DataFrameCommon',
+                            'hyperparameters': {
+                                'semantic_types': [
+                                    ('https://metadata.datadrivendiscovery.org/types/PrimaryKey',
+                                     'https://metadata.datadrivendiscovery.org/types/PrimaryMultiKey',
+                                     'https://metadata.datadrivendiscovery.org/types/Attribute')],
+                            },
+                        },
+                    ],
+                    'inputs': ['steps.1'],
+                },
+                {
+                    'name': 'steps.3',
+                    'primitives': [
+                        {
+                            'primitive': 'd3m.primitives.data_transformation.extract_columns_by_semantic_types.DataFrameCommon',
+                            'hyperparameters': {
+                                'semantic_types': [
+                                    ('https://metadata.datadrivendiscovery.org/types/PrimaryKey',
+                                     'https://metadata.datadrivendiscovery.org/types/PrimaryMultiKey',
+                                     'https://metadata.datadrivendiscovery.org/types/SuggestedTarget')],
+                            },
+                        },
+                    ],
+                    'inputs': ['steps.1'],
+                },
+                {
+                    'name': 'steps.4',
+                    'primitives': [
+                        {
+                            'primitive': 'd3m.primitives.data_transformation.column_parser.DataFrameCommon',
+                            'hyperparameters': {
+                            },
+                        },
+                    ],
+                    'inputs': ['steps.2'],
+                },
+                {
+                    'name': 'prediction_step',
+                    'primitives': [
+                        {
+                            'primitive': 'd3m.primitives.classification.multilabel_classifier.DSBOX',
+                            'hyperparameters': {
+                            },
+                        },
+                    ],
+                    'inputs': ['steps.4', 'steps.3'],
+                },
+            ],
         }

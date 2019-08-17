@@ -1,6 +1,7 @@
 import logging
 import queue
 import time
+import threading
 import traceback
 import typing
 
@@ -44,7 +45,11 @@ class TemplateSpaceParallelBaseSearch(TemplateSpaceBaseSearch[T]):
     def __init__(self, num_proc):
         super().__init__(is_multiprocessing=True)
         self.job_manager = DistributedJobManager(proc_num=num_proc)
+        self.num_proc = num_proc
         self.timeout_sec = None
+        self.jobs_completed = 0
+        self.jobs_pushed = 0
+
 
     def initialize_problem(self, template_list: typing.List[DSBoxTemplate],
                            performance_metrics: typing.List[typing.Dict],
@@ -56,7 +61,8 @@ class TemplateSpaceParallelBaseSearch(TemplateSpaceBaseSearch[T]):
                            output_directory: str,
                            start_time: float = 0, timeout_sec: float = 3300) -> None:
         # Start timer
-        self.job_manager.timeout_sec = timeout_sec
+        delta_time = time.perf_counter() - start_time
+        self.job_manager.timeout_sec = timeout_sec - delta_time
 
         super().initialize_problem(
             template_list=template_list, performance_metrics=performance_metrics,
@@ -100,8 +106,13 @@ class TemplateSpaceParallelBaseSearch(TemplateSpaceBaseSearch[T]):
             # signal.signal(signal.SIGALRM, _timeout_handler)
             # signal.alarm(3 * 60)
 
-        # randomly send the candidates to job manager for evaluation
-        self._push_random_candidates(num_iter)
+        # Randomly send the candidates to job manager for evaluation.
+        # Use thread to push candidates. Otherwise the the queue and/or its underlying
+        # pipe get filled up, and cause broken pipe errors.
+        # self._push_random_candidates(num_iter)
+        push_thread = threading.Thread(target=self._push_random_candidates, args=(num_iter,))
+        push_thread.start()
+
         time.sleep(1)
 
         # iteratively wait until a result is available and process the result untill there is no
@@ -127,19 +138,18 @@ class TemplateSpaceParallelBaseSearch(TemplateSpaceBaseSearch[T]):
             None
         """
         _logger.debug("Waiting for the results")
-        counter = 0
         try:
             wait_seconds = self.start_time + self.timeout_sec - time.perf_counter()
-            while (counter < max_num) and (not self.job_manager.is_idle()) and wait_seconds > 15:
-                # print("[INFO] Sleeping,", counter)
-                _logger.info(f"Main Process jobs_completed:{counter}, timeout={wait_seconds}")
+            while (self.jobs_completed < max_num) and (not self.job_manager.is_idle()) and wait_seconds > 15:
+                # print("[INFO] Sleeping,", self.jobs_completed)
+                _logger.info(f"Main Process jobs_completed:{self.jobs_completed}, timeout={wait_seconds}")
                 if wait_seconds > 15:
                     (kwargs_bundle, report) = self.job_manager.pop_job(block=True, timeout=wait_seconds)
-                    _logger.warning(f"kwargs: {kwargs_bundle}")
+                    _logger.info(f"kwargs: {kwargs_bundle}")
 
                     self._add_report_to_history(kwargs_bundle, report)
 
-                counter += 1
+                self.jobs_completed += 1
                 wait_seconds = self.start_time + self.timeout_sec - time.perf_counter()
 
             if wait_seconds > 15:
@@ -159,11 +169,16 @@ class TemplateSpaceParallelBaseSearch(TemplateSpaceBaseSearch[T]):
         Returns:
 
         """
-        print("#" * 50)
-        for search in self._select_next_template(num_iter=num_iter):
-            self._random_pipeline_evaluation_push(search=search, num_iter=1)
-
-        print("#" * 50)
+        _logger.info('Start pushing canditates')
+        for count, search in enumerate(self._select_next_template(num_iter=num_iter)):
+            wait_seconds = self.start_time + self.timeout_sec - time.perf_counter()
+            if wait_seconds > 15:
+                self._random_pipeline_evaluation_push(search=search, num_iter=1)
+                _logger.info(f'Pushed canditate {count}')
+            else:
+                _logger.warning('Timed out before pushing all the candiates')
+                break
+        _logger.info('Done  pushing canditates')
 
     def _random_pipeline_evaluation_push(self, search: ConfigurationSpaceBaseSearch,
                                          num_iter: int = 1) -> None:
@@ -180,11 +195,22 @@ class TemplateSpaceParallelBaseSearch(TemplateSpaceBaseSearch[T]):
         for candidate in self._sample_random_pipeline(search=search, num_iter=num_iter):
 
             try:
-                # push the candidate to the job manager
-                self.job_manager.push_job(
-                    kwargs_bundle=self._prepare_job_posting(candidate=candidate,
-                                                            search=search)
-                )
+                while True:
+                    wait_seconds = self.start_time + self.timeout_sec - time.perf_counter()
+                    long_queue: bool = self.jobs_pushed - self.jobs_completed > 2 * self.num_proc
+                    if long_queue and wait_seconds > 16:
+                        time.sleep(1)
+                    else:
+                        break
+                if wait_seconds > 15:
+                    # push the candidate to the job manager
+                    self.job_manager.push_job(
+                        kwargs_bundle=self._prepare_job_posting(candidate=candidate,
+                                                                search=search))
+                    self.jobs_pushed += 1
+                else:
+                    _logger.warning('Timed out before pushing all the candiates')
+                    break
             except:
                 traceback.print_exc()
                 _logger.error(traceback.format_exc())

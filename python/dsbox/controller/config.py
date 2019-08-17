@@ -2,10 +2,9 @@ import io
 import json
 import logging
 import os
+import time
 import typing
 
-import d3m.metadata.base as metadata_base
-from d3m.metadata.problem import parse_problem_description
 from d3m.metadata.problem import Problem
 
 class RuntimeSetting:
@@ -64,7 +63,7 @@ class DsboxConfig:
 
     DSBox variables
     * search_method: pipeline search methods, possible values 'serial', 'parallel', 'random-dimensional', 'bandit', 'multi-bandit'
-    * timeout_search: Timeout for search part. Typically equal to timeout less 120 seconds
+    * timeout_search: Timeout for search part. The remaining time after timeout_search is used for returning results.
 
     '''
 
@@ -100,9 +99,12 @@ class DsboxConfig:
         self.log_dir: str = ''
         self.dfs_log_dir: str = ''
 
-        # DSBox search
+        # == DSBox search
         self.search_method = 'serial'
         self.serial_search_iterations = 50
+        # Should be set using set_start_time() as soon as the search request is received
+        self._start_time: float = 0
+        # Search time
         self.timeout_search: int = 0
 
         # DSBox logging
@@ -135,6 +137,20 @@ class DsboxConfig:
         # 2019.7.19: add more time for system clean up job
         self.timeout_search = int(self._timeout * 0.93)
 
+    @property
+    def start_time(self) -> float:
+        '''
+        Returns time.perf_counter counter clock in seconds
+        '''
+        return self._start_time
+
+    def set_start_time(self):
+        '''
+        Should be called as soon as the search request is made. Should be called by
+        TA2Servicer class and ta2_evaluation.py script.
+        '''
+        self._start_time = time.perf_counter()
+
     def load(self, ta2ta3_mode: bool = False):
         self._load_d3m_environment(ta2ta3_mode)
         self._load_dsbox()
@@ -143,10 +159,10 @@ class DsboxConfig:
     def set_problem(self, problem: Problem):
 
         if not isinstance(problem, Problem):
-            raise VauleError(f"Argument problem must be an instance of Problem: {problem}")
+            raise ValueError(f"Argument problem must be an instance of Problem: {problem}")
 
         if 'id' not in problem:
-            raise VauleError(f"Problem missing id: {problem}")
+            raise ValueError(f"Problem missing id: {problem}")
 
         self.problem = problem
         self._load_problem_rest()
@@ -202,8 +218,8 @@ class DsboxConfig:
 
     def _load_dsbox(self):
         self._load_logging()
-        # self.search_method = 'parallel'
-        self.search_method = 'serial'
+        self.search_method = 'parallel'
+        # self.search_method = 'serial'
 
     def _setup(self):
         self._define_create_output_dirs()

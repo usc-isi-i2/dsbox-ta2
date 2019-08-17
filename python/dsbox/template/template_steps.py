@@ -134,6 +134,95 @@ class TemplateSteps:
             }
         ]
 
+    @staticmethod
+    def dsbox_augmentation_step(datamart_search_results, large_dataset=False):
+        '''
+        dsbox generic step for classification and regression, directly lead to model step
+        '''
+        wikidata_search_results = []
+        vector_search_results = []
+        general_search_results = []
+        for each_result in datamart_search_results:
+            detail_info = each_result.get_json_metadata()
+            # if it is wikidata search reuslts
+            if detail_info['summary']['Datamart ID'].startswith("wikidata_search"):
+                wikidata_search_results.append(each_result)
+            elif detail_info['summary']['Datamart ID'].startswith("vector_search"):
+                vector_search_results.append(each_result)
+            else:
+                general_search_results.append(each_result)
+        all_steps = []
+        augment_step_number = 0
+
+        if not large_dataset:
+            res1, augment_step_number = TemplateSteps.add_steps_serial(wikidata_search_results, augment_step_number)
+            all_steps.extend(res1)
+            res2, augment_step_number = TemplateSteps.add_steps_serial(vector_search_results, augment_step_number)
+            all_steps.extend(res2)
+
+        res3, augment_step_number = TemplateSteps.add_steps_parallel(general_search_results, augment_step_number)
+        all_steps.extend(res3)
+        return all_steps
+
+
+    @staticmethod
+    def add_steps_serial(search_results, start_step):
+        """
+            Add all search results in serial steps as candidates
+        """
+        augment_steps = []
+        for i, each in enumerate(search_results, start_step):
+            each_augment_step = {
+                "name": "augment_step" + str(i),
+                "primitives": [
+                    "d3m.primitives.data_preprocessing.do_nothing_for_dataset.DSBOX", 
+                    {
+                        "primitive": "d3m.primitives.data_augmentation.datamart_augmentation.Common",
+                        "hyperparameters":
+                        {
+                            'system_identifier':["NYU"],
+                            'search_result':[each.serialize()],
+                        }
+                    }
+                ],
+                "inputs": ["template_input" if i==0 else "augment_step" + str(i - 1)]
+            }
+            augment_steps.append(each_augment_step)
+        
+        return augment_steps, start_step + len(search_results)
+
+
+    @staticmethod
+    def add_steps_parallel(search_results, start_step):
+        """
+            Add all search results in one step as candidates
+        """
+        augment_steps = []
+
+        search_result = []
+        for each in search_results:
+            search_result.append(each.serialize())
+
+        each_augment_step = {
+            "name": "augment_step" + str(start_step),
+            "primitives": [
+                "d3m.primitives.data_preprocessing.do_nothing_for_dataset.DSBOX", 
+                {
+                    "primitive": "d3m.primitives.data_augmentation.datamart_augmentation.Common",
+                    "hyperparameters":
+                    {
+                        'system_identifier':["NYU"],
+                        'search_result':search_result,
+                    }
+                }
+            ],
+            "inputs": ["template_input" if start_step==0 else "augment_step" + str(start_step - 1)]
+        }
+        augment_steps.append(each_augment_step)
+        
+        return augment_steps, start_step + 1
+
+
     # Returns a list of dicts with the most common steps
     @staticmethod
     def dsbox_generic_text_steps(data: str = "data", target: str = "target"):
