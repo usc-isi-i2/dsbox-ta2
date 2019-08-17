@@ -182,8 +182,8 @@ class Controller:
 
         # Set privileged data columns
         for dataset in self.config.problem['inputs']:
-            # if 'LL0_acled' in dataset['dataset_id']:
-            #     self.specialized_problem = SpecializedProblem.ACLED_LIKE_PROBLEM
+            if 'LL0_acled' in dataset['dataset_id']:
+                self.specialized_problem = SpecializedProblem.ACLED_LIKE_PROBLEM
 
             if 'privileged_data' not in dataset:
                 continue
@@ -607,9 +607,9 @@ class Controller:
             if graph_size and graph_size > max_accept_graph_size_for_parallel:
                 self._logger.warning("Change to serial mode for the graph problem with size larger than " + str(max_accept_graph_size_for_parallel))
                 self.config.search_method = "serial"
-            # if "LL0_acled" in self.config.problem['id'] or "LL1_VTXC_1343_cora" in self.config.problem['id']:
-            #     self._logger.warning("Change to serial mode for the speical problem id: " + str(self.config.problem['id']))
-            #     self.config.search_method = "serial"
+            if "LL0_acled" in self.config.problem['id'] or "LL1_VTXC_1343_cora" in self.config.problem['id']:
+                self._logger.warning("Change to serial mode for the speical problem id: " + str(self.config.problem['id']))
+                self.config.search_method = "serial"
 
         except:
             pass
