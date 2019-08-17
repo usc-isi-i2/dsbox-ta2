@@ -16,6 +16,8 @@ from d3m.base import utils as d3m_utils
 from d3m.container.dataset import Dataset, D3MDatasetLoader
 from d3m.metadata.base import ALL_ELEMENTS
 from d3m.metadata.problem import TaskType
+from datamart_isi.utilities import d3m_wikifier
+from datamart_isi.utilities.download_manager import DownloadManager
 
 from dsbox.combinatorial_search.TemplateSpaceBaseSearch import TemplateSpaceBaseSearch
 from dsbox.combinatorial_search.TemplateSpaceParallelBaseSearch import TemplateSpaceParallelBaseSearch
@@ -632,6 +634,23 @@ class Controller:
             self.ensemble_voting_candidate_choose_method = 'lastStep'
             # self.ensemble_voting_candidate_choose_method = 'resultSimilarity'
 
+    def filter_search(self, all_results, remove_set):
+        idx_keep = []
+        for i, res in enumerate(all_results):
+            join_col_name = set()
+            search_res = json.loads(res.serialize())['materialize_info']
+            metadata = json.loads(search_res)['metadata']
+            if metadata['search_type'] == "general":
+                for each in metadata['query_json']['variables'].keys():
+                    join_col_name.add(each)
+            else:
+                join_col_name.add(metadata['search_result']['target_q_node_column_name'])
+
+            if remove_set.isdisjoint(join_col_name):
+                idx_keep.append(i)
+        all_results = [all_results[i] for i in idx_keep]
+        return all_results
+
     def do_data_augmentation_rest_api(self, input_all_dataset: Dataset) -> Dataset:
         # 2019.7.19: not run augment on medical one!
         try:
@@ -693,12 +712,89 @@ class Controller:
 
         # query_search = datamart.DatamartQuery(keywords=keywords, variables=variables)
         search_unit = datamart_unit.search_with_data(query=None, supplied_data=augment_res)
-        all_results1 = search_unit.get_next_page()
+        # COMMENT: limit = 40, in order to get more results after filter
+        all_results1 = search_unit.get_next_page(limit=40)
         # import pdb
         # pdb.set_trace()
         if not all_results1:
             self._logger.warning("No search ressult returned!")
             return self.all_dataset
+
+        # run wikifier to get Q-nodes columns
+        self._logger.debug("Start running wikifier...")
+        output_ds = d3m_wikifier.run_wikifier(supplied_data=augment_res)
+        self._logger.info("Wikifier running finished.")
+
+        # Get 100 non-empty rows
+        _, supplied_dataframe = d3m_utils.get_tabular_resource(dataset=output_ds, resource_id=None)
+
+        col_wk = []
+        for i, name in enumerate(supplied_dataframe.columns):
+            if "_wikidata" in name:
+                col_wk.append(i)
+
+        row_100 = []
+        shuffle_list = list(range(len(supplied_dataframe)))
+        random.shuffle(shuffle_list)
+        for row_num in shuffle_list:
+            if not supplied_dataframe.iloc[row_num, col_wk].isnull().any():
+                row_100.append(row_num)
+            if len(row_100) == 100:
+                break
+        if len(row_100) < 100:
+            self._logger.debug("[INFO] The number of non-empty rows is" + str(len(row_100)) + ", it's less than 100")
+
+        # Do vector augment and calculate cosine similarity
+        cos_vector = dict()
+        for col in col_wk:
+            current_column_name = supplied_dataframe.columns[col]
+            cos_vector[current_column_name] = []
+            self._logger.debug("Current column name is" + current_column_name)
+            qnodes = supplied_dataframe.iloc[row_100, col].tolist()
+            # 201 columns: key, vector1, vector2 ...
+            df_vectors = DownloadManager.fetch_fb_embeddings(qnodes, current_column_name)
+            for i in range(1, len(df_vectors.columns)):
+                cos_vector[current_column_name].append(df_vectors.iloc[:, i].mean())
+
+        from sklearn.metrics.pairwise import cosine_similarity
+        X = list(cos_vector.values())
+        matrix = cosine_similarity(X)
+        df_res = pd.DataFrame(data=matrix, columns=cos_vector.keys())
+
+        # remove similar column
+        remove_set = set()
+        col_name = df_res.columns.tolist()
+        for i, name in enumerate(col_name):
+            if name not in remove_set:
+                # remove < 0.4
+                idx_remove = df_res[df_res[name] < 0.4].index.tolist()
+                if len(idx_remove) == len(col_name) - 1:
+                    remove_set.add(name)
+                # choose one of > 0.9
+                idx_remove = df_res[df_res[name] > 0.9].index.tolist()
+                idx_remove.remove(i)  # remove self
+                for idx in idx_remove:
+                    curr_name = col_name[idx]
+                    ds_name = curr_name.split("_")[0]
+                    try:
+                        if supplied_dataframe[ds_name].astype(float).dtypes == "float64" \
+                                or supplied_dataframe[ds_name].astype(int).dtypes == "int64":
+                            remove_set.add(curr_name)
+                    except:
+                        remove_set.add(name)
+
+        # do filter search
+        all_results1 = self.filter_search(all_results1, remove_set)
+
+        while len(all_results1) < 20:
+            # COMMENT: get_next_page() return empty
+            all_results2 = search_unit.get_next_page()
+            if all_results2 is None:
+                self._logger.debug("[INFO] The size of all results is" + str(len(all_results1)) + ", it's less than 20")
+                break
+            all_results1.append(all_results2)
+            # do filter search
+            all_results1 = self.filter_search(all_results1, remove_set)
 
         # if we get some search result
         from common_primitives.datamart_augment import Hyperparams as hyper_augment, DataMartAugmentPrimitive
