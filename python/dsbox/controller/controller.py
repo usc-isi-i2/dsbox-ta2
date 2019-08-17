@@ -713,7 +713,7 @@ class Controller:
         # query_search = datamart.DatamartQuery(keywords=keywords, variables=variables)
         search_unit = datamart_unit.search_with_data(query=None, supplied_data=augment_res)
         # COMMENT: limit = 40, in order to get more results after filter
-        all_results1 = search_unit.get_next_page(limit=40)
+        all_results1 = search_unit.get_next_page()
         # import pdb
         # pdb.set_trace()
         if not all_results1:
