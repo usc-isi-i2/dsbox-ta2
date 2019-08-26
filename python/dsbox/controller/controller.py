@@ -18,6 +18,8 @@ from d3m.metadata.base import ALL_ELEMENTS
 from d3m.metadata.problem import TaskType
 from datamart_isi.utilities import d3m_wikifier
 from datamart_isi.utilities.download_manager import DownloadManager
+from wikifier import wikifier
+from datamart_isi import config
 
 from dsbox.combinatorial_search.TemplateSpaceBaseSearch import TemplateSpaceBaseSearch
 from dsbox.combinatorial_search.TemplateSpaceParallelBaseSearch import TemplateSpaceParallelBaseSearch
@@ -125,6 +127,11 @@ class Controller:
 
         # Template search method
         self._search_method = None
+
+        # Set sample size (sample used to do wikifier comes from supplied_data)
+        self.max_len = 100000
+        self.selection_rate = 0.1
+        self.default_size = 1000
 
     """
         **********************************************************************
@@ -636,22 +643,34 @@ class Controller:
             self.ensemble_voting_candidate_choose_method = 'lastStep'
             # self.ensemble_voting_candidate_choose_method = 'resultSimilarity'
 
-    def filter_search(self, all_results, remove_set):
-        idx_keep = []
-        for i, res in enumerate(all_results):
-            join_col_name = set()
-            search_res = json.loads(res.serialize())['materialize_info']
-            metadata = json.loads(search_res)['metadata']
-            if metadata['search_type'] == "general":
-                for each in metadata['query_json']['variables'].keys():
-                    join_col_name.add(each)
-            else:
-                join_col_name.add(metadata['search_result']['target_q_node_column_name'])
+    @staticmethod
+    def find_possible_candidate(supplied_data):
+        res_id, supplied_dataframe = d3m_utils.get_tabular_resource(dataset=supplied_data, resource_id=None)
+        target_columns = list(range(supplied_dataframe.shape[1]))
+        temp = copy.deepcopy(target_columns)
 
-            if remove_set.isdisjoint(join_col_name):
-                idx_keep.append(i)
-        all_results = [all_results[i] for i in idx_keep]
-        return all_results
+        skip_column_type = set()
+        need_column_type = config.need_wikifier_column_type_list
+        # if we detect some special type of semantic type (like PrimaryKey here), it means some metadata is adapted
+        # from exist dataset but not all auto-generated, so we can have more restricts
+        for each in target_columns:
+            each_column_semantic_type = supplied_data.metadata.query((res_id, ALL_ELEMENTS, each))['semantic_types']
+            if "https://metadata.datadrivendiscovery.org/types/PrimaryKey" in each_column_semantic_type:
+                skip_column_type = config.skip_wikifier_column_type_list
+                break
+
+        for each in target_columns:
+            each_column_semantic_type = supplied_data.metadata.query((res_id, ALL_ELEMENTS, each))['semantic_types']
+            # if the column type inside here found, this coumn should be wikified
+            if set(each_column_semantic_type).intersection(need_column_type):
+                continue
+            # if the column type inside here found, this column should not be wikified
+            elif set(each_column_semantic_type).intersection(skip_column_type):
+                temp.remove(each)
+            elif supplied_dataframe.columns[each] == "d3mIndex":
+                temp.remove(each)
+        target_columns = temp
+        return target_columns
 
     def do_data_augmentation_rest_api(self, input_all_dataset: Dataset) -> Dataset:
 
@@ -667,6 +686,87 @@ class Controller:
             # pass
         # elif self.all_dataset.metadata.query(())['id'].startswith("DA_ny_taxi_demand"):
         augment_res = copy.copy(self.all_dataset)
+
+        # try to find target columns which should do wikifier
+        target_columns = self.find_possible_candidate(augment_res)
+
+        # get smaller dataset by random
+        _, supplied_dataframe = d3m_utils.get_tabular_resource(dataset=augment_res, resource_id=None)
+        size_of_df = len(supplied_dataframe)
+        if size_of_df > self.max_len:
+            size_of_sample = int(size_of_df * self.selection_rate)
+        elif size_of_df > self.default_size:
+            size_of_sample = self.default_size
+        else:
+            size_of_sample = size_of_df
+        random.seed(41)
+        idx = random.sample(range(size_of_df), size_of_sample)
+
+        # get qnode columns and metadata for wikifier
+        df_qnodes = pd.DataFrame()
+        meta_for_wikifier = dict()
+        for i in target_columns:
+            sample_df = supplied_dataframe.iloc[idx, i].drop_duplicates(keep='first', inplace=False).to_frame()
+            self._logger.info("Current column is " + str(sample_df.columns.tolist()))
+            self._logger.debug("Start running wikifier...")
+            output_df = wikifier.produce(sample_df)
+            self._logger.info("Wikifier running finished.")
+            if len(output_df.columns) > 1:
+                qnode_name = output_df.columns.tolist()[1]
+                df_qnodes[qnode_name] = output_df[qnode_name]
+                res = d3m_wikifier.get_specific_p_nodes(sample_df)
+                if res:
+                    meta_for_wikifier.update(res)
+                    d3m_wikifier.delete_specific_p_nodes_file(sample_df)
+
+        # Do vector augment and calculate cosine similarity
+        sim_vector = dict()
+        for col_name in df_qnodes.columns.tolist():
+            sim_vector[col_name] = []
+            self._logger.debug("Current column name is" + col_name)
+            qnodes = df_qnodes[col_name].tolist()
+            # 201 columns: key, vector1, vector2 ...
+            df_vectors = DownloadManager.fetch_fb_embeddings(qnodes, col_name)
+            for i in range(1, len(df_vectors.columns)):
+                sim_vector[col_name].append(df_vectors.iloc[:, i].mean())
+
+        from sklearn.metrics.pairwise import cosine_similarity
+        X = list(sim_vector.values())
+        matrix = cosine_similarity(X)
+        df_sim = pd.DataFrame(data=matrix, columns=sim_vector.keys())
+
+        # remove similar column
+        # COMMENT: may remove right column when wrong columns are similar to each other.
+        remove_set = set()
+        col_name = df_sim.columns.tolist()
+        for i, name in enumerate(col_name):
+            if name not in remove_set:
+                # remove < 0.4
+                idx_remove = df_sim[df_sim[name] < 0.4].index.tolist()
+                if len(idx_remove) == len(col_name) - 1:
+                    name = name.split("_")[0]
+                    remove_set.add(name)
+                    continue
+                # choose one of > 0.9
+                idx_remove = df_sim[df_sim[name] > 0.9].index.tolist()
+                idx_remove.remove(i)  # remove self
+                for idx in idx_remove:
+                    row_name = col_name[idx]
+                    row_name = row_name.split("_")[0]
+                    try:
+                        if supplied_dataframe[row_name].astype(float).dtypes == "float64" \
+                                or supplied_dataframe[row_name].astype(int).dtypes == "int64":
+                            remove_set.add(row_name)
+                    except:
+                        name = name.split("_")[0]
+                        remove_set.add(name)
+
+        # remove meta
+        for name in remove_set:
+            if name in meta_for_wikifier.keys():
+                del meta_for_wikifier[name]
+        meta_to_str = json.dumps({config.wikifier_column_mark: meta_for_wikifier})
+        query_search = datamart.DatamartQuery(keywords=[meta_to_str], variables=None)
 
         # keywords = []
         # keywrods_from_data = input_all_dataset.metadata.query(()).get('keywords')
@@ -706,89 +806,12 @@ class Controller:
         #             self._logger.error("Parsing the DateTime column No." + str(i) + " for augment failed.")
 
         # query_search = datamart.DatamartQuery(keywords=keywords, variables=variables)
-        search_unit = datamart_unit.search_with_data(query=None, supplied_data=augment_res)
-        # COMMENT: limit = 40, in order to get more results after filter
+        search_unit = datamart_unit.search_with_data(query=query_search, supplied_data=augment_res)
         all_results1 = search_unit.get_next_page()
 
         if all_results1 is None:
-            self._logger.warning("No search ressult returned!")
+            self._logger.warning("No search result returned!")
             return self.all_dataset
-
-        # run wikifier to get Q-nodes columns
-        self._logger.debug("Start running wikifier...")
-        output_ds = d3m_wikifier.run_wikifier(supplied_data=augment_res)
-        self._logger.info("Wikifier running finished.")
-
-        # Get 100 non-empty rows
-        _, supplied_dataframe = d3m_utils.get_tabular_resource(dataset=output_ds, resource_id=None)
-
-        col_wk = []
-        for i, name in enumerate(supplied_dataframe.columns):
-            if "_wikidata" in name:
-                col_wk.append(i)
-
-        row_100 = []
-        shuffle_list = list(range(len(supplied_dataframe)))
-        random.shuffle(shuffle_list)
-        for row_num in shuffle_list:
-            if not supplied_dataframe.iloc[row_num, col_wk].isnull().any():
-                row_100.append(row_num)
-            if len(row_100) == 100:
-                break
-        if len(row_100) < 100:
-            self._logger.debug("[INFO] The number of non-empty rows is" + str(len(row_100)) + ", it's less than 100")
-
-        # Do vector augment and calculate cosine similarity
-        cos_vector = dict()
-        for col in col_wk:
-            current_column_name = supplied_dataframe.columns[col]
-            cos_vector[current_column_name] = []
-            self._logger.debug("Current column name is" + current_column_name)
-            qnodes = supplied_dataframe.iloc[row_100, col].tolist()
-            # 201 columns: key, vector1, vector2 ...
-            df_vectors = DownloadManager.fetch_fb_embeddings(qnodes, current_column_name)
-            for i in range(1, len(df_vectors.columns)):
-                cos_vector[current_column_name].append(df_vectors.iloc[:, i].mean())
-
-        from sklearn.metrics.pairwise import cosine_similarity
-        X = list(cos_vector.values())
-        matrix = cosine_similarity(X)
-        df_res = pd.DataFrame(data=matrix, columns=cos_vector.keys())
-
-        # remove similar column
-        remove_set = set()
-        col_name = df_res.columns.tolist()
-        for i, name in enumerate(col_name):
-            if name not in remove_set:
-                # remove < 0.4
-                idx_remove = df_res[df_res[name] < 0.4].index.tolist()
-                if len(idx_remove) == len(col_name) - 1:
-                    remove_set.add(name)
-                # choose one of > 0.9
-                idx_remove = df_res[df_res[name] > 0.9].index.tolist()
-                idx_remove.remove(i)  # remove self
-                for idx in idx_remove:
-                    curr_name = col_name[idx]
-                    ds_name = curr_name.split("_")[0]
-                    try:
-                        if supplied_dataframe[ds_name].astype(float).dtypes == "float64" \
-                                or supplied_dataframe[ds_name].astype(int).dtypes == "int64":
-                            remove_set.add(curr_name)
-                    except:
-                        remove_set.add(name)
-
-        # do filter search
-        all_results1 = self.filter_search(all_results1, remove_set)
-
-        while len(all_results1) < 20:
-            # COMMENT: get_next_page() return empty
-            all_results2 = search_unit.get_next_page()
-            if all_results2 is None:
-                self._logger.debug("[INFO] The size of all results is" + str(len(all_results1)) + ", it's less than 20")
-                break
-            all_results1.append(all_results2)
-            # do filter search
-            all_results1 = self.filter_search(all_results1, remove_set)
 
         # if we get some search result
         from common_primitives.datamart_augment import Hyperparams as hyper_augment, DataMartAugmentPrimitive
