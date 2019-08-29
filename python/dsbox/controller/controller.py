@@ -129,9 +129,9 @@ class Controller:
         self._search_method = None
 
         # Set sample size (sample used to do wikifier comes from supplied_data)
-        self.max_len = 100000
-        self.selection_rate = 0.1
-        self.default_size = 1000
+        self.wikifier_max_len = 100000
+        self.wikifier_selection_rate = 0.1
+        self.wikifier_default_size = 1000
 
     """
         **********************************************************************
@@ -693,10 +693,10 @@ class Controller:
         # get smaller dataset by random
         _, supplied_dataframe = d3m_utils.get_tabular_resource(dataset=augment_res, resource_id=None)
         size_of_df = len(supplied_dataframe)
-        if size_of_df > self.max_len:
-            size_of_sample = int(size_of_df * self.selection_rate)
-        elif size_of_df > self.default_size:
-            size_of_sample = self.default_size
+        if size_of_df > self.wikifier_max_len:
+            size_of_sample = int(size_of_df * self.wikifier_selection_rate)
+        elif size_of_df > self.wikifier_default_size:
+            size_of_sample = self.wikifier_default_size
         else:
             size_of_sample = size_of_df
         random.seed(41)
@@ -731,8 +731,8 @@ class Controller:
                 sim_vector[col_name].append(df_vectors.iloc[:, i].mean())
 
         from sklearn.metrics.pairwise import cosine_similarity
-        X = list(sim_vector.values())
-        matrix = cosine_similarity(X)
+        x = list(sim_vector.values())
+        matrix = cosine_similarity(x)
         df_sim = pd.DataFrame(data=matrix, columns=sim_vector.keys())
 
         # remove similar column
