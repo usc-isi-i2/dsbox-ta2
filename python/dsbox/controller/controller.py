@@ -678,8 +678,8 @@ class Controller:
         import datamart
         augment_times = 0
         # set up the environment variable to ensure it is correct
-        # os.environ["DATAMART_URL_NYU"] = "http://dsbox02.isi.edu:9000"
-        # self.config.datamart_nyu_url = "http://dsbox02.isi.edu:9000"
+        os.environ["DATAMART_URL_NYU"] = "http://dsbox02.isi.edu:9000"
+        self.config.datamart_nyu_url = "http://dsbox02.isi.edu:9000"
         datamart_unit = datamart_nyu.RESTDatamart(connection_url=self.config.datamart_nyu_url)
 
         # if self.all_dataset.metadata.query(())['id'].startswith("DA_medical_malpractice"):
