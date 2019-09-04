@@ -678,8 +678,9 @@ class Controller:
         import datamart
         augment_times = 0
         # set up the environment variable to ensure it is correct
-        os.environ["DATAMART_URL_NYU"] = "http://dsbox02.isi.edu:9000"
-        self.config.datamart_nyu_url = "http://dsbox02.isi.edu:9000"
+        # os.environ["DATAMART_URL_NYU"] = "http://dsbox02.isi.edu:9000"
+        # self.config.datamart_nyu_url = "http://dsbox02.isi.edu:9000"
+
         datamart_unit = datamart_nyu.RESTDatamart(connection_url=self.config.datamart_nyu_url)
 
         # if self.all_dataset.metadata.query(())['id'].startswith("DA_medical_malpractice"):
@@ -705,14 +706,17 @@ class Controller:
         # get qnode columns and metadata for wikifier
         df_qnodes = pd.DataFrame()
         meta_for_wikifier = dict()
+        q_nodes_found_amount_in_sample_part = dict()
         for i in target_columns:
             sample_df = supplied_dataframe.iloc[idx, i].drop_duplicates(keep='first', inplace=False).to_frame()
             self._logger.info("Current column is " + str(sample_df.columns.tolist()))
             self._logger.debug("Start running wikifier...")
             output_df = wikifier.produce(sample_df)
             self._logger.info("Wikifier running finished.")
+
             if len(output_df.columns) > 1:
                 qnode_name = output_df.columns.tolist()[1]
+                q_nodes_found_amount_in_sample_part[qnode_name] = len(output_df[qnode_name].dropna())
                 df_qnodes[qnode_name] = output_df[qnode_name]
                 res = d3m_wikifier.get_specific_p_nodes(sample_df)
                 if res:
@@ -739,27 +743,36 @@ class Controller:
         # COMMENT: may remove right column when wrong columns are similar to each other.
         remove_set = set()
         col_name = df_sim.columns.tolist()
+
         for i, name in enumerate(col_name):
             if name not in remove_set:
-                # remove < 0.4
-                idx_remove = df_sim[df_sim[name] < 0.4].index.tolist()
-                if len(idx_remove) == len(col_name) - 1:
-                    name = name.split("_")[0]
-                    remove_set.add(name)
-                    continue
-                # choose one of > 0.9
-                idx_remove = df_sim[df_sim[name] > 0.9].index.tolist()
-                idx_remove.remove(i)  # remove self
-                for idx in idx_remove:
-                    row_name = col_name[idx]
-                    row_name = row_name.split("_")[0]
-                    try:
-                        if supplied_dataframe[row_name].astype(float).dtypes == "float64" \
-                                or supplied_dataframe[row_name].astype(int).dtypes == "int64":
-                            remove_set.add(row_name)
-                    except:
-                        name = name.split("_")[0]
-                        remove_set.add(name)
+                candidate_column_need_drop = df_sim[name][(df_sim[name] > 0.9) | (df_sim[name] < 0.4)].index.tolist()
+                temp_q_nodes_amount_dict = dict()
+                for each_column in candidate_column_need_drop:
+                    temp_q_nodes_amount_dict[col_name[each_column]] = q_nodes_found_amount_in_sample_part[col_name[each_column]]
+                temp_q_nodes_amount_dict.pop(max(temp_q_nodes_amount_dict.items(), key=operator.itemgetter(1))[0])
+                for each_key in temp_q_nodes_amount_dict.keys():
+                    remove_set.add(each_key)
+                # # remove < 0.4
+                # idx_remove = df_sim[df_sim[name] < 0.4].index.tolist()
+                # if len(idx_remove) == len(col_name) - 1:
+                #     name = name.split("_")[0]
+                #     remove_set.add(name)
+                #     continue
+                # # choose one of > 0.9
+                # idx_remove = df_sim[df_sim[name] > 0.9].index.tolist()
+                # idx_remove.remove(i)  # remove self
+                # for idx in idx_remove:
+                #     row_name = col_name[idx]
+                #     row_name = row_name.split("_")[0]
+                #     try:
+                #         # if supplied_dataframe[row_name].astype(float).dtypes == "float64" \
+                #                 # or supplied_dataframe[row_name].astype(int).dtypes == "int64":
+                #         if len(df_qnodes[row_name].dropna())
+                #             remove_set.add(row_name)
+                #     except:
+                #         name = name.split("_")[0]
+                #         remove_set.add(name)
 
         # remove meta
         for name in remove_set:
@@ -806,6 +819,7 @@ class Controller:
         #             self._logger.error("Parsing the DateTime column No." + str(i) + " for augment failed.")
 
         # query_search = datamart.DatamartQuery(keywords=keywords, variables=variables)
+
         search_unit = datamart_unit.search_with_data(query=query_search, supplied_data=augment_res)
         all_results1 = search_unit.get_next_page()
 
