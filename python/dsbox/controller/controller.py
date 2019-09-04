@@ -775,8 +775,7 @@ class Controller:
                 #         remove_set.add(name)
 
         # remove meta
-        import pdb
-        pdb.set_trace()
+
         for name in remove_set:
             if name in meta_for_wikifier.keys():
                 del meta_for_wikifier[name]
