@@ -711,7 +711,7 @@ class Controller:
             sample_df = supplied_dataframe.iloc[idx, i].drop_duplicates(keep='first', inplace=False).to_frame()
             self._logger.info("Current column is " + str(sample_df.columns.tolist()))
             self._logger.debug("Start running wikifier...")
-            output_df = wikifier.produce(sample_df)
+            output_df = wikifier.produce(sample_df, use_cache=False)
             self._logger.info("Wikifier running finished.")
 
             if len(output_df.columns) > 1:
@@ -752,7 +752,7 @@ class Controller:
                     temp_q_nodes_amount_dict[col_name[each_column]] = q_nodes_found_amount_in_sample_part[col_name[each_column]]
                 temp_q_nodes_amount_dict.pop(max(temp_q_nodes_amount_dict.items(), key=operator.itemgetter(1))[0])
                 for each_key in temp_q_nodes_amount_dict.keys():
-                    remove_set.add(each_key)
+                    remove_set.add(each_key[:-9])
                 # # remove < 0.4
                 # idx_remove = df_sim[df_sim[name] < 0.4].index.tolist()
                 # if len(idx_remove) == len(col_name) - 1:
@@ -775,6 +775,8 @@ class Controller:
                 #         remove_set.add(name)
 
         # remove meta
+        import pdb
+        pdb.set_trace()
         for name in remove_set:
             if name in meta_for_wikifier.keys():
                 del meta_for_wikifier[name]
