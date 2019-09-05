@@ -737,8 +737,6 @@ class Controller:
         from sklearn.metrics.pairwise import cosine_similarity
         x = list(sim_vector.values())
 
-        import pdb
-        pdb.set_trace()
         if len(x) != 0:
             matrix = cosine_similarity(x)
             df_sim = pd.DataFrame(data=matrix, columns=sim_vector.keys())
