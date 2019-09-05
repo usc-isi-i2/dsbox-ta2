@@ -19,7 +19,7 @@ from d3m.metadata.problem import TaskType
 from datamart_isi.utilities import d3m_wikifier
 from datamart_isi.utilities.download_manager import DownloadManager
 from wikifier import wikifier
-from datamart_isi import config
+from datamart_isi import config as config_datamart
 
 from dsbox.combinatorial_search.TemplateSpaceBaseSearch import TemplateSpaceBaseSearch
 from dsbox.combinatorial_search.TemplateSpaceParallelBaseSearch import TemplateSpaceParallelBaseSearch
@@ -650,13 +650,13 @@ class Controller:
         temp = copy.deepcopy(target_columns)
 
         skip_column_type = set()
-        need_column_type = config.need_wikifier_column_type_list
+        need_column_type = config_datamart.need_wikifier_column_type_list
         # if we detect some special type of semantic type (like PrimaryKey here), it means some metadata is adapted
         # from exist dataset but not all auto-generated, so we can have more restricts
         for each in target_columns:
             each_column_semantic_type = supplied_data.metadata.query((res_id, ALL_ELEMENTS, each))['semantic_types']
             if "https://metadata.datadrivendiscovery.org/types/PrimaryKey" in each_column_semantic_type:
-                skip_column_type = config.skip_wikifier_column_type_list
+                skip_column_type = config_datamart.skip_wikifier_column_type_list
                 break
 
         for each in target_columns:
@@ -680,6 +680,7 @@ class Controller:
         # set up the environment variable to ensure it is correct
         # os.environ["DATAMART_URL_NYU"] = "http://dsbox02.isi.edu:9000"
         # self.config.datamart_nyu_url = "http://dsbox02.isi.edu:9000"
+
         datamart_unit = datamart_nyu.RESTDatamart(connection_url=self.config.datamart_nyu_url)
 
         # if self.all_dataset.metadata.query(())['id'].startswith("DA_medical_malpractice"):
@@ -704,12 +705,14 @@ class Controller:
 
         # get qnode columns and metadata for wikifier
         meta_for_wikifier, sim_vector = dict(), dict()
+        q_nodes_found_amount_in_sample_part = dict()
         for i in target_columns:
             sample_df = supplied_dataframe.iloc[idx, i].drop_duplicates(keep='first', inplace=False).to_frame()
             self._logger.info("Current column is " + str(sample_df.columns.tolist()))
             self._logger.debug("Start running wikifier...")
-            output_df = wikifier.produce(sample_df)
+            output_df = wikifier.produce(sample_df, use_cache=False)
             self._logger.info("Wikifier running finished.")
+
             if len(output_df.columns) > 1:
                 # save specific p/q node in cache files
                 res = d3m_wikifier.get_specific_p_nodes(sample_df)
@@ -718,6 +721,7 @@ class Controller:
                     d3m_wikifier.delete_specific_p_nodes_file(sample_df)
                 # do vector augment and calculate cosine similarity
                 qnode_name = output_df.columns.tolist()[1]
+                q_nodes_found_amount_in_sample_part[qnode_name] = len(output_df[qnode_name].dropna())
                 qnodes = output_df[qnode_name]
                 sim_vector[qnode_name] = []
                 df_vectors = DownloadManager.fetch_fb_embeddings(qnodes, qnode_name)
@@ -727,40 +731,50 @@ class Controller:
 
         from sklearn.metrics.pairwise import cosine_similarity
         x = list(sim_vector.values())
-        matrix = cosine_similarity(x)
-        df_sim = pd.DataFrame(data=matrix, columns=sim_vector.keys())
 
-        # remove similar column
-        # COMMENT: may remove right column when wrong columns are similar to each other.
-        remove_set = set()
-        col_name = df_sim.columns.tolist()
-        for i, name in enumerate(col_name):
-            if name not in remove_set:
-                # remove < 0.4
-                idx_remove = df_sim[df_sim[name] < 0.4].index.tolist()
-                if len(idx_remove) == len(col_name) - 1:
-                    name = name.split("_")[0]
-                    remove_set.add(name)
-                    continue
-                # choose one of > 0.9
-                idx_remove = df_sim[df_sim[name] > 0.9].index.tolist()
-                idx_remove.remove(i)  # remove self
-                for idx in idx_remove:
-                    row_name = col_name[idx]
-                    row_name = row_name.split("_")[0]
-                    try:
-                        if supplied_dataframe[row_name].astype(float).dtypes == "float64" \
-                                or supplied_dataframe[row_name].astype(int).dtypes == "int64":
-                            remove_set.add(row_name)
-                    except:
-                        name = name.split("_")[0]
-                        remove_set.add(name)
+        if len(x) != 0:
+            matrix = cosine_similarity(x)
+            df_sim = pd.DataFrame(data=matrix, columns=sim_vector.keys())
 
-        # remove meta when this column is in remove_set
-        for name in remove_set:
-            if name in meta_for_wikifier.keys():
-                del meta_for_wikifier[name]
-        meta_to_str = json.dumps({config.wikifier_column_mark: meta_for_wikifier})
+            # remove similar column
+            # COMMENT: may remove right column when wrong columns are similar to each other.
+            remove_set = set()
+            col_name = df_sim.columns.tolist()
+
+            for i, name in enumerate(col_name):
+                if name not in remove_set:
+                    candidate_column_need_drop = df_sim[name][(df_sim[name] > 0.9) | (df_sim[name] < 0.4)].index.tolist()
+                    temp_q_nodes_amount_dict = dict()
+                    for each_column in candidate_column_need_drop:
+                        temp_q_nodes_amount_dict[col_name[each_column]] = q_nodes_found_amount_in_sample_part[col_name[each_column]]
+                    temp_q_nodes_amount_dict.pop(max(temp_q_nodes_amount_dict.items(), key=operator.itemgetter(1))[0])
+                    for each_key in temp_q_nodes_amount_dict.keys():
+                        remove_set.add(each_key[:-9])
+            for name in remove_set:
+                if name in meta_for_wikifier.keys():
+                    del meta_for_wikifier[name]
+                # # remove < 0.4
+                # idx_remove = df_sim[df_sim[name] < 0.4].index.tolist()
+                # if len(idx_remove) == len(col_name) - 1:
+                #     name = name.split("_")[0]
+                #     remove_set.add(name)
+                #     continue
+                # # choose one of > 0.9
+                # idx_remove = df_sim[df_sim[name] > 0.9].index.tolist()
+                # idx_remove.remove(i)  # remove self
+                # for idx in idx_remove:
+                #     row_name = col_name[idx]
+                #     row_name = row_name.split("_")[0]
+                #     try:
+                #         # if supplied_dataframe[row_name].astype(float).dtypes == "float64" \
+                #                 # or supplied_dataframe[row_name].astype(int).dtypes == "int64":
+                #         if len(df_qnodes[row_name].dropna())
+                #             remove_set.add(row_name)
+                #     except:
+                #         name = name.split("_")[0]
+                #         remove_set.add(name)
+
+        meta_to_str = json.dumps({config_datamart.wikifier_column_mark: meta_for_wikifier})
         query_search = datamart.DatamartQuery(keywords=[meta_to_str], variables=None)
 
         import pdb
@@ -804,6 +818,7 @@ class Controller:
         #             self._logger.error("Parsing the DateTime column No." + str(i) + " for augment failed.")
 
         # query_search = datamart.DatamartQuery(keywords=keywords, variables=variables)
+
         search_unit = datamart_unit.search_with_data(query=query_search, supplied_data=augment_res)
         all_results1 = search_unit.get_next_page()
 
@@ -814,14 +829,14 @@ class Controller:
             self._logger.warning("No search result returned!")
             return self.all_dataset
 
-        # if we get some search result
-        from common_primitives.datamart_augment import Hyperparams as hyper_augment, DataMartAugmentPrimitive
-        hyper_augment_default = hyper_augment.defaults()
-        hyper_augment_default = hyper_augment_default.replace({"system_identifier":"NYU"})
 
         return all_results1
 
         """
+        # if we get some search result
+        from common_primitives.datamart_augment import Hyperparams as hyper_augment, DataMartAugmentPrimitive
+        hyper_augment_default = hyper_augment.defaults()
+        hyper_augment_default = hyper_augment_default.replace({"system_identifier":"NYU"})
         search_result_list = all_results1
         # college one, join with score card
         if self.all_dataset.metadata.query(())['id'].startswith("DA_college_debt"):
