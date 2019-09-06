@@ -162,6 +162,25 @@ class TemplateSteps:
 
         res3, augment_step_number = TemplateSteps.add_steps_parallel(general_search_results, augment_step_number)
         all_steps.extend(res3)
+
+        # remove all q nodes here, otherwise cleaner may generate a lot of useless columns
+        if len(all_steps) > 0:
+            from datamart_isi.config import q_node_semantic_type
+            remove_q_nodes_step = {
+                    "name": "remove_q_nodes_step",
+                    "primitives": [
+                        {
+                            "primitive": "d3m.primitives.data_transformation.remove_semantic_types.DataFrameCommon",
+                            "hyperparameters":
+                            {
+                                'semantic_types':[(q_node_semantic_type,)],
+                            }
+                        }
+                    ],
+                    "inputs": ["augment_step" + str(augment_step_number - 1)]
+                }
+            all_steps.append(remove_q_nodes_step)
+
         return all_steps
 
 
