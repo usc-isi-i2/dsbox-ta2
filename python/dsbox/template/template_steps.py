@@ -165,6 +165,13 @@ class TemplateSteps:
 
         # remove all q nodes here, otherwise cleaner may generate a lot of useless columns
         if len(all_steps) > 0:
+            to_dataframe_step = {
+                "name": "to_dataframe_step",
+                "primitives": ["d3m.primitives.data_transformation.dataset_to_dataframe.Common"],
+                "inputs": ["augment_step" + str(augment_step_number - 1)]
+            }
+            all_steps.append(to_dataframe_step)
+
             from datamart_isi.config import q_node_semantic_type
             remove_q_nodes_step = {
                     "name": "remove_q_nodes_step",
@@ -177,7 +184,7 @@ class TemplateSteps:
                             }
                         }
                     ],
-                    "inputs": ["augment_step" + str(augment_step_number - 1)]
+                    "inputs": ["to_dataframe_step"]
                 }
             all_steps.append(remove_q_nodes_step)
 

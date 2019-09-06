@@ -1297,7 +1297,9 @@ class Controller:
             self._logger.info("Totally " + str(len(augment_steps)) + " datamart search results will be considered!")
             for each_template in self.template_list:
                 if "gradient" in each_template.template['name'] or "default_regression_template" in each_template.template['name']:
-                    # if each_template.template['steps'][0]['name'] == 'to_dataframe_step':
+                    # remove to dataframe step
+                    if each_template.template['steps'][0]['name'] == 'to_dataframe_step':
+                        each_template.template['steps'].pop(0)
                     each_template.template['steps'][0]['inputs'] = [augment_steps[-1]['name']]
                     each_template.template['steps'] = augment_steps + each_template.template['steps']
                     self._logger.info("Extra augmentation steps has been added for template " + each_template.template['name'])
