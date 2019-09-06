@@ -67,7 +67,7 @@ class Runtime(runtime_base.Runtime):
     ----------
     cache : PrimitivesCache
         Cache files used for primitive
-    fit_outputs: d3m_container
+    fit_outputs: runtime_base.Result
         used to store the prediction outputs from fit() part's dataset
     fitted_pipeline_id : str
         A uuid format str to indicate the pipeline id
@@ -120,10 +120,10 @@ class Runtime(runtime_base.Runtime):
         else:
             self.fitted_pipeline_id = fitted_pipeline_id
         self.template_name = template_name
-        self.fit_outputs: runtime_base.Result = None
+        self.fit_outputs: typing.Optional[runtime_base.Result] = None
         self.log_dir = log_dir
         self.metric_descriptions: typing.List[typing.Dict] = []
-        self.produce_outputs = None
+        self.produce_outputs: typing.Optional[runtime_base.Result] = None
         self.timing: typing.Dict = {}
         self.timing["total_time_used"] = 0.0
         self.task_type = task_type

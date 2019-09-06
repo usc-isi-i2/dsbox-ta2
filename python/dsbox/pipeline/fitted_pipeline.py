@@ -1,6 +1,6 @@
-import os
 import json
 import logging
+import os
 import pickle
 import pprint
 import sys
@@ -48,7 +48,7 @@ class FittedPipeline:
 
     # control parameters to let pipeline generator know whether we need add splitter
     need_splitter = False
-     # control parameters to let pipeline generator know whether we need add data mart related primitives
+    # control parameters to let pipeline generator know whether we need add data mart related primitives
     need_data_augment = False
 
     # D3M dirs
@@ -56,6 +56,7 @@ class FittedPipeline:
     pipelines_scored_subdir: str = 'pipelines_scored'
     pipelines_ranked_subdir: str = 'pipelines_ranked'
     subpipelines_subdir: str = 'subpipelines'
+    pipeline_runs_subdir: str = 'pipeline_runs'
 
     # DSBox dirs
     pipelines_fitted_subdir: str = 'pipelines_fitted'
@@ -65,8 +66,7 @@ class FittedPipeline:
                  metric_descriptions: typing.List = [], template: DSBoxTemplate = None,
                  template_name: str = None, template_task: str = None, template_subtask: str = None,
                  problem=None, extra_primitive: typing.Set[str] = set(),
-                 random_seed: int = -1
-    ) -> None:
+                 random_seed: int = -1) -> None:
 
         # these two are mandatory
         # TODO add the check
@@ -121,7 +121,7 @@ class FittedPipeline:
         """
         self.metric = metric
 
-    def get_primitive_augment(self, primitive_name: str , input_names: typing.List[str]) -> typing.Dict:
+    def get_primitive_augment(self, primitive_name: str, input_names: typing.List[str]) -> typing.Dict:
         """
             Base on the given primitive name and corresponding inputs_names
             Return the dict type primitive augment for adding in pipeline
@@ -142,7 +142,7 @@ class FittedPipeline:
             from common_primitives.datamart_augment import DataMartAugmentPrimitive
             primitive_metadata = DataMartAugmentPrimitive.metadata.query()
 
-        primitive_augument= {
+        primitive_augument = {
                               "type": "PRIMITIVE",
                               "primitive": {
                                 "id": primitive_metadata['id'],
@@ -154,7 +154,7 @@ class FittedPipeline:
                               "arguments": {
                                 "inputs": {
                                   "type": "CONTAINER",
-                                  "data": input_names[0] #"inputs.0"
+                                  "data": input_names[0]  # "inputs.0"
                                 }
                               },
                               "outputs": [
@@ -203,7 +203,6 @@ class FittedPipeline:
             #         _logger.warn("detect DatamartAugmentation primitive was added in second step, which should not happen!")
             #         input_names = ["steps."+str(location_number - 1)+".produce", "inputs.0"]
 
-
             primitive_augument = self.get_primitive_augment(each_primitive_name, input_names)
 
             hyperparams_file_loc = os.path.join(self.runtime_setting.scratch_dir, self.dataset_id+each_primitive_name+".json")
@@ -211,12 +210,12 @@ class FittedPipeline:
                 hyperparams_file = json.load(f)
             new_hyper_file = {}
             for key, value in hyperparams_file.items():
-                new_hyper_file[key] = {"type":"VALUE",
-                                       "data":value}
-            primitive_augument['hyperparams'] =  new_hyper_file
+                new_hyper_file[key] = {"type": "VALUE",
+                                       "data": value}
+            primitive_augument['hyperparams'] = new_hyper_file
 
             # update output reference
-            output_step_reference = structure["outputs"] # it should look like "steps.11.produce"
+            output_step_reference = structure["outputs"]  # it should look like "steps.11.produce"
             for i, each_output_step_reference in enumerate(output_step_reference):
                 each_output_step_reference_split = each_output_step_reference["data"].split(".")
                 each_output_step_reference_split[1] = str(int(each_output_step_reference_split[1]) + 1)
@@ -230,7 +229,7 @@ class FittedPipeline:
                 if "arguments" in each_step:
                     for each_argument_key in each_step["arguments"].keys():
                         argument_target = each_step["arguments"][each_argument_key]["data"]
-                        if argument_target == "inputs.0":# and "denormalize" in each_step["primitive"]["python_path"]:
+                        if argument_target == "inputs.0":  # and "denormalize" in each_step["primitive"]["python_path"]:
                             argument_target_new = "steps.0.produce"
                             each_step["arguments"][each_argument_key]["data"] = argument_target_new
                         else:
@@ -279,7 +278,7 @@ class FittedPipeline:
         return self.runtime.cross_validation_result
 
     def get_fit_step_output(self, step_number: int = 0):
-        #return self.runtime.fit_outputs[step_number]
+        # return self.runtime.fit_outputs[step_number]
         # TODO: check is it always to be 0 here?
         # return self.runtime.fit_outputs[0]
         return self.runtime.fit_outputs.values['outputs.0']
@@ -291,6 +290,9 @@ class FittedPipeline:
         return self.runtime.produce_outputs.values['outputs.0']
 
     def save(self, folder_loc: str) -> None:
+        # Save pipeline_run first, before add_extra_primitive() overwrite self.runtime
+        self.save_pipeline_run(os.path.join(folder_loc, self.pipeline_runs_subdir))
+
         # D3M
         self.save_schema_only(folder_loc, self.pipelines_searched_subdir, subpipelines_subdir=self.subpipelines_subdir)
         self.save_schema_only(folder_loc, self.pipelines_scored_subdir)
@@ -302,6 +304,37 @@ class FittedPipeline:
         # DSBox
         self.save_pipeline_info(os.path.join(folder_loc, self.pipelines_info_subdir))
         self.save_fitted_pipeline(os.path.join(folder_loc, self.pipelines_fitted_subdir))
+
+    def save_pipeline_run(self, folder_loc: str) -> None:
+        '''
+        Save pipeline_run
+        '''
+        saved = False
+        for result in [self.runtime.fit_outputs, self.runtime.produce_outputs]:
+            if result is None or result.pipeline_run is None:
+                continue
+            structure = result.pipeline_run.to_json_structure()
+            filepath = os.path.join(folder_loc, structure['id'] + '.json')
+
+            # Skip saving duplicate, since id is a hash of the content
+            if os.path.exists(filepath):
+                continue
+
+            with open(filepath, 'w') as out:
+                json.dump(structure, out)
+                saved = True
+        if saved:
+            pipelines_dir = os.path.join(folder_loc, 'pipelines')
+            if not os.path.exists(pipelines_dir):
+                os.mkdir(pipelines_dir)
+            pipeline_filepath = os.path.join(pipelines_dir, self.pipeline.id + '.json')
+            if os.path.exists(pipeline_filepath):
+                _logger.debug(f'Skipping pipeline for pipeline_run: {self.pipeline.id}')
+            else:
+                structure = self.pipeline.to_json_structure()
+                with open(pipeline_filepath, 'w') as out:
+                    json.dump(structure, out)
+
 
     def get_set_rank(self) -> float:
         rank = sys.float_info.max
@@ -337,7 +370,7 @@ class FittedPipeline:
 
         structure = self.pipeline.to_json_structure()
 
-        if  not self.finished_add_extra_primitives:
+        if not self.finished_add_extra_primitives:
             if self.extra_primitive and "splitter" in self.extra_primitive:
                 self.add_extra_primitive(["splitter"], self.location_offset)
                 structure = self.pipeline.to_json_structure()
@@ -365,7 +398,7 @@ class FittedPipeline:
             while current_augment in self.extra_primitive:
                 self.add_extra_primitive([current_augment], self.location_offset)
                 structure = self.pipeline.to_json_structure()
-                _logger.info("Primitive " + current_augment +" has been added to pipeline.")
+                _logger.info("Primitive " + current_augment + " has been added to pipeline.")
                 augment_count -= 1
                 current_augment = "augment" + str(augment_count)
             # no second time update
@@ -535,6 +568,9 @@ class FittedPipeline:
                     'value': info['metric_value']
                 }
             if 'cross_validation' in info:
+                for metric_info in info['cross_validation']:
+                    if 'metric' in metric_info:
+                        metric_info['metric_info'] = PerformanceMetric.get_map()[metric_info['metric_info']]
                 fitted_pipeline.runtime.cross_validation_result = info['cross_validation']
         return fitted_pipeline
 

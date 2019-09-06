@@ -7,6 +7,7 @@ import typing
 
 from d3m.metadata.problem import Problem
 
+
 class RuntimeSetting:
     '''
     Class for storing information needed for Runtime
@@ -58,6 +59,7 @@ class DsboxConfig:
 
     DSBox output directory structure under dsbox_output_dir:
     * pipelines_fitted (pipelines_fitted_dir): directory for storing fitted pipelines
+    * pipelines_failed (pipelines_failed_dir): directory for storing failed pipelines
     * logs (log_dir): directory for logging files
     * logs/dfs (dfs_log_dir): directory for detailed dataframe logging
 
@@ -87,7 +89,7 @@ class DsboxConfig:
         self.pipeline_runs_dir: str = ''
         self.additional_inputs_dir: str = ''
 
-        ## D3M TA3 SearchSolutionsRequest parameters
+        # == D3M TA3 SearchSolutionsRequest parameters
         # Number of ranked solution to return
         self.rank_solutions_limit: int = 0
         # time bound on individual pipeline run
@@ -218,7 +220,10 @@ class DsboxConfig:
 
     def _load_dsbox(self):
         self._load_logging()
-        self.search_method = 'parallel'
+        if 'DSBOX_SEARCH_METHOD' in os.environ:
+            self.search_method = os.environ['DSBOX_SEARCH_METHOD']
+        else:
+            self.search_method = 'parallel'
         # self.search_method = 'serial'
 
     def _setup(self):
@@ -271,8 +276,17 @@ class DsboxConfig:
         self.additional_inputs_dir = os.path.join(self.output_dir, 'additional_inputs')
         # DSBox directories
         self.dsbox_output_dir = self.output_dir
+
+        # For storing fitted pipeline with pickled primitives
         self.pipelines_fitted_dir = os.path.join(self.dsbox_output_dir, 'pipelines_fitted')
+
+        # For stroing failed pipelines
+        self.pipelines_failed_dir = os.path.join(self.dsbox_output_dir, 'pipelines_failed')
+
+        # For storing mappings between fitted pipeline and regular pipeline
         self.pipelines_info_dir = os.path.join(self.dsbox_output_dir, 'pipelines_info')
+
+        # For temporay storage
         self.dsbox_scratch_dir = os.path.join(self.dsbox_output_dir, 'scratch')
         self.log_dir = os.path.join(self.dsbox_output_dir, 'logs')
         self.dfs_log_dir = os.path.join(self.log_dir, 'dfs')
@@ -282,7 +296,7 @@ class DsboxConfig:
                 self.pipelines_ranked_dir, self.pipelines_scored_dir,
                 self.pipelines_searched_dir, self.subpipelines_dir, self.pipeline_runs_dir,
                 self.additional_inputs_dir, self.local_dir,
-                self.dsbox_output_dir, self.pipelines_fitted_dir, self.pipelines_info_dir,
+                self.dsbox_output_dir, self.pipelines_fitted_dir, self.pipelines_failed_dir, self.pipelines_info_dir,
                 self.log_dir, self.dfs_log_dir, self.dsbox_scratch_dir]:
             if not os.path.exists(directory):
                 os.mkdir(directory)
