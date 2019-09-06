@@ -777,8 +777,6 @@ class Controller:
         meta_to_str = json.dumps({config_datamart.wikifier_column_mark: meta_for_wikifier})
         query_search = datamart.DatamartQuery(keywords=[meta_to_str], variables=None)
 
-        import pdb
-        pdb.set_trace()
 
         # keywords = []
         # keywrods_from_data = input_all_dataset.metadata.query(()).get('keywords')
@@ -822,8 +820,6 @@ class Controller:
         search_unit = datamart_unit.search_with_data(query=query_search, supplied_data=augment_res)
         all_results1 = search_unit.get_next_page()
 
-        import pdb
-        pdb.set_trace()
 
         if all_results1 is None:
             self._logger.warning("No search result returned!")
