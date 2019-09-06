@@ -704,8 +704,7 @@ class Controller:
         idx = random.sample(range(size_of_df), size_of_sample)
 
         # get qnode columns and metadata for wikifier
-        df_qnodes = pd.DataFrame()
-        meta_for_wikifier = dict()
+        meta_for_wikifier, sim_vector = dict(), dict()
         q_nodes_found_amount_in_sample_part = dict()
         for i in target_columns:
             sample_df = supplied_dataframe.iloc[idx, i].drop_duplicates(keep='first', inplace=False).to_frame()
@@ -715,24 +714,20 @@ class Controller:
             self._logger.info("Wikifier running finished.")
 
             if len(output_df.columns) > 1:
-                qnode_name = output_df.columns.tolist()[1]
-                q_nodes_found_amount_in_sample_part[qnode_name] = len(output_df[qnode_name].dropna())
-                df_qnodes[qnode_name] = output_df[qnode_name]
+                # save specific p/q node in cache files
                 res = d3m_wikifier.get_specific_p_nodes(sample_df)
                 if res:
                     meta_for_wikifier.update(res)
                     d3m_wikifier.delete_specific_p_nodes_file(sample_df)
-
-        # Do vector augment and calculate cosine similarity
-        sim_vector = dict()
-        for col_name in df_qnodes.columns.tolist():
-            sim_vector[col_name] = []
-            self._logger.debug("Current column name is" + col_name)
-            qnodes = df_qnodes[col_name].tolist()
-            # 201 columns: key, vector1, vector2 ...
-            df_vectors = DownloadManager.fetch_fb_embeddings(qnodes, col_name)
-            for i in range(1, len(df_vectors.columns)):
-                sim_vector[col_name].append(df_vectors.iloc[:, i].mean())
+                # do vector augment and calculate cosine similarity
+                qnode_name = output_df.columns.tolist()[1]
+                q_nodes_found_amount_in_sample_part[qnode_name] = len(output_df[qnode_name].dropna())
+                qnodes = output_df[qnode_name]
+                sim_vector[qnode_name] = []
+                df_vectors = DownloadManager.fetch_fb_embeddings(qnodes, qnode_name)
+                for j in range(1, len(df_vectors.columns)):
+                    # 201 columns: key, vector1, vector2 ...
+                    sim_vector[qnode_name].append(df_vectors.iloc[:, j].mean())
 
         from sklearn.metrics.pairwise import cosine_similarity
         x = list(sim_vector.values())
@@ -779,11 +774,11 @@ class Controller:
                 #         name = name.split("_")[0]
                 #         remove_set.add(name)
 
-        # remove meta
-
-        
         meta_to_str = json.dumps({config_datamart.wikifier_column_mark: meta_for_wikifier})
         query_search = datamart.DatamartQuery(keywords=[meta_to_str], variables=None)
+
+        import pdb
+        pdb.set_trace()
 
         # keywords = []
         # keywrods_from_data = input_all_dataset.metadata.query(()).get('keywords')
@@ -826,6 +821,9 @@ class Controller:
 
         search_unit = datamart_unit.search_with_data(query=query_search, supplied_data=augment_res)
         all_results1 = search_unit.get_next_page()
+
+        import pdb
+        pdb.set_trace()
 
         if all_results1 is None:
             self._logger.warning("No search result returned!")
