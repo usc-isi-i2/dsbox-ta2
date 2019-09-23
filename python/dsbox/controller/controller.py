@@ -644,32 +644,24 @@ class Controller:
             # self.ensemble_voting_candidate_choose_method = 'resultSimilarity'
 
     @staticmethod
-    def find_possible_candidate(supplied_data):
+    def find_possible_candidate(supplied_data) -> typing.List[int]:
+        """
+        function used to find corresponding column numbers that we need for running wikifier
+        """
         res_id, supplied_dataframe = d3m_utils.get_tabular_resource(dataset=supplied_data, resource_id=None)
-        target_columns = list(range(supplied_dataframe.shape[1]))
-        temp = copy.deepcopy(target_columns)
+        all_columns = list(range(supplied_dataframe.shape[1]))
+        target_columns = copy.deepcopy(all_columns)
 
-        skip_column_type = set()
         need_column_type = config_datamart.need_wikifier_column_type_list
-        # if we detect some special type of semantic type (like PrimaryKey here), it means some metadata is adapted
-        # from exist dataset but not all auto-generated, so we can have more restricts
-        for each in target_columns:
-            each_column_semantic_type = supplied_data.metadata.query((res_id, ALL_ELEMENTS, each))['semantic_types']
-            if "https://metadata.datadrivendiscovery.org/types/PrimaryKey" in each_column_semantic_type:
-                skip_column_type = config_datamart.skip_wikifier_column_type_list
-                break
 
-        for each in target_columns:
+        for each in all_columns:
             each_column_semantic_type = supplied_data.metadata.query((res_id, ALL_ELEMENTS, each))['semantic_types']
             # if the column type inside here found, this coumn should be wikified
             if set(each_column_semantic_type).intersection(need_column_type):
                 continue
-            # if the column type inside here found, this column should not be wikified
-            elif set(each_column_semantic_type).intersection(skip_column_type):
-                temp.remove(each)
-            elif supplied_dataframe.columns[each] == "d3mIndex":
-                temp.remove(each)
-        target_columns = temp
+            else:
+                target_columns.remove(each)
+
         return target_columns
 
     def do_data_augmentation_rest_api(self, input_all_dataset: Dataset) -> Dataset:
@@ -706,6 +698,7 @@ class Controller:
         # get qnode columns and metadata for wikifier
         meta_for_wikifier, sim_vector = dict(), dict()
         q_nodes_found_amount_in_sample_part = dict()
+
         for i in target_columns:
             sample_df = supplied_dataframe.iloc[idx, i].drop_duplicates(keep='first', inplace=False).to_frame()
             self._logger.info("Current column is " + str(sample_df.columns.tolist()))
@@ -1295,6 +1288,7 @@ class Controller:
                 self._logger.info("Large dataset detected! Will skip wikidata related parts!")
             augment_steps = TemplateSteps.dsbox_augmentation_step(datamart_search_results, large_dataset=is_large_dataset)
             self._logger.info("Totally " + str(len(augment_steps)) + " datamart search results will be considered!")
+
             for each_template in self.template_list:
                 if "gradient" in each_template.template['name'] or "default_regression_template" in each_template.template['name']:
                     # remove to dataframe step
