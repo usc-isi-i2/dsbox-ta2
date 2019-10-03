@@ -61,6 +61,7 @@ class FittedPipeline:
     # DSBox dirs
     pipelines_fitted_subdir: str = 'pipelines_fitted'
     pipelines_info_subdir: str = 'pipelines_info'
+    pipelines_status_subdir: str = 'pipelines_status'
 
     def __init__(self, pipeline: Pipeline, dataset_id: str, *, id: str = None,
                  metric_descriptions: typing.List = [], template: DSBoxTemplate = None,
@@ -109,7 +110,8 @@ class FittedPipeline:
         self._datamart_query_step_location = 0
         self.location_offset = 0
         self.finished_add_extra_primitives = False
-
+        self.produce_process_report = None
+        self.fit_process_report = None
         _logger.debug('Creating fitted pipeline %s', self.id)
 
     def _set_fitted(self, fitted_pipe: typing.List[StepBase]) -> None:
@@ -266,13 +268,55 @@ class FittedPipeline:
         _logger.debug('Fitting fitted pipeline %s', self.id)
         inputs = arguments['inputs']
         del arguments['inputs']
-        self.runtime.fit(inputs, **arguments)
+        fit_result = self.runtime.fit(inputs, **arguments)
+        running_res = fit_result.pipeline_run.to_json_structure()
+        usage = self.runtime.recorder_all
+
+        if len(usage) != len(running_res['steps']):
+            _logger.error("The usage measurement length is different from pipeline steps!")
+        else:
+            for i in range(len(usage)):
+                each_step_usage = usage[i]
+                memory_usage = []
+                cpu_usage = []
+                for each in each_step_usage:
+                    cpu_usage.append(each[0])
+                    memory_usage.append(each[1])
+                # default record frequenct is 0.1s
+                # cpu usage unit is percentage
+                # memory usage unit is MB
+                resource_usage = {'memory_usage': memory_usage, 'cpu_usage': cpu_usage}
+                running_res['steps'][i]['record_frequency'] = self.runtime.record_frequency
+                running_res['steps'][i]['resource_usage'] = resource_usage
+        self.fit_process_report = running_res
 
     def produce(self, **arguments):
         _logger.debug('Producing fitted pipeline %s', self.id)
         inputs = arguments['inputs']
         del arguments['inputs']
-        self.runtime.produce(inputs, **arguments)
+        produce_result = self.runtime.produce(inputs, **arguments)
+        running_res = produce_result.pipeline_run.to_json_structure()
+        usage = self.runtime.recorder_all
+
+        if len(usage) != len(running_res['steps']):
+            _logger.error("The usage measurement length is different from pipeline steps!")
+        # else:
+        for i in range(len(usage)):
+            each_step_usage = usage[i]
+            memory_usage = []
+            cpu_usage = []
+            for each in each_step_usage:
+                cpu_usage.append(each[0])
+                memory_usage.append(each[1])
+            # default record frequenct is 0.1s
+            # cpu usage unit is percentage
+            # memory usage unit is MB
+            resource_usage = {'memory_usage': memory_usage, 'cpu_usage': cpu_usage}
+            running_res['steps'][i]['record_frequency'] = self.runtime.record_frequency
+            running_res['steps'][i]['resource_usage'] = resource_usage
+        self.produce_process_report = running_res
+        import pdb
+        pdb.set_trace()
 
     def get_cross_validation_metrics(self) -> typing.List:
         return self.runtime.cross_validation_result
@@ -292,7 +336,7 @@ class FittedPipeline:
     def save(self, folder_loc: str) -> None:
         # Save pipeline_run first, before add_extra_primitive() overwrite self.runtime
         self.save_pipeline_run(os.path.join(folder_loc, self.pipeline_runs_subdir))
-
+        self.save_running_record(os.path.join(folder_loc, self.pipelines_status_subdir))
         # D3M
         self.save_schema_only(folder_loc, self.pipelines_searched_subdir, subpipelines_subdir=self.subpipelines_subdir)
         self.save_schema_only(folder_loc, self.pipelines_scored_subdir)
@@ -304,6 +348,21 @@ class FittedPipeline:
         # DSBox
         self.save_pipeline_info(os.path.join(folder_loc, self.pipelines_info_subdir))
         self.save_fitted_pipeline(os.path.join(folder_loc, self.pipelines_fitted_subdir))
+
+    def save_running_record(self, folder_loc: str) -> None:
+        if not os.path.exists(folder_loc):
+            os.mkdir(folder_loc)
+        import pdb
+        pdb.set_trace()
+        if self.fit_process_report:
+            fit_process_report_loc = os.path.join(folder_loc, "fit_" + self.id + "_status.json")
+            with open(fit_process_report_loc, "w") as f:
+                json.dump(self.fit_process_report, f, separators=(',', ':'),indent=4)
+
+        if self.produce_process_report:
+            produce_process_report_loc = os.path.join(folder_loc, "pro_" + self.id + "_status.json")
+            with open(produce_process_report_loc, "w") as f:
+                json.dump(self.produce_process_report, f, separators=(',', ':'),indent=4)
 
     def save_pipeline_run(self, folder_loc: str) -> None:
         '''
@@ -333,7 +392,7 @@ class FittedPipeline:
             else:
                 structure = self.pipeline.to_json_structure()
                 with open(pipeline_filepath, 'w') as out:
-                    json.dump(structure, out)
+                    json.dump(structure, out, indent=4)
 
 
     def get_set_rank(self) -> float:

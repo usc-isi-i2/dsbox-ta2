@@ -766,8 +766,10 @@ class Controller:
                 #     except:
                 #         name = name.split("_")[0]
                 #         remove_set.add(name)
-
+        
         meta_to_str = json.dumps({config_datamart.wikifier_column_mark: meta_for_wikifier})
+        self._logger.info("Following columns should be wikified as:")
+        self._logger.info(str(meta_to_str))
         query_search = datamart.DatamartQuery(keywords=[meta_to_str], variables=None)
 
 
@@ -818,7 +820,19 @@ class Controller:
             self._logger.warning("No search result returned!")
             return self.all_dataset
 
-
+        else:
+            for i, each_search_result in enumerate(all_results1):
+                each_search_res_json = each_search_result.get_json_metadata()
+                print("------------ Search result No.{} ------------".format(str(i)))
+                print(each_search_res_json['augmentation'])
+                summary = each_search_res_json['summary'].copy()
+                if "Columns" in summary:
+                    summary.pop("Columns")
+                print(summary)
+                print("-"*100)
+        # import pdb
+        # pdb.set_trace()
+        
         return all_results1
 
         """
