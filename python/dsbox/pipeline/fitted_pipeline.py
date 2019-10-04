@@ -268,6 +268,11 @@ class FittedPipeline:
         _logger.debug('Fitting fitted pipeline %s', self.id)
         inputs = arguments['inputs']
         del arguments['inputs']
+        if 'save_loc' in arguments:
+            save_folder_loc = arguments['save_loc']
+            del arguments['save_loc']
+        else:
+            save_folder_loc = None
         fit_result = self.runtime.fit(inputs, **arguments)
         running_res = fit_result.pipeline_run.to_json_structure()
         usage = self.runtime.recorder_all
@@ -288,12 +293,19 @@ class FittedPipeline:
                 resource_usage = {'memory_usage': memory_usage, 'cpu_usage': cpu_usage}
                 running_res['steps'][i]['record_frequency'] = self.runtime.record_frequency
                 running_res['steps'][i]['resource_usage'] = resource_usage
-        self.fit_process_report = running_res
+        if save_folder_loc and logging.getLogger("dsbox.template.runtime").level <= 10:
+            self.save_running_record(folder_loc=os.path.join(save_folder_loc, self.pipelines_status_subdir), 
+                                     report=running_res, phase="fit")
 
     def produce(self, **arguments):
         _logger.debug('Producing fitted pipeline %s', self.id)
         inputs = arguments['inputs']
         del arguments['inputs']
+        if 'save_loc' in arguments:
+            save_folder_loc = arguments['save_loc']
+            del arguments['save_loc']
+        else:
+            save_folder_loc = None
         produce_result = self.runtime.produce(inputs, **arguments)
         running_res = produce_result.pipeline_run.to_json_structure()
         usage = self.runtime.recorder_all
@@ -314,9 +326,9 @@ class FittedPipeline:
             resource_usage = {'memory_usage': memory_usage, 'cpu_usage': cpu_usage}
             running_res['steps'][i]['record_frequency'] = self.runtime.record_frequency
             running_res['steps'][i]['resource_usage'] = resource_usage
-        self.produce_process_report = running_res
-        import pdb
-        pdb.set_trace()
+        if save_folder_loc and logging.getLogger("dsbox.template.runtime").level <= 10:
+            self.save_running_record(folder_loc=os.path.join(save_folder_loc, self.pipelines_status_subdir), 
+                                     report=running_res, phase="produce")
 
     def get_cross_validation_metrics(self) -> typing.List:
         return self.runtime.cross_validation_result
@@ -336,7 +348,6 @@ class FittedPipeline:
     def save(self, folder_loc: str) -> None:
         # Save pipeline_run first, before add_extra_primitive() overwrite self.runtime
         self.save_pipeline_run(os.path.join(folder_loc, self.pipeline_runs_subdir))
-        self.save_running_record(os.path.join(folder_loc, self.pipelines_status_subdir))
         # D3M
         self.save_schema_only(folder_loc, self.pipelines_searched_subdir, subpipelines_subdir=self.subpipelines_subdir)
         self.save_schema_only(folder_loc, self.pipelines_scored_subdir)
@@ -349,20 +360,19 @@ class FittedPipeline:
         self.save_pipeline_info(os.path.join(folder_loc, self.pipelines_info_subdir))
         self.save_fitted_pipeline(os.path.join(folder_loc, self.pipelines_fitted_subdir))
 
-    def save_running_record(self, folder_loc: str) -> None:
+    def save_running_record(self, folder_loc: str, report, phase="fit") -> None:
         if not os.path.exists(folder_loc):
             os.mkdir(folder_loc)
-        import pdb
-        pdb.set_trace()
-        if self.fit_process_report:
-            fit_process_report_loc = os.path.join(folder_loc, "fit_" + self.id + "_status.json")
-            with open(fit_process_report_loc, "w") as f:
-                json.dump(self.fit_process_report, f, separators=(',', ':'),indent=4)
-
-        if self.produce_process_report:
-            produce_process_report_loc = os.path.join(folder_loc, "pro_" + self.id + "_status.json")
-            with open(produce_process_report_loc, "w") as f:
-                json.dump(self.produce_process_report, f, separators=(',', ':'),indent=4)
+        if report:
+            report['pid'] = os.getpid()
+            extra_number = 0
+            process_report_loc = os.path.join(folder_loc, "{}_{}_status_{}.json".format(phase, self.id, str(extra_number)))
+            while os.path.exists(process_report_loc):
+                _logger.warning("File exists! " + str(process_report_loc))
+                extra_number += 1
+                process_report_loc = os.path.join(folder_loc, "{}_{}_status_{}.json".format(phase, self.id, str(extra_number)))
+            with open(process_report_loc, "w") as f:
+                json.dump(report, f, separators=(',', ':'),indent=4)
 
     def save_pipeline_run(self, folder_loc: str) -> None:
         '''

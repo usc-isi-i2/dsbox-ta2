@@ -23,6 +23,7 @@ from datamart_isi import config as config_datamart
 
 from dsbox.combinatorial_search.TemplateSpaceBaseSearch import TemplateSpaceBaseSearch
 from dsbox.combinatorial_search.TemplateSpaceParallelBaseSearch import TemplateSpaceParallelBaseSearch
+from dsbox.JobManager.usage_monitor import UsageMonitor
 # from dsbox.combinatorial_search.BanditDimensionalSearch import BanditDimensionalSearch
 # from dsbox.combinatorial_search.MultiBanditSearch import MultiBanditSearch
 from dsbox.controller.config import DsboxConfig
@@ -133,6 +134,8 @@ class Controller:
         self.wikifier_selection_rate = 0.1
         self.wikifier_default_size = 1000
 
+        # reosurce monitor
+        self.resource_monitor = UsageMonitor()
     """
         **********************************************************************
         Private method
@@ -832,7 +835,7 @@ class Controller:
                 print("-"*100)
         # import pdb
         # pdb.set_trace()
-        
+
         return all_results1
 
         """
@@ -1664,6 +1667,7 @@ class Controller:
 
         # FIXME) come up with a better way to implement this part. The fork does not provide a way
         # FIXME) to catch the errors of the child process
+        self.resource_monitor.start_recording_resource_usage()
 
         if self.config.search_method == 'serial':
             self._run_SerialBaseSearch(self.report_ensemble, one_pipeline_only=one_pipeline_only)
@@ -1705,6 +1709,7 @@ class Controller:
             self._logger.info("Starting horizontal tuning")
             self.horizontal_tuning("d3m.primitives.sklearn_wrap.SKBernoulliNB")
 
+        self.resource_monitor.stop_recording_resource_usage(self.config.output_dir)
         self.write_training_results()
         return Status.OK
 

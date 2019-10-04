@@ -12,7 +12,9 @@ from multiprocessing import Pool, Queue, Manager, current_process
 from threading import Timer
 
 _logger = logging.getLogger(__name__)
-
+# used to save all PID of workers created
+m = Manager()
+_current_work_pids = m.list()
 
 class TimerResponse(Enum):
     KILL_WORKERS = 0
@@ -149,6 +151,7 @@ class DistributedJobManager:
         # _logger.debug("worker process started {}".format(current_process().name))
         # print(f"[INFO] {current_process().name} > worker process started")
         _logger.info("worker process started")
+        _current_work_pids.append(os.getpid())
         counter: int = 0
         error_count: int = 0
         while True:

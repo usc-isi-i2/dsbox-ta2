@@ -223,7 +223,7 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
                 dataset_id=self.train_dataset1.metadata.query(())['id'],
                 metric_descriptions=self.performance_metrics,
                 template=self.template, problem=self.problem, extra_primitive=self.extra_primitive, random_seed=self.random_seed)
-            fitted_pipeline.fit(cache=cache, inputs=[self.train_dataset1])
+            fitted_pipeline.fit(cache=cache, inputs=[self.train_dataset1], save_loc=self.output_directory)
             fitted_pipeline.save(self.output_directory)
 
             training_ground_truth = get_target_columns(self.train_dataset1)
@@ -275,7 +275,7 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
                 metric_descriptions=self.performance_metrics,
                 template=self.template, problem=self.problem, extra_primitive=self.extra_primitive, random_seed=self.random_seed)
 
-            fitted_pipeline.fit(cache=cache, inputs=[self.train_dataset1])
+            fitted_pipeline.fit(cache=cache, inputs=[self.train_dataset1], save_loc=self.output_directory)
 
             training_prediction = fitted_pipeline.get_fit_step_output(self.template.get_output_step_number())
             # training_ground_truth = get_target_columns(self.train_dataset1)
@@ -312,7 +312,7 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
                     metric_descriptions=self.performance_metrics,
                     template=self.template, problem=self.problem, extra_primitive=self.extra_primitive, random_seed=self.random_seed)
 
-                fitted_pipeline.fit(cache=cache, inputs=[self.train_dataset2[each_repeat]])
+                fitted_pipeline.fit(cache=cache, inputs=[self.train_dataset2[each_repeat]], save_loc=self.output_directory)
                 # fitted_pipeline.fit(inputs=[self.train_dataset2[each_repeat]])
                 training_prediction = fitted_pipeline.get_fit_step_output(
                     self.template.get_output_step_number())
@@ -326,7 +326,7 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
 
                 # only do test if the test_dataset exist
                 if self.test_dataset2[each_repeat] is not None:
-                    results = fitted_pipeline.produce(inputs=[self.test_dataset2[each_repeat]])
+                    results = fitted_pipeline.produce(inputs=[self.test_dataset2[each_repeat]], save_loc=self.output_directory)
                     # Note: results == test_prediction
                     test_prediction = fitted_pipeline.get_produce_step_output(
                         self.template.get_output_step_number())
@@ -449,7 +449,7 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
                 # if in quick mode, we did not fit the model with dataset_train1 again
                 # just generate the predictions on dataset_test1 directly and get the rank
                 fitted_pipeline2 = fitted_pipeline
-                fitted_pipeline2.produce(inputs=[self.test_dataset1])
+                fitted_pipeline2.produce(inputs=[self.test_dataset1], save_loc=self.output_directory)
                 test_prediction = fitted_pipeline2.get_produce_step_output(
                     self.template.get_output_step_number())
 
@@ -490,8 +490,8 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
                             template=self.template, problem=self.problem, extra_primitive=self.extra_primitive, random_seed=self.random_seed)
                         # retrain and compute ranking/metric using self.train_dataset
                         # fitted_pipeline2.fit(inputs = [self.train_dataset1])
-                        fitted_pipeline2.fit(cache=cache, inputs=[current_train_dataset])
-                        fitted_pipeline2.produce(inputs=[current_test_dataset])
+                        fitted_pipeline2.fit(cache=cache, inputs=[current_train_dataset], save_loc=self.output_directory)
+                        fitted_pipeline2.produce(inputs=[current_test_dataset], save_loc=self.output_directory)
                         test_prediction = fitted_pipeline2.get_produce_step_output(self.template.get_output_step_number())
 
                         # test_ground_truth = get_target_columns(current_test_dataset)
@@ -513,8 +513,8 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
                         template=self.template, problem=self.problem, extra_primitive=self.extra_primitive, random_seed=self.random_seed)
                     # retrain and compute ranking/metric using self.train_dataset
                     # fitted_pipeline2.fit(inputs = [self.train_dataset1])
-                    fitted_pipeline2.fit(cache=cache, inputs=[self.train_dataset1])
-                    fitted_pipeline2.produce(inputs=[self.test_dataset1])
+                    fitted_pipeline2.fit(cache=cache, inputs=[self.train_dataset1], save_loc=self.output_directory)
+                    fitted_pipeline2.produce(inputs=[self.test_dataset1], save_loc=self.output_directory)
                     test_prediction = fitted_pipeline2.get_produce_step_output(self.template.get_output_step_number())
 
                     # test_ground_truth = get_target_columns(self.test_dataset1)
@@ -539,10 +539,10 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
 
             # finally, fit the model with all data and save it
             _logger.info("Training final pipeline with all dataset and saving the pipeline.")
-            fitted_pipeline_final.fit(cache=cache, inputs=[self.all_dataset])
+            fitted_pipeline_final.fit(cache=cache, inputs=[self.all_dataset], save_loc=self.output_directory)
 
             if self.ensemble_tuning_dataset:
-                fitted_pipeline_final.produce(inputs=[self.ensemble_tuning_dataset])
+                fitted_pipeline_final.produce(inputs=[self.ensemble_tuning_dataset], save_loc=self.output_directory)
                 ensemble_tuning_result = fitted_pipeline_final.get_produce_step_output(self.template.get_output_step_number())
 
                 # ensemble_tuning_result_ground_truth = get_target_columns(self.ensemble_tuning_dataset)
@@ -645,7 +645,7 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
             meta['dimension'] = frozendict.FrozenOrderedDict(dimension)
             pickle_dataset.metadata = pickle_dataset.metadata.update((res_id, ALL_ELEMENTS), frozendict.FrozenOrderedDict(meta))
 
-        _ = fitted_pipeline.produce(inputs=[pickle_dataset])
+        _ = fitted_pipeline.produce(inputs=[pickle_dataset], save_loc=self.output_directory)
         test_prediction = fitted_pipeline.get_produce_step_output(self.template.get_output_step_number())
 
         test_metrics = score_prediction(test_prediction, [pickle_dataset],
@@ -669,7 +669,7 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
             raise PipelinePickleError('Failed during load')
 
         try:
-            fitted_pipeline.produce(inputs=[test_dataset])
+            fitted_pipeline.produce(inputs=[test_dataset], save_loc=self.output_directory)
         except Exception:
             raise PipelinePickleError('Failed during produce')
 

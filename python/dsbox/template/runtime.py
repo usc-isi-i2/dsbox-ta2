@@ -23,7 +23,6 @@ from d3m import exceptions
 from d3m.metadata import base as metadata_base, pipeline as pipeline_module, pipeline_run as pipeline_run_module, problem
 from d3m.primitive_interfaces import base
 
-from dsbox.JobManager.usage_monitor import measure_usage
 from dsbox.JobManager.cache import PrimitivesCache
 from dsbox.template.utils import calculate_score, SpecialMetric
 
@@ -147,22 +146,23 @@ class Runtime(runtime_base.Runtime):
     def set_metric_descriptions(self, metric_descriptions):
         self.metric_descriptions = metric_descriptions
 
-    def _do_run(self) -> None:
-        # v2019.10.2: adapted from d3m.runtime here
-        current_pid = os.getpid()
-        recorder = mp.Queue()
-        recorder_all = dict()
+    # def _do_run(self) -> None:
+          # this method can't run with daemon process!!
+    #     # v2019.10.2: adapted from d3m.runtime here
+    #     current_pid = os.getpid()
+    #     recorder = mp.Queue()
+    #     recorder_all = dict()
         
-        for step_index, step in enumerate(self.pipeline.steps):
-            recorder_list = []
-            p = mp.Process(target=measure_usage, args=(recorder, os.getpid(), self.record_frequency))
-            p.start()
-            self.current_step = step_index
-            self._do_run_step(step)
-            p.terminate()
-            while not recorder.empty():
-                recorder_list.append(recorder.get())
-            self.recorder_all[step_index] = recorder_list
+    #     for step_index, step in enumerate(self.pipeline.steps):
+    #         recorder_list = []
+    #         p = mp.Process(target=measure_usage, args=(recorder, os.getpid(), self.record_frequency))
+    #         p.start()
+    #         self.current_step = step_index
+    #         self._do_run_step(step)
+    #         p.terminate()
+    #         while not recorder.empty():
+    #             recorder_list.append(recorder.get())
+    #         self.recorder_all[step_index] = recorder_list
 
     def _run_primitive(self, step: pipeline_module.PrimitiveStep) -> None:
         '''
