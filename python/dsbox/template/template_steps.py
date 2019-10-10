@@ -157,8 +157,8 @@ class TemplateSteps:
         if not large_dataset:
             res1, augment_step_number = TemplateSteps.add_steps_serial(wikidata_search_results, augment_step_number)
             all_steps.extend(res1)
-            # res2, augment_step_number = TemplateSteps.add_steps_serial(vector_search_results, augment_step_number)
-            # all_steps.extend(res2)
+            res2, augment_step_number = TemplateSteps.add_steps_serial(vector_search_results, augment_step_number)
+            all_steps.extend(res2)
 
         res3, augment_step_number = TemplateSteps.add_steps_parallel(general_search_results, augment_step_number)
         all_steps.extend(res3)
