@@ -16,7 +16,7 @@ from d3m.base import utils as d3m_utils
 from d3m.container.dataset import Dataset, D3MDatasetLoader
 from d3m.metadata.base import ALL_ELEMENTS
 from d3m.metadata.problem import TaskType
-from datamart_isi.utilities import d3m_wikifier
+from datamart_isi.cache.metadata_cache import MetadataCache
 from datamart_isi.utilities.download_manager import DownloadManager
 from wikifier import wikifier
 from datamart_isi import config as config_datamart
@@ -711,10 +711,10 @@ class Controller:
 
             if len(output_df.columns) > 1:
                 # save specific p/q node in cache files
-                res = d3m_wikifier.get_specific_p_nodes(sample_df)
+                res = MetadataCache.get_specific_p_nodes(sample_df)
                 if res:
                     meta_for_wikifier.update(res)
-                    d3m_wikifier.delete_specific_p_nodes_file(sample_df)
+                    MetadataCache.delete_specific_p_nodes_file(sample_df)
                 # do vector augment and calculate cosine similarity
                 qnode_name = output_df.columns.tolist()[1]
                 q_nodes_found_amount_in_sample_part[qnode_name] = len(output_df[qnode_name].dropna())
