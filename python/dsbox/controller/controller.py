@@ -826,13 +826,13 @@ class Controller:
         else:
             for i, each_search_result in enumerate(all_results1):
                 each_search_res_json = each_search_result.get_json_metadata()
-                print("------------ Search result No.{} ------------".format(str(i)))
-                print(each_search_res_json['augmentation'])
+                self._logger.info("------------ Search result No.{} ------------".format(str(i)))
+                self._logger.info(each_search_res_json['augmentation'])
                 summary = each_search_res_json['summary'].copy()
                 if "Columns" in summary:
                     summary.pop("Columns")
-                print(summary)
-                print("-"*100)
+                self._logger.info(summary)
+                self._logger.info("-"*100)
         # import pdb
         # pdb.set_trace()
 
@@ -1293,7 +1293,7 @@ class Controller:
                     if split_times > self.max_split_times:
                         self.max_split_times = split_times
 
-        if datamart_search_results is not None:
+        if datamart_search_results is not None or len(datamart_search_results) != 0:
             from dsbox.template.template_steps import TemplateSteps
             from dsbox.datapreprocessing.cleaner.splitter import SplitterHyperparameter
             splitter_hyperparam = SplitterHyperparameter.defaults()
