@@ -1293,7 +1293,7 @@ class Controller:
                     if split_times > self.max_split_times:
                         self.max_split_times = split_times
 
-        if datamart_search_results is not None or len(datamart_search_results) != 0:
+        if datamart_search_results is not None:
             from dsbox.template.template_steps import TemplateSteps
             from dsbox.datapreprocessing.cleaner.splitter import SplitterHyperparameter
             splitter_hyperparam = SplitterHyperparameter.defaults()
