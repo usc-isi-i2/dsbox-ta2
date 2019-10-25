@@ -206,7 +206,7 @@ class TemplateSteps:
                         "primitive": "d3m.primitives.data_augmentation.datamart_augmentation.Common",
                         "hyperparameters":
                         {
-                            'system_identifier':["NYU"],
+                            'system_identifier':["ISI"],
                             'search_result':[each.serialize()],
                         }
                     }
@@ -237,7 +237,7 @@ class TemplateSteps:
                     "primitive": "d3m.primitives.data_augmentation.datamart_augmentation.Common",
                     "hyperparameters":
                     {
-                        'system_identifier':["NYU"],
+                        'system_identifier':["ISI"],
                         'search_result':search_result,
                     }
                 }
