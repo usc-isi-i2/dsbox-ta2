@@ -11,15 +11,17 @@ import shutil
 import traceback
 import typing
 import copy
+import datamart
 import pandas as pd  # type: ignore
 from d3m.base import utils as d3m_utils
 from d3m.container.dataset import Dataset, D3MDatasetLoader
 from d3m.metadata.base import ALL_ELEMENTS
 from d3m.metadata.problem import TaskType
+from wikifier import wikifier
 from datamart_isi.cache.metadata_cache import MetadataCache
 from datamart_isi.utilities.download_manager import DownloadManager
-from wikifier import wikifier
 from datamart_isi import config as config_datamart
+from datamart_isi import rest
 
 from dsbox.combinatorial_search.TemplateSpaceBaseSearch import TemplateSpaceBaseSearch
 from dsbox.combinatorial_search.TemplateSpaceParallelBaseSearch import TemplateSpaceParallelBaseSearch
@@ -668,19 +670,11 @@ class Controller:
         return target_columns
 
     def do_data_augmentation_rest_api(self, input_all_dataset: Dataset) -> Dataset:
-
-        import datamart_nyu
-        import datamart
+        """
+        function that do augmentation from rest api(server) side
+        """
         augment_times = 0
-        # set up the environment variable to ensure it is correct
-        # os.environ["DATAMART_URL_NYU"] = "http://dsbox02.isi.edu:9000"
-        # self.config.datamart_nyu_url = "http://dsbox02.isi.edu:9000"
-
-        datamart_unit = datamart_nyu.RESTDatamart(connection_url=self.config.datamart_nyu_url)
-
-        # if self.all_dataset.metadata.query(())['id'].startswith("DA_medical_malpractice"):
-            # pass
-        # elif self.all_dataset.metadata.query(())['id'].startswith("DA_ny_taxi_demand"):
+        datamart_unit = rest.RESTDatamart(connection_url=self.config.datamart_nyu_url)
         augment_res = copy.copy(self.all_dataset)
 
         # try to find target columns which should do wikifier
@@ -749,75 +743,16 @@ class Controller:
             for name in remove_set:
                 if name in meta_for_wikifier.keys():
                     del meta_for_wikifier[name]
-                # # remove < 0.4
-                # idx_remove = df_sim[df_sim[name] < 0.4].index.tolist()
-                # if len(idx_remove) == len(col_name) - 1:
-                #     name = name.split("_")[0]
-                #     remove_set.add(name)
-                #     continue
-                # # choose one of > 0.9
-                # idx_remove = df_sim[df_sim[name] > 0.9].index.tolist()
-                # idx_remove.remove(i)  # remove self
-                # for idx in idx_remove:
-                #     row_name = col_name[idx]
-                #     row_name = row_name.split("_")[0]
-                #     try:
-                #         # if supplied_dataframe[row_name].astype(float).dtypes == "float64" \
-                #                 # or supplied_dataframe[row_name].astype(int).dtypes == "int64":
-                #         if len(df_qnodes[row_name].dropna())
-                #             remove_set.add(row_name)
-                #     except:
-                #         name = name.split("_")[0]
-                #         remove_set.add(name)
         
         meta_to_str = json.dumps({config_datamart.wikifier_column_mark: meta_for_wikifier})
         self._logger.info("Following columns should be wikified as:")
         self._logger.info(str(meta_to_str))
-        query_search = datamart.DatamartQuery(keywords=[meta_to_str], variables=None)
 
-
-        # keywords = []
-        # keywrods_from_data = input_all_dataset.metadata.query(()).get('keywords')
-        # if keywrods_from_data:
-        #     keywords.extend(keywrods_from_data)
-        # for each_domain in self.config.problem['data_augmentation']:
-        #     for each in each_domain.values():
-        #         keywords.extend(each)
-
-        # keywords = list(set(keywords))
-
-        # variables = []
-
-        # for i in range(self.all_dataset[self.problem_info["res_id"]].shape[1]):
-        #     selector = (self.problem_info["res_id"], ALL_ELEMENTS, i)
-        #     each_column_meta = self.all_dataset.metadata.query(selector)
-        #     if "http://schema.org/DateTime" in each_column_meta['semantic_types']:
-        #         try:
-        #             time_column = self.all_dataset[self.problem_info["res_id"]].iloc[:,i]
-        #             column_data_datetime_format = pd.to_datetime(time_column)
-        #             start_date = min(column_data_datetime_format)
-        #             end_date = max(column_data_datetime_format)
-        #             if any(column_data_datetime_format.dt.second != 0):
-        #                 time_granularity = 5
-        #             elif any(column_data_datetime_format.dt.minute != 0):
-        #                 time_granularity = 4
-        #             elif any(column_data_datetime_format.dt.hour != 0):
-        #                 time_granularity = 4
-        #             elif any(column_data_datetime_format.dt.day != 0):
-        #                 time_granularity = 3
-        #             elif any(column_data_datetime_format.dt.month != 0):
-        #                 time_granularity = 2
-        #             elif any(column_data_datetime_format.dt.year != 0):
-        #                 time_granularity = 1
-        #             variables.append(datamart.TemporalVariable(start=start_date, end=end_date, granularity=datamart.TemporalGranularity(time_granularity)))
-        #         except:
-        #             self._logger.error("Parsing the DateTime column No." + str(i) + " for augment failed.")
-
-        # query_search = datamart.DatamartQuery(keywords=keywords, variables=variables)
+        keywords_from_data = self.config.problem["data_augmentation"][0]["keywords"]
+        query_search = datamart.DatamartQuery(keywords=keywords_from_data + [meta_to_str], variables=None)
 
         search_unit = datamart_unit.search_with_data(query=query_search, supplied_data=augment_res)
         all_results1 = search_unit.get_next_page()
-
 
         if all_results1 is None:
             self._logger.warning("No search result returned!")
@@ -833,8 +768,6 @@ class Controller:
                     summary.pop("Columns")
                 self._logger.info(summary)
                 self._logger.info("-"*100)
-        # import pdb
-        # pdb.set_trace()
 
         return all_results1
 
@@ -1205,7 +1138,12 @@ class Controller:
         self.dump_primitive(denormalize_primitive, "denormalize")
         datamart_search_results = None
         if "data_augmentation" in self.config.problem.keys():
-            datamart_search_results = self.do_data_augmentation_rest_api(self.all_dataset)
+            try:
+                datamart_search_results = self.do_data_augmentation_rest_api(self.all_dataset)
+            except Exception as e:
+                datamart_search_results = None
+                self._logger.error("Running data augmentation failed!!!")
+                traceback.print_exc()
         # load templates
         self.load_templates(datamart_search_results)
 
