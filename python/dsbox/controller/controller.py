@@ -11,14 +11,21 @@ import shutil
 import traceback
 import typing
 import copy
+import datamart
 import pandas as pd  # type: ignore
 from d3m.base import utils as d3m_utils
 from d3m.container.dataset import Dataset, D3MDatasetLoader
 from d3m.metadata.base import ALL_ELEMENTS
 from d3m.metadata.problem import TaskType
+from wikifier import wikifier
+from datamart_isi.cache.metadata_cache import MetadataCache
+from datamart_isi.utilities.download_manager import DownloadManager
+from datamart_isi import config as config_datamart
+from datamart_isi import rest
 
 from dsbox.combinatorial_search.TemplateSpaceBaseSearch import TemplateSpaceBaseSearch
 from dsbox.combinatorial_search.TemplateSpaceParallelBaseSearch import TemplateSpaceParallelBaseSearch
+from dsbox.JobManager.usage_monitor import UsageMonitor
 # from dsbox.combinatorial_search.BanditDimensionalSearch import BanditDimensionalSearch
 # from dsbox.combinatorial_search.MultiBanditSearch import MultiBanditSearch
 from dsbox.controller.config import DsboxConfig
@@ -124,6 +131,13 @@ class Controller:
         # Template search method
         self._search_method = None
 
+        # Set sample size (sample used to do wikifier comes from supplied_data)
+        self.wikifier_max_len = 100000
+        self.wikifier_selection_rate = 0.1
+        self.wikifier_default_size = 1000
+
+        # reosurce monitor
+        self.resource_monitor = UsageMonitor()
     """
         **********************************************************************
         Private method
@@ -634,80 +648,192 @@ class Controller:
             self.ensemble_voting_candidate_choose_method = 'lastStep'
             # self.ensemble_voting_candidate_choose_method = 'resultSimilarity'
 
+    @staticmethod
+    def find_possible_candidate(supplied_data) -> typing.List[int]:
+        """
+        function used to find corresponding column numbers that we need for running wikifier
+        """
+        res_id, supplied_dataframe = d3m_utils.get_tabular_resource(dataset=supplied_data, resource_id=None)
+        all_columns = list(range(supplied_dataframe.shape[1]))
+        target_columns = copy.deepcopy(all_columns)
+
+        need_column_type = config_datamart.need_wikifier_column_type_list
+
+        for each in all_columns:
+            each_column_semantic_type = supplied_data.metadata.query((res_id, ALL_ELEMENTS, each))['semantic_types']
+            # if the column type inside here found, this coumn should be wikified
+            if set(each_column_semantic_type).intersection(need_column_type):
+                continue
+            else:
+                target_columns.remove(each)
+
+        return target_columns
+
     def do_data_augmentation_rest_api(self, input_all_dataset: Dataset) -> Dataset:
-        # 2019.7.19: not run augment on medical one!
-        try:
-            if input_all_dataset.metadata.query(()).get('id'):
-                dataset_id = input_all_dataset.metadata.query(()).get('id')
-                if "medical_malpractice" in dataset_id:
-                    self._logger.warning("Pass medical_malpractice for augment!")
-                    return input_all_dataset
-        except:
-            pass
-
-        import datamart_nyu
-        import datamart
+        """
+        function that do augmentation from rest api(server) side
+        """
         augment_times = 0
-
-        datamart_unit = datamart_nyu.RESTDatamart(connection_url=self.config.datamart_nyu_url)
-
-        # if self.all_dataset.metadata.query(())['id'].startswith("DA_medical_malpractice"):
-            # pass
-        # elif self.all_dataset.metadata.query(())['id'].startswith("DA_ny_taxi_demand"):
+        datamart_unit = rest.RESTDatamart(connection_url=self.config.datamart_nyu_url)
         augment_res = copy.copy(self.all_dataset)
 
-        keywords = []
-        keywrods_from_data = input_all_dataset.metadata.query(()).get('keywords')
-        if keywrods_from_data:
-            keywords.extend(keywrods_from_data)
-        for each_domain in self.config.problem['data_augmentation']:
-            for each in each_domain.values():
-                keywords.extend(each)
+        # try to find target columns which should do wikifier
+        target_columns = self.find_possible_candidate(augment_res)
 
-        keywords = list(set(keywords))
+        # get smaller dataset by random
+        _, supplied_dataframe = d3m_utils.get_tabular_resource(dataset=augment_res, resource_id=None)
+        size_of_df = len(supplied_dataframe)
+        if size_of_df > self.wikifier_max_len:
+            size_of_sample = int(size_of_df * self.wikifier_selection_rate)
+        elif size_of_df > self.wikifier_default_size:
+            size_of_sample = self.wikifier_default_size
+        else:
+            size_of_sample = size_of_df
+        random.seed(41)
+        idx = random.sample(range(size_of_df), size_of_sample)
 
-        variables = []
+        # get qnode columns and metadata for wikifier
+        meta_for_wikifier, sim_vector = dict(), dict()
+        q_nodes_found_amount_in_sample_part = dict()
 
-        for i in range(self.all_dataset[self.problem_info["res_id"]].shape[1]):
-            selector = (self.problem_info["res_id"], ALL_ELEMENTS, i)
-            each_column_meta = self.all_dataset.metadata.query(selector)
-            if "http://schema.org/DateTime" in each_column_meta['semantic_types']:
-                try:
-                    time_column = self.all_dataset[self.problem_info["res_id"]].iloc[:,i]
-                    column_data_datetime_format = pd.to_datetime(time_column)
-                    start_date = min(column_data_datetime_format)
-                    end_date = max(column_data_datetime_format)
-                    if any(column_data_datetime_format.dt.second != 0):
-                        time_granularity = 5
-                    elif any(column_data_datetime_format.dt.minute != 0):
-                        time_granularity = 4
-                    elif any(column_data_datetime_format.dt.hour != 0):
-                        time_granularity = 4
-                    elif any(column_data_datetime_format.dt.day != 0):
-                        time_granularity = 3
-                    elif any(column_data_datetime_format.dt.month != 0):
-                        time_granularity = 2
-                    elif any(column_data_datetime_format.dt.year != 0):
-                        time_granularity = 1
-                    variables.append(datamart.TemporalVariable(start=start_date, end=end_date, granularity=datamart.TemporalGranularity(time_granularity)))
-                except:
-                    self._logger.error("Parsing the DateTime column No." + str(i) + " for augment failed.")
+        for i in target_columns:
+            sample_df = supplied_dataframe.iloc[idx, i].drop_duplicates(keep='first', inplace=False).to_frame()
+            self._logger.info("Current column is " + str(sample_df.columns.tolist()))
+            self._logger.debug("Start running wikifier...")
+            output_df = wikifier.produce(sample_df, use_cache=False)
+            self._logger.info("Wikifier running finished.")
 
-        query_search = datamart.DatamartQuery(keywords=keywords, variables=variables)
+            if len(output_df.columns) > 1:
+                # save specific p/q node in cache files
+                res = MetadataCache.get_specific_p_nodes(sample_df)
+                if res:
+                    meta_for_wikifier.update(res)
+                    MetadataCache.delete_specific_p_nodes_file(sample_df)
+                # do vector augment and calculate cosine similarity
+                qnode_name = output_df.columns.tolist()[1]
+                q_nodes_found_amount_in_sample_part[qnode_name] = len(output_df[qnode_name].dropna())
+                qnodes = output_df[qnode_name]
+                sim_vector[qnode_name] = []
+                df_vectors = DownloadManager.fetch_fb_embeddings(qnodes, qnode_name)
+                for j in range(1, len(df_vectors.columns)):
+                    # 201 columns: key, vector1, vector2 ...
+                    sim_vector[qnode_name].append(df_vectors.iloc[:, j].mean())
+
+        from sklearn.metrics.pairwise import cosine_similarity
+        x = list(sim_vector.values())
+
+        if len(x) != 0:
+            matrix = cosine_similarity(x)
+            df_sim = pd.DataFrame(data=matrix, columns=sim_vector.keys())
+
+            # remove similar column
+            # COMMENT: may remove right column when wrong columns are similar to each other.
+            remove_set = set()
+            col_name = df_sim.columns.tolist()
+
+            for i, name in enumerate(col_name):
+                if name not in remove_set:
+                    candidate_column_need_drop = df_sim[name][(df_sim[name] > 0.9) | (df_sim[name] < 0.4)].index.tolist()
+                    temp_q_nodes_amount_dict = dict()
+                    for each_column in candidate_column_need_drop:
+                        temp_q_nodes_amount_dict[col_name[each_column]] = q_nodes_found_amount_in_sample_part[col_name[each_column]]
+                    temp_q_nodes_amount_dict.pop(max(temp_q_nodes_amount_dict.items(), key=operator.itemgetter(1))[0])
+                    for each_key in temp_q_nodes_amount_dict.keys():
+                        remove_set.add(each_key[:-9])
+            for name in remove_set:
+                if name in meta_for_wikifier.keys():
+                    del meta_for_wikifier[name]
+        
+        meta_to_str = json.dumps({config_datamart.wikifier_column_mark: meta_for_wikifier})
+        self._logger.info("Following columns should be wikified as:")
+        self._logger.info(str(meta_to_str))
+
+        keywords_from_data = self.config.problem["data_augmentation"][0]["keywords"]
+        query_search = datamart.DatamartQuery(keywords=keywords_from_data + [meta_to_str], variables=None)
+
         search_unit = datamart_unit.search_with_data(query=query_search, supplied_data=augment_res)
         all_results1 = search_unit.get_next_page()
 
-        if not all_results1:
-            self._logger.warning("No search ressult returned!")
+        if all_results1 is None:
+            self._logger.warning("No search result returned!")
             return self.all_dataset
 
+        else:
+            for i, each_search_result in enumerate(all_results1):
+                each_search_res_json = each_search_result.get_json_metadata()
+                self._logger.info("------------ Search result No.{} ------------".format(str(i)))
+                self._logger.info(each_search_res_json['augmentation'])
+                summary = each_search_res_json['summary'].copy()
+                if "Columns" in summary:
+                    summary.pop("Columns")
+                self._logger.info(summary)
+                self._logger.info("-"*100)
+
+        return all_results1
+
+        """
         # if we get some search result
         from common_primitives.datamart_augment import Hyperparams as hyper_augment, DataMartAugmentPrimitive
         hyper_augment_default = hyper_augment.defaults()
         hyper_augment_default = hyper_augment_default.replace({"system_identifier":"NYU"})
+        search_result_list = all_results1
+        # college one, join with score card
+        if self.all_dataset.metadata.query(())['id'].startswith("DA_college_debt"):
+            # search_result_list = [all_results1[7]]
+            search_result_list = []
+            for each_result in all_results1:
+                detail_info = each_result.get_json_metadata()
+                recommend_join_column = detail_info['summary']['Recommend Join Columns'].lower()
+                title = detail_info['summary']['title'].lower()
+                if "scorecard" in title and "instnm" in recommend_join_column:
+                    search_result_list.append(each_result)
+                    self._logger.info(each_result.id() + " has been added for augmenting list.")
 
-        search_result_list = all_results1[:5]
-        # augment_res_list = []
+        # medical one, join with NPDB1901-subset.csv.gz
+        elif self.all_dataset.metadata.query(())['id'].startswith("DA_medical_malpractice"):
+            # search_result_list = [all_results1[10]]
+            search_result_list = []
+            for each_result in all_results1:
+                detail_info = each_result.get_json_metadata()
+                recommend_join_column = detail_info['summary']['Recommend Join Columns'].lower()
+                title = detail_info['summary']['title'].lower()
+                if "npdb1901" in title and "seqno" in recommend_join_column:
+                    search_result_list.append(each_result)
+                    self._logger.info(each_result.id() + " has been added for augmenting list.")
+
+        # taxi one, join with new york weather
+        elif self.all_dataset.metadata.query(())['id'].startswith("DA_ny_taxi"):
+            # currently only one can be found
+            search_result_list = all_results1
+
+        # poverty one, join with wikidata search on state, fips and poverty
+        elif self.all_dataset.metadata.query(())['id'].startswith("DA_poverty"):
+            search_result_list = []
+            need_columns = {'FIPS_wikidata', 'State_wikidata'}
+            for each_result in all_results1:
+                detail_info = each_result.get_json_metadata()
+                # if it is wikidata search reuslts
+                if detail_info['summary']['Datamart ID'].startswith("wikidata_search"):
+                    if set([detail_info['summary']['Recommend Join Columns']]).intersection(need_columns):
+                        search_result_list.append(each_result)
+                        self._logger.info(each_result.id() + " has been added for augmenting list.")
+                else:
+                    recommend_join_column = detail_info['summary']['Recommend Join Columns'].lower()
+                    title = detail_info['summary']['title']
+                    if "fips" in recommend_join_column and "wikidata" in recommend_join_column and "poverty" in title:
+                        search_result_list.append(each_result)
+                        self._logger.info(each_result.id() + " has been added for augmenting list.")
+            # search_result_list = [all_results1[0], all_results1[1], all_results1[12]]
+
+        # acled one, join with vectors
+        elif self.all_dataset.metadata.query(())['id'].startswith("LL0_acled"):
+            search_result_list = []
+            for each_result in all_results1:
+                if each_result.id().startswith("vector_search"):
+                    search_result_list.append(each_result)
+                    self._logger.info(each_result.id() + " has been added for augmenting list.")
+
+
         for search_res in search_result_list:
             try:
                 hyper_temp = hyper_augment_default.replace({"search_result":search_res.serialize()})
@@ -732,7 +858,7 @@ class Controller:
         self._logger.info("The augmented dataset shape is (" + str(augmented_shape[0]) + ", " + str(augmented_shape[1]) + ")")
 
         return augment_res
-
+        """
 
     def do_data_augmentation(self, input_all_dataset: Dataset) -> Dataset:
         """
@@ -1010,10 +1136,16 @@ class Controller:
         self.all_dataset = denormalize_primitive.produce(inputs = self.all_dataset).value
         self.extra_primitive.add("denormalize")
         self.dump_primitive(denormalize_primitive, "denormalize")
+        datamart_search_results = None
         if "data_augmentation" in self.config.problem.keys():
-            self.all_dataset = self.do_data_augmentation_rest_api(self.all_dataset)
+            try:
+                datamart_search_results = self.do_data_augmentation_rest_api(self.all_dataset)
+            except Exception as e:
+                datamart_search_results = None
+                self._logger.error("Running data augmentation failed!!!")
+                traceback.print_exc()
         # load templates
-        self.load_templates()
+        self.load_templates(datamart_search_results)
 
     def initialize_from_config_train_test(self, config: DsboxConfig) -> None:
         """
@@ -1059,10 +1191,11 @@ class Controller:
         self.all_dataset = denormalize_primitive.produce(inputs=self.all_dataset).value
         self.extra_primitive.add("denormalize")
         self.dump_primitive(denormalize_primitive, "denormalize")
+        datamart_search_results = None
         if "data_augmentation" in self.config.problem.keys():
-            self.all_dataset = self.do_data_augmentation_rest_api(self.all_dataset)
+            datamart_search_results = self.do_data_augmentation_rest_api(self.all_dataset)
         # load templates
-        self.load_templates()
+        self.load_templates(datamart_search_results)
 
 
 
@@ -1084,7 +1217,7 @@ class Controller:
                                             fitted_pipeline_id=read_pipeline_id)
         return self.config.output_dir, pipeline_load, read_pipeline_id, pipeline_load.runtime
 
-    def load_templates(self) -> None:
+    def load_templates(self, datamart_search_results=None) -> None:
 
         self.template_list = self.template_library.get_templates(self.config.task_type,
                                                                  self.config.task_subtype,
@@ -1097,6 +1230,29 @@ class Controller:
                     split_times = int(each_step["runtime"]["test_validation"])
                     if split_times > self.max_split_times:
                         self.max_split_times = split_times
+
+        if datamart_search_results is not None:
+            from dsbox.template.template_steps import TemplateSteps
+            from dsbox.datapreprocessing.cleaner.splitter import SplitterHyperparameter
+            splitter_hyperparam = SplitterHyperparameter.defaults()
+            large_dataset_row_length = splitter_hyperparam['threshold_row_length']
+            large_dataset_column_length = splitter_hyperparam['threshold_column_length']
+            res_id, supplied_dataframe = d3m_utils.get_tabular_resource(dataset=self.all_dataset, resource_id=None)
+            is_large_dataset = supplied_dataframe.shape[0] >= large_dataset_row_length or supplied_dataframe.shape[1] >= large_dataset_column_length
+            if is_large_dataset:
+                self._logger.info("Large dataset detected! Will skip wikidata related parts!")
+            augment_steps = TemplateSteps.dsbox_augmentation_step(datamart_search_results, large_dataset=is_large_dataset)
+            self._logger.info("Totally " + str(len(augment_steps)) + " datamart search results will be considered!")
+
+            for each_template in self.template_list:
+                if "gradient" in each_template.template['name'] or "default" in each_template.template['name']:
+                    # remove to dataframe step
+                    if each_template.template['steps'][0]['name'] == 'to_dataframe_step':
+                        each_template.template['steps'].pop(0)
+                    each_template.template['steps'][0]['inputs'] = [augment_steps[-1]['name']]
+                    each_template.template['steps'] = augment_steps + each_template.template['steps']
+                    self._logger.info("Extra augmentation steps has been added for template " + each_template.template['name'])
+
 
     def remove_empty_targets(self, dataset: Dataset) -> Dataset:
         """
@@ -1449,6 +1605,7 @@ class Controller:
 
         # FIXME) come up with a better way to implement this part. The fork does not provide a way
         # FIXME) to catch the errors of the child process
+        self.resource_monitor.start_recording_resource_usage()
 
         if self.config.search_method == 'serial':
             self._run_SerialBaseSearch(self.report_ensemble, one_pipeline_only=one_pipeline_only)
@@ -1490,6 +1647,7 @@ class Controller:
             self._logger.info("Starting horizontal tuning")
             self.horizontal_tuning("d3m.primitives.sklearn_wrap.SKBernoulliNB")
 
+        self.resource_monitor.stop_recording_resource_usage(self.config.output_dir)
         self.write_training_results()
         return Status.OK
 

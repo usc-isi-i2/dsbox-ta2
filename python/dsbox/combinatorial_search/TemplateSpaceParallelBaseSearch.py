@@ -61,7 +61,8 @@ class TemplateSpaceParallelBaseSearch(TemplateSpaceBaseSearch[T]):
                            output_directory: str,
                            start_time: float = 0, timeout_sec: float = 3300) -> None:
         # Start timer
-        self.job_manager.timeout_sec = timeout_sec
+        delta_time = time.perf_counter() - start_time
+        self.job_manager.timeout_sec = timeout_sec - delta_time
 
         super().initialize_problem(
             template_list=template_list, performance_metrics=performance_metrics,
@@ -144,7 +145,7 @@ class TemplateSpaceParallelBaseSearch(TemplateSpaceBaseSearch[T]):
                 _logger.info(f"Main Process jobs_completed:{self.jobs_completed}, timeout={wait_seconds}")
                 if wait_seconds > 15:
                     (kwargs_bundle, report) = self.job_manager.pop_job(block=True, timeout=wait_seconds)
-                    _logger.info(f"kwargs: {kwargs_bundle}")
+                    _logger.info(f"Got Result kwargs={kwargs_bundle}")
 
                     self._add_report_to_history(kwargs_bundle, report)
 

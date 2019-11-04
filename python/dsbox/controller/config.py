@@ -2,11 +2,11 @@ import io
 import json
 import logging
 import os
+import time
 import typing
 
-import d3m.metadata.base as metadata_base
-from d3m.metadata.problem import parse_problem_description
 from d3m.metadata.problem import Problem
+
 
 class RuntimeSetting:
     '''
@@ -59,12 +59,13 @@ class DsboxConfig:
 
     DSBox output directory structure under dsbox_output_dir:
     * pipelines_fitted (pipelines_fitted_dir): directory for storing fitted pipelines
+    * pipelines_failed (pipelines_failed_dir): directory for storing failed pipelines
     * logs (log_dir): directory for logging files
     * logs/dfs (dfs_log_dir): directory for detailed dataframe logging
 
     DSBox variables
     * search_method: pipeline search methods, possible values 'serial', 'parallel', 'random-dimensional', 'bandit', 'multi-bandit'
-    * timeout_search: Timeout for search part. Typically equal to timeout less 120 seconds
+    * timeout_search: Timeout for search part. The remaining time after timeout_search is used for returning results.
 
     '''
 
@@ -88,7 +89,7 @@ class DsboxConfig:
         self.pipeline_runs_dir: str = ''
         self.additional_inputs_dir: str = ''
 
-        ## D3M TA3 SearchSolutionsRequest parameters
+        # == D3M TA3 SearchSolutionsRequest parameters
         # Number of ranked solution to return
         self.rank_solutions_limit: int = 0
         # time bound on individual pipeline run
@@ -100,9 +101,12 @@ class DsboxConfig:
         self.log_dir: str = ''
         self.dfs_log_dir: str = ''
 
-        # DSBox search
+        # == DSBox search
         self.search_method = 'serial'
         self.serial_search_iterations = 50
+        # Should be set using set_start_time() as soon as the search request is received
+        self._start_time: float = 0
+        # Search time
         self.timeout_search: int = 0
 
         # DSBox logging
@@ -135,6 +139,20 @@ class DsboxConfig:
         # 2019.7.19: add more time for system clean up job
         self.timeout_search = int(self._timeout * 0.93)
 
+    @property
+    def start_time(self) -> float:
+        '''
+        Returns time.perf_counter counter clock in seconds
+        '''
+        return self._start_time
+
+    def set_start_time(self):
+        '''
+        Should be called as soon as the search request is made. Should be called by
+        TA2Servicer class and ta2_evaluation.py script.
+        '''
+        self._start_time = time.perf_counter()
+
     def load(self, ta2ta3_mode: bool = False):
         self._load_d3m_environment(ta2ta3_mode)
         self._load_dsbox()
@@ -143,10 +161,10 @@ class DsboxConfig:
     def set_problem(self, problem: Problem):
 
         if not isinstance(problem, Problem):
-            raise VauleError(f"Argument problem must be an instance of Problem: {problem}")
+            raise ValueError(f"Argument problem must be an instance of Problem: {problem}")
 
         if 'id' not in problem:
-            raise VauleError(f"Problem missing id: {problem}")
+            raise ValueError(f"Problem missing id: {problem}")
 
         self.problem = problem
         self._load_problem_rest()
@@ -202,8 +220,11 @@ class DsboxConfig:
 
     def _load_dsbox(self):
         self._load_logging()
-        self.search_method = 'parallel'
-        # self.search_method = 'serial'
+        if 'DSBOX_SEARCH_METHOD' in os.environ:
+            self.search_method = os.environ['DSBOX_SEARCH_METHOD']
+        else:
+            self.search_method = 'parallel'
+            # self.search_method = 'serial'
 
     def _setup(self):
         self._define_create_output_dirs()
@@ -255,8 +276,17 @@ class DsboxConfig:
         self.additional_inputs_dir = os.path.join(self.output_dir, 'additional_inputs')
         # DSBox directories
         self.dsbox_output_dir = self.output_dir
+
+        # For storing fitted pipeline with pickled primitives
         self.pipelines_fitted_dir = os.path.join(self.dsbox_output_dir, 'pipelines_fitted')
+
+        # For stroing failed pipelines
+        self.pipelines_failed_dir = os.path.join(self.dsbox_output_dir, 'pipelines_failed')
+
+        # For storing mappings between fitted pipeline and regular pipeline
         self.pipelines_info_dir = os.path.join(self.dsbox_output_dir, 'pipelines_info')
+
+        # For temporay storage
         self.dsbox_scratch_dir = os.path.join(self.dsbox_output_dir, 'scratch')
         self.log_dir = os.path.join(self.dsbox_output_dir, 'logs')
         self.dfs_log_dir = os.path.join(self.log_dir, 'dfs')
@@ -266,7 +296,7 @@ class DsboxConfig:
                 self.pipelines_ranked_dir, self.pipelines_scored_dir,
                 self.pipelines_searched_dir, self.subpipelines_dir, self.pipeline_runs_dir,
                 self.additional_inputs_dir, self.local_dir,
-                self.dsbox_output_dir, self.pipelines_fitted_dir, self.pipelines_info_dir,
+                self.dsbox_output_dir, self.pipelines_fitted_dir, self.pipelines_failed_dir, self.pipelines_info_dir,
                 self.log_dir, self.dfs_log_dir, self.dsbox_scratch_dir]:
             if not os.path.exists(directory):
                 os.mkdir(directory)

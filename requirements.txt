@@ -10,3 +10,4 @@ numpy==1.15.4
 psutil>=5.4.7
 PyYAML>=3.13
 scikit-learn
+datamart-userend@git+https://github.com/usc-isi-i2/datamart-userend.git@d3m

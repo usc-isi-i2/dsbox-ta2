@@ -7,9 +7,9 @@ import tempfile
 import time
 import typing
 import pdb
-
+import json
 import numpy as np
-
+import multiprocessing as mp
 import d3m.runtime as runtime_base
 
 from collections import defaultdict
@@ -67,7 +67,7 @@ class Runtime(runtime_base.Runtime):
     ----------
     cache : PrimitivesCache
         Cache files used for primitive
-    fit_outputs: d3m_container
+    fit_outputs: runtime_base.Result
         used to store the prediction outputs from fit() part's dataset
     fitted_pipeline_id : str
         A uuid format str to indicate the pipeline id
@@ -120,10 +120,10 @@ class Runtime(runtime_base.Runtime):
         else:
             self.fitted_pipeline_id = fitted_pipeline_id
         self.template_name = template_name
-        self.fit_outputs: runtime_base.Result = None
+        self.fit_outputs: typing.Optional[runtime_base.Result] = None
         self.log_dir = log_dir
         self.metric_descriptions: typing.List[typing.Dict] = []
-        self.produce_outputs = None
+        self.produce_outputs: typing.Optional[runtime_base.Result] = None
         self.timing: typing.Dict = {}
         self.timing["total_time_used"] = 0.0
         self.task_type = task_type
@@ -136,12 +136,33 @@ class Runtime(runtime_base.Runtime):
 
         # Debug mode. If true compare cache with actual result.
         self.validate_cache = True
+        # use for recording the cpu/memory usage
+        self.recorder_all = dict()
+        self.record_frequency = 0.1
 
     def set_not_use_cache(self) -> None:
         self.use_cache = False
 
     def set_metric_descriptions(self, metric_descriptions):
         self.metric_descriptions = metric_descriptions
+
+    # def _do_run(self) -> None:
+          # this method can't run with daemon process!!
+    #     # v2019.10.2: adapted from d3m.runtime here
+    #     current_pid = os.getpid()
+    #     recorder = mp.Queue()
+    #     recorder_all = dict()
+        
+    #     for step_index, step in enumerate(self.pipeline.steps):
+    #         recorder_list = []
+    #         p = mp.Process(target=measure_usage, args=(recorder, os.getpid(), self.record_frequency))
+    #         p.start()
+    #         self.current_step = step_index
+    #         self._do_run_step(step)
+    #         p.terminate()
+    #         while not recorder.empty():
+    #             recorder_list.append(recorder.get())
+    #         self.recorder_all[step_index] = recorder_list
 
     def _run_primitive(self, step: pipeline_module.PrimitiveStep) -> None:
         '''
