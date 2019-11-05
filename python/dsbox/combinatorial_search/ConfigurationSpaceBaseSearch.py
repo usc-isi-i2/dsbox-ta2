@@ -28,6 +28,7 @@ from dsbox.pipeline.fitted_pipeline import FittedPipeline
 from dsbox.schema import get_target_columns
 from dsbox.template.configuration_space import ConfigurationPoint
 from dsbox.template.configuration_space import ConfigurationSpace
+from dsbox.combinatorial_search.search_utils import load_pickled_dataset
 from dsbox.template.template import DSBoxTemplate
 # from dsbox.template.utils import calculate_score, graph_problem_conversion, SpecialMetric
 from dsbox.template.utils import score_prediction, graph_problem_conversion
@@ -83,18 +84,18 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
         # self.dimension_ordering = configuration_space_list.get_dimension_search_ordering()
 
         self.problem: Problem = problem
-        self.train_dataset1 = train_dataset1
-        self.train_dataset2 = train_dataset2
-        self.test_dataset1 = test_dataset1
-        self.test_dataset2 = test_dataset2
-        self.all_dataset = all_dataset
+        self.train_dataset1 = load_pickled_dataset("train_dataset1")
+        self.train_dataset2 = load_pickled_dataset("train_dataset2")
+        self.test_dataset1 = load_pickled_dataset("test_dataset1")
+        self.test_dataset2 = load_pickled_dataset("test_dataset2")
+        self.all_dataset = load_pickled_dataset("all_dataset")
+        self.ensemble_tuning_dataset = load_pickled_dataset("ensemble_tuning_dataset")
+
         self.extra_primitive = extra_primitive
-        if ensemble_tuning_dataset:
+        if self.ensemble_tuning_dataset:
             self.do_ensemble_tuning = True
-            self.ensemble_tuning_dataset = ensemble_tuning_dataset
         else:
             self.do_ensemble_tuning = False
-            self.ensemble_tuning_dataset = None
 
         self.performance_metrics = performance_metrics
 

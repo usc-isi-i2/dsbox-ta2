@@ -8,10 +8,12 @@ import pickle
 import pprint
 import random
 import shutil
+import time
 import traceback
 import typing
 import copy
 import datamart
+import multiprocessing
 import pandas as pd  # type: ignore
 from d3m.base import utils as d3m_utils
 from d3m.container.dataset import Dataset, D3MDatasetLoader
@@ -20,6 +22,7 @@ from d3m.metadata.problem import TaskType
 from wikifier import wikifier
 from datamart_isi.cache.metadata_cache import MetadataCache
 from datamart_isi.utilities.download_manager import DownloadManager
+from datamart_isi.utilities.timeout import timeout_call
 from datamart_isi import config as config_datamart
 from datamart_isi import rest
 
@@ -466,12 +469,12 @@ class Controller:
             template_list=self.template_list,
             performance_metrics=self.config.problem['problem']['performance_metrics'],
             problem=self.config.problem,
-            test_dataset1=self.test_dataset1,
-            train_dataset1=self.train_dataset1,
-            test_dataset2=self.test_dataset2,
-            train_dataset2=self.train_dataset2,
-            all_dataset=self.all_dataset,
-            ensemble_tuning_dataset=self.ensemble_dataset,
+            test_dataset1=None,#self.test_dataset1,
+            train_dataset1=None,#self.train_dataset1,
+            test_dataset2=None,#self.test_dataset2,
+            train_dataset2=None,#self.train_dataset2,
+            all_dataset=None,#self.all_dataset,
+            ensemble_tuning_dataset=None,#self.ensemble_dataset,
             output_directory=self.config.output_dir,
             start_time=self.config.start_time,
             timeout_sec=self.config.timeout_search,
@@ -758,18 +761,72 @@ class Controller:
             self._logger.warning("No search result returned!")
             return self.all_dataset
 
-        else:
-            for i, each_search_result in enumerate(all_results1):
-                each_search_res_json = each_search_result.get_json_metadata()
-                self._logger.info("------------ Search result No.{} ------------".format(str(i)))
-                self._logger.info(each_search_res_json['augmentation'])
-                summary = each_search_res_json['summary'].copy()
-                if "Columns" in summary:
-                    summary.pop("Columns")
-                self._logger.info(summary)
-                self._logger.info("-"*100)
+        from common_primitives.datamart_augment import Hyperparams as hyper_augment, DataMartAugmentPrimitive
+        hyper_augment_default = hyper_augment.defaults()
+        hyper_augment_default = hyper_augment_default.replace({"system_identifier":"ISI"})
 
-        return all_results1
+        def augment_test_worker(augment_num, res_dict, search_res):
+            def pp(augment_res):
+                return augment_primitive.produce(inputs=augment_res).value
+            self._logger.info("Starting testing No.{} augment.".format(augment_num))
+            hyper_temp = hyper_augment_default.replace({"search_result":search_res.serialize()})
+            augment_primitive = DataMartAugmentPrimitive(hyperparams=hyper_temp)
+            prev_augment_res = copy.copy(self.all_dataset)
+            try:
+                augment_res = timeout_call(1000, pp, [prev_augment_res])
+                if type(augment_res) is str or augment_res is None:
+                    self._logger.info("Agument No.{} failed with error".format(augment_num))
+                    res_dict[augment_num] = False
+                else:
+                    res_dict[augment_num] = True
+                    self._logger.info("Agument No.{} success".format(augment_num))
+            except:
+                self._logger.info("Agument No.{} failed with error".format(augment_num))
+                res_dict[augment_num] = False
+
+        search_result_list = all_results1
+        # augment_res_list = []
+        jobs = []
+        manager = multiprocessing.Manager()
+        augment_dict = manager.dict()
+
+        for i, search_res in enumerate(search_result_list):            
+            p = multiprocessing.Process(target=augment_test_worker, args=(i, augment_dict, search_res))
+            jobs.append(p)
+            p.start()
+
+        not_all_finished = True
+        while not_all_finished:
+            # check status each 10s
+            time.sleep(10)
+            not_all_finished = False
+            for each_job in jobs:
+                each_job.join(timeout=0)
+                if each_job.is_alive():
+                    not_all_finished = True
+                    self._logger.info("Not all testing augment finished!")
+                    break
+
+        can_augment_result_number = []
+        for key, val in augment_dict.items():
+            if val is True:
+                can_augment_result_number.append(key)
+        can_augment_result_number.sort()
+        filterd_results = []
+        for each in can_augment_result_number:
+            filterd_results.append(all_results1[each])
+
+        for i, each_search_result in enumerate(filterd_results):
+            each_search_res_json = each_search_result.get_json_metadata()
+            self._logger.info("------------ Search result No.{} ------------".format(str(i)))
+            self._logger.info(each_search_res_json['augmentation'])
+            summary = each_search_res_json['summary'].copy()
+            if "Columns" in summary:
+                summary.pop("Columns")
+            self._logger.info(summary)
+            self._logger.info("-"*100)
+
+        return filterd_results
 
         """
         # if we get some search result
@@ -1894,6 +1951,14 @@ class Controller:
         else:
             self.train_dataset2 = None
             self.test_dataset2 = None
+        from dsbox.combinatorial_search.search_utils import save_pickled_dataset
+        save_pickled_dataset(self.train_dataset1, "train_dataset1")
+        save_pickled_dataset(self.train_dataset2, "train_dataset2")
+        save_pickled_dataset(self.test_dataset1, "test_dataset1")
+        save_pickled_dataset(self.test_dataset2, "test_dataset2")
+        save_pickled_dataset(self.all_dataset, "all_dataset")
+        save_pickled_dataset(self.ensemble_dataset, "ensemble_tuning_dataset")
+
 
     def _save_dataset(self, dataset_list: typing.List[Dataset], save_dir: pathlib.Path):
         if save_dir.exists():
