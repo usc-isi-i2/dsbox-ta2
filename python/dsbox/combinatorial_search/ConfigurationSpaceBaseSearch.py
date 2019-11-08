@@ -84,21 +84,8 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
         # self.dimension_ordering = configuration_space_list.get_dimension_search_ordering()
 
         self.problem: Problem = problem
-        self.train_dataset1 = load_pickled_dataset("train_dataset1")
-        self.train_dataset2 = load_pickled_dataset("train_dataset2")
-        self.test_dataset1 = load_pickled_dataset("test_dataset1")
-        self.test_dataset2 = load_pickled_dataset("test_dataset2")
-        self.all_dataset = load_pickled_dataset("all_dataset")
-        self.ensemble_tuning_dataset = load_pickled_dataset("ensemble_tuning_dataset")
-
         self.extra_primitive = extra_primitive
-        if self.ensemble_tuning_dataset:
-            self.do_ensemble_tuning = True
-        else:
-            self.do_ensemble_tuning = False
-
         self.performance_metrics = performance_metrics
-
         self.output_directory = output_directory
 
         self.minimize = performance_metrics[0]['metric'].best_value() < performance_metrics[0]['metric'].worst_value()
@@ -179,7 +166,7 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
             self.do_ensemble_tuning = True
         else:
             self.do_ensemble_tuning = False
-            
+
         configuration: ConfigurationPoint[PrimitiveDescription] = dict(args[0])
         cache: PrimitivesCache = args[1]
         dump2disk = args[2] if len(args) == 3 else True
