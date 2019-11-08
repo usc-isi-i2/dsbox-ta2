@@ -167,7 +167,19 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
         Evaluate at configuration point.
         Note: This methods will modify the configuration point, by updating its data field.
         """
+        # update v2019.11.7: now load the dataset here
+        self.train_dataset1 = load_pickled_dataset("train_dataset1")
+        self.train_dataset2 = load_pickled_dataset("train_dataset2")
+        self.test_dataset1 = load_pickled_dataset("test_dataset1")
+        self.test_dataset2 = load_pickled_dataset("test_dataset2")
+        self.all_dataset = load_pickled_dataset("all_dataset")
+        self.ensemble_tuning_dataset = load_pickled_dataset("ensemble_tuning_dataset")
 
+        if self.ensemble_tuning_dataset:
+            self.do_ensemble_tuning = True
+        else:
+            self.do_ensemble_tuning = False
+            
         configuration: ConfigurationPoint[PrimitiveDescription] = dict(args[0])
         cache: PrimitivesCache = args[1]
         dump2disk = args[2] if len(args) == 3 else True
