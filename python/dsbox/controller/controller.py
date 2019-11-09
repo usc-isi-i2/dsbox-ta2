@@ -704,7 +704,7 @@ class Controller:
             self._logger.info("Current column is " + str(sample_df.columns.tolist()))
             self._logger.debug("Start running wikifier...")
             output_df = wikifier.produce(sample_df, use_cache=False)
-            self._logger.info("Wikifier running finished.")
+            self._logger.debug("Wikifier running finished.")
 
             if len(output_df.columns) > 1:
                 # save specific p/q node in cache files
@@ -721,6 +721,8 @@ class Controller:
                 for j in range(1, len(df_vectors.columns)):
                     # 201 columns: key, vector1, vector2 ...
                     sim_vector[qnode_name].append(df_vectors.iloc[:, j].mean())
+            else:
+                self._logger.info("This column do not has wikidata.")
 
         from sklearn.metrics.pairwise import cosine_similarity
         x = list(sim_vector.values())
@@ -761,6 +763,17 @@ class Controller:
             self._logger.warning("No search result returned!")
             return self.all_dataset
 
+        for i, each_search_result in enumerate(all_results1):
+            each_search_res_json = each_search_result.get_json_metadata()
+            self._logger.info("------------ Original Search result No.{} ------------".format(str(i)))
+            self._logger.info(each_search_res_json['augmentation'])
+            summary = each_search_res_json['summary'].copy()
+            if "Columns" in summary:
+                summary.pop("Columns")
+            self._logger.info(summary)
+            self._logger.info("-"*100)
+
+
         from common_primitives.datamart_augment import Hyperparams as hyper_augment, DataMartAugmentPrimitive
         hyper_augment_default = hyper_augment.defaults()
         hyper_augment_default = hyper_augment_default.replace({"system_identifier":"ISI"})
@@ -773,13 +786,19 @@ class Controller:
             augment_primitive = DataMartAugmentPrimitive(hyperparams=hyper_temp)
             prev_augment_res = copy.copy(self.all_dataset)
             try:
-                augment_res = timeout_call(1000, pp, [prev_augment_res])
+                augment_res = timeout_call(3000, pp, [prev_augment_res])
                 if type(augment_res) is str or augment_res is None:
-                    self._logger.info("Agument No.{} failed with error".format(augment_num))
+                    self._logger.info("Agument No.{} failed with error {}".format(augment_num, str(augment_res)))
                     res_dict[augment_num] = False
                 else:
-                    res_dict[augment_num] = True
-                    self._logger.info("Agument No.{} success".format(augment_num))
+                    _, supplied_dataframe = d3m_utils.get_tabular_resource(dataset=augment_res, resource_id=None)
+                    if supplied_dataframe.shape == original_shape:
+                        res_dict[augment_num] = False
+                        self._logger.info("Agument No.{} do not add any extra columns! Will ignore.".format(augment_num))
+                    else:
+                        self._logger.debug("Augmented dataset's shape is {}".format(str(supplied_dataframe.shape)))
+                        res_dict[augment_num] = True
+                        self._logger.info("Agument No.{} success".format(augment_num))
             except:
                 self._logger.info("Agument No.{} failed with error".format(augment_num))
                 res_dict[augment_num] = False
@@ -789,6 +808,9 @@ class Controller:
         jobs = []
         manager = multiprocessing.Manager()
         augment_dict = manager.dict()
+        _, original_df = d3m_utils.get_tabular_resource(dataset=self.all_dataset, resource_id=None)
+        original_shape = original_df.shape
+        self._logger.debug("Original dataset's shape is {}".format(original_shape))
 
         for i, search_res in enumerate(search_result_list):            
             p = multiprocessing.Process(target=augment_test_worker, args=(i, augment_dict, search_res))
@@ -818,7 +840,7 @@ class Controller:
 
         for i, each_search_result in enumerate(filterd_results):
             each_search_res_json = each_search_result.get_json_metadata()
-            self._logger.info("------------ Search result No.{} ------------".format(str(i)))
+            self._logger.info("------------ Filtered Search result No.{} ------------".format(str(i)))
             self._logger.info(each_search_res_json['augmentation'])
             summary = each_search_res_json['summary'].copy()
             if "Columns" in summary:
