@@ -677,7 +677,8 @@ class Controller:
         function that do augmentation from rest api(server) side
         """
         augment_times = 0
-        datamart_unit = rest.RESTDatamart()
+        system_url = os.environ.get('DATAMART_URL_ISI')
+        datamart_unit = rest.RESTDatamart(connection_url=system_url)
         augment_res = copy.copy(self.all_dataset)
 
         # try to find target columns which should do wikifier
