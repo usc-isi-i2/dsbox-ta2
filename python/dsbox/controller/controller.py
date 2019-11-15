@@ -18,7 +18,8 @@ import pandas as pd  # type: ignore
 from d3m.base import utils as d3m_utils
 from d3m.container.dataset import Dataset, D3MDatasetLoader
 from d3m.metadata.base import ALL_ELEMENTS
-from d3m.metadata.problem import TaskType
+# no more tasktype since d3m core package v2019.11.10
+from d3m.metadata.problem import TaskKeyword
 from wikifier import wikifier
 from datamart_isi.cache.metadata_cache import MetadataCache
 from datamart_isi.utilities.download_manager import DownloadManager
@@ -243,8 +244,6 @@ class Controller:
             for each_type in doc["dataResources"]:
                 self.taskSourceType.add(each_type["resType"])
         self.problem_info["data_type"] = self.taskSourceType
-
-
         # !!!!
         # self.saved_pipeline_id = config.get('saved_pipeline_ID', "")
         self.saved_pipeline_id = ""
@@ -253,7 +252,7 @@ class Controller:
             if 'targets' in self.config.problem['inputs'][i]:
                 break
 
-        self.problem_info["task_type"] = self.config.problem['problem']['task_type'].name
+        self.problem_info["task_type"] = [x.name for x in self.config.problem['problem']['task_keywords']]
         # example of task_type : 'classification' 'regression'
         self.problem_info["res_id"] = self.config.problem['inputs'][i]['targets'][0]['resource_id']
         self.problem_info["target_index"] = []
@@ -851,95 +850,6 @@ class Controller:
 
         return filterd_results
 
-        """
-        # if we get some search result
-        from common_primitives.datamart_augment import Hyperparams as hyper_augment, DataMartAugmentPrimitive
-        hyper_augment_default = hyper_augment.defaults()
-        hyper_augment_default = hyper_augment_default.replace({"system_identifier":"NYU"})
-        search_result_list = all_results1
-        # college one, join with score card
-        if self.all_dataset.metadata.query(())['id'].startswith("DA_college_debt"):
-            # search_result_list = [all_results1[7]]
-            search_result_list = []
-            for each_result in all_results1:
-                detail_info = each_result.get_json_metadata()
-                recommend_join_column = detail_info['summary']['Recommend Join Columns'].lower()
-                title = detail_info['summary']['title'].lower()
-                if "scorecard" in title and "instnm" in recommend_join_column:
-                    search_result_list.append(each_result)
-                    self._logger.info(each_result.id() + " has been added for augmenting list.")
-
-        # medical one, join with NPDB1901-subset.csv.gz
-        elif self.all_dataset.metadata.query(())['id'].startswith("DA_medical_malpractice"):
-            # search_result_list = [all_results1[10]]
-            search_result_list = []
-            for each_result in all_results1:
-                detail_info = each_result.get_json_metadata()
-                recommend_join_column = detail_info['summary']['Recommend Join Columns'].lower()
-                title = detail_info['summary']['title'].lower()
-                if "npdb1901" in title and "seqno" in recommend_join_column:
-                    search_result_list.append(each_result)
-                    self._logger.info(each_result.id() + " has been added for augmenting list.")
-
-        # taxi one, join with new york weather
-        elif self.all_dataset.metadata.query(())['id'].startswith("DA_ny_taxi"):
-            # currently only one can be found
-            search_result_list = all_results1
-
-        # poverty one, join with wikidata search on state, fips and poverty
-        elif self.all_dataset.metadata.query(())['id'].startswith("DA_poverty"):
-            search_result_list = []
-            need_columns = {'FIPS_wikidata', 'State_wikidata'}
-            for each_result in all_results1:
-                detail_info = each_result.get_json_metadata()
-                # if it is wikidata search reuslts
-                if detail_info['summary']['Datamart ID'].startswith("wikidata_search"):
-                    if set([detail_info['summary']['Recommend Join Columns']]).intersection(need_columns):
-                        search_result_list.append(each_result)
-                        self._logger.info(each_result.id() + " has been added for augmenting list.")
-                else:
-                    recommend_join_column = detail_info['summary']['Recommend Join Columns'].lower()
-                    title = detail_info['summary']['title']
-                    if "fips" in recommend_join_column and "wikidata" in recommend_join_column and "poverty" in title:
-                        search_result_list.append(each_result)
-                        self._logger.info(each_result.id() + " has been added for augmenting list.")
-            # search_result_list = [all_results1[0], all_results1[1], all_results1[12]]
-
-        # acled one, join with vectors
-        elif self.all_dataset.metadata.query(())['id'].startswith("LL0_acled"):
-            search_result_list = []
-            for each_result in all_results1:
-                if each_result.id().startswith("vector_search"):
-                    search_result_list.append(each_result)
-                    self._logger.info(each_result.id() + " has been added for augmenting list.")
-
-
-        for search_res in search_result_list:
-            try:
-                hyper_temp = hyper_augment_default.replace({"search_result":search_res.serialize()})
-                augment_primitive = DataMartAugmentPrimitive(hyperparams=hyper_temp)
-                augment_res = augment_primitive.produce(inputs=augment_res).value
-                self.dump_primitive(augment_primitive, "augment" + str(augment_times))
-                self.extra_primitive.add("augment" + str(augment_times))
-                augment_times += 1
-            except:
-                continue
-        self._logger.info("Totally augmented " + str(augment_times) + " times.")
-
-        # # update the metadata of original information
-        res_id, result_df = d3m_utils.get_tabular_resource(dataset=augment_res, resource_id=None)
-        augment_res.metadata = augment_res.metadata.update((),input_all_dataset.metadata.query(()))
-
-        # # return the augmented dataset
-        original_shape = self.all_dataset[self.problem_info["res_id"]].shape
-        _, augment_res_df = d3m_utils.get_tabular_resource(dataset=augment_res, resource_id=None)
-        augmented_shape = augment_res_df.shape
-        self._logger.info("The original dataset shape is (" + str(original_shape[0]) + ", " + str(original_shape[1]) + ")")
-        self._logger.info("The augmented dataset shape is (" + str(augmented_shape[0]) + ", " + str(augmented_shape[1]) + ")")
-
-        return augment_res
-        """
-
     def do_data_augmentation(self, input_all_dataset: Dataset) -> Dataset:
         """
             use datamart primitives to do data augmentation on given dataset
@@ -1341,7 +1251,7 @@ class Controller:
         problem = self.config.problem
 
         # do not remove columns for cluster dataset!
-        if problem['problem']['task_type'] == TaskType.CLUSTERING:
+        if problem['problem']['task_type'] == TaskKeyword.CLUSTERING:
             return dataset
 
         resID, _ = d3m_utils.get_tabular_resource(dataset=dataset, resource_id=None)

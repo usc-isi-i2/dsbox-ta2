@@ -20,7 +20,7 @@ from d3m.container.dataset import Dataset
 from d3m.base import utils as d3m_utils
 from d3m.metadata.base import ALL_ELEMENTS
 from d3m.metadata.pipeline import Pipeline
-from d3m.metadata.problem import Problem, TaskType
+from d3m.metadata.problem import Problem,TaskKeyword #TaskType
 
 from dsbox.exceptions import PipelineInstantiationError, PipelineEvaluationError, PipelinePickleError
 from dsbox.JobManager.cache import PrimitivesCache
@@ -214,7 +214,7 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
         self._repeat_times_level_1 = 1
 
         # for timeseries forcasting, we can't compare directly
-        if self.problem['problem']['task_type'] == TaskType.TIME_SERIES_FORECASTING:
+        if self.problem['problem']['task_type'] == TaskKeyword.TIME_SERIES:
             # just skip for now
             # TODO: add one way to evalute time series forecasting pipeline quality
             # (something like sliding window)

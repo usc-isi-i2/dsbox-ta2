@@ -6,7 +6,7 @@ import typing
 import d3m
 from d3m import index
 
-from d3m.metadata.problem import TaskType, TaskSubtype
+from d3m.metadata.problem import TaskKeyword#TaskKeyword, TaskKeyword
 from dsbox.schema import SpecializedProblem
 from dsbox.template.template import DSBoxTemplate
 from .template_steps import TemplateSteps
@@ -32,7 +32,14 @@ For anyone who add new templates here:
 DO NOT ADD denomalize step from the original pipeline to here,
 we will do denormalize at initilaization step
 so everything passed from template_input is the Datasets already denormalized!
+Updated v2019.11.14:
+Now no more TaskType and TaskSubtype, but only TaskKeyword:
+Current (from d3m v2019.11.10), following keywords are supported
+{'classification','regression','clustering','linkPrediction','vertexNomination','vertexClassification','communityDetection','graphMatching','forecasting','collaborativeFiltering','objectDetection','semiSupervised','binary','multiClass','multiLabel','univariate','multivariate','overlapping','nonOverlapping','tabular','relational','image','audio','video','speech','text','graph','multiGraph','timeSeries','grouped','geospatial','remoteSensing','lupi','missingMetadata'}
 """
+
+def have_intersection(lst1, lst2): 
+    return list(set(lst1) & set(lst2)) != []
 
 class TemplateLibrary:
     """
@@ -144,9 +151,19 @@ class TemplateLibrary:
         else:
             self._load_inline_templates()
 
-    def get_templates(self, task: TaskType, subtype: TaskSubtype, taskSourceType: typing.Set,
+    def get_templates(self, task: typing.List[TaskKeyword], subtype: typing.List[TaskKeyword], taskSourceType: typing.Set,
                       specialized_problem: SpecializedProblem = SpecializedProblem.NONE) -> typing.List[DSBoxTemplate]:
-        _logger.debug(f'Finding templates for Task={task.name} and TaskSubtype={subtype.name} resource={taskSourceType} special={specialized_problem}')
+
+        if type(task) is list:
+            task = [x.name for x in task]
+        else:
+            task = [task.name]
+        if type(subtype) is list:
+            subtype = [x.name for x in subtype]
+        else:
+            subtype = [subtype.name]  
+
+        _logger.debug(f'Finding templates for Task={str(task)} and subtype={str(subtype)} resource={taskSourceType} special={specialized_problem}')
         results: typing.List[DSBoxTemplate] = []
         # 2019.7.18: temporary hacking here: only run special template for acled like problem
         # if specialized_problem == "Acled_problem":
@@ -154,17 +171,17 @@ class TemplateLibrary:
         #     return results
 
         # for timeseries forcating and semi problem, not use MeanBaseline template, it will make meanbaseline to be top rank
-        not_add_mean_base_line_task_types = [TaskType.TIME_SERIES_FORECASTING.name, TaskType.SEMISUPERVISED_CLASSIFICATION.name, TaskType.SEMISUPERVISED_REGRESSION.name]
-        if task.name not in not_add_mean_base_line_task_types:
+        not_add_mean_base_line_task_types = [TaskKeyword.TIME_SERIES.name, TaskKeyword.SEMISUPERVISED.name]
+        if have_intersection(task, not_add_mean_base_line_task_types):
             results.append(SRIMeanBaselineTemplate())  # put the meanbaseline here so whatever dataset will have a result
         else:
-            _logger.info("The input problem task type is " + task.name + ". Will not add MeanBaseline template!")
+            _logger.info("Will not add MeanBaseline template due to the special input problem task type.")
 
         for template_class in self.templates:
             template = template_class()
             # sourceType refer to d3m/container/dataset.py ("SEMANTIC_TYPES" as line 40-70)
             # taskType and taskSubtype refer to d3m/
-            if task.name in template.template['taskType'] and subtype.name in template.template['taskSubtype']:
+            if have_intersection(task, template.template['taskType']) and have_intersection(subtype, template.template['taskSubtype']):
                 # if there is only one task source type which is table, we don't need to check
                 # other things
                 taskSourceType_check = copy.copy(taskSourceType)
@@ -196,7 +213,7 @@ class TemplateLibrary:
 
         # if we finally did not find a proper template to use
         if results == []:
-            _logger.error(f"Cannot find a suitable template type to fit the problem: {task.name}")
+            _logger.error(f"Cannot find a suitable template type to fit the problem: {task}")
         else:
             # otherwise print the template list we added
             for each_template in results:
@@ -358,11 +375,8 @@ class DefaultClassificationTemplate(DSBoxTemplate):
         DSBoxTemplate.__init__(self)
         self.template = {
             "name": "default_classification_template",
-            "taskSubtype": {TaskSubtype.BINARY.name, TaskSubtype.MULTICLASS.name},
-            "taskType": TaskType.CLASSIFICATION.name,
-            # See TaskType, range include 'CLASSIFICATION', 'CLUSTERING', 'COLLABORATIVE_FILTERING',
-            # 'COMMUNITY_DETECTION', 'GRAPH_CLUSTERING', 'GRAPH_MATCHING', 'LINK_PREDICTION',
-            # 'REGRESSION', 'TIME_SERIES_FORECASTING', 'VERTEX_NOMINATION'
+            "taskSubtype": {TaskKeyword.BINARY.name, TaskKeyword.MULTICLASS.name},
+            "taskType": TaskKeyword.CLASSIFICATION.name,
             "inputType": "table",  # See SEMANTIC_TYPES.keys() for range of values
             "output": "model_step",  # Name of the final step generating the prediction
             "target": "extract_target_step",  # Name of the step generating the ground truth
@@ -439,11 +453,8 @@ class AlternativeClassificationTemplate(DSBoxTemplate):
         DSBoxTemplate.__init__(self)
         self.template = {
             "name": "alternative_classification_template",
-            "taskSubtype": {TaskSubtype.BINARY.name, TaskSubtype.MULTICLASS.name},
-            "taskType": TaskType.CLASSIFICATION.name,
-            # See TaskType, range include 'CLASSIFICATION', 'CLUSTERING', 'COLLABORATIVE_FILTERING',
-            # 'COMMUNITY_DETECTION', 'GRAPH_CLUSTERING', 'GRAPH_MATCHING', 'LINK_PREDICTION',
-            # 'REGRESSION', 'TIME_SERIES_FORECASTING', 'VERTEX_NOMINATION'
+            "taskSubtype": {TaskKeyword.BINARY.name, TaskKeyword.MULTICLASS.name},
+            "taskType": TaskKeyword.CLASSIFICATION.name,
             "inputType": "table",  # See SEMANTIC_TYPES.keys() for range of values
             "output": "model_step",  # Name of the final step generating the prediction
             "target": "extract_target_step",  # Name of the step generating the ground truth
@@ -524,11 +535,8 @@ class DefaultSemisupervisedClassificationTemplate(DSBoxTemplate):
 
         self.template = {
             "name": "Default_semisupervised_classification_template",
-            "taskSubtype": {TaskSubtype.BINARY.name, TaskSubtype.MULTICLASS.name},
-            "taskType": [TaskType.SEMISUPERVISED_CLASSIFICATION.name],
-            # See TaskType, range include 'CLASSIFICATION', 'CLUSTERING', 'COLLABORATIVE_FILTERING',
-            # 'COMMUNITY_DETECTION', 'GRAPH_CLUSTERING', 'GRAPH_MATCHING', 'LINK_PREDICTION',
-            # 'REGRESSION', 'TIME_SERIES_FORECASTING', 'VERTEX_NOMINATION'
+            "taskSubtype": {TaskKeyword.BINARY.name, TaskKeyword.MULTICLASS.name},
+            "taskType": [TaskKeyword.SEMISUPERVISED.name],
             "inputType": "table",  # See SEMANTIC_TYPES.keys() for range of values
             "output": "construct_predictions_step",  # Name of the final step generating the prediction
             "target": "extract_target_step",  # Name of the step generating the ground truth
@@ -616,11 +624,8 @@ class CMUSemisupervisedClassificationTemplate(DSBoxTemplate):
         DSBoxTemplate.__init__(self)
         self.template = {
             "name": "CMU_semisupervised_classification_template",
-            "taskSubtype": {TaskSubtype.BINARY.name, TaskSubtype.MULTICLASS.name},
-            "taskType": [TaskType.SEMISUPERVISED_CLASSIFICATION.name],
-            # See TaskType, range include 'CLASSIFICATION', 'CLUSTERING', 'COLLABORATIVE_FILTERING',
-            # 'COMMUNITY_DETECTION', 'GRAPH_CLUSTERING', 'GRAPH_MATCHING', 'LINK_PREDICTION',
-            # 'REGRESSION', 'TIME_SERIES_FORECASTING', 'VERTEX_NOMINATION'
+            "taskSubtype": {TaskKeyword.BINARY.name, TaskKeyword.MULTICLASS.name},
+            "taskType": [TaskKeyword.SEMISUPERVISED.name],
             "inputType": "table",  # See SEMANTIC_TYPES.keys() for range of values
             "output": "construct_predictions_step",  # Name of the final step generating the prediction
             "target": "extract_target_step",  # Name of the step generating the ground truth
@@ -704,11 +709,8 @@ class TestDefaultClassificationTemplate(DSBoxTemplate):
         DSBoxTemplate.__init__(self)
         self.template = {
             "name": "test_default_classification_template",
-            "taskSubtype": {TaskSubtype.BINARY.name, TaskSubtype.MULTICLASS.name},
-            "taskType": TaskType.CLASSIFICATION.name,
-            # See TaskType, range include 'CLASSIFICATION', 'CLUSTERING', 'COLLABORATIVE_FILTERING',
-            # 'COMMUNITY_DETECTION', 'GRAPH_CLUSTERING', 'GRAPH_MATCHING', 'LINK_PREDICTION',
-            # 'REGRESSION', 'TIME_SERIES_FORECASTING', 'VERTEX_NOMINATION'
+            "taskSubtype": {TaskKeyword.BINARY.name, TaskKeyword.MULTICLASS.name},
+            "taskType": TaskKeyword.CLASSIFICATION.name,
             "inputType": "table",  # See SEMANTIC_TYPES.keys() for range of values
             "output": "model_step",  # Name of the final step generating the prediction
             "target": "extract_target_step",  # Name of the step generating the ground truth
@@ -784,11 +786,8 @@ class NaiveBayesClassificationTemplate(DSBoxTemplate):
         DSBoxTemplate.__init__(self)
         self.template = {
             "name": "naive_bayes_classification_template",
-            "taskSubtype": {TaskSubtype.BINARY.name, TaskSubtype.MULTICLASS.name},
-            "taskType": TaskType.CLASSIFICATION.name,
-            # See TaskType, range include 'CLASSIFICATION', 'CLUSTERING', 'COLLABORATIVE_FILTERING',
-            # 'COMMUNITY_DETECTION', 'GRAPH_CLUSTERING', 'GRAPH_MATCHING', 'LINK_PREDICTION',
-            # 'REGRESSION', 'TIME_SERIES_FORECASTING', 'VERTEX_NOMINATION'
+            "taskSubtype": {TaskKeyword.BINARY.name, TaskKeyword.MULTICLASS.name},
+            "taskType": TaskKeyword.CLASSIFICATION.name,
             "inputType": "table",  # See SEMANTIC_TYPES.keys() for range of values
             "output": "model_step",  # Name of the final step generating the prediction
             "target": "extract_target_step",  # Name of the step generating the ground truth
@@ -844,11 +843,8 @@ class RandomForestClassificationTemplate(DSBoxTemplate):
         DSBoxTemplate.__init__(self)
         self.template = {
             "name": "random_forest_classification_template",
-            "taskSubtype": {TaskSubtype.BINARY.name, TaskSubtype.MULTICLASS.name},
-            "taskType": TaskType.CLASSIFICATION.name,
-            # See TaskType, range include 'CLASSIFICATION', 'CLUSTERING', 'COLLABORATIVE_FILTERING',
-            # 'COMMUNITY_DETECTION', 'GRAPH_CLUSTERING', 'GRAPH_MATCHING', 'LINK_PREDICTION',
-            # 'REGRESSION', 'TIME_SERIES_FORECASTING', 'VERTEX_NOMINATION'
+            "taskSubtype": {TaskKeyword.BINARY.name, TaskKeyword.MULTICLASS.name},
+            "taskType": TaskKeyword.CLASSIFICATION.name,
             "inputType": "table",  # See SEMANTIC_TYPES.keys() for range of values
             "output": "model_step",  # Name of the final step generating the prediction
             "target": "extract_target_step",  # Name of the step generating the ground truth
@@ -888,11 +884,8 @@ class ExtraTreesClassificationTemplate(DSBoxTemplate):
         DSBoxTemplate.__init__(self)
         self.template = {
             "name": "extra_trees_classification_template",
-            "taskSubtype": {TaskSubtype.BINARY.name, TaskSubtype.MULTICLASS.name},
-            "taskType": TaskType.CLASSIFICATION.name,
-            # See TaskType, range include 'CLASSIFICATION', 'CLUSTERING', 'COLLABORATIVE_FILTERING',
-            # 'COMMUNITY_DETECTION', 'GRAPH_CLUSTERING', 'GRAPH_MATCHING', 'LINK_PREDICTION',
-            # 'REGRESSION', 'TIME_SERIES_FORECASTING', 'VERTEX_NOMINATION'
+            "taskSubtype": {TaskKeyword.BINARY.name, TaskKeyword.MULTICLASS.name},
+            "taskType": TaskKeyword.CLASSIFICATION.name,
             "inputType": "table",  # See SEMANTIC_TYPES.keys() for range of values
             "output": "model_step",  # Name of the final step generating the prediction
             "target": "extract_target_step",  # Name of the step generating the ground truth
@@ -932,11 +925,8 @@ class GradientBoostingClassificationTemplate(DSBoxTemplate):
         DSBoxTemplate.__init__(self)
         self.template = {
             "name": "gradient_boosting_classification_template",
-            "taskSubtype": {TaskSubtype.BINARY.name, TaskSubtype.MULTICLASS.name},
-            "taskType": TaskType.CLASSIFICATION.name,
-            # See TaskType, range include 'CLASSIFICATION', 'CLUSTERING', 'COLLABORATIVE_FILTERING',
-            # 'COMMUNITY_DETECTION', 'GRAPH_CLUSTERING', 'GRAPH_MATCHING', 'LINK_PREDICTION',
-            # 'REGRESSION', 'TIME_SERIES_FORECASTING', 'VERTEX_NOMINATION'
+            "taskSubtype": {TaskKeyword.BINARY.name, TaskKeyword.MULTICLASS.name},
+            "taskType": TaskKeyword.CLASSIFICATION.name,
             "inputType": "table",  # See SEMANTIC_TYPES.keys() for range of values
             "output": "model_step",  # Name of the final step generating the prediction
             "target": "extract_target_step",  # Name of the step generating the ground truth
@@ -975,11 +965,8 @@ class SVCClassificationTemplate(DSBoxTemplate):
         DSBoxTemplate.__init__(self)
         self.template = {
             "name": "svc_classification_template",
-            "taskSubtype": {TaskSubtype.BINARY.name, TaskSubtype.MULTICLASS.name},
-            "taskType": TaskType.CLASSIFICATION.name,
-            # See TaskType, range include 'CLASSIFICATION', 'CLUSTERING', 'COLLABORATIVE_FILTERING',
-            # 'COMMUNITY_DETECTION', 'GRAPH_CLUSTERING', 'GRAPH_MATCHING', 'LINK_PREDICTION',
-            # 'REGRESSION', 'TIME_SERIES_FORECASTING', 'VERTEX_NOMINATION'
+            "taskSubtype": {TaskKeyword.BINARY.name, TaskKeyword.MULTICLASS.name},
+            "taskType": TaskKeyword.CLASSIFICATION.name,
             "inputType": "table",  # See SEMANTIC_TYPES.keys() for range of values
             "output": "model_step",  # Name of the final step generating the prediction
             "target": "extract_target_step",  # Name of the step generating the ground truth
@@ -1016,8 +1003,8 @@ class ClassificationWithSelection(DSBoxTemplate):
         DSBoxTemplate.__init__(self)
         self.template = {
             "name": "classification_with_feature_selection",
-            "taskSubtype": {TaskSubtype.BINARY.name, TaskSubtype.MULTICLASS.name},
-            "taskType": TaskType.CLASSIFICATION.name,
+            "taskSubtype": {TaskKeyword.BINARY.name, TaskKeyword.MULTICLASS.name},
+            "taskType": TaskKeyword.CLASSIFICATION.name,
             "inputType": "table",  # See SEMANTIC_TYPES.keys() for range of values
             "output": "model_step",  # Name of the final step generating the prediction
             "target": "extract_target_step",  # Name of the step generating the ground truth
@@ -1065,11 +1052,8 @@ class UMASSClassificationTemplate(DSBoxTemplate):
         DSBoxTemplate.__init__(self)
         self.template = {
             "name": "UMASS_classification_template",
-            "taskSubtype": {TaskSubtype.MULTICLASS.name},
-            "taskType": TaskType.CLASSIFICATION.name,
-            # See TaskType, range include 'CLASSIFICATION', 'CLUSTERING', 'COLLABORATIVE_FILTERING',
-            # 'COMMUNITY_DETECTION', 'GRAPH_CLUSTERING', 'GRAPH_MATCHING', 'LINK_PREDICTION',
-            # 'REGRESSION', 'TIME_SERIES_FORECASTING', 'VERTEX_NOMINATION'
+            "taskSubtype": {TaskKeyword.MULTICLASS.name},
+            "taskType": TaskKeyword.CLASSIFICATION.name,
             "inputType": "table",  # See SEMANTIC_TYPES.keys() for range of values
             "output": "model_step",  # Name of the final step generating the prediction
             "target": "extract_target_step",  # Name of the step generating the ground truth
@@ -1092,11 +1076,11 @@ class dsboxClassificationTemplate(DSBoxTemplate):
         DSBoxTemplate.__init__(self)
         self.template = {
             "name": "dsbox_classification_template",
-            "taskSubtype": {TaskSubtype.BINARY.name, TaskSubtype.MULTICLASS.name},
-            "taskType": TaskType.CLASSIFICATION.name,
-            # See TaskType, range include 'CLASSIFICATION', 'CLUSTERING',
+            "taskSubtype": {TaskKeyword.BINARY.name, TaskKeyword.MULTICLASS.name},
+            "taskType": TaskKeyword.CLASSIFICATION.name,
+            # See TaskKeyword, range include 'CLASSIFICATION', 'CLUSTERING',
             # 'COLLABORATIVE_FILTERING', 'COMMUNITY_DETECTION', 'GRAPH_CLUSTERING',
-            # 'GRAPH_MATCHING', 'LINK_PREDICTION', 'REGRESSION', 'TIME_SERIES_FORECASTING',
+            # 'GRAPH_MATCHING', 'LINK_PREDICTION', 'REGRESSION', 'TIME_SERIES',
             # 'VERTEX_NOMINATION'
             "inputType": "table",  # See SEMANTIC_TYPES.keys() for range of values
             "output": "model_step",  # Name of the final step generating the prediction
@@ -1133,11 +1117,8 @@ class DefaultRegressionTemplate(DSBoxTemplate):
         DSBoxTemplate.__init__(self)
         self.template = {
             "name": "default_regression_template",
-            "taskSubtype": {TaskSubtype.UNIVARIATE.name, TaskSubtype.MULTIVARIATE.name, "NONE"},
-            "taskType": TaskType.REGRESSION.name,
-            # See TaskType, range include 'CLASSIFICATION', 'CLUSTERING', 'COLLABORATIVE_FILTERING',
-            # 'COMMUNITY_DETECTION', 'GRAPH_CLUSTERING', 'GRAPH_MATCHING', 'LINK_PREDICTION',
-            # 'REGRESSION', 'TIME_SERIES_FORECASTING', 'VERTEX_NOMINATION'
+            "taskSubtype": {TaskKeyword.UNIVARIATE.name, TaskKeyword.MULTIVARIATE.name, "NONE"},
+            "taskType": TaskKeyword.REGRESSION.name,
             "inputType": "table",  # See SEMANTIC_TYPES.keys() for range of values
             "output": "model_step",  # Name of the final step generating the prediction
             "target": "extract_target_step",  # Name of the step generating the ground truth
@@ -1205,11 +1186,8 @@ class SVRRegressionTemplate(DSBoxTemplate):
         DSBoxTemplate.__init__(self)
         self.template = {
             "name": "svr_regression_template",
-            "taskSubtype": {TaskSubtype.UNIVARIATE.name, TaskSubtype.MULTIVARIATE.name, "NONE"},
-            "taskType": TaskType.REGRESSION.name,
-            # See TaskType, range include 'CLASSIFICATION', 'CLUSTERING', 'COLLABORATIVE_FILTERING',
-            # 'COMMUNITY_DETECTION', 'GRAPH_CLUSTERING', 'GRAPH_MATCHING', 'LINK_PREDICTION',
-            # 'REGRESSION', 'TIME_SERIES_FORECASTING', 'VERTEX_NOMINATION'
+            "taskSubtype": {TaskKeyword.UNIVARIATE.name, TaskKeyword.MULTIVARIATE.name, "NONE"},
+            "taskType": TaskKeyword.REGRESSION.name,
             "inputType": "table",  # See SEMANTIC_TYPES.keys() for range of values
             "output": "model_step",  # Name of the final step generating the prediction
             "target": "extract_target_step",  # Name of the step generating the ground truth
@@ -1245,11 +1223,8 @@ class GradientBoostingRegressionTemplate(DSBoxTemplate):
         DSBoxTemplate.__init__(self)
         self.template = {
             "name": "gradient_boosting_regression_template",
-            "taskSubtype": {TaskSubtype.UNIVARIATE.name, TaskSubtype.MULTIVARIATE.name, "NONE"},
-            "taskType": TaskType.REGRESSION.name,
-            # See TaskType, range include 'CLASSIFICATION', 'CLUSTERING', 'COLLABORATIVE_FILTERING',
-            # 'COMMUNITY_DETECTION', 'GRAPH_CLUSTERING', 'GRAPH_MATCHING', 'LINK_PREDICTION',
-            # 'REGRESSION', 'TIME_SERIES_FORECASTING', 'VERTEX_NOMINATION'
+            "taskSubtype": {TaskKeyword.UNIVARIATE.name, TaskKeyword.MULTIVARIATE.name, "NONE"},
+            "taskType": TaskKeyword.REGRESSION.name,
             "inputType": "table",  # See SEMANTIC_TYPES.keys() for range of values
             "output": "model_step",  # Name of the final step generating the prediction
             "target": "extract_target_step",  # Name of the step generating the ground truth
@@ -1286,11 +1261,8 @@ class ExtraTreesRegressionTemplate(DSBoxTemplate):
         DSBoxTemplate.__init__(self)
         self.template = {
             "name": "extra_trees_regression_template",
-            "taskSubtype": {TaskSubtype.UNIVARIATE.name, TaskSubtype.MULTIVARIATE.name, "NONE"},
-            "taskType": TaskType.REGRESSION.name,
-            # See TaskType, range include 'CLASSIFICATION', 'CLUSTERING', 'COLLABORATIVE_FILTERING',
-            # 'COMMUNITY_DETECTION', 'GRAPH_CLUSTERING', 'GRAPH_MATCHING', 'LINK_PREDICTION',
-            # 'REGRESSION', 'TIME_SERIES_FORECASTING', 'VERTEX_NOMINATION'
+            "taskSubtype": {TaskKeyword.UNIVARIATE.name, TaskKeyword.MULTIVARIATE.name, "NONE"},
+            "taskType": TaskKeyword.REGRESSION.name,
             "inputType": "table",  # See SEMANTIC_TYPES.keys() for range of values
             "output": "model_step",  # Name of the final step generating the prediction
             "target": "extract_target_step",  # Name of the step generating the ground truth
@@ -1328,11 +1300,8 @@ class RandomForestRegressionTemplate(DSBoxTemplate):
         DSBoxTemplate.__init__(self)
         self.template = {
             "name": "random_forest_regression_template",
-            "taskSubtype": {TaskSubtype.UNIVARIATE.name, TaskSubtype.MULTIVARIATE.name, "NONE"},
-            "taskType": TaskType.REGRESSION.name,
-            # See TaskType, range include 'CLASSIFICATION', 'CLUSTERING', 'COLLABORATIVE_FILTERING',
-            # 'COMMUNITY_DETECTION', 'GRAPH_CLUSTERING', 'GRAPH_MATCHING', 'LINK_PREDICTION',
-            # 'REGRESSION', 'TIME_SERIES_FORECASTING', 'VERTEX_NOMINATION'
+            "taskSubtype": {TaskKeyword.UNIVARIATE.name, TaskKeyword.MULTIVARIATE.name, "NONE"},
+            "taskType": TaskKeyword.REGRESSION.name,
             "inputType": "table",  # See SEMANTIC_TYPES.keys() for range of values
             "output": "model_step",  # Name of the final step generating the prediction
             "target": "extract_target_step",  # Name of the step generating the ground truth
@@ -1370,8 +1339,8 @@ class RegressionWithSelection(DSBoxTemplate):
         DSBoxTemplate.__init__(self)
         self.template = {
             "name": "regression_with_feature_selection",
-            "taskSubtype": {TaskSubtype.UNIVARIATE.name, TaskSubtype.MULTIVARIATE.name},
-            "taskType": TaskType.REGRESSION.name,
+            "taskSubtype": {TaskKeyword.UNIVARIATE.name, TaskKeyword.MULTIVARIATE.name},
+            "taskType": TaskKeyword.REGRESSION.name,
             "inputType": "table",  # See SEMANTIC_TYPES.keys() for range of values
             "output": "model_step",  # Name of the final step generating the prediction
             "target": "extract_target_step",  # Name of the step generating the ground truth
@@ -1418,11 +1387,8 @@ class DataAugmentRegressionTemplate(DSBoxTemplate):
 
         self.template = {
             "name": "data_augment_regression_template",
-            "taskType": TaskType.REGRESSION.name,
-            "taskSubtype": {TaskSubtype.UNIVARIATE.name, TaskSubtype.MULTIVARIATE.name, "NONE"},
-            # See TaskType, range include 'CLASSIFICATION', 'CLUSTERING', 'COLLABORATIVE_FILTERING',
-            # 'COMMUNITY_DETECTION', 'GRAPH_CLUSTERING', 'GRAPH_MATCHING', 'LINK_PREDICTION',
-            # 'REGRESSION', 'TIME_SERIES_FORECASTING', 'VERTEX_NOMINATION'
+            "taskType": TaskKeyword.REGRESSION.name,
+            "taskSubtype": {TaskKeyword.UNIVARIATE.name, TaskKeyword.MULTIVARIATE.name, "NONE"},
             "inputType": "table",  # See SEMANTIC_TYPES.keys() for range of values
             "output": "model_step",  # Name of the final step generating the prediction
             "target": "extract_target_step",  # Name of the step generating the ground truth
@@ -1537,11 +1503,8 @@ class dsboxRegressionTemplate(DSBoxTemplate):
         DSBoxTemplate.__init__(self)
         self.template = {
             "name": "dsbox_regression_template",
-            "taskType": TaskType.REGRESSION.name,
-            "taskSubtype": {TaskSubtype.UNIVARIATE.name, TaskSubtype.MULTIVARIATE.name, "NONE"},
-            # See TaskType, range include 'CLASSIFICATION', 'CLUSTERING', 'COLLABORATIVE_FILTERING',
-            # 'COMMUNITY_DETECTION', 'GRAPH_CLUSTERING', 'GRAPH_MATCHING', 'LINK_PREDICTION',
-            # 'REGRESSION', 'TIME_SERIES_FORECASTING', 'VERTEX_NOMINATION'
+            "taskType": TaskKeyword.REGRESSION.name,
+            "taskSubtype": {TaskKeyword.UNIVARIATE.name, TaskKeyword.MULTIVARIATE.name, "NONE"},
             "inputType": "table",  # See SEMANTIC_TYPES.keys() for range of values
             "output": "model_step",  # Name of the final step generating the prediction
             "target": "extract_target_step",  # Name of the step generating the ground truth
@@ -1577,11 +1540,8 @@ class Large_column_number_with_numerical_only_classification(DSBoxTemplate):
         DSBoxTemplate.__init__(self)
         self.template = {
             "name": "Large_column_number_with_numerical_only_classification",
-            "taskType": TaskType.CLASSIFICATION.name,
-            # See TaskType, range include 'CLASSIFICATION', 'CLUSTERING', 'COLLABORATIVE_FILTERING',
-            # 'COMMUNITY_DETECTION', 'GRAPH_CLUSTERING', 'GRAPH_MATCHING', 'LINK_PREDICTION',
-            # 'REGRESSION', 'TIME_SERIES_FORECASTING', 'VERTEX_NOMINATION'
-            "taskSubtype": {TaskSubtype.MULTICLASS.name, TaskSubtype.BINARY.name},
+            "taskType": TaskKeyword.CLASSIFICATION.name,
+            "taskSubtype": {TaskKeyword.MULTICLASS.name, TaskKeyword.BINARY.name},
             "inputType": {"table", "large_column_number"},  # See SEMANTIC_TYPES.keys() for range of values
             "output": "model_step",  # Name of the final step generating the prediction
             "target": "extract_target_step",  # Name of the step generating the ground truth
@@ -1654,8 +1614,8 @@ class Large_column_number_with_numerical_only_regression(DSBoxTemplate):
         DSBoxTemplate.__init__(self)
         self.template = {
             "name": "Large_column_number_with_numerical_only_regression",
-            "taskSubtype": {TaskSubtype.UNIVARIATE.name, TaskSubtype.MULTIVARIATE.name},
-            "taskType": TaskType.REGRESSION.name,
+            "taskSubtype": {TaskKeyword.UNIVARIATE.name, TaskKeyword.MULTIVARIATE.name},
+            "taskType": TaskKeyword.REGRESSION.name,
             "inputType": {"table", "large_column_number"},  # See SEMANTIC_TYPES.keys() for range of values
             "output": "model_step",  # Name of the final step generating the prediction
             "target": "extract_target_step",  # Name of the step generating the ground truth
@@ -1734,11 +1694,8 @@ class AlphaZeroEvalTemplate(DSBoxTemplate): # this is a template from succeed pi
         DSBoxTemplate.__init__(self)
         self.template = {
             "name": "Alpha_Zero_template",
-            "taskSubtype": {TaskSubtype.UNIVARIATE.name, TaskSubtype.MULTIVARIATE.name},
-            "taskType": TaskType.REGRESSION.name,
-            # See TaskType, range include 'CLASSIFICATION', 'CLUSTERING', 'COLLABORATIVE_FILTERING',
-            # 'COMMUNITY_DETECTION', 'GRAPH_CLUSTERING', 'GRAPH_MATCHING', 'LINK_PREDICTION',
-            # 'REGRESSION', 'TIME_SERIES_FORECASTING', 'VERTEX_NOMINATION'
+            "taskSubtype": {TaskKeyword.UNIVARIATE.name, TaskKeyword.MULTIVARIATE.name},
+            "taskType": TaskKeyword.REGRESSION.name,
             "inputType": "table",  # See SEMANTIC_TYPES.keys() for range of values
             "output": "construct_prediction_step",  # Name of the final step generating the prediction
             "target": "extract_target_step",  # Name of the step generating the ground truth
@@ -1844,11 +1801,8 @@ class TESTINGTemplate(DSBoxTemplate): # this is a template from succeed pipeline
         DSBoxTemplate.__init__(self)
         self.template = {
             "name": "Testing_template",
-            "taskSubtype": {TaskSubtype.UNIVARIATE.name, TaskSubtype.MULTIVARIATE.name},
-            "taskType": TaskType.REGRESSION.name,
-            # See TaskType, range include 'CLASSIFICATION', 'CLUSTERING', 'COLLABORATIVE_FILTERING',
-            # 'COMMUNITY_DETECTION', 'GRAPH_CLUSTERING', 'GRAPH_MATCHING', 'LINK_PREDICTION',
-            # 'REGRESSION', 'TIME_SERIES_FORECASTING', 'VERTEX_NOMINATION'
+            "taskSubtype": {TaskKeyword.UNIVARIATE.name, TaskKeyword.MULTIVARIATE.name},
+            "taskType": TaskKeyword.REGRESSION.name,
             "inputType": "table",  # See SEMANTIC_TYPES.keys() for range of values
             "output": "construct_prediction_step",  # Name of the final step generating the prediction
             "target": "extract_target_step",  # Name of the step generating the ground truth
@@ -1960,10 +1914,7 @@ class DefaultTimeSeriesForcastingTemplate(DSBoxTemplate):
         DSBoxTemplate.__init__(self)
         self.template = {
             "name": "Default_Time_Series_Forcasting_Template",
-            "taskType": TaskType.TIME_SERIES_FORECASTING.name,
-            # See TaskType, range include 'CLASSIFICATION', 'CLUSTERING', 'COLLABORATIVE_FILTERING',
-            # 'COMMUNITY_DETECTION', 'GRAPH_CLUSTERING', 'GRAPH_MATCHING', 'LINK_PREDICTION',
-            # 'REGRESSION', 'TIME_SERIES_FORECASTING', 'VERTEX_NOMINATION'
+            "taskType": TaskKeyword.TIME_SERIES.name,
             "taskSubtype": "NONE",
             "inputType": {"table", "timeseries"},  # See SEMANTIC_TYPES.keys() for range of values
             "output": "model_step",  # Name of the final step generating the prediction
@@ -2071,10 +2022,7 @@ class ARIMATemplate(DSBoxTemplate):
         DSBoxTemplate.__init__(self)
         self.template = {
             "name": "ARIMA_Template",
-            "taskType": TaskType.TIME_SERIES_FORECASTING.name,
-            # See TaskType, range include 'CLASSIFICATION', 'CLUSTERING', 'COLLABORATIVE_FILTERING',
-            # 'COMMUNITY_DETECTION', 'GRAPH_CLUSTERING', 'GRAPH_MATCHING', 'LINK_PREDICTION',
-            # 'REGRESSION', 'TIME_SERIES_FORECASTING', 'VERTEX_NOMINATION'
+            "taskType": TaskKeyword.TIME_SERIES.name,
             "taskSubtype": "NONE",
             "inputType": {"table", "timeseries"},  # See SEMANTIC_TYPES.keys() for range of values
             "output": "ARIMA_step",  # Name of the final step generating the prediction
@@ -2157,10 +2105,7 @@ class CMUTimeSeriesForcastingTemplate(DSBoxTemplate):
         DSBoxTemplate.__init__(self)
         self.template = {
             "name": "CMU_TimeSeries_Forcasting_emplate",
-            "taskType": TaskType.TIME_SERIES_FORECASTING.name,
-            # See TaskType, range include 'CLASSIFICATION', 'CLUSTERING', 'COLLABORATIVE_FILTERING',
-            # 'COMMUNITY_DETECTION', 'GRAPH_CLUSTERING', 'GRAPH_MATCHING', 'LINK_PREDICTION',
-            # 'REGRESSION', 'TIME_SERIES_FORECASTING', 'VERTEX_NOMINATION'
+            "taskType": TaskKeyword.TIME_SERIES.name,
             "taskSubtype": "NONE",
             "inputType": {"table", "timeseries"},  # See SEMANTIC_TYPES.keys() for range of values
             "output": "model_step",  # Name of the final step generating the prediction
@@ -2264,10 +2209,7 @@ class TimeSeriesForcastingTestingTemplate(DSBoxTemplate):
         DSBoxTemplate.__init__(self)
         self.template = {
             "name": "TimeSeries_Forcasting_Testing_emplate",
-            "taskType": TaskType.TIME_SERIES_FORECASTING.name,
-            # See TaskType, range include 'CLASSIFICATION', 'CLUSTERING', 'COLLABORATIVE_FILTERING',
-            # 'COMMUNITY_DETECTION', 'GRAPH_CLUSTERING', 'GRAPH_MATCHING', 'LINK_PREDICTION',
-            # 'REGRESSION', 'TIME_SERIES_FORECASTING', 'VERTEX_NOMINATION'
+            "taskType": TaskKeyword.TIME_SERIES.name,
             "taskSubtype": "NONE",
             "inputType": {"table", "timeseries"},  # See SEMANTIC_TYPES.keys() for range of values
             "output": "model_step",  # Name of the final step generating the prediction
@@ -2356,10 +2298,7 @@ class TimeSeriesForcastingTestingTemplate2(DSBoxTemplate):
         DSBoxTemplate.__init__(self)
         self.template = {
             "name": "TimeSeries_Forcasting_Testing_emplate",
-            "taskType": TaskType.TIME_SERIES_FORECASTING.name,
-            # See TaskType, range include 'CLASSIFICATION', 'CLUSTERING', 'COLLABORATIVE_FILTERING',
-            # 'COMMUNITY_DETECTION', 'GRAPH_CLUSTERING', 'GRAPH_MATCHING', 'LINK_PREDICTION',
-            # 'REGRESSION', 'TIME_SERIES_FORECASTING', 'VERTEX_NOMINATION'
+            "taskType": TaskKeyword.TIME_SERIES.name,
             "taskSubtype": "NONE",
             "inputType": {"table", "timeseries"},  # See SEMANTIC_TYPES.keys() for range of values
             "output": "model_step",  # Name of the final step generating the prediction
@@ -2478,10 +2417,7 @@ class DefaultObjectDetectionTemplate(DSBoxTemplate):
         DSBoxTemplate.__init__(self)
         self.template = {
             "name": "DefaultObjectDetectionTemplate",
-            "taskType": TaskType.OBJECT_DETECTION.name,
-            # See TaskType, range include 'CLASSIFICATION', 'CLUSTERING', 'COLLABORATIVE_FILTERING',
-            # 'COMMUNITY_DETECTION', 'GRAPH_CLUSTERING', 'GRAPH_MATCHING', 'LINK_PREDICTION',
-            # 'REGRESSION', 'TIME_SERIES_FORECASTING', 'VERTEX_NOMINATION'
+            "taskType": TaskKeyword.OBJECT_DETECTION.name,
             "taskSubtype": "NONE",
             "inputType": {"table", "image"},  # See SEMANTIC_TYPES.keys() for range of values
             "output": "model_step",  # Name of the final step generating the prediction
@@ -2541,10 +2477,7 @@ class JPLObjectDetectionTemplate(DSBoxTemplate):
         DSBoxTemplate.__init__(self)
         self.template = {
             "name": "JPL_object_detection_template",
-            "taskType": TaskType.OBJECT_DETECTION.name,
-            # See TaskType, range include 'CLASSIFICATION', 'CLUSTERING', 'COLLABORATIVE_FILTERING',
-            # 'COMMUNITY_DETECTION', 'GRAPH_CLUSTERING', 'GRAPH_MATCHING', 'LINK_PREDICTION',
-            # 'REGRESSION', 'TIME_SERIES_FORECASTING', 'VERTEX_NOMINATION'
+            "taskType": TaskKeyword.OBJECT_DETECTION.name,
             "taskSubtype": "NONE",
             "inputType": {"table", "image"},  # See SEMANTIC_TYPES.keys() for range of values
             "output": "model_step",  # Name of the final step generating the prediction
@@ -2615,11 +2548,8 @@ class DefaultVideoClassificationTemplate(DSBoxTemplate):
         DSBoxTemplate.__init__(self)
         self.template = {
             "name": "DefaultVideoClassificationTemplate",
-            "taskType": TaskType.CLASSIFICATION.name,
-            # See TaskType, range include 'CLASSIFICATION', 'CLUSTERING', 'COLLABORATIVE_FILTERING',
-            # 'COMMUNITY_DETECTION', 'GRAPH_CLUSTERING', 'GRAPH_MATCHING', 'LINK_PREDICTION',
-            # 'REGRESSION', 'TIME_SERIES_FORECASTING', 'VERTEX_NOMINATION'
-            "taskSubtype": TaskSubtype.MULTICLASS.name,
+            "taskType": TaskKeyword.CLASSIFICATION.name,
+            "taskSubtype": TaskKeyword.MULTICLASS.name,
             "inputType": "video",
             "output": "model_step",  # Name of the final step generating the prediction
             "target": "extract_target_step",  # Name of the step generating the ground truth
@@ -2704,11 +2634,8 @@ class DefaultTimeseriesCollectionTemplate(DSBoxTemplate):
         DSBoxTemplate.__init__(self)
         self.template = {
             "name": "Default_timeseries_collection_template",
-            "taskType": TaskType.CLASSIFICATION.name,
-            # See TaskType, range include 'CLASSIFICATION', 'CLUSTERING', 'COLLABORATIVE_FILTERING',
-            # 'COMMUNITY_DETECTION', 'GRAPH_CLUSTERING', 'GRAPH_MATCHING', 'LINK_PREDICTION',
-            # 'REGRESSION', 'TIME_SERIES_FORECASTING', 'VERTEX_NOMINATION'
-            "taskSubtype": {TaskSubtype.BINARY.name, TaskSubtype.MULTICLASS.name},
+            "taskType": TaskKeyword.CLASSIFICATION.name,
+            "taskSubtype": {TaskKeyword.BINARY.name, TaskKeyword.MULTICLASS.name},
             "inputType": {"timeseries", "table"},  # See SEMANTIC_TYPES.keys() for range of values
             "output": "random_forest_step",  # Name of the final step generating the prediction
             "target": "extract_target_step",  # Name of the step generating the ground truth
@@ -2816,8 +2743,8 @@ class DefaultTimeseriesRegressionTemplate(DSBoxTemplate):
         DSBoxTemplate.__init__(self)
         self.template = {
             "name": "DefaultTimeseriesRegressionTemplate",
-            "taskSubtype": {TaskSubtype.UNIVARIATE.name, TaskSubtype.MULTIVARIATE.name},
-            "taskType": {TaskType.REGRESSION.name},
+            "taskSubtype": {TaskKeyword.UNIVARIATE.name, TaskKeyword.MULTIVARIATE.name},
+            "taskType": {TaskKeyword.REGRESSION.name},
             "inputType": {"timeseries", "table"},  # See SEMANTIC_TYPES.keys() for range of values
             "output": "random_forest_step",  # Name of the final step generating the prediction
             "target": "extract_target_step",  # Name of the step generating the ground truth
@@ -2915,11 +2842,8 @@ class UCHITimeSeriesClassificationTemplate(DSBoxTemplate):
         DSBoxTemplate.__init__(self)
         self.template = {
             "name": "UCHI_Time_Series_Classification_Template",
-            "taskType": TaskType.CLASSIFICATION.name,
-            # See TaskType, range include 'CLASSIFICATION', 'CLUSTERING', 'COLLABORATIVE_FILTERING',
-            # 'COMMUNITY_DETECTION', 'GRAPH_CLUSTERING', 'GRAPH_MATCHING', 'LINK_PREDICTION',
-            # 'REGRESSION', 'TIME_SERIES_FORECASTING', 'VERTEX_NOMINATION'
-            "taskSubtype": {TaskSubtype.BINARY.name, TaskSubtype.MULTICLASS.name},
+            "taskType": TaskKeyword.CLASSIFICATION.name,
+            "taskSubtype": {TaskKeyword.BINARY.name, TaskKeyword.MULTICLASS.name},
             "inputType": "timeseries",  # See SEMANTIC_TYPES.keys() for range of values
             "output": "model_step",  # Name of the final step generating the prediction
             "target": "extract_target_step",  # Name of the step generating the ground truth
@@ -2942,9 +2866,9 @@ class TA1VggImageProcessingRegressionTemplate(DSBoxTemplate):
         DSBoxTemplate.__init__(self)
         self.template = {
             "name": "TA1VggImageProcessingRegressionTemplate",
-            "taskType": TaskType.REGRESSION.name,
-            # See TaskType, range include 'CLASSIFICATION', 'CLUSTERING', 'COLLABORATIVE_FILTERING', 'COMMUNITY_DETECTION', 'GRAPH_CLUSTERING', 'GRAPH_MATCHING', 'LINK_PREDICTION', 'REGRESSION', 'TIME_SERIES_FORECASTING', 'VERTEX_NOMINATION'
-            "taskSubtype": {TaskSubtype.UNIVARIATE.name, TaskSubtype.MULTIVARIATE.name},
+            "taskType": TaskKeyword.REGRESSION.name,
+            # See TaskKeyword, range include 'CLASSIFICATION', 'CLUSTERING', 'COLLABORATIVE_FILTERING', 'COMMUNITY_DETECTION', 'GRAPH_CLUSTERING', 'GRAPH_MATCHING', 'LINK_PREDICTION', 'REGRESSION', 'TIME_SERIES', 'VERTEX_NOMINATION'
+            "taskSubtype": {TaskKeyword.UNIVARIATE.name, TaskKeyword.MULTIVARIATE.name},
             "inputType": "image",  # See SEMANTIC_TYPES.keys() for range of values
             "output": "regressor_step",  # Name of the final step generating the prediction
             "target": "extract_target_step",  # Name of the step generating the ground truth
@@ -3028,9 +2952,9 @@ class DefaultImageProcessingRegressionTemplate(DSBoxTemplate):
         DSBoxTemplate.__init__(self)
         self.template = {
             "name": "Default_image_processing_regression_template",
-            "taskType": TaskType.REGRESSION.name,
-            # See TaskType, range include 'CLASSIFICATION', 'CLUSTERING', 'COLLABORATIVE_FILTERING', 'COMMUNITY_DETECTION', 'GRAPH_CLUSTERING', 'GRAPH_MATCHING', 'LINK_PREDICTION', 'REGRESSION', 'TIME_SERIES_FORECASTING', 'VERTEX_NOMINATION'
-            "taskSubtype": {TaskSubtype.UNIVARIATE.name, TaskSubtype.MULTIVARIATE.name},
+            "taskType": TaskKeyword.REGRESSION.name,
+            # See TaskKeyword, range include 'CLASSIFICATION', 'CLUSTERING', 'COLLABORATIVE_FILTERING', 'COMMUNITY_DETECTION', 'GRAPH_CLUSTERING', 'GRAPH_MATCHING', 'LINK_PREDICTION', 'REGRESSION', 'TIME_SERIES', 'VERTEX_NOMINATION'
+            "taskSubtype": {TaskKeyword.UNIVARIATE.name, TaskKeyword.MULTIVARIATE.name},
             "inputType": "image",  # See SEMANTIC_TYPES.keys() for range of values
             "output": "regressor_step",  # Name of the final step generating the prediction
             "target": "extract_target_step",  # Name of the step generating the ground truth
@@ -3123,9 +3047,9 @@ class DefaultImageProcessingClassificationTemplate(DSBoxTemplate):
         DSBoxTemplate.__init__(self)
         self.template = {
             "name": "Default_image_processing_classification_template",
-            "taskType": TaskType.CLASSIFICATION.name,
-            # See TaskType, range include 'CLASSIFICATION', 'CLUSTERING', 'COLLABORATIVE_FILTERING', 'COMMUNITY_DETECTION', 'GRAPH_CLUSTERING', 'GRAPH_MATCHING', 'LINK_PREDICTION', 'REGRESSION', 'TIME_SERIES_FORECASTING', 'VERTEX_NOMINATION'
-            "taskSubtype": {TaskSubtype.BINARY.name, TaskSubtype.MULTICLASS.name},
+            "taskType": TaskKeyword.CLASSIFICATION.name,
+            # See TaskKeyword, range include 'CLASSIFICATION', 'CLUSTERING', 'COLLABORATIVE_FILTERING', 'COMMUNITY_DETECTION', 'GRAPH_CLUSTERING', 'GRAPH_MATCHING', 'LINK_PREDICTION', 'REGRESSION', 'TIME_SERIES', 'VERTEX_NOMINATION'
+            "taskSubtype": {TaskKeyword.BINARY.name, TaskKeyword.MULTICLASS.name},
             "inputType": "image",  # See SEMANTIC_TYPES.keys() for range of values
             "output": "classification_step",  # Name of the final step generating the prediction
             "target": "extract_target_step",  # Name of the step generating the ground truth
@@ -3224,11 +3148,8 @@ class DefaultTextClassificationTemplate(DSBoxTemplate):
         DSBoxTemplate.__init__(self)
         self.template = {
             "name": "default_text_classification_template",
-            "taskSubtype": {TaskSubtype.BINARY.name, TaskSubtype.MULTICLASS.name},
-            "taskType": TaskType.CLASSIFICATION.name,
-            # See TaskType, range include 'CLASSIFICATION', 'CLUSTERING', 'COLLABORATIVE_FILTERING',
-            # 'COMMUNITY_DETECTION', 'GRAPH_CLUSTERING', 'GRAPH_MATCHING', 'LINK_PREDICTION',
-            # 'REGRESSION', 'TIME_SERIES_FORECASTING', 'VERTEX_NOMINATION'
+            "taskSubtype": {TaskKeyword.BINARY.name, TaskKeyword.MULTICLASS.name},
+            "taskType": TaskKeyword.CLASSIFICATION.name,
             "inputType": {"text", "table"},  # See SEMANTIC_TYPES.keys() for range of values
             "output": "model_step",  # Name of the final step generating the prediction
             "target": "extract_target_step",  # Name of the step generating the ground truth
@@ -3285,11 +3206,8 @@ class DefaultTextRegressionTemplate(DSBoxTemplate):
         DSBoxTemplate.__init__(self)
         self.template = {
             "name": "default_text_regression_template",
-            "taskSubtype": {TaskSubtype.UNIVARIATE.name, TaskSubtype.MULTIVARIATE.name},
-            "taskType": TaskType.REGRESSION.name,
-            # See TaskType, range include 'CLASSIFICATION', 'CLUSTERING', 'COLLABORATIVE_FILTERING',
-            # 'COMMUNITY_DETECTION', 'GRAPH_CLUSTERING', 'GRAPH_MATCHING', 'LINK_PREDICTION',
-            # 'REGRESSION', 'TIME_SERIES_FORECASTING', 'VERTEX_NOMINATION'
+            "taskSubtype": {TaskKeyword.UNIVARIATE.name, TaskKeyword.MULTIVARIATE.name},
+            "taskType": TaskKeyword.REGRESSION.name,
             "inputType": {"text", "table"},  # See SEMANTIC_TYPES.keys() for range of values
             "output": "model_step",  # Name of the final step generating the prediction
             "target": "extract_target_step",  # Name of the step generating the ground truth
@@ -3343,7 +3261,7 @@ class DefaultLinkPredictionTemplate(DSBoxTemplate):
         DSBoxTemplate.__init__(self)
         self.template = {
             "name": "Default_LinkPrediction_Template",
-            "taskType": {TaskType.LINK_PREDICTION.name, TaskType.GRAPH_MATCHING.name, TaskType.VERTEX_CLASSIFICATION.name},
+            "taskType": {TaskKeyword.LINK_PREDICTION.name, TaskKeyword.GRAPH_MATCHING.name, TaskKeyword.VERTEX_CLASSIFICATION.name},
             "taskSubtype": "NONE",
             "inputType": {"edgeList", "graph"},
             "output": "model_step",
@@ -3412,9 +3330,9 @@ class SRIGraphMatchingTemplate(DSBoxTemplate):
         DSBoxTemplate.__init__(self)
         self.template = {
             "name": "SRI_GraphMatching_Template",
-            "taskType": {TaskType.GRAPH_MATCHING.name, TaskType.LINK_PREDICTION.name},
+            "taskType": {TaskKeyword.GRAPH_MATCHING.name, TaskKeyword.LINK_PREDICTION.name},
             # for some special condition, the taskSubtype can be "NONE" which indicate no taskSubtype given
-            "taskSubtype":  {"NONE", TaskSubtype.NONOVERLAPPING.name, TaskSubtype.OVERLAPPING.name, TaskSubtype.MULTICLASS.name, TaskSubtype.BINARY.name, TaskSubtype.MULTILABEL.name, TaskSubtype.MULTIVARIATE.name, TaskSubtype.UNIVARIATE.name},
+            "taskSubtype":  {"NONE", TaskKeyword.NONOVERLAPPING.name, TaskKeyword.OVERLAPPING.name, TaskKeyword.MULTICLASS.name, TaskKeyword.BINARY.name, TaskKeyword.MULTILABEL.name, TaskKeyword.MULTIVARIATE.name, TaskKeyword.UNIVARIATE.name},
             "inputType": {"edgeList", "graph"},
             "output": "predict_step",
             "steps": [
@@ -3467,9 +3385,9 @@ class SRIVertexNominationTemplate(DSBoxTemplate):
         DSBoxTemplate.__init__(self)
         self.template = {
             "name": "SRI_Vertex_Nomination_Template",
-            "taskType": {TaskType.VERTEX_CLASSIFICATION.name},
-            "taskSubtype":  {"NONE", TaskSubtype.NONOVERLAPPING.name, TaskSubtype.OVERLAPPING.name, TaskSubtype.MULTICLASS.name, TaskSubtype.BINARY.name, TaskSubtype.MULTILABEL.name, TaskSubtype.MULTIVARIATE.name, TaskSubtype.UNIVARIATE.name},
-            #"taskType": TaskType.VERTEX_NOMINATION.name,
+            "taskType": {TaskKeyword.VERTEX_CLASSIFICATION.name},
+            "taskSubtype":  {"NONE", TaskKeyword.NONOVERLAPPING.name, TaskKeyword.OVERLAPPING.name, TaskKeyword.MULTICLASS.name, TaskKeyword.BINARY.name, TaskKeyword.MULTILABEL.name, TaskKeyword.MULTIVARIATE.name, TaskKeyword.UNIVARIATE.name},
+            #"taskType": TaskKeyword.VERTEX_NOMINATION.name,
             #"taskSubtype": "NONE",
             "inputType": {"graph", "edgeList", "table"},
             "output": "model_step",
@@ -3496,8 +3414,8 @@ class SRICollaborativeFilteringTemplate(DSBoxTemplate):
         DSBoxTemplate.__init__(self)
         self.template = {
             "name": "SRI_Collaborative_Filtering_Template",
-            "taskType": {TaskType.COLLABORATIVE_FILTERING.name},
-            "taskSubtype":  {"NONE", TaskSubtype.NONOVERLAPPING.name, TaskSubtype.OVERLAPPING.name, TaskSubtype.MULTICLASS.name, TaskSubtype.BINARY.name, TaskSubtype.MULTILABEL.name, TaskSubtype.MULTIVARIATE.name, TaskSubtype.UNIVARIATE.name},
+            "taskType": {TaskKeyword.COLLABORATIVE_FILTERING.name},
+            "taskSubtype":  {"NONE", TaskKeyword.NONOVERLAPPING.name, TaskKeyword.OVERLAPPING.name, TaskKeyword.MULTICLASS.name, TaskKeyword.BINARY.name, TaskKeyword.MULTILABEL.name, TaskKeyword.MULTIVARIATE.name, TaskKeyword.UNIVARIATE.name},
             "inputType": "table",
             "output": "model_step",
             "steps": [
@@ -3515,8 +3433,8 @@ class SRICommunityDetectionTemplate(DSBoxTemplate):
         DSBoxTemplate.__init__(self)
         self.template = {
             "name": "SRI_Community_Detection_Template",
-            "taskType": {TaskType.COMMUNITY_DETECTION.name},
-            "taskSubtype":  {"NONE", TaskSubtype.NONOVERLAPPING.name, TaskSubtype.OVERLAPPING.name, TaskSubtype.MULTICLASS.name, TaskSubtype.BINARY.name, TaskSubtype.MULTILABEL.name, TaskSubtype.MULTIVARIATE.name, TaskSubtype.UNIVARIATE.name},
+            "taskType": {TaskKeyword.COMMUNITY_DETECTION.name},
+            "taskSubtype":  {"NONE", TaskKeyword.NONOVERLAPPING.name, TaskKeyword.OVERLAPPING.name, TaskKeyword.MULTICLASS.name, TaskKeyword.BINARY.name, TaskKeyword.MULTILABEL.name, TaskKeyword.MULTIVARIATE.name, TaskKeyword.UNIVARIATE.name},
             "inputType": {"edgeList", "graph", "table"},
             "output": "model_step",
             "steps": [
@@ -3544,7 +3462,7 @@ class JHUVertexNominationTemplate(DSBoxTemplate):
         DSBoxTemplate.__init__(self)
         self.template = {
             "name": "JHU_Vertex_Nomination_Template",
-            "taskType": TaskType.VERTEX_CLASSIFICATION.name,
+            "taskType": TaskKeyword.VERTEX_CLASSIFICATION.name,
             "taskSubtype": "NONE",
             "inputType": {"edgeList", "graph"},
             "output": "model_step",
@@ -3579,8 +3497,8 @@ class JHUGraphMatchingTemplate(DSBoxTemplate):
         DSBoxTemplate.__init__(self)
         self.template = {
             "name": "JHU_Graph_Matching_Template",
-            "taskType": TaskType.GRAPH_MATCHING.name,
-            "taskSubtype": {"NONE", TaskSubtype.NONOVERLAPPING.name, TaskSubtype.OVERLAPPING.name, TaskSubtype.MULTICLASS.name, TaskSubtype.BINARY.name, TaskSubtype.MULTILABEL.name, TaskSubtype.MULTIVARIATE.name, TaskSubtype.UNIVARIATE.name},
+            "taskType": TaskKeyword.GRAPH_MATCHING.name,
+            "taskSubtype": {"NONE", TaskKeyword.NONOVERLAPPING.name, TaskKeyword.OVERLAPPING.name, TaskKeyword.MULTICLASS.name, TaskKeyword.BINARY.name, TaskKeyword.MULTILABEL.name, TaskKeyword.MULTIVARIATE.name, TaskKeyword.UNIVARIATE.name},
             "inputType": {"edgeList", "graph"},
             "output": "model_step",
             "steps": [
@@ -3601,8 +3519,8 @@ class BBNAudioClassificationTemplate(DSBoxTemplate):
         DSBoxTemplate.__init__(self)
         self.template = {
             "name": "BBN_Audio_Classification_Template",
-            "taskType": {TaskType.CLASSIFICATION.name},
-            "taskSubtype": {TaskSubtype.MULTICLASS.name},
+            "taskType": {TaskKeyword.CLASSIFICATION.name},
+            "taskSubtype": {TaskKeyword.MULTICLASS.name},
             "inputType": "audio",
             "output": "model_step",
             "steps": [
@@ -3746,7 +3664,7 @@ class CMUClusteringTemplate(DSBoxTemplate):
         self.need_add_reference = True
         self.template = {
             "name": "CMU_Clustering_Template",
-            "taskType": TaskType.CLUSTERING.name,
+            "taskType": TaskKeyword.CLUSTERING.name,
             "taskSubtype": "NONE",
             "inputType": "table",
             "output": "output_step",
@@ -3802,11 +3720,8 @@ class MichiganVideoClassificationTemplate(DSBoxTemplate):
         DSBoxTemplate.__init__(self)
         self.template = {
             "name": "Michigan_Video_Classification_Template",
-            "taskType": TaskType.CLASSIFICATION.name,
-            # See TaskType, range include 'CLASSIFICATION', 'CLUSTERING', 'COLLABORATIVE_FILTERING',
-            # 'COMMUNITY_DETECTION', 'GRAPH_CLUSTERING', 'GRAPH_MATCHING', 'LINK_PREDICTION',
-            # 'REGRESSION', 'TIME_SERIES_FORECASTING', 'VERTEX_NOMINATION'
-            "taskSubtype": TaskSubtype.MULTICLASS.name,
+            "taskType": TaskKeyword.CLASSIFICATION.name,
+            "taskSubtype": TaskKeyword.MULTICLASS.name,
             "inputType": "video",  # See SEMANTIC_TYPES.keys() for range of values
             "output": "construct_prediction_step",  # Name of the final step generating the prediction
             "target": "extract_target_step",  # Name of the step generating the ground truth
@@ -3883,8 +3798,8 @@ class TA1ClassificationTemplate1(DSBoxTemplate):
         DSBoxTemplate.__init__(self)
         self.template = {
             "name": "TA1_classification_template_1",
-            "taskSubtype": {TaskSubtype.BINARY.name, TaskSubtype.MULTICLASS.name},
-            "taskType": TaskType.CLASSIFICATION.name,
+            "taskSubtype": {TaskKeyword.BINARY.name, TaskKeyword.MULTICLASS.name},
+            "taskType": TaskKeyword.CLASSIFICATION.name,
             "inputType": "table",  # See SEMANTIC_TYPES.keys() for range of values
             "output": "model_step",  # Name of the final step generating the prediction
             "target": "extract_target_step",  # Name of the step generating the ground truth
@@ -3974,11 +3889,8 @@ class TA1Classification_2(DSBoxTemplate):
         DSBoxTemplate.__init__(self)
         self.template = {
             "name": "TA1Classification_2",
-            "taskSubtype": {TaskSubtype.BINARY.name, TaskSubtype.MULTICLASS.name},
-            "taskType": TaskType.CLASSIFICATION.name,
-            # See TaskType, range include 'CLASSIFICATION', 'CLUSTERING', 'COLLABORATIVE_FILTERING',
-            # 'COMMUNITY_DETECTION', 'GRAPH_CLUSTERING', 'GRAPH_MATCHING', 'LINK_PREDICTION',
-            # 'REGRESSION', 'TIME_SERIES_FORECASTING', 'VERTEX_NOMINATION'
+            "taskSubtype": {TaskKeyword.BINARY.name, TaskKeyword.MULTICLASS.name},
+            "taskType": TaskKeyword.CLASSIFICATION.name,
             "inputType": "text",  # See SEMANTIC_TYPES.keys() for range of values
             "output": "model_step",  # Name of the final step generating the prediction
             "target": "extract_target_step",  # Name of the step generating the ground truth
@@ -4037,8 +3949,8 @@ class TA1Classification_3(DSBoxTemplate):
         DSBoxTemplate.__init__(self)
         self.template = {
             "name": "TA1Classification_3",
-            "taskSubtype": {TaskSubtype.BINARY.name, TaskSubtype.MULTICLASS.name},
-            "taskType": TaskType.CLASSIFICATION.name,
+            "taskSubtype": {TaskKeyword.BINARY.name, TaskKeyword.MULTICLASS.name},
+            "taskType": TaskKeyword.CLASSIFICATION.name,
             "inputType": "table",  # See SEMANTIC_TYPES.keys() for range of values
             "output": "model_step",  # Name of the final step generating the prediction
             "target": "extract_target_step",  # Name of the step generating the ground truth
@@ -4136,8 +4048,8 @@ class MuxinTA1ClassificationTemplate1(DSBoxTemplate):
         DSBoxTemplate.__init__(self)
         self.template = {
             "name": "MuxinTA1ClassificationTemplate1",
-            "taskSubtype": {TaskSubtype.BINARY.name, TaskSubtype.MULTICLASS.name},
-            "taskType": TaskType.CLASSIFICATION.name,
+            "taskSubtype": {TaskKeyword.BINARY.name, TaskKeyword.MULTICLASS.name},
+            "taskType": TaskKeyword.CLASSIFICATION.name,
             "inputType": "table",  # See SEMANTIC_TYPES.keys() for range of values
             "output": "model_step",  # Name of the final step generating the prediction
             "target": "extract_target_step",  # Name of the step generating the ground truth
@@ -4235,8 +4147,8 @@ class MuxinTA1ClassificationTemplate2(DSBoxTemplate):
         DSBoxTemplate.__init__(self)
         self.template = {
             "name": "MuxinTA1ClassificationTemplate2",
-            "taskSubtype": {TaskSubtype.BINARY.name, TaskSubtype.MULTICLASS.name},
-            "taskType": TaskType.CLASSIFICATION.name,
+            "taskSubtype": {TaskKeyword.BINARY.name, TaskKeyword.MULTICLASS.name},
+            "taskType": TaskKeyword.CLASSIFICATION.name,
             "inputType": "table",  # See SEMANTIC_TYPES.keys() for range of values
             "output": "model_step",  # Name of the final step generating the prediction
             "target": "extract_target_step",  # Name of the step generating the ground truth
@@ -4321,8 +4233,8 @@ class MuxinTA1ClassificationTemplate3(DSBoxTemplate):
         DSBoxTemplate.__init__(self)
         self.template = {
             "name": "MuxinTA1ClassificationTemplate3",
-            "taskSubtype": {TaskSubtype.BINARY.name, TaskSubtype.MULTICLASS.name},
-            "taskType": TaskType.CLASSIFICATION.name,
+            "taskSubtype": {TaskKeyword.BINARY.name, TaskKeyword.MULTICLASS.name},
+            "taskType": TaskKeyword.CLASSIFICATION.name,
             "inputType": "table",  # See SEMANTIC_TYPES.keys() for range of values
             "output": "model_step",  # Name of the final step generating the prediction
             "target": "extract_target_step",  # Name of the step generating the ground truth
@@ -4413,8 +4325,8 @@ class DefaultImageClassificationWithCNNTemplate(DSBoxTemplate):
         DSBoxTemplate.__init__(self)
         self.template = {
             "name": "Default_Image_classification_with_CNN_template",
-            "taskSubtype": {TaskSubtype.BINARY.name, TaskSubtype.MULTICLASS.name},
-            "taskType": TaskType.CLASSIFICATION.name,
+            "taskSubtype": {TaskKeyword.BINARY.name, TaskKeyword.MULTICLASS.name},
+            "taskType": TaskKeyword.CLASSIFICATION.name,
             "inputType": {"table", "image"},
             "output": "model_step",  # Name of the final step generating the prediction
             "target": "extract_target_step",  # Name of the step generating the ground truth
@@ -4495,8 +4407,8 @@ class UU3TestTemplate(DSBoxTemplate):
         DSBoxTemplate.__init__(self)
         self.template = {
             "name": "UU3_Test_Template",
-            "taskSubtype": {TaskSubtype.UNIVARIATE.name, TaskSubtype.MULTIVARIATE.name},
-            "taskType": TaskType.REGRESSION.name,
+            "taskSubtype": {TaskKeyword.UNIVARIATE.name, TaskKeyword.MULTIVARIATE.name},
+            "taskType": TaskKeyword.REGRESSION.name,
             "inputType": "table",
             "output": "model_step",  # Name of the final step generating the prediction
             "target": "extract_target_step",  # Name of the step generating the ground truth
@@ -4587,8 +4499,8 @@ class HorizontalTemplate(DSBoxTemplate): #This template only generate processed 
         DSBoxTemplate.__init__(self)
         self.template = {
             "name": "Horizontal_Template",
-            "taskSubtype": {TaskSubtype.UNIVARIATE.name, TaskSubtype.MULTIVARIATE.name, TaskSubtype.BINARY.name, TaskSubtype.MULTICLASS.name},
-            "taskType": {TaskType.CLASSIFICATION.name, TaskType.REGRESSION.name},
+            "taskSubtype": {TaskKeyword.UNIVARIATE.name, TaskKeyword.MULTIVARIATE.name, TaskKeyword.BINARY.name, TaskKeyword.MULTICLASS.name},
+            "taskType": {TaskKeyword.CLASSIFICATION.name, TaskKeyword.REGRESSION.name},
             "inputType": "table",
             "output": "scaler_step",  # Name of the final step generating the prediction
             "target": "extract_target_step",  # Name of the step generating the ground truth
@@ -4683,8 +4595,8 @@ class CornellMatrixFactorization(DSBoxTemplate):
         DSBoxTemplate.__init__(self)
         self.template = {
             "name": "Cornell_matrix_factorization",
-            "taskType": {TaskType.COLLABORATIVE_FILTERING.name, TaskType.VERTEX_CLASSIFICATION.name, TaskType.COMMUNITY_DETECTION.name, TaskType.LINK_PREDICTION.name},
-            "taskSubtype":  {"NONE", TaskSubtype.NONOVERLAPPING.name, TaskSubtype.OVERLAPPING.name, TaskSubtype.MULTICLASS.name, TaskSubtype.BINARY.name, TaskSubtype.MULTILABEL.name, TaskSubtype.MULTIVARIATE.name, TaskSubtype.UNIVARIATE.name},
+            "taskType": {TaskKeyword.COLLABORATIVE_FILTERING.name, TaskKeyword.VERTEX_CLASSIFICATION.name, TaskKeyword.COMMUNITY_DETECTION.name, TaskKeyword.LINK_PREDICTION.name},
+            "taskSubtype":  {"NONE", TaskKeyword.NONOVERLAPPING.name, TaskKeyword.OVERLAPPING.name, TaskKeyword.MULTICLASS.name, TaskKeyword.BINARY.name, TaskKeyword.MULTILABEL.name, TaskKeyword.MULTIVARIATE.name, TaskKeyword.UNIVARIATE.name},
             #"taskSubtype": "NONE",
             #"inputType": "table",
             "inputType": {"graph","table", "edgeList"},
@@ -4747,8 +4659,8 @@ class ISIGraphNormClf(DSBoxTemplate):
         DSBoxTemplate.__init__(self)
         self.template = {
             "name": "ISI_graph_norm_clf",
-            "taskType": {TaskType.VERTEX_CLASSIFICATION.name, TaskType.COMMUNITY_DETECTION.name, TaskType.LINK_PREDICTION.name}, #TaskType.COLLABORATIVE_FILTERING.name,
-            "taskSubtype": {"NONE", TaskSubtype.NONOVERLAPPING.name, TaskSubtype.OVERLAPPING.name, TaskSubtype.MULTICLASS.name, TaskSubtype.BINARY.name, TaskSubtype.MULTILABEL.name, TaskSubtype.MULTIVARIATE.name, TaskSubtype.UNIVARIATE.name},
+            "taskType": {TaskKeyword.VERTEX_CLASSIFICATION.name, TaskKeyword.COMMUNITY_DETECTION.name, TaskKeyword.LINK_PREDICTION.name}, #TaskKeyword.COLLABORATIVE_FILTERING.name,
+            "taskSubtype": {"NONE", TaskKeyword.NONOVERLAPPING.name, TaskKeyword.OVERLAPPING.name, TaskKeyword.MULTICLASS.name, TaskKeyword.BINARY.name, TaskKeyword.MULTILABEL.name, TaskKeyword.MULTIVARIATE.name, TaskKeyword.UNIVARIATE.name},
             #"taskSubtype": "NONE",
             #"inputType": "table",
             "inputType": {"edgeList", "graph", "table"},
@@ -4850,8 +4762,8 @@ class ISI_GCN(DSBoxTemplate):
         DSBoxTemplate.__init__(self)
         self.template = {
             "name": "ISI_gcn",
-            "taskType": {TaskType.COLLABORATIVE_FILTERING.name, TaskType.VERTEX_CLASSIFICATION.name, TaskType.COMMUNITY_DETECTION.name, TaskType.LINK_PREDICTION.name},
-            "taskSubtype":  {"NONE", TaskSubtype.NONOVERLAPPING.name, TaskSubtype.OVERLAPPING.name, TaskSubtype.MULTICLASS.name, TaskSubtype.BINARY.name, TaskSubtype.MULTILABEL.name, TaskSubtype.MULTIVARIATE.name, TaskSubtype.UNIVARIATE.name},
+            "taskType": {TaskKeyword.COLLABORATIVE_FILTERING.name, TaskKeyword.VERTEX_CLASSIFICATION.name, TaskKeyword.COMMUNITY_DETECTION.name, TaskKeyword.LINK_PREDICTION.name},
+            "taskSubtype":  {"NONE", TaskKeyword.NONOVERLAPPING.name, TaskKeyword.OVERLAPPING.name, TaskKeyword.MULTICLASS.name, TaskKeyword.BINARY.name, TaskKeyword.MULTILABEL.name, TaskKeyword.MULTIVARIATE.name, TaskKeyword.UNIVARIATE.name},
             #"taskSubtype": "NONE",
             #"inputType": "table",
             "inputType": {"edgeList", "graph", "table"},
@@ -4939,8 +4851,8 @@ class LupiSvmClassification(DSBoxTemplate):
         DSBoxTemplate.__init__(self)
         self.template = {
             "name": "LupiSvmClassification",
-            "taskType": {TaskType.CLASSIFICATION.name},
-            "taskSubtype": {TaskSubtype.BINARY.name, TaskSubtype.MULTICLASS.name},
+            "taskType": {TaskKeyword.CLASSIFICATION.name},
+            "taskSubtype": {TaskKeyword.BINARY.name, TaskKeyword.MULTICLASS.name},
             "inputType": {"table"},
             "specializedProblem": {SpecializedProblem.PRIVILEGED_INFORMATION},
             "output": "prediction_step",
@@ -4990,8 +4902,8 @@ class LupiRfClassification(DSBoxTemplate):
         DSBoxTemplate.__init__(self)
         self.template = {
             "name": "LupiRfClassification",
-            "taskType": {TaskType.CLASSIFICATION.name},
-            "taskSubtype": {TaskSubtype.BINARY.name, TaskSubtype.MULTICLASS.name},
+            "taskType": {TaskKeyword.CLASSIFICATION.name},
+            "taskSubtype": {TaskKeyword.BINARY.name, TaskKeyword.MULTICLASS.name},
             "inputType": {"table"},
             "specializedProblem": {SpecializedProblem.PRIVILEGED_INFORMATION},
             "output": "prediction_step",
@@ -5092,8 +5004,8 @@ class BBNacledProblemTemplate(DSBoxTemplate):
         DSBoxTemplate.__init__(self)
         self.template = {
             "name": "BBN_acled_problem_template",
-            "taskType": {TaskType.CLASSIFICATION.name},
-            "taskSubtype": {TaskSubtype.BINARY.name, TaskSubtype.MULTICLASS.name},
+            "taskType": {TaskKeyword.CLASSIFICATION.name},
+            "taskSubtype": {TaskKeyword.BINARY.name, TaskKeyword.MULTICLASS.name},
             "inputType": {"table"},
             "output": "prediction_step",
             "steps": [
@@ -5187,8 +5099,8 @@ class DistilacledProblemTemplate(DSBoxTemplate):
         DSBoxTemplate.__init__(self)
         self.template = {
             "name": "Distil_acled_problem_template",
-            "taskType": {TaskType.CLASSIFICATION.name},
-            "taskSubtype": {TaskSubtype.BINARY.name, TaskSubtype.MULTICLASS.name},
+            "taskType": {TaskKeyword.CLASSIFICATION.name},
+            "taskSubtype": {TaskKeyword.BINARY.name, TaskKeyword.MULTICLASS.name},
             "inputType": {"table"},
             "output": "steps.13",
             "steps": [
@@ -5369,8 +5281,8 @@ class CMUacledProblemTemplate(DSBoxTemplate):
         DSBoxTemplate.__init__(self)
         self.template = {
             "name": "CMU_acled_problem_template",
-            "taskType": {TaskType.CLASSIFICATION.name},
-            "taskSubtype": {TaskSubtype.BINARY.name, TaskSubtype.MULTICLASS.name},
+            "taskType": {TaskKeyword.CLASSIFICATION.name},
+            "taskSubtype": {TaskKeyword.BINARY.name, TaskKeyword.MULTICLASS.name},
             "inputType": {"table"},
             "output": "steps.13",
             "steps": [
@@ -5496,8 +5408,8 @@ class DistilPreprocessingTemplate(DSBoxTemplate):
         DSBoxTemplate.__init__(self)
         self.template = {
             "name": "Distil_preprocessing_problem_template",
-            "taskType": {TaskType.CLASSIFICATION.name},
-            "taskSubtype": {TaskSubtype.BINARY.name, TaskSubtype.MULTICLASS.name},
+            "taskType": {TaskKeyword.CLASSIFICATION.name},
+            "taskSubtype": {TaskKeyword.BINARY.name, TaskKeyword.MULTICLASS.name},
             "inputType": {"table"},
             "output": "prediction_step",
             "steps": [
@@ -5684,8 +5596,8 @@ class SRIVertexClassificationTemplate(DSBoxTemplate):
         DSBoxTemplate.__init__(self)
         self.template = {
             "name": "SRI_vertex_classification_template",
-            "taskType": {TaskType.VERTEX_CLASSIFICATION.name, TaskType.COMMUNITY_DETECTION.name, TaskType.LINK_PREDICTION.name}, #TaskType.COLLABORATIVE_FILTERING.name,
-            "taskSubtype": {"NONE", TaskSubtype.NONOVERLAPPING.name, TaskSubtype.OVERLAPPING.name, TaskSubtype.MULTICLASS.name, TaskSubtype.BINARY.name, TaskSubtype.MULTILABEL.name, TaskSubtype.MULTIVARIATE.name, TaskSubtype.UNIVARIATE.name},
+            "taskType": {TaskKeyword.VERTEX_CLASSIFICATION.name, TaskKeyword.COMMUNITY_DETECTION.name, TaskKeyword.LINK_PREDICTION.name}, #TaskKeyword.COLLABORATIVE_FILTERING.name,
+            "taskSubtype": {"NONE", TaskKeyword.NONOVERLAPPING.name, TaskKeyword.OVERLAPPING.name, TaskKeyword.MULTICLASS.name, TaskKeyword.BINARY.name, TaskKeyword.MULTILABEL.name, TaskKeyword.MULTIVARIATE.name, TaskKeyword.UNIVARIATE.name},
             #"taskSubtype": "NONE",
             #"inputType": "table",
             "inputType": {"edgeList", "graph", "table"},
@@ -5777,8 +5689,8 @@ class MultiLabelTemplate(DSBoxTemplate):
         DSBoxTemplate.__init__(self)
         self.template = {
             "name": "Multi_Label_tempalte",
-            "taskType": {TaskType.CLASSIFICATION.name},
-            "taskSubtype": {TaskSubtype.MULTILABEL.name},
+            "taskType": {TaskKeyword.CLASSIFICATION.name},
+            "taskSubtype": {TaskKeyword.MULTILABEL.name},
             "inputType": {"table"},
             "output": "prediction_step",
             'steps': [
