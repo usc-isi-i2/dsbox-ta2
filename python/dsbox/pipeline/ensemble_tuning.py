@@ -13,7 +13,8 @@ from d3m import runtime as runtime_module, container
 from d3m.metadata import pipeline as pipeline_module
 from d3m.metadata.base import ALL_ELEMENTS, Metadata
 from d3m import index as d3m_index
-
+# !!!!
+# FIXIME: this file is no longer updated, a lot of things need to be updated with latest d3m core version
 
 class EnsembleTuningPipeline:
     """

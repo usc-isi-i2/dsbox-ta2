@@ -25,7 +25,7 @@ class TemplateSteps:
             {
                 "name": "extract_attribute_step",
                 "primitives": [{
-                    "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.DataFrameCommon",
+                    "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.CommOn",
                     "hyperparameters":
                         {
                             'semantic_types': (
@@ -111,7 +111,7 @@ class TemplateSteps:
             {
                 "name": "pre_"+target,
                 "primitives": [{
-                    "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.DataFrameCommon",
+                    "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.CommOn",
                     "hyperparameters":
                         {
                             'semantic_types': (
@@ -264,7 +264,7 @@ class TemplateSteps:
             {
                 "name": "extract_attribute_step",
                 "primitives": [{
-                    "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.DataFrameCommon",
+                    "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.CommOn",
                     "hyperparameters":
                         {
                             'semantic_types': (
@@ -344,7 +344,7 @@ class TemplateSteps:
             {
                 "name": "pre_"+target,
                 "primitives": [{
-                    "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.DataFrameCommon",
+                    "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.CommOn",
                     "hyperparameters":
                         {
                             'semantic_types': (
@@ -381,7 +381,7 @@ class TemplateSteps:
             {
                 "name": "extract_attribute_step",
                 "primitives": [{
-                    "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.DataFrameCommon",
+                    "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.CommOn",
                     "hyperparameters":
                         {
                             'semantic_types': (
@@ -427,7 +427,7 @@ class TemplateSteps:
             {
                 "name": "pre_extract_target_step",
                 "primitives": [{
-                    "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.DataFrameCommon",
+                    "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.CommOn",
                     "hyperparameters":
                         {
                             'semantic_types': (
@@ -606,7 +606,7 @@ class TemplateSteps:
                 {
                     "name": attribute_name,
                     "primitives": [{
-                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.DataFrameCommon",
+                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.CommOn",
                         "hyperparameters":
                             {
                                 'semantic_types': (
@@ -621,7 +621,7 @@ class TemplateSteps:
                 {
                     "name": "pre_"+target_name,
                     "primitives": [{
-                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.DataFrameCommon",
+                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.CommOn",
                         "hyperparameters":
                         {
                             'semantic_types': (
