@@ -400,7 +400,7 @@ class DefaultClassificationTemplate(DSBoxTemplate):
                                             'use_semantic_types': [True],
                                             'return_result': ['new'],
                                             'add_index_columns': [True],
-                                            'bootstrap': [True, False],
+                                            'bootstrap': ["bootstrap", "disabled"],
                                             'max_depth': [15, 30, None],
                                             'min_samples_leaf': [1, 2, 4],
                                             'min_samples_split': [2, 5, 10],
@@ -416,7 +416,7 @@ class DefaultClassificationTemplate(DSBoxTemplate):
                                             'use_semantic_types': [True],
                                             'return_result': ['new'],
                                             'add_index_columns': [True],
-                                            'bootstrap': [True, False],
+                                            'bootstrap': ["bootstrap", "disabled"],
                                             'max_depth': [15, 30, None],
                                             'min_samples_leaf': [1, 2, 4],
                                             'min_samples_split': [2, 5, 10],
@@ -495,7 +495,7 @@ class DefaultSemisupervisedClassificationTemplate(DSBoxTemplate):
                                         'min_samples_leaf': [1, 2],
                                       }
         extra_trees_hyper_tuning = {
-                                        'bootstrap': [True, False],
+                                        'bootstrap': ["bootstrap", "disabled"],
                                         'max_depth': [15, 30, None],
                                         'min_samples_leaf': [1, 2, 4],
                                         'min_samples_split': [2, 5, 10],
@@ -503,7 +503,7 @@ class DefaultSemisupervisedClassificationTemplate(DSBoxTemplate):
                                         'n_estimators': [10, 50, 100],
                                       }
         random_forest_hyper_tuning = {
-                                        'bootstrap': [True, False],
+                                        'bootstrap': ["bootstrap", "disabled"],
                                         'max_depth': [15, 30, None],
                                         'min_samples_leaf': [1, 2, 4],
                                         'min_samples_split': [2, 5, 10],
@@ -582,7 +582,7 @@ class CMUSemisupervisedClassificationTemplate(DSBoxTemplate):
                                         'min_samples_leaf': [1, 2],
                                       }
         extra_trees_hyper_tuning = {
-                                        'bootstrap': [True, False],
+                                        'bootstrap': ["bootstrap", "disabled"],
                                         'max_depth': [15, 30, None],
                                         'min_samples_leaf': [1, 2, 4],
                                         'min_samples_split': [2, 5, 10],
@@ -590,7 +590,7 @@ class CMUSemisupervisedClassificationTemplate(DSBoxTemplate):
                                         'n_estimators': [10, 50, 100],
                                       }
         random_forest_hyper_tuning = {
-                                        'bootstrap': [True, False],
+                                        'bootstrap': ["bootstrap", "disabled"],
                                         'max_depth': [15, 30, None],
                                         'min_samples_leaf': [1, 2, 4],
                                         'min_samples_split': [2, 5, 10],
@@ -734,7 +734,7 @@ class TestDefaultClassificationTemplate(DSBoxTemplate):
                                  #            'use_semantic_types': [True],
                                  #            'return_result': ['new'],
                                  #            'add_index_columns': [True],
-                                 #            'bootstrap': [True, False],
+                                 #            'bootstrap': ["bootstrap", "disabled"],
                                  #            'max_depth': [15, 30, None],
                                  #            'min_samples_leaf': [1, 2, 4],
                                  #            'min_samples_split': [2, 5, 10],
@@ -750,7 +750,7 @@ class TestDefaultClassificationTemplate(DSBoxTemplate):
                                  #            'use_semantic_types': [True],
                                  #            'return_result': ['new'],
                                  #            'add_index_columns': [True],
-                                 #            'bootstrap': [True, False],
+                                 #            'bootstrap': ["bootstrap", "disabled"],
                                  #            'max_depth': [15, 30, None],
                                  #            'min_samples_leaf': [1, 2, 4],
                                  #            'min_samples_split': [2, 5, 10],
@@ -864,7 +864,7 @@ class RandomForestClassificationTemplate(DSBoxTemplate):
                                     'use_semantic_types': [True],
                                     'return_result': ['new'],
                                     'add_index_columns': [True],
-                                    # 'bootstrap': [True, False],
+                                    # 'bootstrap': ["bootstrap", "disabled"],
                                     # 'max_depth': [15, 30, None],
                                     # 'min_samples_leaf': [1, 2, 4],
                                     # 'min_samples_split': [2, 5, 10],
@@ -905,7 +905,7 @@ class ExtraTreesClassificationTemplate(DSBoxTemplate):
                                     'use_semantic_types': [True],
                                     'return_result': ['new'],
                                     'add_index_columns': [True],
-                                    'bootstrap': [True, False],
+                                    'bootstrap': ["bootstrap", "disabled"],
                                     'max_depth': [15, 30, None],
                                     'min_samples_leaf': [1, 2, 4],
                                     'min_samples_split': [2, 5, 10],
@@ -1149,7 +1149,7 @@ class DefaultRegressionTemplate(DSBoxTemplate):
                                 "d3m.primitives.regression.extra_trees.SKlearn",
                             "hyperparameters":
                                 {
-                                    'bootstrap': [True, False],
+                                    'bootstrap': ["bootstrap", "disabled"],
                                     'max_depth': [15, 30, None],
                                     'min_samples_leaf': [1, 2, 4],
                                     'min_samples_split': [2, 5, 10],
@@ -1164,7 +1164,7 @@ class DefaultRegressionTemplate(DSBoxTemplate):
                                 "d3m.primitives.regression.random_forest.SKlearn",
                             "hyperparameters":
                                 {
-                                    'bootstrap': [True, False],
+                                    'bootstrap': ["bootstrap", "disabled"],
                                     'max_depth': [15, 30, None],
                                     'min_samples_leaf': [1, 2, 4],
                                     'min_samples_split': [2, 5, 10],
@@ -1278,7 +1278,7 @@ class ExtraTreesRegressionTemplate(DSBoxTemplate):
                                 "d3m.primitives.regression.extra_trees.SKlearn",
                             "hyperparameters":
                                 {
-                                    'bootstrap': [True, False],
+                                    'bootstrap': ["bootstrap", "disabled"],
                                     'max_depth': [15, 30, None],
                                     'min_samples_leaf': [1, 2, 4],
                                     'min_samples_split': [2, 5, 10],
@@ -1317,7 +1317,7 @@ class RandomForestRegressionTemplate(DSBoxTemplate):
                                 "d3m.primitives.regression.random_forest.SKlearn",
                             "hyperparameters":
                                 {
-                                    'bootstrap': [True, False],
+                                    'bootstrap': ["bootstrap", "disabled"],
                                     'max_depth': [15, 30, None],
                                     'min_samples_leaf': [1, 2, 4],
                                     'min_samples_split': [2, 5, 10],
@@ -2705,7 +2705,7 @@ class DefaultTimeseriesCollectionTemplate(DSBoxTemplate):
                                 'use_semantic_types': [True],
                                 'return_result': ['new'],
                                 'add_index_columns': [True],
-                                'bootstrap': [True, False],
+                                'bootstrap': ["bootstrap", "disabled"],
                                 'max_depth': [15, 30, None],
                                 'min_samples_leaf': [1, 2, 4],
                                 'min_samples_split': [2, 5, 10],
@@ -2721,7 +2721,7 @@ class DefaultTimeseriesCollectionTemplate(DSBoxTemplate):
                                 'use_semantic_types': [True],
                                 'return_result': ['new'],
                                 'add_index_columns': [True],
-                                'bootstrap': [True, False],
+                                'bootstrap': ["bootstrap", "disabled"],
                                 'max_depth': [15, 30, None],
                                 'min_samples_leaf': [1, 2, 4],
                                 'min_samples_split': [2, 5, 10],
@@ -3308,7 +3308,7 @@ class DefaultLinkPredictionTemplate(DSBoxTemplate):
                     "primitives": [{
                         "primitive": "d3m.primitives.classification.random_forest.SKlearn",
                         "hyperparameters": {
-                            # 'bootstrap': [True, False],
+                            # 'bootstrap': ["bootstrap", "disabled"],
                             'max_depth': [15, 30, None],
                             'min_samples_leaf': [1, 2, 4],
                             'min_samples_split': [2, 5, 10],
@@ -4727,7 +4727,7 @@ class ISIGraphNormClf(DSBoxTemplate):
                 #      "primitives": [{
                 #          "primitive": "d3m.primitives.classification.random_forest.SKlearn",
                 #          "hyperparameters": {
-                #              # 'bootstrap': [True, False],
+                #              # 'bootstrap': ["bootstrap", "disabled"],
                 #              'max_depth': [15, 30, None],
                 #              'min_samples_leaf': [1, 2, 4],
                 #              'min_samples_split': [2, 5, 10],
@@ -4820,7 +4820,7 @@ class ISI_GCN(DSBoxTemplate):
                     "primitives": [{
                         "primitive": "d3m.primitives.classification.random_forest.SKlearn",
                         "hyperparameters": {
-                            # 'bootstrap': [True, False],
+                            # 'bootstrap': ["bootstrap", "disabled"],
                             'max_depth': [15, 30, None],
                             'min_samples_leaf': [1, 2, 4],
                             'min_samples_split': [2, 5, 10],
@@ -5362,7 +5362,7 @@ class CMUacledProblemTemplate(DSBoxTemplate):
                                     'use_semantic_types': [True],
                                     'return_result': ['new'],
                                     'add_index_columns': [True],
-                                    'bootstrap': [True, False],
+                                    'bootstrap': ["bootstrap", "disabled"],
                                     'max_depth': [15, 30, None],
                                     'min_samples_leaf': [1, 2, 4],
                                     'min_samples_split': [2, 5, 10],
