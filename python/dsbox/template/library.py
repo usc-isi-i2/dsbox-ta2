@@ -38,7 +38,11 @@ Current (from d3m v2019.11.10), following keywords are supported
 {'classification','regression','clustering','linkPrediction','vertexNomination','vertexClassification','communityDetection','graphMatching','forecasting','collaborativeFiltering','objectDetection','semiSupervised','binary','multiClass','multiLabel','univariate','multivariate','overlapping','nonOverlapping','tabular','relational','image','audio','video','speech','text','graph','multiGraph','timeSeries','grouped','geospatial','remoteSensing','lupi','missingMetadata'}
 """
 
-def have_intersection(lst1, lst2): 
+def have_intersection(lst1, lst2):
+    if isinstance(lst1, str):
+        lst1 = [lst1]
+    if isinstance(lst2, str):
+        lst2 = [lst2] 
     return list(set(lst1) & set(lst2)) != []
 
 class TemplateLibrary:
@@ -182,6 +186,7 @@ class TemplateLibrary:
             # sourceType refer to d3m/container/dataset.py ("SEMANTIC_TYPES" as line 40-70)
             # taskType and taskSubtype refer to d3m/
             if have_intersection(task, template.template['taskType']) and have_intersection(subtype, template.template['taskSubtype']):
+
                 # if there is only one task source type which is table, we don't need to check
                 # other things
                 taskSourceType_check = copy.copy(taskSourceType)
@@ -456,7 +461,7 @@ class AlternativeClassificationTemplate(DSBoxTemplate):
             "taskSubtype": {TaskKeyword.BINARY.name, TaskKeyword.MULTICLASS.name},
             "taskType": TaskKeyword.CLASSIFICATION.name,
             "inputType": "table",  # See SEMANTIC_TYPES.keys() for range of values
-            "output": "model_step",  # Name of the final step generating the prediction
+            "output": "construct_predictions_step",  # Name of the final step generating the prediction
             "target": "extract_target_step",  # Name of the step generating the ground truth
             "steps": TemplateSteps.dsbox_generic_steps() +
                      TemplateSteps.dsbox_feature_selector("classification",
@@ -476,7 +481,13 @@ class AlternativeClassificationTemplate(DSBoxTemplate):
                                  "d3m.primitives.classification.k_neighbors.SKlearn",
                              ],
                              "inputs": ["feature_selector_step", "target"]
-                         }
+                         },
+                         {
+                                "name": "construct_predictions_step",#step 7
+                                "primitives": ["d3m.primitives.data_transformation.construct_predictions.Common"],
+                                "inputs": ["model_step", "to_dataframe_step"]
+                            }
+
                      ]
         }
 
@@ -561,7 +572,7 @@ class DefaultSemisupervisedClassificationTemplate(DSBoxTemplate):
                 },
                 {
                     "name": "construct_predictions_step",#step 7
-                    "primitives": ["d3m.primitives.data_transformation.construct_predictions.DataFrameCommon"],
+                    "primitives": ["d3m.primitives.data_transformation.construct_predictions.Common"],
                     "inputs": ["model_step", "to_dataframe_step"]
                 },
             ]
@@ -637,14 +648,14 @@ class CMUSemisupervisedClassificationTemplate(DSBoxTemplate):
                 },
                 {
                     "name": "parser_step",#step 2
-                    "primitives": ["d3m.primitives.data_transformation.column_parser.DataFrameCommon"],
+                    "primitives": ["d3m.primitives.data_transformation.column_parser.Common"],
                     "inputs": ["to_dataframe_step"]
                 },
                 # read X value
                 {
                     "name": "extract_attribute_step",#step 3
                     "primitives": [{
-                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.CommOn",
+                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.Common",
                         "hyperparameters":
                             {
                                 # 'semantic_types': (
@@ -658,7 +669,7 @@ class CMUSemisupervisedClassificationTemplate(DSBoxTemplate):
                 {
                     "name": "extract_target_step",# step 4
                     "primitives": [{
-                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.CommOn",
+                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.Common",
                         "hyperparameters":
                             {
                                 'semantic_types': (
@@ -696,7 +707,7 @@ class CMUSemisupervisedClassificationTemplate(DSBoxTemplate):
                 },
                 {
                     "name": "construct_predictions_step",#step 7
-                    "primitives": ["d3m.primitives.data_transformation.construct_predictions.DataFrameCommon"],
+                    "primitives": ["d3m.primitives.data_transformation.construct_predictions.Common"],
                     "inputs": ["model_step", "to_dataframe_step"]
                 },
             ]
@@ -1401,7 +1412,7 @@ class DataAugmentRegressionTemplate(DSBoxTemplate):
             {
                 "name": "extract_attribute_step",
                 "primitives": [{
-                    "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.CommOn",
+                    "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.Common",
                     "hyperparameters":
                         {
                             'semantic_types': (
@@ -1416,7 +1427,7 @@ class DataAugmentRegressionTemplate(DSBoxTemplate):
             {
                 "name": "extract_target_step",
                 "primitives": [{
-                    "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.CommOn",
+                    "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.Common",
                     "hyperparameters":
                         {
                             'semantic_types': (
@@ -1554,7 +1565,7 @@ class Large_column_number_with_numerical_only_classification(DSBoxTemplate):
                 {
                     "name": "extract_attribute_step",
                     "primitives": [{
-                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.CommOn",
+                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.Common",
                         "hyperparameters":
                             {
                                 'semantic_types': ('https://metadata.datadrivendiscovery.org/types/PrimaryKey',
@@ -1568,7 +1579,7 @@ class Large_column_number_with_numerical_only_classification(DSBoxTemplate):
                 {
                     "name": "extract_target_step",
                     "primitives": [{
-                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.CommOn",
+                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.Common",
                         "hyperparameters":
                             {'semantic_types': ('https://metadata.datadrivendiscovery.org/types/TrueTarget',),
                              'use_columns': (),
@@ -1628,7 +1639,7 @@ class Large_column_number_with_numerical_only_regression(DSBoxTemplate):
                 {
                     "name": "extract_attribute_step",
                     "primitives": [{
-                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.CommOn",
+                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.Common",
                         "hyperparameters":
                             {
                                 'semantic_types': ('https://metadata.datadrivendiscovery.org/types/PrimaryKey',
@@ -1642,7 +1653,7 @@ class Large_column_number_with_numerical_only_regression(DSBoxTemplate):
                 {
                     "name": "pre_extract_target_step",
                     "primitives": [{
-                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.CommOn",
+                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.Common",
                         "hyperparameters":
                             {'semantic_types': ('https://metadata.datadrivendiscovery.org/types/TrueTarget',),
                              'use_columns': (),
@@ -1707,14 +1718,14 @@ class AlphaZeroEvalTemplate(DSBoxTemplate): # this is a template from succeed pi
                 },
                 {
                     "name": "column_parser_step", # step 2
-                    "primitives": ["d3m.primitives.data_transformation.column_parser.DataFrameCommon"],
+                    "primitives": ["d3m.primitives.data_transformation.column_parser.Common"],
                     "inputs": ["to_dataframe_step"]
                 },
                 {
                     "name": "extract_attribute_step", # step 3
                     "primitives": [
                         {
-                            "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.CommOn",
+                            "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.Common",
                             "hyperparameters": {
                                     'semantic_types': ('https://metadata.datadrivendiscovery.org/types/Attribute',),
                                     'use_columns': (),
@@ -1752,7 +1763,7 @@ class AlphaZeroEvalTemplate(DSBoxTemplate): # this is a template from succeed pi
                     "name": "extract_target_step", # step 6
                     "primitives": [
                         {
-                            "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.CommOn",
+                            "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.Common",
                             "hyperparameters": {
                                     'semantic_types': (
                                         'https://metadata.datadrivendiscovery.org/types/Target',
@@ -1787,7 +1798,7 @@ class AlphaZeroEvalTemplate(DSBoxTemplate): # this is a template from succeed pi
                     "name": "construct_prediction_step",
                     "primitives": [
                         {
-                            "primitive": "d3m.primitives.data_transformation.construct_predictions.DataFrameCommon",
+                            "primitive": "d3m.primitives.data_transformation.construct_predictions.Common",
                         }
                     ],
                     "inputs": ["model_step", "column_parser_step"]
@@ -1834,7 +1845,7 @@ class TESTINGTemplate(DSBoxTemplate): # this is a template from succeed pipeline
                     "name": "column_parser_step", # step 3
                     "primitives": [
                         {
-                            "primitive": "d3m.primitives.data_transformation.column_parser.DataFrameCommon"
+                            "primitive": "d3m.primitives.data_transformation.column_parser.Common"
                         }
                     ],
                     "inputs": ["to_dataframe_step"]
@@ -1843,7 +1854,7 @@ class TESTINGTemplate(DSBoxTemplate): # this is a template from succeed pipeline
                     "name": "extract_attribute_step", # step 4
                     "primitives":[
                         {
-                            "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.CommOn",
+                            "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.Common",
                             "hyperparameters": {
                                     'semantic_types': ('https://metadata.datadrivendiscovery.org/types/Attribute',),
                                     'use_columns': (),
@@ -1857,7 +1868,7 @@ class TESTINGTemplate(DSBoxTemplate): # this is a template from succeed pipeline
                     "name": "extract_target_step", # step 5
                     "primitives": [
                         {
-                            "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.CommOn",
+                            "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.Common",
                             "hyperparameters": {
                                     'semantic_types': (
                                         'https://metadata.datadrivendiscovery.org/types/Target',
@@ -1896,7 +1907,7 @@ class TESTINGTemplate(DSBoxTemplate): # this is a template from succeed pipeline
                     "name": "construct_predict_step",
                     "primitives": [
                         {
-                            "primitive": "d3m.primitives.data_transformation.construct_predictions.DataFrameCommon",
+                            "primitive": "d3m.primitives.data_transformation.construct_predictions.Common",
                         }
                     ],
                     "inputs": ["model_step", "to_dataframe_step"]
@@ -1929,7 +1940,7 @@ class DefaultTimeSeriesForcastingTemplate(DSBoxTemplate):
                 {
                     "name": "pre_extract_target_step",
                     "primitives": [{
-                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.CommOn",
+                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.Common",
                         "hyperparameters":
                             {'semantic_types': ('https://metadata.datadrivendiscovery.org/types/TrueTarget',),
                              'use_columns': (),
@@ -1953,7 +1964,7 @@ class DefaultTimeSeriesForcastingTemplate(DSBoxTemplate):
                 {
                     "name": "extract_attribute_step",
                     "primitives": [{
-                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.CommOn",
+                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.Common",
                         "hyperparameters":
                             {
                                 'semantic_types': ('https://metadata.datadrivendiscovery.org/types/PrimaryKey',
@@ -2036,7 +2047,7 @@ class ARIMATemplate(DSBoxTemplate):
                 {
                     "name": "parser_step",
                     "primitives": [{
-                        "primitive": "d3m.primitives.data_transformation.column_parser.DataFrameCommon",
+                        "primitive": "d3m.primitives.data_transformation.column_parser.Common",
                         "hyperparameters": {
                             "parse_semantic_types": [('http://schema.org/Boolean', 'http://schema.org/Integer', 'http://schema.org/Float', 'https://metadata.datadrivendiscovery.org/types/FloatVector'),]
                         }
@@ -2048,7 +2059,7 @@ class ARIMATemplate(DSBoxTemplate):
                 {
                     "name": "extract_target_step",
                     "primitives": [{
-                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.CommOn",
+                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.Common",
                         "hyperparameters":
                             {
                              'semantic_types': ('https://metadata.datadrivendiscovery.org/types/TrueTarget',),
@@ -2062,7 +2073,7 @@ class ARIMATemplate(DSBoxTemplate):
                 {
                     "name": "extract_attribute_step",
                     "primitives": [{
-                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.CommOn",
+                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.Common",
                         "hyperparameters":
                             {
                                 'semantic_types': ('https://metadata.datadrivendiscovery.org/types/PrimaryKey',
@@ -2118,13 +2129,13 @@ class CMUTimeSeriesForcastingTemplate(DSBoxTemplate):
                 },
                 {
                     "name": "column_parser_step",
-                    "primitives": ["d3m.primitives.data_transformation.column_parser.DataFrameCommon"],
+                    "primitives": ["d3m.primitives.data_transformation.column_parser.Common"],
                     "inputs": ["to_dataframe_step"]
                 },
                 {
                     "name": "extract_attribute_step",
                     "primitives": [{
-                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.CommOn",
+                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.Common",
                         "hyperparameters":
                             {
                             }
@@ -2173,7 +2184,7 @@ class CMUTimeSeriesForcastingTemplate(DSBoxTemplate):
                 {
                     "name": "extract_target_step",
                     "primitives": [{
-                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.CommOn",
+                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.Common",
                         "hyperparameters":
                             {'semantic_types': ('https://metadata.datadrivendiscovery.org/types/TrueTarget',),
                              'use_columns': (),
@@ -2198,7 +2209,7 @@ class CMUTimeSeriesForcastingTemplate(DSBoxTemplate):
                 },
                 {
                     "name":"predict_step",
-                    "primitives":["d3m.primitives.data_transformation.construct_predictions.DataFrameCommon"],
+                    "primitives":["d3m.primitives.data_transformation.construct_predictions.Common"],
                     "inputs":["model_step", "column_parser_step"]
                 }
             ]
@@ -2223,7 +2234,7 @@ class TimeSeriesForcastingTestingTemplate(DSBoxTemplate):
                 {
                     "name": "extract_attribute_step",
                     "primitives": [{
-                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.CommOn",
+                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.Common",
                         "hyperparameters":
                             {
                                 'semantic_types': ('https://metadata.datadrivendiscovery.org/types/PrimaryKey',
@@ -2253,7 +2264,7 @@ class TimeSeriesForcastingTestingTemplate(DSBoxTemplate):
                 {
                     "name": "pre_extract_target_step",
                     "primitives": [{
-                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.CommOn",
+                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.Common",
                         "hyperparameters":
                             {'semantic_types': ('https://metadata.datadrivendiscovery.org/types/TrueTarget',),
                              'use_columns': (),
@@ -2312,7 +2323,7 @@ class TimeSeriesForcastingTestingTemplate2(DSBoxTemplate):
                 {
                     "name": "extract_attribute_step",
                     "primitives": [{
-                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.CommOn",
+                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.Common",
                         "hyperparameters":
                             {
                                 'semantic_types': ('https://metadata.datadrivendiscovery.org/types/PrimaryKey',
@@ -2326,7 +2337,7 @@ class TimeSeriesForcastingTestingTemplate2(DSBoxTemplate):
                 {
                     "name": "extract_time_series_file_step",
                     "primitives": [{
-                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.CommOn",
+                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.Common",
                         "hyperparameters":
                             {
                                 'semantic_types': (
@@ -2380,7 +2391,7 @@ class TimeSeriesForcastingTestingTemplate2(DSBoxTemplate):
                 {
                     "name": "extract_target_step",
                     "primitives": [{
-                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.CommOn",
+                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.Common",
                         "hyperparameters":
                             {
                                 'semantic_types': (
@@ -2432,7 +2443,7 @@ class DefaultObjectDetectionTemplate(DSBoxTemplate):
                 {
                     "name": "extract_file_step",#step 2
                     "primitives": [{
-                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.CommOn",
+                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.Common",
                         "hyperparameters":
                             {
                                 'semantic_types': (
@@ -2447,7 +2458,7 @@ class DefaultObjectDetectionTemplate(DSBoxTemplate):
                 {
                     "name": "extract_target_step",# step 3
                     "primitives": [{
-                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.CommOn",
+                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.Common",
                         "hyperparameters":
                             {
                                 'semantic_types': (
@@ -2492,7 +2503,7 @@ class JPLObjectDetectionTemplate(DSBoxTemplate):
                 {
                     "name": "extrac_step",# step 2
                     "primitives": [{
-                        "primitive": "d3m.primitives.data_transformation.column_parser.DataFrameCommon",
+                        "primitive": "d3m.primitives.data_transformation.column_parser.Common",
                         "hyperparameters":
                             {
                                 'parse_semantic_types': (
@@ -2509,7 +2520,7 @@ class JPLObjectDetectionTemplate(DSBoxTemplate):
                     "name": "image_reader_step", # step 3
                     "primitives": [
                         {
-                            "primitive": "d3m.primitives.data_preprocessing.image_reader.DataFrameCommon",
+                            "primitive": "d3m.primitives.data_preprocessing.image_reader.Common",
                             "hyperparameters": {
                             }
                         }
@@ -2563,7 +2574,7 @@ class DefaultVideoClassificationTemplate(DSBoxTemplate):
                 {
                     "name": "extract_file_step",#step 2
                     "primitives": [{
-                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.CommOn",
+                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.Common",
                         "hyperparameters":
                             {
                                 'semantic_types': (
@@ -2578,7 +2589,7 @@ class DefaultVideoClassificationTemplate(DSBoxTemplate):
                 {
                     "name": "extract_target_step",# step 3
                     "primitives": [{
-                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.CommOn",
+                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.Common",
                         "hyperparameters":
                             {
                                 'semantic_types': (
@@ -2591,7 +2602,7 @@ class DefaultVideoClassificationTemplate(DSBoxTemplate):
                 },
                 {
                     "name": "video_reader",#step 4
-                    "primitives": ["d3m.primitives.data_preprocessing.video_reader.DataFrameCommon"],
+                    "primitives": ["d3m.primitives.data_preprocessing.video_reader.Common"],
                     "inputs": ["extract_file_step"]
                 },
                 {
@@ -2649,7 +2660,7 @@ class DefaultTimeseriesCollectionTemplate(DSBoxTemplate):
                 {
                     "name": "pre_extract_target_step",
                     "primitives": [{
-                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.CommOn",
+                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.Common",
                         "hyperparameters":
                             {'semantic_types': ('https://metadata.datadrivendiscovery.org/types/TrueTarget',),
                              'use_columns': (),
@@ -2670,7 +2681,7 @@ class DefaultTimeseriesCollectionTemplate(DSBoxTemplate):
                 },
                 # {
                 #     "name": "column_parser_step",
-                #     "primitives": ["d3m.primitives.data_transformation.column_parser.DataFrameCommon"],
+                #     "primitives": ["d3m.primitives.data_transformation.column_parser.Common"],
                 #     "inputs": ["extract_target_step"]
                 # },
 
@@ -2758,7 +2769,7 @@ class DefaultTimeseriesRegressionTemplate(DSBoxTemplate):
                 {
                     "name": "pre_extract_target_step",
                     "primitives": [{
-                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.CommOn",
+                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.Common",
                         "hyperparameters":
                             {'semantic_types': ('https://metadata.datadrivendiscovery.org/types/TrueTarget',),
                              'use_columns': (),
@@ -2782,7 +2793,7 @@ class DefaultTimeseriesRegressionTemplate(DSBoxTemplate):
                 {
                     "name": "extract_attribute_step",
                     "primitives": [{
-                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.CommOn",
+                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.Common",
                         "hyperparameters":
                             {
                                 'semantic_types': ('https://metadata.datadrivendiscovery.org/types/PrimaryKey',
@@ -2882,7 +2893,7 @@ class TA1VggImageProcessingRegressionTemplate(DSBoxTemplate):
                 {
                     "name": "pre_extract_target_step",
                     "primitives": [{
-                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.CommOn",
+                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.Common",
                         "hyperparameters":
                             {'semantic_types': ('https://metadata.datadrivendiscovery.org/types/TrueTarget',),
                              'use_columns': (),
@@ -2968,7 +2979,7 @@ class DefaultImageProcessingRegressionTemplate(DSBoxTemplate):
                 {
                     "name": "pre_extract_target_step",
                     "primitives": [{
-                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.CommOn",
+                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.Common",
                         "hyperparameters":
                             {'semantic_types': ('https://metadata.datadrivendiscovery.org/types/TrueTarget',),
                              'use_columns': (),
@@ -2989,7 +3000,7 @@ class DefaultImageProcessingRegressionTemplate(DSBoxTemplate):
                 },
                 # {
                 #     "name": "column_parser_step",
-                #     "primitives": ["d3m.primitives.data_transformation.column_parser.DataFrameCommon"],
+                #     "primitives": ["d3m.primitives.data_transformation.column_parser.Common"],
                 #     "inputs": ["to_dataframe_step"]
                 # },
                 # read X value
@@ -3063,7 +3074,7 @@ class DefaultImageProcessingClassificationTemplate(DSBoxTemplate):
                 {
                     "name": "pre_extract_target_step",
                     "primitives": [{
-                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.CommOn",
+                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.Common",
                         "hyperparameters":
                             {'semantic_types': ('https://metadata.datadrivendiscovery.org/types/TrueTarget',),
                              'use_columns': (),
@@ -3084,7 +3095,7 @@ class DefaultImageProcessingClassificationTemplate(DSBoxTemplate):
                 },
                 # {
                 #     "name": "column_parser_step",
-                #     "primitives": ["d3m.primitives.data_transformation.column_parser.DataFrameCommon"],
+                #     "primitives": ["d3m.primitives.data_transformation.column_parser.Common"],
                 #     "inputs": ["to_dataframe_step"]
                 # },
                 # read X value
@@ -3274,7 +3285,7 @@ class DefaultLinkPredictionTemplate(DSBoxTemplate):
                 {
                     "name": "extract_attribute_step",
                     "primitives": [{
-                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.CommOn",
+                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.Common",
                         "hyperparameters":
                             {
                                 'semantic_types': ('https://metadata.datadrivendiscovery.org/types/PrimaryKey',
@@ -3293,7 +3304,7 @@ class DefaultLinkPredictionTemplate(DSBoxTemplate):
                 {
                     "name": "extract_target_step",
                     "primitives": [{
-                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.CommOn",
+                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.Common",
                         "hyperparameters":
                             {
                                 'semantic_types': ('https://metadata.datadrivendiscovery.org/types/TrueTarget',),
@@ -3371,7 +3382,7 @@ class SRIGraphMatchingTemplate(DSBoxTemplate):
                 },
                 {
                     "name":"predict_step",
-                    "primitives":["d3m.primitives.data_transformation.construct_predictions.DataFrameCommon"],
+                    "primitives":["d3m.primitives.data_transformation.construct_predictions.Common"],
                     "inputs":["model_step"]
                 }
             ]
@@ -3676,13 +3687,13 @@ class CMUClusteringTemplate(DSBoxTemplate):
                 },
                 {
                     "name": "column_parser_step",# step 1
-                    "primitives": ["d3m.primitives.data_transformation.column_parser.DataFrameCommon"],
+                    "primitives": ["d3m.primitives.data_transformation.column_parser.Common"],
                     "inputs":["to_dataframe_step"],
                 },
 
                 {
                     "name": "extract_attribute_step", # step 2
-                    "primitives": ["d3m.primitives.data_transformation.extract_columns_by_semantic_types.CommOn"],
+                    "primitives": ["d3m.primitives.data_transformation.extract_columns_by_semantic_types.Common"],
                     "inputs": ["column_parser_step"]
                 },
                 {
@@ -3701,7 +3712,7 @@ class CMUClusteringTemplate(DSBoxTemplate):
                     "name": "output_step",
                     "primitives": [
                         {
-                            "primitive": "d3m.primitives.data_transformation.construct_predictions.DataFrameCommon",
+                            "primitive": "d3m.primitives.data_transformation.construct_predictions.Common",
                         }
                     ],
                     "inputs": ["model_step", "column_parser_step"]
@@ -3734,7 +3745,7 @@ class MichiganVideoClassificationTemplate(DSBoxTemplate):
                 {
                     "name": "extract_target_step",
                     "primitives": [{
-                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.CommOn",
+                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.Common",
                         "hyperparameters":
                             {
                                 'semantic_types': (
@@ -3747,7 +3758,7 @@ class MichiganVideoClassificationTemplate(DSBoxTemplate):
                 },
                 {
                     "name": "read_video_step",
-                    "primitives": ["d3m.primitives.data_preprocessing.video_reader.DataFrameCommon"],
+                    "primitives": ["d3m.primitives.data_preprocessing.video_reader.Common"],
                     "inputs": ["to_dataframe_step"]
                 },
                 {
@@ -3780,7 +3791,7 @@ class MichiganVideoClassificationTemplate(DSBoxTemplate):
                     "name": "construct_prediction_step",
                     "primitives": [
                         {
-                            "primitive": "d3m.primitives.data_transformation.construct_predictions.DataFrameCommon",
+                            "primitive": "d3m.primitives.data_transformation.construct_predictions.Common",
                         }
                     ],
                     "inputs": ["model_step", "to_dataframe_step"]
@@ -3812,7 +3823,7 @@ class TA1ClassificationTemplate1(DSBoxTemplate):
                 {
                     "name": "extract_attribute_step",
                     "primitives": [{
-                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.CommOn",
+                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.Common",
                         "hyperparameters":
                             {
                                 'semantic_types': (
@@ -3827,7 +3838,7 @@ class TA1ClassificationTemplate1(DSBoxTemplate):
                 {
                     "name": "extract_target_step",
                     "primitives": [{
-                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.CommOn",
+                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.Common",
                         "hyperparameters":
                             {
                                 'semantic_types': ('https://metadata.datadrivendiscovery.org/types/TrueTarget',),
@@ -3963,7 +3974,7 @@ class TA1Classification_3(DSBoxTemplate):
                 {
                     "name": "extract_attribute_step",
                     "primitives": [{
-                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.CommOn",
+                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.Common",
                         "hyperparameters":
                             {
                                 'semantic_types': (
@@ -3978,7 +3989,7 @@ class TA1Classification_3(DSBoxTemplate):
                 {
                     "name": "extract_target_step",
                     "primitives": [{
-                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.CommOn",
+                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.Common",
                         "hyperparameters":
                             {
                                 'semantic_types': ('https://metadata.datadrivendiscovery.org/types/TrueTarget',),
@@ -4062,7 +4073,7 @@ class MuxinTA1ClassificationTemplate1(DSBoxTemplate):
                 {
                     "name": "extract_attribute_step",
                     "primitives": [{
-                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.CommOn",
+                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.Common",
                         "hyperparameters":
                             {
                                 'semantic_types': (
@@ -4077,7 +4088,7 @@ class MuxinTA1ClassificationTemplate1(DSBoxTemplate):
                 {
                     "name": "extract_target_step",
                     "primitives": [{
-                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.CommOn",
+                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.Common",
                         "hyperparameters":
                             {
                                 'semantic_types': ('https://metadata.datadrivendiscovery.org/types/TrueTarget',),
@@ -4161,7 +4172,7 @@ class MuxinTA1ClassificationTemplate2(DSBoxTemplate):
                 {
                     "name": "extract_attribute_step",
                     "primitives": [{
-                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.CommOn",
+                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.Common",
                         "hyperparameters":
                             {
                                 'semantic_types': (
@@ -4176,7 +4187,7 @@ class MuxinTA1ClassificationTemplate2(DSBoxTemplate):
                 {
                     "name": "extract_target_step",
                     "primitives": [{
-                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.CommOn",
+                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.Common",
                         "hyperparameters":
                             {
                                 'semantic_types': ('https://metadata.datadrivendiscovery.org/types/TrueTarget',),
@@ -4247,7 +4258,7 @@ class MuxinTA1ClassificationTemplate3(DSBoxTemplate):
                 {
                     "name": "extract_attribute_step",
                     "primitives": [{
-                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.CommOn",
+                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.Common",
                         "hyperparameters":
                             {
                                 'semantic_types': (
@@ -4267,7 +4278,7 @@ class MuxinTA1ClassificationTemplate3(DSBoxTemplate):
                 {
                     "name": "extract_target_step",
                     "primitives": [{
-                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.CommOn",
+                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.Common",
                         "hyperparameters":
                             {
                                 'semantic_types': ('https://metadata.datadrivendiscovery.org/types/TrueTarget',),
@@ -4339,7 +4350,7 @@ class DefaultImageClassificationWithCNNTemplate(DSBoxTemplate):
                 {
                     "name": "extract_attribute_step",
                     "primitives": [{
-                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.CommOn",
+                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.Common",
                         "hyperparameters":
                             {
                                 'semantic_types': (
@@ -4355,7 +4366,7 @@ class DefaultImageClassificationWithCNNTemplate(DSBoxTemplate):
                 {
                     "name": "extract_target_step",
                     "primitives": [{
-                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.CommOn",
+                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.Common",
                         "hyperparameters":
                             {
                                 'semantic_types': ('https://metadata.datadrivendiscovery.org/types/TrueTarget',),
@@ -4426,7 +4437,7 @@ class UU3TestTemplate(DSBoxTemplate):
                 {
                     "name": "extract_attribute_step",
                     "primitives": [{
-                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.CommOn",
+                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.Common",
                         "hyperparameters":
                             {
                                 'semantic_types': (
@@ -4441,7 +4452,7 @@ class UU3TestTemplate(DSBoxTemplate):
                 {
                     "name": "extract_target_step",
                     "primitives": [{
-                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.CommOn",
+                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.Common",
                         "hyperparameters":
                             {
                                 'semantic_types': ('https://metadata.datadrivendiscovery.org/types/TrueTarget',),
@@ -4513,7 +4524,7 @@ class HorizontalTemplate(DSBoxTemplate): #This template only generate processed 
                 {
                     "name": "extract_attribute_step",
                     "primitives": [{
-                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.CommOn",
+                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.Common",
                         "hyperparameters":
                             {
                                 'semantic_types': (
@@ -4575,7 +4586,7 @@ class HorizontalTemplate(DSBoxTemplate): #This template only generate processed 
                 # {
                 #     "name": "extract_target_step",
                 #     "primitives": [{
-                #         "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.CommOn",
+                #         "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.Common",
                 #         "hyperparameters":
                 #             {
                 #                 'semantic_types': (
@@ -4610,7 +4621,7 @@ class CornellMatrixFactorization(DSBoxTemplate):
                 {
                     "name": "parser_step",
                     "primitives":[{
-                        "primitive":"d3m.primitives.data_transformation.extract_columns_by_semantic_types.CommOn",
+                        "primitive":"d3m.primitives.data_transformation.extract_columns_by_semantic_types.Common",
                         "hyperparameters": {
                             "semantic_types": ('https://metadata.datadrivendiscovery.org/types/Attribute',)
                         }
@@ -4642,7 +4653,7 @@ class CornellMatrixFactorization(DSBoxTemplate):
                 {
                     "name": "extract_target_step",
                     "primitives":[{
-                        "primitive":"d3m.primitives.data_transformation.extract_columns_by_semantic_types.CommOn",
+                        "primitive":"d3m.primitives.data_transformation.extract_columns_by_semantic_types.Common",
                         "hyperparameters": {
                                 "semantic_types":("https://metadata.datadrivendiscovery.org/types/TrueTarget",)}
                 }],
@@ -4687,7 +4698,7 @@ class ISIGraphNormClf(DSBoxTemplate):
                               {
                     "name": "extract_target_step",
                     "primitives": [{
-                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.CommOn",
+                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.Common",
                         "hyperparameters":
                             {
                                 'semantic_types': ('https://metadata.datadrivendiscovery.org/types/TrueTarget',
@@ -4795,7 +4806,7 @@ class ISI_GCN(DSBoxTemplate):
                 {
                     "name": "extract_target_step",
                     "primitives": [{
-                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.CommOn",
+                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.Common",
                         "hyperparameters":
                         {
                             'semantic_types': ('https://metadata.datadrivendiscovery.org/types/TrueTarget',),
@@ -4890,7 +4901,7 @@ class LupiSvmClassification(DSBoxTemplate):
                 },
                 {
                     "name": "prediction_step",
-                    "primitives": ["d3m.primitives.data_transformation.construct_predictions.DataFrameCommon"],
+                    "primitives": ["d3m.primitives.data_transformation.construct_predictions.Common"],
                     "inputs": ["model_step", "to_dataframe_step"]
                 }
 
@@ -4916,7 +4927,7 @@ class LupiRfClassification(DSBoxTemplate):
                 {
                     "name": "extract_target_step",
                     "primitives": [{
-                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.CommOn",
+                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.Common",
                         "hyperparameters":
                         {
                             'semantic_types': ('https://metadata.datadrivendiscovery.org/types/TrueTarget',),
@@ -4992,7 +5003,7 @@ class LupiRfClassification(DSBoxTemplate):
                 },
                 {
                     "name": "prediction_step",
-                    "primitives": ["d3m.primitives.data_transformation.construct_predictions.DataFrameCommon"],
+                    "primitives": ["d3m.primitives.data_transformation.construct_predictions.Common"],
                     "inputs": ["model_step", "to_dataframe_step"]
                 }
 
@@ -5016,13 +5027,13 @@ class BBNacledProblemTemplate(DSBoxTemplate):
                 },
                 {
                     "name": "parser_step",
-                    "primitives": ["d3m.primitives.data_transformation.column_parser.DataFrameCommon"],
+                    "primitives": ["d3m.primitives.data_transformation.column_parser.Common"],
                     "inputs": ["to_dataframe_step"]
                 },
                 {
                     "name": "extract_target_step",
                     "primitives": [{
-                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.CommOn",
+                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.Common",
                         "hyperparameters":
                         {
                             'semantic_types': ('https://metadata.datadrivendiscovery.org/types/TrueTarget',),
@@ -5035,7 +5046,7 @@ class BBNacledProblemTemplate(DSBoxTemplate):
                 {
                     "name": "extract_attribute_step",
                     "primitives": [{
-                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.CommOn",
+                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.Common",
                         "hyperparameters":
                         {
                             'semantic_types': ('https://metadata.datadrivendiscovery.org/types/Attribute',),
@@ -5085,7 +5096,7 @@ class BBNacledProblemTemplate(DSBoxTemplate):
                 },
                 {
                     "name": "prediction_step",
-                    "primitives": ["d3m.primitives.data_transformation.construct_predictions.DataFrameCommon"],
+                    "primitives": ["d3m.primitives.data_transformation.construct_predictions.Common"],
                     "inputs": ["model_step", "to_dataframe_step"]
                 }
 
@@ -5119,7 +5130,7 @@ class DistilacledProblemTemplate(DSBoxTemplate):
                     'name': 'steps.1',
                     'primitives': [
                         {
-                            'primitive': 'd3m.primitives.data_transformation.column_parser.DataFrameCommon',
+                            'primitive': 'd3m.primitives.data_transformation.column_parser.Common',
                             'hyperparameters': {
                                 'parse_semantic_types': [('http://schema.org/Boolean', 'http://schema.org/Integer', 'http://schema.org/Float', 'https://metadata.datadrivendiscovery.org/types/FloatVector')],
                             },
@@ -5131,7 +5142,7 @@ class DistilacledProblemTemplate(DSBoxTemplate):
                     'name': 'steps.2',
                     'primitives': [
                         {
-                            'primitive': 'd3m.primitives.data_transformation.extract_columns_by_semantic_types.CommOn',
+                            'primitive': 'd3m.primitives.data_transformation.extract_columns_by_semantic_types.Common',
                             'hyperparameters': {
                                 'semantic_types': [('https://metadata.datadrivendiscovery.org/types/Attribute',)],
                             },
@@ -5143,7 +5154,7 @@ class DistilacledProblemTemplate(DSBoxTemplate):
                     'name': 'steps.3',
                     'primitives': [
                         {
-                            'primitive': 'd3m.primitives.data_transformation.extract_columns_by_semantic_types.CommOn',
+                            'primitive': 'd3m.primitives.data_transformation.extract_columns_by_semantic_types.Common',
                             'hyperparameters': {
                                 'semantic_types': [('https://metadata.datadrivendiscovery.org/types/Target', 'https://metadata.datadrivendiscovery.org/types/TrueTarget')],
                             },
@@ -5263,7 +5274,7 @@ class DistilacledProblemTemplate(DSBoxTemplate):
                     'name': 'steps.13',
                     'primitives': [
                         {
-                            'primitive': 'd3m.primitives.data_transformation.construct_predictions.DataFrameCommon',
+                            'primitive': 'd3m.primitives.data_transformation.construct_predictions.Common',
                             'hyperparameters': {
                             },
                         },
@@ -5301,7 +5312,7 @@ class CMUacledProblemTemplate(DSBoxTemplate):
                     'name': 'steps.1',
                     'primitives': [
                         {
-                            'primitive': 'd3m.primitives.data_transformation.column_parser.DataFrameCommon',
+                            'primitive': 'd3m.primitives.data_transformation.column_parser.Common',
                             'hyperparameters': {
                             },
                         },
@@ -5312,7 +5323,7 @@ class CMUacledProblemTemplate(DSBoxTemplate):
                     'name': 'steps.2',
                     'primitives': [
                         {
-                            'primitive': 'd3m.primitives.data_transformation.extract_columns_by_semantic_types.CommOn',
+                            'primitive': 'd3m.primitives.data_transformation.extract_columns_by_semantic_types.Common',
                             'hyperparameters': {
                                 'semantic_types': [('https://metadata.datadrivendiscovery.org/types/Attribute',)],
                             },
@@ -5324,7 +5335,7 @@ class CMUacledProblemTemplate(DSBoxTemplate):
                     'name': 'steps.3',
                     'primitives': [
                         {
-                            'primitive': 'd3m.primitives.data_transformation.extract_columns_by_semantic_types.CommOn',
+                            'primitive': 'd3m.primitives.data_transformation.extract_columns_by_semantic_types.Common',
                             'hyperparameters': {
                                 'semantic_types': [('https://metadata.datadrivendiscovery.org/types/Target', 'https://metadata.datadrivendiscovery.org/types/TrueTarget')],
                             },
@@ -5372,7 +5383,7 @@ class CMUacledProblemTemplate(DSBoxTemplate):
                         },
                         {
                             "primitive":
-                                "d3m.primitives.classification.xgboost_gbtree.DataFrameCommon",
+                                "d3m.primitives.classification.xgboost_gbtree.Common",
                             "hyperparameters":
                                 {
                                     # 'use_semantic_types': [True],
@@ -5392,7 +5403,7 @@ class CMUacledProblemTemplate(DSBoxTemplate):
                     'name': 'steps.6',
                     'primitives': [
                         {
-                            'primitive': 'd3m.primitives.data_transformation.construct_predictions.DataFrameCommon',
+                            'primitive': 'd3m.primitives.data_transformation.construct_predictions.Common',
                             'hyperparameters': {
                             },
                         },
@@ -5420,13 +5431,13 @@ class DistilPreprocessingTemplate(DSBoxTemplate):
                 },
                 {
                     "name": "parser_step",
-                    "primitives": ["d3m.primitives.data_transformation.column_parser.DataFrameCommon"],
+                    "primitives": ["d3m.primitives.data_transformation.column_parser.Common"],
                     "inputs": ["to_dataframe_step"]
                 },
                 {
                     "name": "extract_target_step",
                     "primitives": [{
-                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.CommOn",
+                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.Common",
                         "hyperparameters":
                         {
                             'semantic_types': ('https://metadata.datadrivendiscovery.org/types/TrueTarget',),
@@ -5439,7 +5450,7 @@ class DistilPreprocessingTemplate(DSBoxTemplate):
                 {
                     "name": "extract_attribute_step",
                     "primitives": [{
-                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.CommOn",
+                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.Common",
                         "hyperparameters":
                         {
                             'semantic_types': ('https://metadata.datadrivendiscovery.org/types/Attribute',),
@@ -5582,7 +5593,7 @@ class DistilPreprocessingTemplate(DSBoxTemplate):
                 },
                 {
                     "name": "prediction_step",
-                    "primitives": ["d3m.primitives.data_transformation.construct_predictions.DataFrameCommon"],
+                    "primitives": ["d3m.primitives.data_transformation.construct_predictions.Common"],
                     "inputs": ["model_step", "to_dataframe_step"]
                 }
 
@@ -5615,13 +5626,13 @@ class SRIVertexClassificationTemplate(DSBoxTemplate):
                 },
                 {
                     "name": "parser_step",
-                    "primitives": ["d3m.primitives.data_transformation.column_parser.DataFrameCommon"],
+                    "primitives": ["d3m.primitives.data_transformation.column_parser.Common"],
                     "inputs": ["to_dataframe_step"]
                 },
                 {
                     "name": "extract_target_step",
                     "primitives": [{
-                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.CommOn",
+                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.Common",
                         "hyperparameters":
                         {
                             'semantic_types': ('https://metadata.datadrivendiscovery.org/types/TrueTarget',),
@@ -5634,7 +5645,7 @@ class SRIVertexClassificationTemplate(DSBoxTemplate):
                 {
                     "name": "extract_attribute_step",
                     "primitives": [{
-                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.CommOn",
+                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.Common",
                         "hyperparameters":
                         {
                             'semantic_types': ('https://metadata.datadrivendiscovery.org/types/Attribute',),
@@ -5677,7 +5688,7 @@ class SRIVertexClassificationTemplate(DSBoxTemplate):
                 },
                 {
                     "name": "prediction_step",
-                    "primitives": ["d3m.primitives.data_transformation.construct_predictions.DataFrameCommon"],
+                    "primitives": ["d3m.primitives.data_transformation.construct_predictions.Common"],
                     "inputs": ["model_step", "to_dataframe_step"]
                 }
             ]
@@ -5709,7 +5720,7 @@ class MultiLabelTemplate(DSBoxTemplate):
                     'name': 'steps.2',
                     'primitives': [
                         {
-                            'primitive': 'd3m.primitives.data_transformation.extract_columns_by_semantic_types.CommOn',
+                            'primitive': 'd3m.primitives.data_transformation.extract_columns_by_semantic_types.Common',
                             'hyperparameters': {
                                 'semantic_types': [
                                     ('https://metadata.datadrivendiscovery.org/types/PrimaryKey',
@@ -5724,7 +5735,7 @@ class MultiLabelTemplate(DSBoxTemplate):
                     'name': 'steps.3',
                     'primitives': [
                         {
-                            'primitive': 'd3m.primitives.data_transformation.extract_columns_by_semantic_types.CommOn',
+                            'primitive': 'd3m.primitives.data_transformation.extract_columns_by_semantic_types.Common',
                             'hyperparameters': {
                                 'semantic_types': [
                                     ('https://metadata.datadrivendiscovery.org/types/PrimaryKey',
@@ -5739,7 +5750,7 @@ class MultiLabelTemplate(DSBoxTemplate):
                     'name': 'steps.4',
                     'primitives': [
                         {
-                            'primitive': 'd3m.primitives.data_transformation.column_parser.DataFrameCommon',
+                            'primitive': 'd3m.primitives.data_transformation.column_parser.Common',
                             'hyperparameters': {
                             },
                         },

@@ -214,7 +214,7 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
         self._repeat_times_level_1 = 1
 
         # for timeseries forcasting, we can't compare directly
-        if self.problem['problem']['task_type'] == TaskKeyword.TIME_SERIES:
+        if TaskKeyword.TIME_SERIES in self.problem['problem']['task_keywords']:
             # just skip for now
             # TODO: add one way to evalute time series forecasting pipeline quality
             # (something like sliding window)
@@ -281,7 +281,19 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
             # training_ground_truth = get_target_columns(self.train_dataset1)
             # training_metrics = calculate_score(training_ground_truth, training_prediction,
             #     self.performance_metrics, self.task_type, SpecialMetric().regression_metric)
-            training_metrics = score_prediction(training_prediction, [self.train_dataset1], self.problem, self.performance_metrics, self.random_seed)
+            try:
+                training_metrics = score_prediction(training_prediction, [self.train_dataset1], self.problem, self.performance_metrics, self.random_seed)
+            # v2019.11.19: add check on those pipelines that only failed on scoring
+            except ValueError:
+                _logger.warning("Detect pipeline that generate predictions but failed on scoring, will record this pipeline!")
+                pipelines_failed_on_scoring_but_executed = self.evaluating_pipeline.to_json()
+                save_path = os.path.join(os.environ['D3MOUTPUTDIR'], "logs", "pipelines_failed_on_scoring_but_executed.log")
+                with open(save_path,'a') as f:
+                    f.write("*" * 120 + "\n")
+                    f.write("From template {} \n".format(str(self.template)))
+                    f.write(pipelines_failed_on_scoring_but_executed)
+                # still raise the error because we can't continue without score metrics here
+                raise
 
             cv_metrics = fitted_pipeline.get_cross_validation_metrics()
             test_metrics = copy.deepcopy(training_metrics)

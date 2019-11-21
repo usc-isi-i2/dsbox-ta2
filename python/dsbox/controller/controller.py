@@ -468,6 +468,8 @@ class Controller:
             template_list=self.template_list,
             performance_metrics=self.config.problem['problem']['performance_metrics'],
             problem=self.config.problem,
+            # updated v2019.11: now do not send these datasets, but will let subprocess to load instead
+            # to reduce the size of each pickled subprocess and prevent multiprocess queue out ot space
             test_dataset1=None,#self.test_dataset1,
             train_dataset1=None,#self.train_dataset1,
             test_dataset2=None,#self.test_dataset2,
@@ -1251,7 +1253,7 @@ class Controller:
         problem = self.config.problem
 
         # do not remove columns for cluster dataset!
-        if problem['problem']['task_type'] == TaskKeyword.CLUSTERING:
+        if TaskKeyword.CLUSTERING in problem['problem']['task_keywords']:
             return dataset
 
         resID, _ = d3m_utils.get_tabular_resource(dataset=dataset, resource_id=None)
@@ -1301,6 +1303,8 @@ class Controller:
             return dataset_with_new_meta
         '''
         task_type = self.problem_info["task_type"]  # ['problem']['task_type'].name  # 'classification' 'regression'
+        if not isinstance(task_type, list): 
+            task_type = [task_type]
         # res_id = self.problem_info["res_id"]
         # target_index = self.problem_info["target_index"]
         data_type = self.problem_info["data_type"]
@@ -1314,8 +1318,7 @@ class Controller:
 
         # check second time if the program think we still can split
         if not cannot_split:
-            if task_type is not list:
-                task_type_check = [task_type]
+            task_type_check = task_type
 
             for each in task_type_check:
                 if each not in self.task_type_can_split:
@@ -1339,7 +1342,7 @@ class Controller:
                 from common_primitives.train_score_split import TrainScoreDatasetSplitPrimitive, Hyperparams as hyper_train_split
                 hyperparams_split = hyper_train_split.defaults()
                 hyperparams_split = hyperparams_split.replace({"train_score_ratio": train_ratio, "shuffle": True})
-                if task_type == 'CLASSIFICATION':
+                if 'CLASSIFICATION' in task_type:
                     hyperparams_split = hyperparams_split.replace({"stratified": True})
                 else:  # if not task_type == "REGRESSION":
                     hyperparams_split = hyperparams_split.replace({"stratified": False})
@@ -1349,7 +1352,7 @@ class Controller:
                 from common_primitives.kfold_split import KFoldDatasetSplitPrimitive, Hyperparams as hyper_k_fold
                 hyperparams_split = hyper_k_fold.defaults()
                 hyperparams_split = hyperparams_split.replace({"number_of_folds":n_splits, "shuffle":True})
-                if task_type == 'CLASSIFICATION':
+                if 'CLASSIFICATION' in task_type:
                     hyperparams_split = hyperparams_split.replace({"stratified":True})
                 else:# if not task_type == "REGRESSION":
                     hyperparams_split = hyperparams_split.replace({"stratified":False})
