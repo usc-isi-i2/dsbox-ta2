@@ -164,7 +164,7 @@ class Runtime(runtime_base.Runtime):
         if self.phase == metadata_base.PipelineRunPhase.FIT:
             hyperparams = self._prepare_primitive_hyperparams(step)
 
-            prim_name, prim_hash = self.cache._get_hash(
+            prim_name, prim_hash = self.cache.get_hash(
                 hash_prefix=None,
                 pipe_step=self.pipeline.steps[self.current_step],
                 primitive_arguments=arguments,

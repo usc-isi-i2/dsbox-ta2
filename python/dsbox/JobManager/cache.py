@@ -262,8 +262,46 @@ class PrimitivesCache:
         return (prim_name, prim_hash) in self.storage
 
     @staticmethod
+    def _get_argument_hash(key: str, value, *, fast_unsafe_method=False) -> int:
+
+        # TODO the list part is related to timeseries datasets. chcek this with team
+        assert (isinstance(value, Dataset) or
+                isinstance(value, DataFrame) or
+                isinstance(value, typing.List)), \
+               f"Key {key} value type not valid {type(value)}"
+
+        result = hash(key)
+        if fast_unsafe_method:
+            result += hash(str(value))
+            return result
+
+        if isinstance(value, DataFrame):
+            # v2019.6.30
+            # this added part used to check whether the input dataframe has column with ndarray
+            # hashing large ndarray is very slow so we should not do hash on this part
+            a_copy = copy.copy(value)
+            if type(value) is DataFrame:
+                for i in range(value.shape[1]):
+                    if type(value.iloc[0, i]) is d3m_ndarray:
+                        drop_column_name = value.columns[i]
+                        a_copy = a_copy.drop(columns=drop_column_name)
+                        _logger.warning("Dropping column: {}".format(drop_column_name))
+                value = a_copy
+
+            result += hash(value.values.tobytes())
+        else:
+            result += hash(str(value))
+        return result
+
+    @staticmethod
+    def get_hash(pipe_step: PrimitiveStep, primitive_arguments: typing.Dict,
+                 primitive_hyperparams: typing.Dict,  # 2019-7-11: must pass in hyperparams
+                 hash_prefix: int = None) -> typing.Tuple[int, int]:
+        return PrimitivesCache._get_hash(pipe_step, primitive_arguments, primitive_hyperparams, hash_prefix)
+
+    @staticmethod
     def _get_hash(pipe_step: PrimitiveStep, primitive_arguments: typing.Dict,
-                  primitive_hyperparams: typing.Dict,  # 2019-7-11: must pass in hyperparams
+                  primitive_hyperparams: typing.Dict,
                   hash_prefix: int = None) -> typing.Tuple[int, int]:
         prim_name = str(pipe_step.primitive)
         hyperparam_hash = hash(str(primitive_hyperparams.items()))
@@ -276,34 +314,16 @@ class PrimitivesCache:
         except Exception:
             pass
 
-        # print(primitive_arguments['inputs'])
-        # TODO the list part is related to timeseries datasets. chcek this with team
-        assert (isinstance(primitive_arguments['inputs'], Dataset) or
-                isinstance(primitive_arguments['inputs'], DataFrame) or
-                isinstance(primitive_arguments['inputs'], typing.List)), \
-               f"inputs type not valid {type(primitive_arguments['inputs'])}"
-
-        # v2019.6.30
-        # this added part used to check whether the input dataframe has column with ndarray
-        # hashing large ndarray is very slow so we should not do hash on this part
-        hash_part = copy.copy(primitive_arguments['inputs'])
-        if type(hash_part) is DataFrame:
-            for i in range(primitive_arguments['inputs'].shape[1]):
-                if type(primitive_arguments['inputs'].iloc[0, i]) is d3m_ndarray:
-                    drop_column_name = hash_part.columns[i]
-                    hash_part = hash_part.drop(columns=drop_column_name)
-                    _logger.warning("Dropping column: {}".format(drop_column_name))
-
+        argument_hash = 0
         if hash_prefix is None:
-            if isinstance(hash_part, DataFrame):
-                dataset_value_hash = hash(hash_part.values.tobytes())
-            else:
-                dataset_value_hash = hash(str(hash_part))
+            for key, value in primitive_arguments.items():
+                argument_hash += PrimitivesCache._get_argument_hash(key, value)
         else:
             _logger.debug("Primtive cache, hash computed in prefix mode")
-            dataset_value_hash = hash(hash_part.values.tobytes())
+            for key, value in primitive_arguments.items():
+                argument_hash += PrimitivesCache._get_argument_hash(key, value, fast_unsafe_method=True)
 
-        dataset_hash = hash(str(dataset_value_hash) + dataset_id + dataset_digest)
+        dataset_hash = hash(str(argument_hash) + dataset_id + dataset_digest)
         prim_hash = hash(str([hyperparam_hash, dataset_hash, hash_prefix]))
         _logger.debug("dataset hash {}: {}".format(prim_name, dataset_hash))
         _logger.debug("hash: {}, {}".format(prim_name, prim_hash))
