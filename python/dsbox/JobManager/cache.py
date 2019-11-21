@@ -264,7 +264,7 @@ class PrimitivesCache:
     @staticmethod
     def _get_hash(pipe_step: PrimitiveStep, primitive_arguments: typing.Dict,
                   primitive_hyperparams: typing.Dict,  # 2019-7-11: must pass in hyperparams
-                  hash_prefix: int=None) -> typing.Tuple[int, int]:
+                  hash_prefix: int = None) -> typing.Tuple[int, int]:
         prim_name = str(pipe_step.primitive)
         hyperparam_hash = hash(str(primitive_hyperparams.items()))
 
@@ -273,7 +273,7 @@ class PrimitivesCache:
         try:
             dataset_id = str(primitive_arguments['inputs'].metadata.query(())['id'])
             dataset_digest = str(primitive_arguments['inputs'].metadata.query(())['digest'])
-        except:
+        except Exception:
             pass
 
         # print(primitive_arguments['inputs'])
@@ -292,14 +292,19 @@ class PrimitivesCache:
                 if type(primitive_arguments['inputs'].iloc[0, i]) is d3m_ndarray:
                     drop_column_name = hash_part.columns[i]
                     hash_part = hash_part.drop(columns=drop_column_name)
+                    _logger.warning("Dropping column: {}".format(drop_column_name))
 
         if hash_prefix is None:
-            _logger.debug("Primtive cache, hash computed in prefix mode")
-            dataset_value_hash = hash(str(hash_part))
+            if isinstance(hash_part, DataFrame):
+                dataset_value_hash = hash(hash_part.values.tobytes())
+            else:
+                dataset_value_hash = hash(str(hash_part))
         else:
+            _logger.debug("Primtive cache, hash computed in prefix mode")
             dataset_value_hash = hash(hash_part.values.tobytes())
 
         dataset_hash = hash(str(dataset_value_hash) + dataset_id + dataset_digest)
         prim_hash = hash(str([hyperparam_hash, dataset_hash, hash_prefix]))
+        _logger.debug("dataset hash {}: {}".format(prim_name, dataset_hash))
         _logger.debug("hash: {}, {}".format(prim_name, prim_hash))
         return prim_name, prim_hash

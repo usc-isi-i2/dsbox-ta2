@@ -495,6 +495,8 @@ class Runtime(runtime_base.Runtime):
                 if isinstance(outputs_actual[output_id], DataFrame):
                     try:
                         outputs_actual[output_id][:MAX_DUMP_SIZE].to_csv(debug_file)
+                        with open(debug_file + '.pickle', 'wb') as fd:
+                            pickle.dump(outputs[output_id], fd)
                     except Exception:
                         pass
 
@@ -511,6 +513,8 @@ class Runtime(runtime_base.Runtime):
                 if isinstance(outputs[output_id], DataFrame):
                     try:
                         outputs[output_id][:MAX_DUMP_SIZE].to_csv(debug_file)
+                        with open(debug_file + '.pickle', 'wb') as fd:
+                            pickle.dump(outputs[output_id], fd)
                     except Exception:
                         pass
 
