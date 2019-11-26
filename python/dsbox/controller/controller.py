@@ -799,6 +799,7 @@ class Controller:
                         self._logger.info("Agument No.{} do not add any extra columns! Will ignore.".format(augment_num))
                     else:
                         self._logger.debug("Augmented dataset's shape is {}".format(str(supplied_dataframe.shape)))
+                        res_dict[str(augment_num) + "_res"] = supplied_dataframe
                         res_dict[augment_num] = True
                         self._logger.info("Agument No.{} success".format(augment_num))
             except:
@@ -850,6 +851,8 @@ class Controller:
             self._logger.info(summary)
             self._logger.info("-"*100)
 
+        import pdb
+        pdb.set_trace()
         return filterd_results
 
     def do_data_augmentation(self, input_all_dataset: Dataset) -> Dataset:
