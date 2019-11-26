@@ -851,8 +851,6 @@ class Controller:
             self._logger.info(summary)
             self._logger.info("-"*100)
 
-        import pdb
-        pdb.set_trace()
         return filterd_results
 
     def do_data_augmentation(self, input_all_dataset: Dataset) -> Dataset:
