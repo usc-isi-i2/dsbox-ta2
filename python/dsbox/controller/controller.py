@@ -8,18 +8,22 @@ import pickle
 import pprint
 import random
 import shutil
+import time
 import traceback
 import typing
 import copy
 import datamart
+import multiprocessing
 import pandas as pd  # type: ignore
 from d3m.base import utils as d3m_utils
 from d3m.container.dataset import Dataset, D3MDatasetLoader
 from d3m.metadata.base import ALL_ELEMENTS
-from d3m.metadata.problem import TaskType
+# no more tasktype since d3m core package v2019.11.10
+from d3m.metadata.problem import TaskKeyword
 from wikifier import wikifier
 from datamart_isi.cache.metadata_cache import MetadataCache
 from datamart_isi.utilities.download_manager import DownloadManager
+from datamart_isi.utilities.timeout import timeout_call
 from datamart_isi import config as config_datamart
 from datamart_isi import rest
 
@@ -240,8 +244,6 @@ class Controller:
             for each_type in doc["dataResources"]:
                 self.taskSourceType.add(each_type["resType"])
         self.problem_info["data_type"] = self.taskSourceType
-
-
         # !!!!
         # self.saved_pipeline_id = config.get('saved_pipeline_ID', "")
         self.saved_pipeline_id = ""
@@ -250,7 +252,7 @@ class Controller:
             if 'targets' in self.config.problem['inputs'][i]:
                 break
 
-        self.problem_info["task_type"] = self.config.problem['problem']['task_type'].name
+        self.problem_info["task_type"] = [x.name for x in self.config.problem['problem']['task_keywords']]
         # example of task_type : 'classification' 'regression'
         self.problem_info["res_id"] = self.config.problem['inputs'][i]['targets'][0]['resource_id']
         self.problem_info["target_index"] = []
@@ -466,12 +468,14 @@ class Controller:
             template_list=self.template_list,
             performance_metrics=self.config.problem['problem']['performance_metrics'],
             problem=self.config.problem,
-            test_dataset1=self.test_dataset1,
-            train_dataset1=self.train_dataset1,
-            test_dataset2=self.test_dataset2,
-            train_dataset2=self.train_dataset2,
-            all_dataset=self.all_dataset,
-            ensemble_tuning_dataset=self.ensemble_dataset,
+            # updated v2019.11: now do not send these datasets, but will let subprocess to load instead
+            # to reduce the size of each pickled subprocess and prevent multiprocess queue out ot space
+            test_dataset1=None,#self.test_dataset1,
+            train_dataset1=None,#self.train_dataset1,
+            test_dataset2=None,#self.test_dataset2,
+            train_dataset2=None,#self.train_dataset2,
+            all_dataset=None,#self.all_dataset,
+            ensemble_tuning_dataset=None,#self.ensemble_dataset,
             output_directory=self.config.output_dir,
             start_time=self.config.start_time,
             timeout_sec=self.config.timeout_search,
@@ -674,7 +678,8 @@ class Controller:
         function that do augmentation from rest api(server) side
         """
         augment_times = 0
-        datamart_unit = rest.RESTDatamart(connection_url=self.config.datamart_nyu_url)
+        system_url = os.environ.get('DATAMART_URL_ISI')
+        datamart_unit = rest.RESTDatamart(connection_url=system_url)
         augment_res = copy.copy(self.all_dataset)
 
         # try to find target columns which should do wikifier
@@ -701,7 +706,7 @@ class Controller:
             self._logger.info("Current column is " + str(sample_df.columns.tolist()))
             self._logger.debug("Start running wikifier...")
             output_df = wikifier.produce(sample_df, use_cache=False)
-            self._logger.info("Wikifier running finished.")
+            self._logger.debug("Wikifier running finished.")
 
             if len(output_df.columns) > 1:
                 # save specific p/q node in cache files
@@ -718,6 +723,8 @@ class Controller:
                 for j in range(1, len(df_vectors.columns)):
                     # 201 columns: key, vector1, vector2 ...
                     sim_vector[qnode_name].append(df_vectors.iloc[:, j].mean())
+            else:
+                self._logger.info("This column do not has wikidata.")
 
         from sklearn.metrics.pairwise import cosine_similarity
         x = list(sim_vector.values())
@@ -758,107 +765,93 @@ class Controller:
             self._logger.warning("No search result returned!")
             return self.all_dataset
 
-        else:
-            for i, each_search_result in enumerate(all_results1):
-                each_search_res_json = each_search_result.get_json_metadata()
-                self._logger.info("------------ Search result No.{} ------------".format(str(i)))
-                self._logger.info(each_search_res_json['augmentation'])
-                summary = each_search_res_json['summary'].copy()
-                if "Columns" in summary:
-                    summary.pop("Columns")
-                self._logger.info(summary)
-                self._logger.info("-"*100)
+        for i, each_search_result in enumerate(all_results1):
+            each_search_res_json = each_search_result.get_json_metadata()
+            self._logger.info("------------ Original Search result No.{} ------------".format(str(i)))
+            self._logger.info(each_search_res_json['augmentation'])
+            summary = each_search_res_json['summary'].copy()
+            if "Columns" in summary:
+                summary.pop("Columns")
+            self._logger.info(summary)
+            self._logger.info("-"*100)
 
-        return all_results1
 
-        """
-        # if we get some search result
         from common_primitives.datamart_augment import Hyperparams as hyper_augment, DataMartAugmentPrimitive
         hyper_augment_default = hyper_augment.defaults()
-        hyper_augment_default = hyper_augment_default.replace({"system_identifier":"NYU"})
-        search_result_list = all_results1
-        # college one, join with score card
-        if self.all_dataset.metadata.query(())['id'].startswith("DA_college_debt"):
-            # search_result_list = [all_results1[7]]
-            search_result_list = []
-            for each_result in all_results1:
-                detail_info = each_result.get_json_metadata()
-                recommend_join_column = detail_info['summary']['Recommend Join Columns'].lower()
-                title = detail_info['summary']['title'].lower()
-                if "scorecard" in title and "instnm" in recommend_join_column:
-                    search_result_list.append(each_result)
-                    self._logger.info(each_result.id() + " has been added for augmenting list.")
+        hyper_augment_default = hyper_augment_default.replace({"system_identifier":"ISI"})
 
-        # medical one, join with NPDB1901-subset.csv.gz
-        elif self.all_dataset.metadata.query(())['id'].startswith("DA_medical_malpractice"):
-            # search_result_list = [all_results1[10]]
-            search_result_list = []
-            for each_result in all_results1:
-                detail_info = each_result.get_json_metadata()
-                recommend_join_column = detail_info['summary']['Recommend Join Columns'].lower()
-                title = detail_info['summary']['title'].lower()
-                if "npdb1901" in title and "seqno" in recommend_join_column:
-                    search_result_list.append(each_result)
-                    self._logger.info(each_result.id() + " has been added for augmenting list.")
-
-        # taxi one, join with new york weather
-        elif self.all_dataset.metadata.query(())['id'].startswith("DA_ny_taxi"):
-            # currently only one can be found
-            search_result_list = all_results1
-
-        # poverty one, join with wikidata search on state, fips and poverty
-        elif self.all_dataset.metadata.query(())['id'].startswith("DA_poverty"):
-            search_result_list = []
-            need_columns = {'FIPS_wikidata', 'State_wikidata'}
-            for each_result in all_results1:
-                detail_info = each_result.get_json_metadata()
-                # if it is wikidata search reuslts
-                if detail_info['summary']['Datamart ID'].startswith("wikidata_search"):
-                    if set([detail_info['summary']['Recommend Join Columns']]).intersection(need_columns):
-                        search_result_list.append(each_result)
-                        self._logger.info(each_result.id() + " has been added for augmenting list.")
-                else:
-                    recommend_join_column = detail_info['summary']['Recommend Join Columns'].lower()
-                    title = detail_info['summary']['title']
-                    if "fips" in recommend_join_column and "wikidata" in recommend_join_column and "poverty" in title:
-                        search_result_list.append(each_result)
-                        self._logger.info(each_result.id() + " has been added for augmenting list.")
-            # search_result_list = [all_results1[0], all_results1[1], all_results1[12]]
-
-        # acled one, join with vectors
-        elif self.all_dataset.metadata.query(())['id'].startswith("LL0_acled"):
-            search_result_list = []
-            for each_result in all_results1:
-                if each_result.id().startswith("vector_search"):
-                    search_result_list.append(each_result)
-                    self._logger.info(each_result.id() + " has been added for augmenting list.")
-
-
-        for search_res in search_result_list:
+        def augment_test_worker(augment_num, res_dict, search_res):
+            def pp(augment_res):
+                return augment_primitive.produce(inputs=augment_res).value
+            self._logger.info("Starting testing No.{} augment.".format(augment_num))
+            hyper_temp = hyper_augment_default.replace({"search_result":search_res.serialize()})
+            augment_primitive = DataMartAugmentPrimitive(hyperparams=hyper_temp)
+            prev_augment_res = copy.copy(self.all_dataset)
             try:
-                hyper_temp = hyper_augment_default.replace({"search_result":search_res.serialize()})
-                augment_primitive = DataMartAugmentPrimitive(hyperparams=hyper_temp)
-                augment_res = augment_primitive.produce(inputs=augment_res).value
-                self.dump_primitive(augment_primitive, "augment" + str(augment_times))
-                self.extra_primitive.add("augment" + str(augment_times))
-                augment_times += 1
+                augment_res = timeout_call(3000, pp, [prev_augment_res])
+                if type(augment_res) is str or augment_res is None:
+                    self._logger.info("Agument No.{} failed with error {}".format(augment_num, str(augment_res)))
+                    res_dict[augment_num] = False
+                else:
+                    _, supplied_dataframe = d3m_utils.get_tabular_resource(dataset=augment_res, resource_id=None)
+                    if supplied_dataframe.shape == original_shape:
+                        res_dict[augment_num] = False
+                        self._logger.info("Agument No.{} do not add any extra columns! Will ignore.".format(augment_num))
+                    else:
+                        self._logger.debug("Augmented dataset's shape is {}".format(str(supplied_dataframe.shape)))
+                        res_dict[str(augment_num) + "_res"] = supplied_dataframe
+                        res_dict[augment_num] = True
+                        self._logger.info("Agument No.{} success".format(augment_num))
             except:
-                continue
-        self._logger.info("Totally augmented " + str(augment_times) + " times.")
+                self._logger.info("Agument No.{} failed with error".format(augment_num))
+                res_dict[augment_num] = False
 
-        # # update the metadata of original information
-        res_id, result_df = d3m_utils.get_tabular_resource(dataset=augment_res, resource_id=None)
-        augment_res.metadata = augment_res.metadata.update((),input_all_dataset.metadata.query(()))
+        search_result_list = all_results1
+        # augment_res_list = []
+        jobs = []
+        manager = multiprocessing.Manager()
+        augment_dict = manager.dict()
+        _, original_df = d3m_utils.get_tabular_resource(dataset=self.all_dataset, resource_id=None)
+        original_shape = original_df.shape
+        self._logger.debug("Original dataset's shape is {}".format(original_shape))
 
-        # # return the augmented dataset
-        original_shape = self.all_dataset[self.problem_info["res_id"]].shape
-        _, augment_res_df = d3m_utils.get_tabular_resource(dataset=augment_res, resource_id=None)
-        augmented_shape = augment_res_df.shape
-        self._logger.info("The original dataset shape is (" + str(original_shape[0]) + ", " + str(original_shape[1]) + ")")
-        self._logger.info("The augmented dataset shape is (" + str(augmented_shape[0]) + ", " + str(augmented_shape[1]) + ")")
+        for i, search_res in enumerate(search_result_list):            
+            p = multiprocessing.Process(target=augment_test_worker, args=(i, augment_dict, search_res))
+            jobs.append(p)
+            p.start()
 
-        return augment_res
-        """
+        not_all_finished = True
+        while not_all_finished:
+            # check status each 10s
+            time.sleep(10)
+            not_all_finished = False
+            for each_job in jobs:
+                each_job.join(timeout=0)
+                if each_job.is_alive():
+                    not_all_finished = True
+                    self._logger.info("Not all testing augment finished!")
+                    break
+
+        can_augment_result_number = []
+        for key, val in augment_dict.items():
+            if val is True:
+                can_augment_result_number.append(key)
+        can_augment_result_number.sort()
+        filterd_results = []
+        for each in can_augment_result_number:
+            filterd_results.append(all_results1[each])
+
+        for i, each_search_result in enumerate(filterd_results):
+            each_search_res_json = each_search_result.get_json_metadata()
+            self._logger.info("------------ Filtered Search result No.{} ------------".format(str(i)))
+            self._logger.info(each_search_res_json['augmentation'])
+            summary = each_search_res_json['summary'].copy()
+            if "Columns" in summary:
+                summary.pop("Columns")
+            self._logger.info(summary)
+            self._logger.info("-"*100)
+
+        return filterd_results
 
     def do_data_augmentation(self, input_all_dataset: Dataset) -> Dataset:
         """
@@ -1261,7 +1254,7 @@ class Controller:
         problem = self.config.problem
 
         # do not remove columns for cluster dataset!
-        if problem['problem']['task_type'] == TaskType.CLUSTERING:
+        if TaskKeyword.CLUSTERING in problem['problem']['task_keywords']:
             return dataset
 
         resID, _ = d3m_utils.get_tabular_resource(dataset=dataset, resource_id=None)
@@ -1311,6 +1304,8 @@ class Controller:
             return dataset_with_new_meta
         '''
         task_type = self.problem_info["task_type"]  # ['problem']['task_type'].name  # 'classification' 'regression'
+        if not isinstance(task_type, list): 
+            task_type = [task_type]
         # res_id = self.problem_info["res_id"]
         # target_index = self.problem_info["target_index"]
         data_type = self.problem_info["data_type"]
@@ -1324,8 +1319,7 @@ class Controller:
 
         # check second time if the program think we still can split
         if not cannot_split:
-            if task_type is not list:
-                task_type_check = [task_type]
+            task_type_check = task_type
 
             for each in task_type_check:
                 if each not in self.task_type_can_split:
@@ -1349,7 +1343,7 @@ class Controller:
                 from common_primitives.train_score_split import TrainScoreDatasetSplitPrimitive, Hyperparams as hyper_train_split
                 hyperparams_split = hyper_train_split.defaults()
                 hyperparams_split = hyperparams_split.replace({"train_score_ratio": train_ratio, "shuffle": True})
-                if task_type == 'CLASSIFICATION':
+                if 'CLASSIFICATION' in task_type:
                     hyperparams_split = hyperparams_split.replace({"stratified": True})
                 else:  # if not task_type == "REGRESSION":
                     hyperparams_split = hyperparams_split.replace({"stratified": False})
@@ -1359,7 +1353,7 @@ class Controller:
                 from common_primitives.kfold_split import KFoldDatasetSplitPrimitive, Hyperparams as hyper_k_fold
                 hyperparams_split = hyper_k_fold.defaults()
                 hyperparams_split = hyperparams_split.replace({"number_of_folds":n_splits, "shuffle":True})
-                if task_type == 'CLASSIFICATION':
+                if 'CLASSIFICATION' in task_type:
                     hyperparams_split = hyperparams_split.replace({"stratified":True})
                 else:# if not task_type == "REGRESSION":
                     hyperparams_split = hyperparams_split.replace({"stratified":False})
@@ -1894,6 +1888,14 @@ class Controller:
         else:
             self.train_dataset2 = None
             self.test_dataset2 = None
+        from dsbox.combinatorial_search.search_utils import save_pickled_dataset
+        save_pickled_dataset(self.train_dataset1, "train_dataset1")
+        save_pickled_dataset(self.train_dataset2, "train_dataset2")
+        save_pickled_dataset(self.test_dataset1, "test_dataset1")
+        save_pickled_dataset(self.test_dataset2, "test_dataset2")
+        save_pickled_dataset(self.all_dataset, "all_dataset")
+        save_pickled_dataset(self.ensemble_dataset, "ensemble_tuning_dataset")
+
 
     def _save_dataset(self, dataset_list: typing.List[Dataset], save_dir: pathlib.Path):
         if save_dir.exists():

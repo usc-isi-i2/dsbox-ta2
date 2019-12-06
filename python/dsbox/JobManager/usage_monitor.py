@@ -85,7 +85,7 @@ class UsageMonitor:
         record_pos_end = bisect_left(self.usage_record_timeline, end_time)
         record_range = self.usage_record_timeline[record_pos_start: record_pos_end]
         if len(record_range) == 0:
-            _logger.warning("No correspoing record found for {} at time range from {} to {}".format(str(current_pid), start_time, end_time))
+            # _logger.warning("No correspoing record found for {} at time range from {} to {}".format(str(current_pid), start_time, end_time))
             return record_part
 
         current_record_cpu_usage = dict()
@@ -136,8 +136,8 @@ class UsageMonitor:
         # time.sleep(1)
         while True:
             target_pids_dict = UsageMonitor.get_all_subprocesses(target_pids)
-            _logger.debug("Following is the monitor list")
-            _logger.debug(str(target_pids_dict))
+            # _logger.debug("Following is the monitor list")
+            # _logger.debug(str(target_pids_dict))
 
             for i in range(frequency_update_pids):
                 result = UsageMonitor.get_all_usage(target_pids_dict)

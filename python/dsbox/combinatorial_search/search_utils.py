@@ -1,6 +1,8 @@
 import bisect
 import enum
+import pickle
 import operator
+import os
 import random
 from d3m.metadata.base import ALL_ELEMENTS
 from d3m.base import utils
@@ -39,6 +41,22 @@ def accumulate(iterable, func=operator.add):
     for element in it:
         total = func(total, element)
         yield total
+
+
+def save_pickled_dataset(dataset, dataset_name):
+    base_dir = os.environ.get("D3MLOCALDIR", "/tmp")
+    dataset_path = os.path.join(base_dir, dataset_name + ".pkl")
+    with open(dataset_path, 'wb') as f:
+        pickle.dump(dataset, f)
+
+
+def load_pickled_dataset(dataset_name):
+    base_dir = os.environ.get("D3MLOCALDIR", "/tmp")
+    dataset_path = os.path.join(base_dir, dataset_name + ".pkl")
+    if not os.path.exists(dataset_path):
+        return None
+    with open(dataset_path, 'rb') as f:
+        return pickle.load(f)
 
 
 class Status(enum.Enum):

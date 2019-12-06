@@ -1,13 +1,11 @@
+d3m==2019.11.10
 frozendict>=1.2
 grpcio
 grpcio-tools
 jsonpath-ng>=1.4.3
-Keras>=2.2.4
-pandas>=0.23.4
 protobuf>=3.6.1
 networkx>=2.2
-numpy==1.15.4
 psutil>=5.4.7
 PyYAML>=3.13
 scikit-learn
-datamart-userend@git+https://github.com/usc-isi-i2/datamart-userend.git@d3m
+datamart-isi@git+https://github.com/usc-isi-i2/datamart-userend.git@330aca25d2f23338e358807b7ab7bd8a1e8d88f1

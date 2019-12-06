@@ -57,6 +57,7 @@ def score_prediction_dataframe(
     metric,value,normalized,randomSeed
     F1,0.878048780487805,0.878048780487805,0
     '''
+
     pipeline_resolver = pipeline_module.get_pipeline
     scoring_pipeline: pipeline_module.Pipeline = pipeline_resolver(
         d3m_runtime.DEFAULT_SCORING_PIPELINE_PATH,

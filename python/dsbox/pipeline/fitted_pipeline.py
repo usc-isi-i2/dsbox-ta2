@@ -577,13 +577,9 @@ class FittedPipeline:
         structure['template_subtask'] = self.template_subtask
 
         if self.problem:
-            structure['problem_taskType'] = self.problem['problem']['task_type'].unparse()
-            try:
-                structure['problem_taskSubType'] = self.problem['problem']['task_subtype'].unparse()
-            except Exception:
-                structure['problem_taskSubType'] = "NONE"
+            structure['problem_task_keywords'] = [x.unparse() for x in self.problem['problem']['task_keywords']]
         else:
-            _logger.warn("Problem type of the pipeline is unknown, unable to save problem taskType / taskSubtype")
+            _logger.warn("Problem type of the pipeline is unknown, unable to save problem task keywords")
 
         # save the pipeline with json format
         json_loc = os.path.join(folder_loc, self.pipeline.id + '.json')

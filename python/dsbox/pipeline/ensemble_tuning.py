@@ -8,12 +8,13 @@ import d3m.exceptions as exceptions
 from dsbox.pipeline.fitted_pipeline import FittedPipeline
 from dsbox.template.utils import score_prediction, calculate_score, SpecialMetric
 from dsbox.schema import get_target_columns, larger_is_better
-from d3m.metadata.problem import parse_problem_description, Problem, TaskType
+from d3m.metadata.problem import parse_problem_description, Problem #,TaskType
 from d3m import runtime as runtime_module, container
 from d3m.metadata import pipeline as pipeline_module
 from d3m.metadata.base import ALL_ELEMENTS, Metadata
 from d3m import index as d3m_index
-
+# !!!!
+# FIXIME: this file is no longer updated, a lot of things need to be updated with latest d3m core version
 
 class EnsembleTuningPipeline:
     """
@@ -241,7 +242,7 @@ class EnsembleTuningPipeline:
                     temp1 = ensemble_predicts[pipeline_ids[i]]['ensemble_tuning_result']
                     temp2 = ensemble_predicts[pipeline_ids[j]]['ensemble_tuning_result']
 
-                    if self.task_type == TaskType.CLASSIFICATION:
+                    if self.task_type == TaskKeyword.CLASSIFICATION:
                         # if classification problem, use accuracy instead of f1marco
                         temp_metric = copy.deepcopy(self.performance_metrics)
                         temp_metric[0]['metric'] = 'accuracy'
@@ -249,7 +250,7 @@ class EnsembleTuningPipeline:
                         # TODO: Use utils.score_prediction. How to fix this.
                         temp_score = calculate_score(temp1, temp2, temp_metric, self.task_type, SpecialMetric().regression_metric)
 
-                    elif self.task_type == TaskType.REGRESSION:
+                    elif self.task_type == TaskKeyword.REGRESSION:
                         # if regression problem, use MSE instead of f1marco
                         temp_metric = copy.deepcopy(self.performance_metrics)
                         temp_metric[0]['metric'] = 'meanSquaredError'

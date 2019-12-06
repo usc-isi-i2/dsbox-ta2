@@ -912,8 +912,9 @@ def problem_to_dict(problem) -> typing.Dict:
             # 'id': problem.problem.id,
             # 'version': problem.problem.version,
             # 'name': problem.problem.name,
-            'task_type': d3m_problem.TaskType(problem.problem.task_type),
-            'task_subtype': d3m_problem.TaskSubtype(problem.problem.task_subtype),
+            'TaskKeyword': [d3m_problem.TaskKeyword(each_keyword).unparse() for each_keyword in problem.problem.task_keywords],
+            # 'task_type': d3m_problem.TaskType(problem.problem.task_type),
+            # 'task_subtype': d3m_problem.TaskSubtype(problem.problem.task_subtype),
             'performance_metrics': performance_metrics
         },
         # Not Needed
@@ -971,8 +972,9 @@ def problem_to_json(problem) -> typing.Dict:
             # 'problemSchemaVersion': problem.problem.version,
             # 'problemID': problem.problem.id,
             # 'problemName': problem.problem.name,
-            'taskType': d3m_problem.TaskType(problem.problem.task_type).unparse(),
-            'taskSubtype': d3m_problem.TaskSubtype(problem.problem.task_subtype).unparse(),
+            'TaskKeyword': [d3m_problem.TaskKeyword(each_keyword).unparse() for each_keyword in problem.problem.task_keywords],
+            # 'taskType': d3m_problem.TaskKeyword(problem.problem.task_keyword).unparse(),
+            # 'taskSubtype': d3m_problem.TaskSubtype(problem.problem.task_keyword).unparse(),
         }
         # Not Needed
         # 'outputs': {

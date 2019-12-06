@@ -243,8 +243,10 @@ class DsboxConfig:
         self._load_problem_rest()
 
     def _load_problem_rest(self) -> None:
-        self.task_type = self.problem['problem']['task_type']
-        self.task_subtype = self.problem['problem']['task_subtype']
+        # updated v2019.11.14: now use task keywords
+        # self.task_keywords = self.problem['problem']['task_keywords']
+        self.task_type = self.problem['problem']['task_keywords']
+        self.task_subtype = self.problem['problem']['task_keywords']
 
         dataset_ids = [obj['dataset_id'] for obj in self.problem['inputs']]
         if len(dataset_ids) > 1:
