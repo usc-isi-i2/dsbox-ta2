@@ -294,7 +294,7 @@ class FittedPipeline:
                 running_res['steps'][i]['record_frequency'] = self.runtime.record_frequency
                 running_res['steps'][i]['resource_usage'] = resource_usage
         if save_folder_loc and logging.getLogger("dsbox.template.runtime").level <= 10:
-            self.save_running_record(folder_loc=os.path.join(save_folder_loc, self.pipelines_status_subdir), 
+            self.save_running_record(folder_loc=os.path.join(save_folder_loc, self.pipelines_status_subdir),
                                      report=running_res, phase="fit")
 
     def produce(self, **arguments):
@@ -327,7 +327,7 @@ class FittedPipeline:
             running_res['steps'][i]['record_frequency'] = self.runtime.record_frequency
             running_res['steps'][i]['resource_usage'] = resource_usage
         if save_folder_loc and logging.getLogger("dsbox.template.runtime").level <= 10:
-            self.save_running_record(folder_loc=os.path.join(save_folder_loc, self.pipelines_status_subdir), 
+            self.save_running_record(folder_loc=os.path.join(save_folder_loc, self.pipelines_status_subdir),
                                      report=running_res, phase="produce")
 
     def get_cross_validation_metrics(self) -> typing.List:
@@ -616,7 +616,7 @@ class FittedPipeline:
             pipeline, structure['fitted_pipeline_id'], pipelines_fitted_dir=pipelines_fitted_dir)
 
         fitted_pipeline = FittedPipeline(pipeline, dataset_id=structure['dataset_id'], id=fitted_pipeline_id,
-                                         random_seed=structure['dataset_id'])
+                                         random_seed=structure['random_seed'])
         fitted_pipeline.runtime = runtime
         fitted_pipeline._set_fitted(runtime.steps_state)
 
