@@ -1,9 +1,9 @@
+''
 import copy
 import datetime
 import logging
 import os
 import operator
-import pickle
 import random
 import string
 import sys
@@ -12,11 +12,13 @@ import traceback
 import typing
 import uuid
 
+from pprint import pprint
+
 import pandas as pd
 import numpy as np
 
+from google.protobuf.timestamp_pb2 import Timestamp  # type: ignore
 from keras import backend as keras_backend
-from pprint import pprint
 
 # CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 # ta3ta2_api = os.path.abspath(os.path.join(
@@ -31,24 +33,21 @@ import d3m.metadata.base as mbase
 import d3m.metadata.problem as d3m_problem
 
 from d3m.container.dataset import D3MDatasetLoader
-from d3m.metadata.pipeline import Pipeline, PrimitiveStep, SubpipelineStep
+from d3m.metadata.pipeline import Pipeline, PrimitiveStep, Resolver
 from d3m.primitive_interfaces.base import PrimitiveBase
 
 import ta3ta2_api.utils as utils
 
-from ta3ta2_api import core_pb2 as core_pb2
-from ta3ta2_api import core_pb2_grpc as core_pb2_grpc
-from ta3ta2_api import problem_pb2 as problem_pb2
-from ta3ta2_api import value_pb2 as value_pb2
-from ta3ta2_api import pipeline_pb2 as pipeline_pb2
-
-from google.protobuf.reflection import GeneratedProtocolMessageType  # type: ignore
-from google.protobuf.timestamp_pb2 import Timestamp  # type: ignore
+from ta3ta2_api import core_pb2
+from ta3ta2_api import core_pb2_grpc
+from ta3ta2_api import problem_pb2
+from ta3ta2_api import value_pb2
+# from ta3ta2_api import pipeline_pb2 as pipeline_pb2
 
 # import autoflowconfig
 from ta3ta2_api.core_pb2 import DescribeSolutionResponse
 from ta3ta2_api.core_pb2 import EndSearchSolutionsResponse
-from ta3ta2_api.core_pb2 import EvaluationMethod
+# from ta3ta2_api.core_pb2 import EvaluationMethod
 from ta3ta2_api.core_pb2 import FitSolutionResponse
 from ta3ta2_api.core_pb2 import GetFitSolutionResultsResponse
 from ta3ta2_api.core_pb2 import GetProduceSolutionResultsResponse
@@ -67,12 +66,12 @@ from ta3ta2_api.core_pb2 import SearchSolutionsResponse
 from ta3ta2_api.core_pb2 import SolutionSearchScore
 from ta3ta2_api.core_pb2 import StepDescription
 from ta3ta2_api.core_pb2 import StepProgress
-from ta3ta2_api.core_pb2 import SubpipelineStepDescription
+# from ta3ta2_api.core_pb2 import SubpipelineStepDescription
 from ta3ta2_api.core_pb2 import SolutionExportResponse
 
 from ta3ta2_api.pipeline_pb2 import PipelineDescription
-from ta3ta2_api.pipeline_pb2 import PipelineDescriptionInput
-from ta3ta2_api.pipeline_pb2 import PipelineDescriptionOutput
+# from ta3ta2_api.pipeline_pb2 import PipelineDescriptionInput
+# from ta3ta2_api.pipeline_pb2 import PipelineDescriptionOutput
 from ta3ta2_api.pipeline_pb2 import PipelineDescriptionStep
 from ta3ta2_api.pipeline_pb2 import PipelineDescriptionUser
 from ta3ta2_api.pipeline_pb2 import PrimitivePipelineDescriptionStep
@@ -83,10 +82,10 @@ from ta3ta2_api.pipeline_pb2 import ContainerArgument
 from ta3ta2_api.pipeline_pb2 import DataArgument
 from ta3ta2_api.pipeline_pb2 import PrimitiveArgument
 from ta3ta2_api.pipeline_pb2 import ValueArgument
-from ta3ta2_api.pipeline_pb2 import PrimitiveArguments
+# from ta3ta2_api.pipeline_pb2 import PrimitiveArguments
 
 from ta3ta2_api.problem_pb2 import ProblemPerformanceMetric
-from ta3ta2_api.problem_pb2 import PerformanceMetric
+# from ta3ta2_api.problem_pb2 import PerformanceMetric
 from ta3ta2_api.problem_pb2 import ProblemTarget
 
 from ta3ta2_api.primitive_pb2 import Primitive
@@ -178,6 +177,9 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
         # Create scratch directory
         self.temp_dir = tempfile.TemporaryDirectory()
 
+        # Problem should not be defined here. Define as part of config?
+        self.dataset_uris = []
+
     def __del__(self):
         # Clean up scrach directory
         self.temp_dir.cleanup()
@@ -188,6 +190,10 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
         Non streaming call
         '''
         self.log_msg(msg="Hello invoked")
+
+        # Complete loading primitives before responding
+        _ = d3m.index.search()
+
         # TODO: Figure out what we should be sending back to TA3 here.
         result = HelloResponse(user_agent="ISI",
                                version=core_pb2.DESCRIPTOR.GetOptions().Extensions[core_pb2.protocol_version],
@@ -214,29 +220,27 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
             _logger.warning("Protocol Version does NOT match supported version {} != {}".format(
                 core_pb2.DESCRIPTOR.GetOptions().Extensions[core_pb2.protocol_version], request.version))
 
-        self.problem = utils.decode_problem_description(request.problem)
-        pprint(self.problem)
+        if request.HasField('template'):
+            # Currently, we only support fully specified pipelines
 
-        # problem_json_dict = problem_to_json(request.problem)
-        # problem_parsed = problem_to_dict(request.problem)
-        # print('==json')
-        # pprint(problem_json_dict)
-        # print('==parsed')
-        # pprint(problem_parsed)
-        # self.problem_parsed = problem_parsed
+            _logger.info("Pipeline specified")
+            resolver = Resolver()
+            self.config.pipeline = utils.decode_pipeline_description(request.template, resolver)
+
+            # problem field is option, if template is givien
+            if request.HasField('problem'):
+                self.problem = utils.decode_problem_description(request.problem)
+            else:
+                self.problem = None
+        else:
+            self.config.pipeline = None
+            self.problem = utils.decode_problem_description(request.problem)
+            pprint(self.problem)
 
         # Although called uri, it's just a filepath to datasetDoc.json
         self.dataset_uris = [input.dataset_uri for input in request.inputs]
 
         dataset_uris = [self._map_directories(uri) for uri in self.dataset_uris]
-
-        # problem_config = DsboxConfig(self.config)
-        # problem_config.update({
-        #     'problem_json': problem_json_dict,
-        #     'problem_parsed': problem_parsed,
-        #     'dataset_schema': dataset_uri,
-        #     'timeout': request.time_bound
-        # })
 
         # convert to seconds
         self.config.timeout = request.time_bound_search * 60
@@ -245,8 +249,15 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
         # What to do with time_bound_run?
         self.config.time_bound_run = request.time_bound_run
 
+        # Configure random seed, v2019.12.4
+        if request.HasField('random_seed'):
+            self.config.random_seed = request.random_seed
+        else:
+            self.config.random_seed = 0
+
         self.config.dataset_schema_files = dataset_uris
-        self.config.set_problem(self.problem)
+        if self.problem:
+            self.config.set_problem(self.problem)
 
         print('===config')
         print(self.config)
@@ -279,10 +290,14 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
         # Workaround for loading in keras graphs multiple times
         keras_backend.clear_session()
 
+        problem_config = self.search_solution[request.search_id]
+
+        if problem_config.pipeline is not None:
+            self.fit_pipeline(problem_config)
+
         if request.search_id in self._search_cache:
             search_solutions_results = self._search_cache[request.search_id]
         else:
-            problem_config = self.search_solution[request.search_id]
 
             self.controller.initialize_from_ta3(problem_config)
             _ = self.controller.train()
@@ -325,6 +340,37 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
             yield solution
 
         self.log_msg(msg="DONE: GetSearchSolutionsResults invoked with search_id: " + request.search_id)
+
+    def fit_pipeline(self, problem_config):
+        start_time = utils.encode_timestamp(datetime.datetime.now(datetime.timezone.utc))
+        self.controller.initialize_from_ta3(problem_config)
+        try:
+            self.controller.fit_pipeline()
+        except:
+            traceback.print_exc()
+            response = GetSearchSolutionsResultsResponse(
+                progress=Progress(
+                    state=ProgressState.ERRORED,
+                    status="Error occured while trying to fit solution results",
+                    start=start_time,
+                    end=utils.encode_timestamp(datetime.datetime.now(datetime.timezone.utc))
+                )
+            )
+            yield response
+            return
+
+        fitted_pipeline_id = self.controller.fitted_pipeline.id
+        response = GetFitSolutionResultsResponse(
+            progress=Progress(
+                state=core_pb2.COMPLETED,
+                status="Done",
+                start=start_time,
+                end=utils.encode_timestamp(datetime.datetime.now(datetime.timezone.utc))),
+            done_ticks=0,
+            all_ticks=0,
+            solution_id=fitted_pipeline_id
+        )
+        yield response
 
     def ScoreSolution(self, request, context):
         '''
@@ -509,7 +555,7 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
                 else:
                     entry_id = find_entry_id(dataset)
                     if self.problem:
-                        target_column_name = self.problem_parsed['inputs'][0]['targets'][0]['column_name']
+                        target_column_name = self.problem['inputs'][0]['targets'][0]['column_name']
                     else:
                         target_column_name = find_target_column_name(dataset, entry_id)
                     index_column_name, index_column = find_index_column_name_index(dataset, entry_id)
@@ -561,6 +607,12 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
 
         fitted_pipeline_id = fit_request.solution_id
 
+        # random seed, v2019.12.4
+        if request.HasField('random_seed'):
+            random_seed = fit_request.random_seed
+        else:
+            random_seed = 0
+
         # Load dataset
         loader = D3MDatasetLoader()
         dataset_uri = fit_request.inputs[0].dataset_uri
@@ -584,8 +636,9 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
             yield response
             return
 
-        if old_fitted_pipeline.dataset_id == dataset.metadata.query(())['id']:
-            # Nothigh to do. Old fitted pipeline was trained on the same dataset
+        if (old_fitted_pipeline.dataset_id == dataset.metadata.query(())['id']
+            and old_fitted_pipeline.random_seed == random_seed):
+            # Nothigh to do. Old fitted pipeline was trained on the same dataset with the same random seed
             self.log_msg(msg="Reuse fitted pipeline")
 
             fit_solution_results = []
@@ -606,7 +659,8 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
                 fitted_pipeline = FittedPipeline(old_fitted_pipeline.pipeline,
                                                  dataset.metadata.query(())['id'],
                                                  id=str(uuid.uuid4()),
-                                                 metric_descriptions=old_fitted_pipeline.metric_descriptions)
+                                                 metric_descriptions=old_fitted_pipeline.metric_descriptions,
+                                                 random_seed=random_seed)
 
                 fitted_pipeline.fit(inputs=[dataset])
                 fitted_pipeline.produce(inputs=[dataset])
@@ -662,11 +716,13 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
                             target_column_name = find_target_column_name(dataset, entry_id)
                         index_column_name, index_column = find_index_column_name_index(dataset, entry_id)
                         dataframe.columns = [target_column_name]
-                        dataframe = pd.DataFrame(np.concatenate((dataset[entry_id].loc[:, [index_column_name]].as_matrix(), dataframe.as_matrix()), axis=1))
+                        dataframe = pd.DataFrame(np.concatenate((dataset[entry_id].loc[:, [index_column_name]].as_matrix(),
+                                                                 dataframe.as_matrix()), axis=1))
                         dataframe.columns = [index_column_name, target_column_name]
                         dataframe = dataframe.set_index(index_column_name)
 
-                        filepath = to_csv_file(dataframe, self.file_transfer_directory, "fit_{}_{}".format(request.request_id, expose_output))
+                        filepath = to_csv_file(dataframe, self.file_transfer_directory, "fit_{}_{}".format(
+                            request.request_id, expose_output))
                 step_outputs[expose_output] = Value(csv_uri=filepath)
 
             fit_solution_results = []
@@ -684,9 +740,10 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
         for result in fit_solution_results:
             yield result
 
-    def UpdateProblem(self, request, context):
-        _logger.error("UpdateProblem not yet implemented")
-        pass
+    # Removed from API:
+    # def UpdateProblem(self, request, context):
+    #     _logger.error("UpdateProblem not yet implemented")
+    #     pass
 
     def DescribeSolution(self, request, context) -> DescribeSolutionResponse:
         self.log_msg(msg="DescribeSolution invoked with soution_id " + request.solution_id)
@@ -842,34 +899,34 @@ def export_dataframe(dataframe: d3m_container.DataFrame, output_file: typing.Tex
 
     return dataframe.to_csv(output_file, header=column_names, index=False)
 
+# Not Used?
+# def to_pickle_blob(container) -> bytes:
+#     if isinstance(container, d3m_container.DataFrame):
+#         return pickle.dumps(d3m_container.pandas.dataframe_serializer(container))
+#     elif isinstance(container, d3m_container.ndarry):
+#         return pickle.dumps(d3m_container.pandas.ndarray_serializer(container))
+#     elif isinstance(container, d3m_container.List):
+#         return pickle.dumps(d3m_container.pandas.list_serializer(container))
+#     elif isinstance(container, d3m_container.Dataset):
+#         return pickle.dumps(d3m_container.pandas.dataset_serializer(container))
+#     else:
+#         raise Exception('Container type not recognized: {}'.format(type(container)))
 
-def to_pickle_blob(container) -> bytes:
-    if isinstance(container, d3m_container.DataFrame):
-        return pickle.dumps(d3m_container.pandas.dataframe_serializer(container))
-    elif isinstance(container, d3m_container.ndarry):
-        return pickle.dumps(d3m_container.pandas.ndarray_serializer(container))
-    elif isinstance(container, d3m_container.List):
-        return pickle.dumps(d3m_container.pandas.list_serializer(container))
-    elif isinstance(container, d3m_container.Dataset):
-        return pickle.dumps(d3m_container.pandas.dataset_serializer(container))
-    else:
-        raise Exception('Container type not recognized: {}'.format(type(container)))
-
-
-def to_pickle_file(container, file_transfer_directory, file_prefix: str) -> str:
-    file_path = os.path.join(file_transfer_directory, file_prefix + '.pkl')
-    with open(file_path, 'rb') as out:
-        if isinstance(container, d3m_container.DataFrame):
-            pickle.dump(d3m_container.pandas.dataframe_serializer(container), out)
-        elif isinstance(container, d3m_container.ndarry):
-            pickle.dump(d3m_container.pandas.ndarray_serializer(container), out)
-        elif isinstance(container, d3m_container.List):
-            pickle.dump(d3m_container.pandas.list_serializer(container), out)
-        elif isinstance(container, d3m_container.Dataset):
-            pickle.dump(d3m_container.pandas.dataset_serializer(container), out)
-        else:
-            raise Exception('Container type not recognized: {}'.format(type(container)))
-    return file_path
+# Not Used?
+# def to_pickle_file(container, file_transfer_directory, file_prefix: str) -> str:
+#     file_path = os.path.join(file_transfer_directory, file_prefix + '.pkl')
+#     with open(file_path, 'rb') as out:
+#         if isinstance(container, d3m_container.DataFrame):
+#             pickle.dump(d3m_container.pandas.dataframe_serializer(container), out)
+#         elif isinstance(container, d3m_container.ndarry):
+#             pickle.dump(d3m_container.pandas.ndarray_serializer(container), out)
+#         elif isinstance(container, d3m_container.List):
+#             pickle.dump(d3m_container.pandas.list_serializer(container), out)
+#         elif isinstance(container, d3m_container.Dataset):
+#             pickle.dump(d3m_container.pandas.dataset_serializer(container), out)
+#         else:
+#             raise Exception('Container type not recognized: {}'.format(type(container)))
+#     return file_path
 
 
 def parse_step_output(output_reference: str) -> dict:
@@ -877,134 +934,136 @@ def parse_step_output(output_reference: str) -> dict:
     parts = output_reference.split('.')
     if len(parts) == 2 and parts[0] == 'outputs':
         return {'outputs' : int(parts[1])}
-    elif len(parts) ==3 and parts[0] in ['step', 'steps']:
+    elif len(parts) == 3 and parts[0] in ['step', 'steps']:
         return {'steps': int(parts[1]), 'method': parts[2]}
     else:
         raise Exception('Pipeline output reference not supported: ' + output_reference)
 
 
+# Not Used?
 # The output of this function should be the same as the output for
 # d3m/metadata/problem.py:parse_problem_description
-def problem_to_dict(problem) -> typing.Dict:
-    performance_metrics = []
-    for metrics in problem.problem.performance_metrics:
-        if metrics.metric == 0:
-            d3m_metric = None
-        else:
-            d3m_metric = d3m_problem.PerformanceMetric(metrics.metric)
-        params = {}
-        if d3m_metric == d3m_problem.PerformanceMetric.F1:
-            if metrics.pos_label is None or metrics.pos_label == '':
-                params['pos_label'] = '1'
-            else:
-                params['pos_label'] = metrics.pos_label
-        if metrics.k > 0:
-            params['k'] = metrics.k
-        performance_metrics.append({
-            'metric' : d3m_metric,
-            'params' : params
-        })
+# def problem_to_dict(problem) -> typing.Dict:
+#     performance_metrics = []
+#     for metrics in problem.problem.performance_metrics:
+#         if metrics.metric == 0:
+#             d3m_metric = None
+#         else:
+#             d3m_metric = d3m_problem.PerformanceMetric(metrics.metric)
+#         params = {}
+#         if d3m_metric == d3m_problem.PerformanceMetric.F1:
+#             if metrics.pos_label is None or metrics.pos_label == '':
+#                 params['pos_label'] = '1'
+#             else:
+#                 params['pos_label'] = metrics.pos_label
+#         if metrics.k > 0:
+#             params['k'] = metrics.k
+#         performance_metrics.append({
+#             'metric' : d3m_metric,
+#             'params' : params
+#         })
 
-    description: typing.Dict[str, typing.Any] = {
-        'schema': d3m_problem.PROBLEM_SCHEMA_VERSION,
-        'problem': {
-            # id, version and name fields removed in ta3ta2 api version v2019.4.11
-            # 'id': problem.problem.id,
-            # 'version': problem.problem.version,
-            # 'name': problem.problem.name,
-            'TaskKeyword': [d3m_problem.TaskKeyword(each_keyword).unparse() for each_keyword in problem.problem.task_keywords],
-            # 'task_type': d3m_problem.TaskType(problem.problem.task_type),
-            # 'task_subtype': d3m_problem.TaskSubtype(problem.problem.task_subtype),
-            'performance_metrics': performance_metrics
-        },
-        # Not Needed
-        # 'outputs': {
-        #     'predictions_file': problem_doc['expectedOutputs']['predictionsFile'],
-        # }
-    }
+#     description: typing.Dict[str, typing.Any] = {
+#         'schema': d3m_problem.PROBLEM_SCHEMA_VERSION,
+#         'problem': {
+#             # id, version and name fields removed in ta3ta2 api version v2019.4.11
+#             # 'id': problem.problem.id,
+#             # 'version': problem.problem.version,
+#             # 'name': problem.problem.name,
+#             'TaskKeyword': [d3m_problem.TaskKeyword(each_keyword).unparse() for each_keyword in problem.problem.task_keywords],
+#             # 'task_type': d3m_problem.TaskType(problem.problem.task_type),
+#             # 'task_subtype': d3m_problem.TaskSubtype(problem.problem.task_subtype),
+#             'performance_metrics': performance_metrics
+#         },
+#         # Not Needed
+#         # 'outputs': {
+#         #     'predictions_file': problem_doc['expectedOutputs']['predictionsFile'],
+#         # }
+#     }
 
-    inputs = []
-    for input in problem.inputs:
-        dataset_id = input.dataset_id
-        for target in input.targets:
-            targets = []
-            targets.append({
-                'target_index': target.target_index,
-                'resource_id': target.resource_id,
-                'column_index': target.column_index,
-                'column_name': target.column_name,
-                'clusters_number': target.clusters_number
-            })
-        inputs.append({
-            'dataset_id': dataset_id,
-            'targets': targets
-        })
-    description['inputs'] = inputs
+#     inputs = []
+#     for input in problem.inputs:
+#         dataset_id = input.dataset_id
+#         for target in input.targets:
+#             targets = []
+#             targets.append({
+#                 'target_index': target.target_index,
+#                 'resource_id': target.resource_id,
+#                 'column_index': target.column_index,
+#                 'column_name': target.column_name,
+#                 'clusters_number': target.clusters_number
+#             })
+#         inputs.append({
+#             'dataset_id': dataset_id,
+#             'targets': targets
+#         })
+#     description['inputs'] = inputs
 
-    return description
+#     return description
 
 
+# Not Used?
 # The output of this function should be the same as the problemDoc.json
-def problem_to_json(problem) -> typing.Dict:
-    performance_metrics = []
-    for metrics in problem.problem.performance_metrics:
-        if metrics.metric == 0:
-            d3m_metric = None
-        else:
-            d3m_metric = d3m_problem.PerformanceMetric(metrics.metric)
-        params = {}
-        if d3m_metric == d3m_problem.PerformanceMetric.F1:
-            if metrics.pos_label is None or metrics.pos_label == '':
-                params['pos_label'] = '1'
-            else:
-                params['pos_label'] = metrics.pos_label
-        if metrics.k > 0:
-            params['k'] = metrics.k
-        ametric = {}
-        if d3m_metric:
-            ametric['metric'] =  d3m_metric.unparse()
-        if params:
-            ametric['params'] = params
-        performance_metrics.append(ametric)
+# def problem_to_json(problem) -> typing.Dict:
+#     performance_metrics = []
+#     for metrics in problem.problem.performance_metrics:
+#         if metrics.metric == 0:
+#             d3m_metric = None
+#         else:
+#             d3m_metric = d3m_problem.PerformanceMetric(metrics.metric)
+#         params = {}
+#         if d3m_metric == d3m_problem.PerformanceMetric.F1:
+#             if metrics.pos_label is None or metrics.pos_label == '':
+#                 params['pos_label'] = '1'
+#             else:
+#                 params['pos_label'] = metrics.pos_label
+#         if metrics.k > 0:
+#             params['k'] = metrics.k
+#         ametric = {}
+#         if d3m_metric:
+#             ametric['metric'] =  d3m_metric.unparse()
+#         if params:
+#             ametric['params'] = params
+#         performance_metrics.append(ametric)
 
-    description: typing.Dict[str, typing.Any] = {
-        'about': {
-            # 'problemSchemaVersion': problem.problem.version,
-            # 'problemID': problem.problem.id,
-            # 'problemName': problem.problem.name,
-            'TaskKeyword': [d3m_problem.TaskKeyword(each_keyword).unparse() for each_keyword in problem.problem.task_keywords],
-            # 'taskType': d3m_problem.TaskKeyword(problem.problem.task_keyword).unparse(),
-            # 'taskSubtype': d3m_problem.TaskSubtype(problem.problem.task_keyword).unparse(),
-        }
-        # Not Needed
-        # 'outputs': {
-        #     'predictions_file': problem_doc['expectedOutputs']['predictionsFile'],
-        # }
-    }
+#     description: typing.Dict[str, typing.Any] = {
+#         'about': {
+#             # 'problemSchemaVersion': problem.problem.version,
+#             # 'problemID': problem.problem.id,
+#             # 'problemName': problem.problem.name,
+#             'TaskKeyword': [d3m_problem.TaskKeyword(each_keyword).unparse() for each_keyword in problem.problem.task_keywords],
+#             # 'taskType': d3m_problem.TaskKeyword(problem.problem.task_keyword).unparse(),
+#             # 'taskSubtype': d3m_problem.TaskSubtype(problem.problem.task_keyword).unparse(),
+#         }
+#         # Not Needed
+#         # 'outputs': {
+#         #     'predictions_file': problem_doc['expectedOutputs']['predictionsFile'],
+#         # }
+#     }
 
-    data = []
-    for input in problem.inputs:
-        dataset_id = input.dataset_id
-        for target in input.targets:
-            targets = []
-            targets.append({
-                'targetIndex': target.target_index,
-                'resID': str(target.resource_id),
-                'colIndex': target.column_index,
-                'colName': target.column_name,
-                'clustersNumber': target.clusters_number
-            })
-        data.append({
-            'datasetID': dataset_id,
-            'targets': targets
-        })
+#     data = []
+#     for input in problem.inputs:
+#         dataset_id = input.dataset_id
+#         for target in input.targets:
+#             targets = []
+#             targets.append({
+#                 'targetIndex': target.target_index,
+#                 'resID': str(target.resource_id),
+#                 'colIndex': target.column_index,
+#                 'colName': target.column_name,
+#                 'clustersNumber': target.clusters_number
+#             })
+#         data.append({
+#             'datasetID': dataset_id,
+#             'targets': targets
+#         })
 
-    description['inputs'] = {
-        'data': data,
-        'performanceMetrics': performance_metrics
-    }
+#     description['inputs'] = {
+#         'data': data,
+#         'performanceMetrics': performance_metrics
+#     }
 
-    return description
+#     return description
 
 
 def check(message, *, depth=0):
@@ -1120,7 +1179,7 @@ def to_proto_primitive_step(step: PrimitiveStep) -> PipelineDescriptionStep:
     return PipelineDescriptionStep(primitive=primitive_description)
 
 
-def to_proto_pipeline(pipeline: Pipeline, id: str , allow_value_types: typing.Sequence[utils.ValueType],
+def to_proto_pipeline(pipeline: Pipeline, id: str, allow_value_types: typing.Sequence[utils.ValueType],
                       scratch_dir: str) -> PipelineDescription:
     """
     Convert d3m Pipeline to protocol buffer PipelineDescription

@@ -6,6 +6,7 @@ import time
 import typing
 
 from d3m.metadata.problem import Problem
+from d3m.metadata.pipeline import Pipeline
 
 
 class RuntimeSetting:
@@ -94,6 +95,8 @@ class DsboxConfig:
         self.rank_solutions_limit: int = 0
         # time bound on individual pipeline run
         self.time_bound_run: int = 0
+        # Random seed used to initiate search
+        self.random_seed = 0
 
         # DSBox output directories
         self.dsbox_output_dir: str = ''
@@ -119,6 +122,9 @@ class DsboxConfig:
 
         # ==== Derived variables
         self.problem: Problem = {}
+
+        # TA3 can directly supply a pipeline. When pipeline is given, problem spec if optional
+        self.pipeline: Pipeline = None
 
         # List of file path to datasetDoc.json files
         self.dataset_schema_files: typing.List[str] = []
