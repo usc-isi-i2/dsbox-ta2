@@ -1,8 +1,10 @@
+''
 import json
 import logging
 import os
 import pickle
 import pprint
+import random
 import sys
 import typing
 import uuid
@@ -421,9 +423,16 @@ class FittedPipeline:
                 if value > 0.0:
                     rank = 1 / value
                 else:
-                    rank = 10**5
+                    rank = 10.0**5
             else:
                 rank = value
+
+            # Add a small random value to rank. This is because if multiple pipelines have
+            # the same rank, Dummy TA3 will only choose one pipeline of the pipelines.
+            seed = int(self.id.split('-')[0], 16)
+            rand = random.Random(seed)
+            rank = rank * (1 + 10e-5 * rand.random())
+
             self.metric['rank'] = rank
         else:
             _logger.error("Metric type of the pipeline is unknown, unable to calculate the rank of the pipeline")
