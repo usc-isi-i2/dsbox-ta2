@@ -220,7 +220,7 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
             _logger.warning("Protocol Version does NOT match supported version {} != {}".format(
                 core_pb2.DESCRIPTOR.GetOptions().Extensions[core_pb2.protocol_version], request.version))
 
-        if request.HasField('template'):
+        if request.HasField("template"):
             # Currently, we only support fully specified pipelines
 
             _logger.info("Pipeline specified")
@@ -250,10 +250,7 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
         self.config.time_bound_run = request.time_bound_run
 
         # Configure random seed, v2019.12.4
-        if request.HasField('random_seed'):
-            self.config.random_seed = request.random_seed
-        else:
-            self.config.random_seed = 0
+        self.config.random_seed = request.random_seed
 
         self.config.dataset_schema_files = dataset_uris
         if self.problem:
@@ -608,10 +605,7 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
         fitted_pipeline_id = fit_request.solution_id
 
         # random seed, v2019.12.4
-        if request.HasField('random_seed'):
-            random_seed = fit_request.random_seed
-        else:
-            random_seed = 0
+        random_seed = fit_request.random_seed
 
         # Load dataset
         loader = D3MDatasetLoader()
