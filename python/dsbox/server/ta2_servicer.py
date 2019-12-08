@@ -191,10 +191,9 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
         '''
         self.log_msg(msg="Hello invoked")
 
-        # Complete loading primitives before responding
-        _ = d3m.index.search()
+        # TODO: Spawn subprocesses and complete loading primitives before responding
+        # _ = d3m.index.search()
 
-        # TODO: Figure out what we should be sending back to TA3 here.
         result = HelloResponse(user_agent="ISI",
                                version=core_pb2.DESCRIPTOR.GetOptions().Extensions[core_pb2.protocol_version],
                                allowed_value_types=communication_value_types,
