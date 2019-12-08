@@ -54,9 +54,10 @@ class FittedPipeline:
     # D3M dirs
     pipelines_searched_subdir: str = 'pipelines_searched'
     pipelines_scored_subdir: str = 'pipelines_scored'
-    pipelines_ranked_subdir: str = 'pipelines_ranked'
     subpipelines_subdir: str = 'subpipelines'
     pipeline_runs_subdir: str = 'pipeline_runs'
+
+    pipelines_ranked_temp_subdir: str = 'pipelines_ranked_temp'
 
     # DSBox dirs
     pipelines_fitted_subdir: str = 'pipelines_fitted'
@@ -351,10 +352,16 @@ class FittedPipeline:
         # D3M
         self.save_schema_only(folder_loc, self.pipelines_searched_subdir, subpipelines_subdir=self.subpipelines_subdir)
         self.save_schema_only(folder_loc, self.pipelines_scored_subdir)
-        # Always save a ranked version. If there is a limit on the number of ranked pipelines, then the controller will
-        # remove the extra ones.
-        self.save_schema_only(folder_loc, self.pipelines_ranked_subdir)
-        self.save_rank(os.path.join(folder_loc, self.pipelines_ranked_subdir))
+
+        # Save ranked version
+        done_file = os.path.join(folder_loc, self.pipelines_ranked_temp_subdir, '.done')
+        _logger.info(f'done_file: {done_file}')
+        if os.path.exists(done_file):
+            # Skip if controller is already submitting the pipelines
+            _logger.info('Skipping Write to pipelines_ranked_temp directory')
+        else:
+            self.save_schema_only(folder_loc, self.pipelines_ranked_temp_subdir)
+            self.save_rank(os.path.join(folder_loc, self.pipelines_ranked_temp_subdir))
 
         # DSBox
         self.save_pipeline_info(os.path.join(folder_loc, self.pipelines_info_subdir))
@@ -481,6 +488,7 @@ class FittedPipeline:
         json_loc = os.path.join(pipeline_dir, self.pipeline.id + '.json')
         with open(json_loc, 'w') as out:
             json.dump(structure, out, separators=(',', ':'), indent=4)
+            out.flush()
 
         if subpipelines_subdir:
             subpipeline_dir = os.path.join(folder_loc, subpipelines_subdir)
