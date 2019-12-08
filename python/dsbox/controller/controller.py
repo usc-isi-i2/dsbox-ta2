@@ -150,7 +150,7 @@ class Controller:
         3. _load_schema
         4. _log_init
         5. _log_search_results
-        6. _process_pipeline_submission
+#         6. _process_pipeline_submission
         7. _run_BanditDimSearch
         8. _run_ParallelBaseSearch
         9. _run_RandomDimSearch
@@ -330,39 +330,40 @@ class Controller:
         #     raise NotSupportedError(
         #         '[ERROR] Save training results Failed!')
 
-    def _process_pipeline_submission(self) -> None:
-        limit = self.config.rank_solutions_limit
+    # No needed. Dummy TA3 will call export solutions
+    # def _process_pipeline_submission(self) -> None:
+    #     limit = self.config.rank_solutions_limit
 
-        ranked_list = []
-        rank_dir = pathlib.Path(self.config.pipelines_ranked_dir)
-        temp_dir = pathlib.Path(self.config.pipelines_ranked_temp_dir)
+    #     ranked_list = []
+    #     rank_dir = pathlib.Path(self.config.pipelines_ranked_dir)
+    #     temp_dir = pathlib.Path(self.config.pipelines_ranked_temp_dir)
 
-        # Signal subprocesses running fitted pipeline to stop writing to pipelines_ranked
-        # directory But, it does not seems to be working. Looks like the OS is flushing
-        # the files after the subprocesses complete.
-        (temp_dir / '.done').touch()
-        self._logger.info(f"Created done_file: {temp_dir / '.done'}")
+    #     # Signal subprocesses running fitted pipeline to stop writing to pipelines_ranked
+    #     # directory But, it does not seems to be working. Looks like the OS is flushing
+    #     # the files after the subprocesses complete.
+    #     (temp_dir / '.done').touch()
+    #     self._logger.info(f"Created done_file: {temp_dir / '.done'}")
 
-        for rank_file in temp_dir.glob('*.rank'):
-            try:
-                rank = float(open(temp_dir / rank_file).read())
-                ranked_list.append((rank, rank_file))
-            except Exception:
-                self._logger.info(f"Cannot parse pipeline's rank file: {rank_file}")
+    #     for rank_file in temp_dir.glob('*.rank'):
+    #         try:
+    #             rank = float(open(temp_dir / rank_file).read())
+    #             ranked_list.append((rank, rank_file))
+    #         except Exception:
+    #             self._logger.info(f"Cannot parse pipeline's rank file: {rank_file}")
 
-        if not ranked_list:
-            self._logger.warn('Warning no ranked pipelines!!!!')
+    #     if not ranked_list:
+    #         self._logger.warn('Warning no ranked pipelines!!!!')
 
-        ranked_list = sorted(ranked_list, key=operator.itemgetter(0))
-        self._logger.info(f'Number of ranked pipelines generated: {len(ranked_list)}')
+    #     ranked_list = sorted(ranked_list, key=operator.itemgetter(0))
+    #     self._logger.info(f'Number of ranked pipelines generated: {len(ranked_list)}')
 
-        # Too many solutions. Remove pipelines with larger rank values
-        if len(ranked_list) > limit:
-            for (rank, rank_file) in ranked_list[:limit]:
-                self._logger.info(f"copy {temp_dir / rank_file} to {rank_dir}")
-                shutil.copy(temp_dir / rank_file, rank_dir)
-                self._logger.info(f"copy {temp_dir / rank_file}.with_suffix('.json') to {rank_dir}")
-                shutil.copy(temp_dir / rank_file.with_suffix('.json'), rank_dir)
+    #     # Too many solutions. Remove pipelines with larger rank values
+    #     if len(ranked_list) > limit:
+    #         for (rank, rank_file) in ranked_list[:limit]:
+    #             self._logger.info(f"copy {temp_dir / rank_file} to {rank_dir}")
+    #             shutil.copy(temp_dir / rank_file, rank_dir)
+    #             self._logger.info(f"copy {temp_dir / rank_file}.with_suffix('.json') to {rank_dir}")
+    #             shutil.copy(temp_dir / rank_file.with_suffix('.json'), rank_dir)
 
 
     # def _process_pipeline_submission_old(self) -> None:
@@ -1624,7 +1625,8 @@ class Controller:
         if os.getpid() == self.main_pid:
             self._logger.warning("write_training_results")
             self._did_we_post_process = True
-            self._process_pipeline_submission()
+            # No longer needed. Dummy TA3 will call export solutions
+            # self._process_pipeline_submission()
 
         return None
 
@@ -1985,14 +1987,48 @@ class Controller:
             fitted_structure = json.load(f)
 
         pipeline_id = fitted_structure['pipeline_id']
-        filepath = os.path.join(self.config.pipelines_scored_dir, pipeline_id + '.json')
+        pipeline_filepath = os.path.join(self.config.pipelines_ranked_temp_dir, pipeline_id + '.json')
+        rank_filepath = os.path.join(self.config.pipelines_ranked_temp_dir, pipeline_id + '.rank')
 
-        if not os.path.exists(filepath):
-            self._logger.error(f'Pipeline does not exists: {fitted_pipeline_id}')
+        if not os.path.exists(pipeline_filepath):
+            self._logger.error(f'Pipeline does not exists: {pipeline_filepath}')
+            return
+
+        if not os.path.exists(rank_filepath):
+            self._logger.error(f'Pipeline does not exists: {rank_filepath}')
             return
 
         if os.path.exists(os.path.join(self.config.pipelines_ranked_dir, pipeline_id + '.json')):
             self._logger.info(f'Pipeline solution already exported: {fitted_pipeline_id}')
-            return
+        else:
+            shutil.copy(pipeline_filepath, self.config.pipelines_ranked_dir)
 
-        shutil.copy(filepath, self.config.pipelines_ranked_dir)
+        if os.path.exists(os.path.join(self.config.pipelines_ranked_dir, pipeline_id + '.rank')):
+            self._logger.info(f'Pipeline rank already exported: {fitted_pipeline_id}')
+        else:
+            shutil.copy(rank_filepath, self.config.pipelines_ranked_dir)
+
+    # def export_solution(self, fitted_pipeline_id) -> None:
+    #     '''
+    #     Copy pipeline to pipelines_ranked directory
+    #     '''
+    #     fitted_filepath = os.path.join(self.config.pipelines_fitted_dir, fitted_pipeline_id, fitted_pipeline_id + '.json')
+    #     if not os.path.exists(fitted_filepath):
+    #         self._logger.error(f'Fitted pipeline does not exists: {fitted_pipeline_id}')
+    #         return
+
+    #     with open(fitted_filepath) as f:
+    #         fitted_structure = json.load(f)
+
+    #     pipeline_id = fitted_structure['pipeline_id']
+    #     filepath = os.path.join(self.config.pipelines_scored_dir, pipeline_id + '.json')
+
+    #     if not os.path.exists(filepath):
+    #         self._logger.error(f'Pipeline does not exists: {fitted_pipeline_id}')
+    #         return
+
+    #     if os.path.exists(os.path.join(self.config.pipelines_ranked_dir, pipeline_id + '.json')):
+    #         self._logger.info(f'Pipeline solution already exported: {fitted_pipeline_id}')
+    #         return
+
+    #     shutil.copy(filepath, self.config.pipelines_ranked_dir)
