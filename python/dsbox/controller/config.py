@@ -6,6 +6,7 @@ import time
 import typing
 
 from d3m.metadata.problem import Problem
+from d3m.metadata.pipeline import Pipeline
 
 
 class RuntimeSetting:
@@ -89,11 +90,15 @@ class DsboxConfig:
         self.pipeline_runs_dir: str = ''
         self.additional_inputs_dir: str = ''
 
+        self.pipelines_ranked_temp_dir: str = ''
+
         # == D3M TA3 SearchSolutionsRequest parameters
         # Number of ranked solution to return
         self.rank_solutions_limit: int = 0
         # time bound on individual pipeline run
         self.time_bound_run: int = 0
+        # Random seed used to initiate search
+        self.random_seed = 0
 
         # DSBox output directories
         self.dsbox_output_dir: str = ''
@@ -119,6 +124,9 @@ class DsboxConfig:
 
         # ==== Derived variables
         self.problem: Problem = {}
+
+        # TA3 can directly supply a pipeline. When pipeline is given, problem spec if optional
+        self.pipeline: Pipeline = None
 
         # List of file path to datasetDoc.json files
         self.dataset_schema_files: typing.List[str] = []
@@ -277,6 +285,7 @@ class DsboxConfig:
         self.pipeline_runs_dir = os.path.join(self.output_dir, 'pipeline_runs')
         self.additional_inputs_dir = os.path.join(self.output_dir, 'additional_inputs')
         # DSBox directories
+        self.pipelines_ranked_temp_dir = os.path.join(self.output_dir, 'pipelines_ranked_temp')
         self.dsbox_output_dir = self.output_dir
 
         # For storing fitted pipeline with pickled primitives
@@ -295,7 +304,7 @@ class DsboxConfig:
 
         os.makedirs(self.output_dir, exist_ok=True)
         for directory in [
-                self.pipelines_ranked_dir, self.pipelines_scored_dir,
+                self.pipelines_ranked_dir, self.pipelines_ranked_temp_dir, self.pipelines_scored_dir,
                 self.pipelines_searched_dir, self.subpipelines_dir, self.pipeline_runs_dir,
                 self.additional_inputs_dir, self.local_dir,
                 self.dsbox_output_dir, self.pipelines_fitted_dir, self.pipelines_failed_dir, self.pipelines_info_dir,

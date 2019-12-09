@@ -1,8 +1,10 @@
+''
 import json
 import logging
 import os
 import pickle
 import pprint
+import random
 import sys
 import typing
 import uuid
@@ -54,9 +56,10 @@ class FittedPipeline:
     # D3M dirs
     pipelines_searched_subdir: str = 'pipelines_searched'
     pipelines_scored_subdir: str = 'pipelines_scored'
-    pipelines_ranked_subdir: str = 'pipelines_ranked'
     subpipelines_subdir: str = 'subpipelines'
     pipeline_runs_subdir: str = 'pipeline_runs'
+
+    pipelines_ranked_temp_subdir: str = 'pipelines_ranked_temp'
 
     # DSBox dirs
     pipelines_fitted_subdir: str = 'pipelines_fitted'
@@ -294,7 +297,7 @@ class FittedPipeline:
                 running_res['steps'][i]['record_frequency'] = self.runtime.record_frequency
                 running_res['steps'][i]['resource_usage'] = resource_usage
         if save_folder_loc and logging.getLogger("dsbox.template.runtime").level <= 10:
-            self.save_running_record(folder_loc=os.path.join(save_folder_loc, self.pipelines_status_subdir), 
+            self.save_running_record(folder_loc=os.path.join(save_folder_loc, self.pipelines_status_subdir),
                                      report=running_res, phase="fit")
 
     def produce(self, **arguments):
@@ -327,7 +330,7 @@ class FittedPipeline:
             running_res['steps'][i]['record_frequency'] = self.runtime.record_frequency
             running_res['steps'][i]['resource_usage'] = resource_usage
         if save_folder_loc and logging.getLogger("dsbox.template.runtime").level <= 10:
-            self.save_running_record(folder_loc=os.path.join(save_folder_loc, self.pipelines_status_subdir), 
+            self.save_running_record(folder_loc=os.path.join(save_folder_loc, self.pipelines_status_subdir),
                                      report=running_res, phase="produce")
 
     def get_cross_validation_metrics(self) -> typing.List:
@@ -351,10 +354,16 @@ class FittedPipeline:
         # D3M
         self.save_schema_only(folder_loc, self.pipelines_searched_subdir, subpipelines_subdir=self.subpipelines_subdir)
         self.save_schema_only(folder_loc, self.pipelines_scored_subdir)
-        # Always save a ranked version. If there is a limit on the number of ranked pipelines, then the controller will
-        # remove the extra ones.
-        self.save_schema_only(folder_loc, self.pipelines_ranked_subdir)
-        self.save_rank(os.path.join(folder_loc, self.pipelines_ranked_subdir))
+
+        # Save ranked version
+        done_file = os.path.join(folder_loc, self.pipelines_ranked_temp_subdir, '.done')
+        _logger.info(f'done_file: {done_file}')
+        if os.path.exists(done_file):
+            # Skip if controller is already submitting the pipelines
+            _logger.info('Skipping Write to pipelines_ranked_temp directory')
+        else:
+            self.save_schema_only(folder_loc, self.pipelines_ranked_temp_subdir)
+            self.save_rank(os.path.join(folder_loc, self.pipelines_ranked_temp_subdir))
 
         # DSBox
         self.save_pipeline_info(os.path.join(folder_loc, self.pipelines_info_subdir))
@@ -414,9 +423,16 @@ class FittedPipeline:
                 if value > 0.0:
                     rank = 1 / value
                 else:
-                    rank = 10**5
+                    rank = 10.0**5
             else:
                 rank = value
+
+            # Add a small random value to rank. This is because if multiple pipelines have
+            # the same rank, Dummy TA3 will only choose one pipeline of the pipelines.
+            seed = int(self.id.split('-')[0], 16)
+            rand = random.Random(seed)
+            rank = rank * (1 + 10e-5 * rand.random())
+
             self.metric['rank'] = rank
         else:
             _logger.error("Metric type of the pipeline is unknown, unable to calculate the rank of the pipeline")
@@ -481,6 +497,7 @@ class FittedPipeline:
         json_loc = os.path.join(pipeline_dir, self.pipeline.id + '.json')
         with open(json_loc, 'w') as out:
             json.dump(structure, out, separators=(',', ':'), indent=4)
+            out.flush()
 
         if subpipelines_subdir:
             subpipeline_dir = os.path.join(folder_loc, subpipelines_subdir)
@@ -616,7 +633,7 @@ class FittedPipeline:
             pipeline, structure['fitted_pipeline_id'], pipelines_fitted_dir=pipelines_fitted_dir)
 
         fitted_pipeline = FittedPipeline(pipeline, dataset_id=structure['dataset_id'], id=fitted_pipeline_id,
-                                         random_seed=structure['dataset_id'])
+                                         random_seed=structure['random_seed'])
         fitted_pipeline.runtime = runtime
         fitted_pipeline._set_fitted(runtime.steps_state)
 

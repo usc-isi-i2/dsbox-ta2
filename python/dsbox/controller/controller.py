@@ -71,13 +71,12 @@ class Controller:
         self.config: DsboxConfig = None
 
         # Problem
-        # self.problem: typing.Dict = {}
-        # self.task_type: TaskType = None
-        # self.task_subtype: TaskSubtype = None
-        # self.problem_doc_metadata: Metadata = None
         self.problem_info: dict = {}
         self.specialized_problem: str = SpecializedProblem.NONE
         self.is_privileged_data_problem = False
+
+        # Pipeline, TA3 can directly give a pipeline
+        self.fitted_pipeline = None
 
         # Dataset
         # self.dataset_schema_file: str = ""
@@ -118,9 +117,10 @@ class Controller:
         # Primitives
         # self.primitive: typing.Dict = d3m.index.search()
 
-        # set random seed, but do not set in TA3 mode (based on request from TA3 developer)
-        if not is_ta3:
-            random.seed(4676)
+        # No longer needed. From v2019.12.4 random seed is set explicilty
+        # # set random seed, but do not set in TA3 mode (based on request from TA3 developer)
+        # if not is_ta3:
+        #     random.seed(4676)
 
         # Output directories
         # self.output_directory: str = '/output/'
@@ -150,7 +150,7 @@ class Controller:
         3. _load_schema
         4. _log_init
         5. _log_search_results
-        6. _process_pipeline_submission
+#         6. _process_pipeline_submission
         7. _run_BanditDimSearch
         8. _run_ParallelBaseSearch
         9. _run_RandomDimSearch
@@ -248,16 +248,18 @@ class Controller:
         # self.saved_pipeline_id = config.get('saved_pipeline_ID', "")
         self.saved_pipeline_id = ""
 
-        for i in range(len(self.config.problem['inputs'])):
-            if 'targets' in self.config.problem['inputs'][i]:
-                break
+        if self.config.problem is not None:
+            # Problem can be None, if config.pipeline is given
+            for i in range(len(self.config.problem['inputs'])):
+                if 'targets' in self.config.problem['inputs'][i]:
+                    break
 
-        self.problem_info["task_type"] = [x.name for x in self.config.problem['problem']['task_keywords']]
-        # example of task_type : 'classification' 'regression'
-        self.problem_info["res_id"] = self.config.problem['inputs'][i]['targets'][0]['resource_id']
-        self.problem_info["target_index"] = []
-        for each in self.config.problem['inputs'][i]['targets']:
-            self.problem_info["target_index"].append(each["column_index"])
+            self.problem_info["task_type"] = [x.name for x in self.config.problem['problem']['task_keywords']]
+            # example of task_type : 'classification' 'regression'
+            self.problem_info["res_id"] = self.config.problem['inputs'][i]['targets'][0]['resource_id']
+            self.problem_info["target_index"] = []
+            for each in self.config.problem['inputs'][i]['targets']:
+                self.problem_info["target_index"].append(each["column_index"])
 
     def _log_init(self) -> None:
         logging.getLogger('').setLevel(min(logging.getLogger('').level, self.config.root_logger_level))
@@ -328,30 +330,41 @@ class Controller:
         #     raise NotSupportedError(
         #         '[ERROR] Save training results Failed!')
 
-    def _process_pipeline_submission(self) -> None:
-        # If no limit then no need to remove any pipelines
-        limit = self.config.rank_solutions_limit
-        if limit <= 0:
-            return
+    # No needed. Dummy TA3 will call export solutions
+    # def _process_pipeline_submission(self) -> None:
+    #     limit = self.config.rank_solutions_limit
 
-        ranked_list = []
-        directory = pathlib.Path(self.config.pipelines_ranked_dir)
-        for rank_file in directory.glob('*.rank'):
-            try:
-                rank = float(open(directory / rank_file).read())
-                ranked_list.append((rank, rank_file))
-            except Exception:
-                pass
-        ranked_list = sorted(ranked_list, key=operator.itemgetter(0))
+    #     ranked_list = []
+    #     rank_dir = pathlib.Path(self.config.pipelines_ranked_dir)
+    #     temp_dir = pathlib.Path(self.config.pipelines_ranked_temp_dir)
 
-        # Keep all solutions
-        if len(ranked_list) <= limit:
-            return
+    #     # Signal subprocesses running fitted pipeline to stop writing to pipelines_ranked
+    #     # directory But, it does not seems to be working. Looks like the OS is flushing
+    #     # the files after the subprocesses complete.
+    #     (temp_dir / '.done').touch()
+    #     self._logger.info(f"Created done_file: {temp_dir / '.done'}")
 
-        # Remove pipelines with larger rank values
-        for (rank, rank_file) in ranked_list[limit:]:
-            (directory / rank_file).with_suffix('.json').unlink()
-            (directory / rank_file).with_suffix('.rank').unlink()
+    #     for rank_file in temp_dir.glob('*.rank'):
+    #         try:
+    #             rank = float(open(temp_dir / rank_file).read())
+    #             ranked_list.append((rank, rank_file))
+    #         except Exception:
+    #             self._logger.info(f"Cannot parse pipeline's rank file: {rank_file}")
+
+    #     if not ranked_list:
+    #         self._logger.warn('Warning no ranked pipelines!!!!')
+
+    #     ranked_list = sorted(ranked_list, key=operator.itemgetter(0))
+    #     self._logger.info(f'Number of ranked pipelines generated: {len(ranked_list)}')
+
+    #     # Too many solutions. Remove pipelines with larger rank values
+    #     if len(ranked_list) > limit:
+    #         for (rank, rank_file) in ranked_list[:limit]:
+    #             self._logger.info(f"copy {temp_dir / rank_file} to {rank_dir}")
+    #             shutil.copy(temp_dir / rank_file, rank_dir)
+    #             self._logger.info(f"copy {temp_dir / rank_file}.with_suffix('.json') to {rank_dir}")
+    #             shutil.copy(temp_dir / rank_file.with_suffix('.json'), rank_dir)
+
 
     # def _process_pipeline_submission_old(self) -> None:
     #     self._logger.info(f'Moving top 20 pipelines to {self.config.pipelines_ranked_dir}')
@@ -750,7 +763,7 @@ class Controller:
             for name in remove_set:
                 if name in meta_for_wikifier.keys():
                     del meta_for_wikifier[name]
-        
+
         meta_to_str = json.dumps({config_datamart.wikifier_column_mark: meta_for_wikifier})
         self._logger.info("Following columns should be wikified as:")
         self._logger.info(str(meta_to_str))
@@ -815,7 +828,7 @@ class Controller:
         original_shape = original_df.shape
         self._logger.debug("Original dataset's shape is {}".format(original_shape))
 
-        for i, search_res in enumerate(search_result_list):            
+        for i, search_res in enumerate(search_result_list):
             p = multiprocessing.Process(target=augment_test_worker, args=(i, augment_dict, search_res))
             jobs.append(p)
             p.start()
@@ -1175,22 +1188,57 @@ class Controller:
         else:
             json_file = os.path.abspath(json_file)
             self.all_dataset = loader.load(dataset_uri='file://{}'.format(json_file))
-        self._check_and_set_dataset_metadata()
 
-        # first apply denormalize on input dataset
-        from common_primitives.denormalize import Hyperparams as hyper_denormalize, DenormalizePrimitive
-        denormalize_hyperparams = hyper_denormalize.defaults()
-        denormalize_primitive = DenormalizePrimitive(hyperparams=denormalize_hyperparams)
-        self.all_dataset = denormalize_primitive.produce(inputs=self.all_dataset).value
-        self.extra_primitive.add("denormalize")
-        self.dump_primitive(denormalize_primitive, "denormalize")
-        datamart_search_results = None
-        if "data_augmentation" in self.config.problem.keys():
-            datamart_search_results = self.do_data_augmentation_rest_api(self.all_dataset)
-        # load templates
-        self.load_templates(datamart_search_results)
+        # set random seed, v2019.12.4
+        random.seed(self.config.random_seed)
 
+        if self.config.pipeline is not None:
+            # Give fully specified pipeline to run
 
+            pipeline = self.config.pipeline
+            random_seed = self.config.random_seed
+            problem = self.config.problem
+            performance_metrics = []
+
+            # problem is optional if pipeline given
+            if problem is not None:
+                performance_metrics = self.config.problem['problem']['performance_metrics']
+                self._check_and_set_dataset_metadata()
+
+            self.fitted_pipeline = FittedPipeline(
+                pipeline=pipeline,
+                dataset_id=self.all_dataset.metadata.query(())['id'],
+                metric_descriptions=performance_metrics,
+                problem=problem,
+                random_seed=random_seed)
+        else:
+            # Given problem to search
+
+            self.fitted_pipeline = None
+            self._check_and_set_dataset_metadata()
+
+            # first apply denormalize on input dataset
+            from common_primitives.denormalize import Hyperparams as hyper_denormalize, DenormalizePrimitive
+            denormalize_hyperparams = hyper_denormalize.defaults()
+            denormalize_primitive = DenormalizePrimitive(hyperparams=denormalize_hyperparams)
+            self.all_dataset = denormalize_primitive.produce(inputs=self.all_dataset).value
+            self.extra_primitive.add("denormalize")
+            self.dump_primitive(denormalize_primitive, "denormalize")
+            datamart_search_results = None
+            if "data_augmentation" in self.config.problem.keys():
+                datamart_search_results = self.do_data_augmentation_rest_api(self.all_dataset)
+
+            # load templates
+            self.load_templates(datamart_search_results)
+
+    def fit_pipeline(self):
+        """
+        Runs self.fitted_pipeline, which was created during the self.initialize_from_ta3 call.
+        This methods is called by ta2_sevicer.
+        """
+        self.fitted_pipeline.fit(inputs=[self.all_dataset], save_loc=self.config.output_directory)
+        self.fitted_pipeline.produce(inputs=[self.all_dataset])
+        self.fitted_pipeline.save(self.config.output_directory)
 
     def load_pipe_runtime(self):
         dir = os.path.expanduser(self.config.output_dir + '/pipelines_fitted')
@@ -1304,7 +1352,7 @@ class Controller:
             return dataset_with_new_meta
         '''
         task_type = self.problem_info["task_type"]  # ['problem']['task_type'].name  # 'classification' 'regression'
-        if not isinstance(task_type, list): 
+        if not isinstance(task_type, list):
             task_type = [task_type]
         # res_id = self.problem_info["res_id"]
         # target_index = self.problem_info["target_index"]
@@ -1577,7 +1625,8 @@ class Controller:
         if os.getpid() == self.main_pid:
             self._logger.warning("write_training_results")
             self._did_we_post_process = True
-            self._process_pipeline_submission()
+            # No longer needed. Dummy TA3 will call export solutions
+            # self._process_pipeline_submission()
 
         return None
 
@@ -1938,14 +1987,48 @@ class Controller:
             fitted_structure = json.load(f)
 
         pipeline_id = fitted_structure['pipeline_id']
-        filepath = os.path.join(self.config.pipelines_scored_dir, pipeline_id + '.json')
+        pipeline_filepath = os.path.join(self.config.pipelines_ranked_temp_dir, pipeline_id + '.json')
+        rank_filepath = os.path.join(self.config.pipelines_ranked_temp_dir, pipeline_id + '.rank')
 
-        if not os.path.exists(filepath):
-            self._logger.error(f'Pipeline does not exists: {fitted_pipeline_id}')
+        if not os.path.exists(pipeline_filepath):
+            self._logger.error(f'Pipeline does not exists: {pipeline_filepath}')
+            return
+
+        if not os.path.exists(rank_filepath):
+            self._logger.error(f'Pipeline does not exists: {rank_filepath}')
             return
 
         if os.path.exists(os.path.join(self.config.pipelines_ranked_dir, pipeline_id + '.json')):
             self._logger.info(f'Pipeline solution already exported: {fitted_pipeline_id}')
-            return
+        else:
+            shutil.copy(pipeline_filepath, self.config.pipelines_ranked_dir)
 
-        shutil.copy(filepath, self.config.pipelines_ranked_dir)
+        if os.path.exists(os.path.join(self.config.pipelines_ranked_dir, pipeline_id + '.rank')):
+            self._logger.info(f'Pipeline rank already exported: {fitted_pipeline_id}')
+        else:
+            shutil.copy(rank_filepath, self.config.pipelines_ranked_dir)
+
+    # def export_solution(self, fitted_pipeline_id) -> None:
+    #     '''
+    #     Copy pipeline to pipelines_ranked directory
+    #     '''
+    #     fitted_filepath = os.path.join(self.config.pipelines_fitted_dir, fitted_pipeline_id, fitted_pipeline_id + '.json')
+    #     if not os.path.exists(fitted_filepath):
+    #         self._logger.error(f'Fitted pipeline does not exists: {fitted_pipeline_id}')
+    #         return
+
+    #     with open(fitted_filepath) as f:
+    #         fitted_structure = json.load(f)
+
+    #     pipeline_id = fitted_structure['pipeline_id']
+    #     filepath = os.path.join(self.config.pipelines_scored_dir, pipeline_id + '.json')
+
+    #     if not os.path.exists(filepath):
+    #         self._logger.error(f'Pipeline does not exists: {fitted_pipeline_id}')
+    #         return
+
+    #     if os.path.exists(os.path.join(self.config.pipelines_ranked_dir, pipeline_id + '.json')):
+    #         self._logger.info(f'Pipeline solution already exported: {fitted_pipeline_id}')
+    #         return
+
+    #     shutil.copy(filepath, self.config.pipelines_ranked_dir)
