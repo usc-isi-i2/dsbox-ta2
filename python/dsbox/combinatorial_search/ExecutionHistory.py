@@ -1,11 +1,10 @@
+''
 import copy
 import math
 import logging
 import operator
+import queue
 import typing
-
-from pprint import pprint
-from functools import reduce
 
 import numpy as np
 import pandas as pd
@@ -55,6 +54,13 @@ class ExecutionHistory:
 
         # Needed by TA3
         self.all_reports = {}
+        self.queue: queue.Queue = queue.Queue()
+
+    def done(self):
+        """
+        Used to signal Ta2Servicer that search has finished.
+        """
+        self.queue.put(False)
 
     def update(self, report: typing.Dict, template_name: str = 'generic') -> None:
         """
@@ -84,6 +90,7 @@ class ExecutionHistory:
         # TA3 save all reports
         if report and 'id' in report:
             self.all_reports[report['id']] = report
+            self.queue.put(report)
 
         # add new things in history records for ensemble tuning
         if 'ensemble_tuning_result' in report:

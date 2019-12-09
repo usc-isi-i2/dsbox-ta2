@@ -125,6 +125,8 @@ class TemplateSpaceParallelBaseSearch(TemplateSpaceBaseSearch[T]):
         # cleanup job manager
         self.job_manager.reset()
 
+        self.history.done()
+
         return self.history.get_best_history()
 
     def _get_evaluation_results(self, max_num: int = float('inf')) -> None:
