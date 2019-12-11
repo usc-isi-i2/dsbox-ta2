@@ -111,8 +111,9 @@ logging.getLogger('').setLevel(logging_level)
 
 _logger = logging.getLogger(__name__)
 
+API_VERSION="2019.12.4"
 communication_value_types = [value_pb2.DATASET_URI, value_pb2.CSV_URI, value_pb2.RAW]
-allowed_value_types = [utils.ValueType.DATASET_URI, utils.ValueType.CSV_URI, utils.ValueType.RAW]
+ALLOWED_VALUE_TYPES = [utils.ValueType.DATASET_URI, utils.ValueType.CSV_URI, utils.ValueType.RAW]
 
 # value_pb2.PICKLE_URI, value_pb2.PICKLE_BLOB
 
@@ -307,7 +308,7 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
         # If pipeline specified, then just fit the pipeline
         if problem_config.pipeline is not None:
             _logger.info('Pipline specified')
-            self.fit_pipeline(problem_config)
+            self.fit_produce_pipeline(problem_config)
             self.log_msg(msg="DONE: GetSearchSolutionsResults invoked with search_id: " + request.search_id)
             return
 
@@ -433,11 +434,12 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
             _logger.info('Timed out.')
         self.log_msg(msg="DONE: GetSearchSolutionsResults invoked with search_id: " + request.search_id)
 
-    def fit_pipeline(self, problem_config):
+    def fit_produce_pipeline(self, problem_config):
         start_time = utils.encode_timestamp(datetime.datetime.now(datetime.timezone.utc))
         self.controller.initialize_from_ta3(problem_config)
         try:
             self.controller.fit_pipeline()
+            self.controller.produce_pipeline()
         except:
             traceback.print_exc()
             response = GetSearchSolutionsResultsResponse(
@@ -855,8 +857,8 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
         pipeline = fitted_pipeline.pipeline
 
         result = DescribeSolutionResponse(
-            pipeline=to_proto_pipeline(pipeline, fitted_pipeline.id, allowed_value_types, self.temp_dir.name),
-            steps=to_proto_steps_description(pipeline)
+            pipeline=to_proto_pipeline(pipeline, fitted_pipeline.id, ALLOWED_VALUE_TYPES, self.temp_dir.name),
+            steps=to_proto_steps_description(pipeline, self.temp_dir.name)
         )
 
         check(result)
@@ -1471,25 +1473,32 @@ def to_proto_score_solution_request(problem, fitted_pipeline_id, metrics_result)
     return result
 
 
-def to_proto_steps_description(pipeline: Pipeline) -> typing.List[StepDescription]:
+def encode_value(value, scratch_dir):
+    return utils.encode_value(value, ALLOWED_VALUE_TYPES, scratch_dir)
+
+
+def to_proto_steps_description(pipeline: Pipeline, scratch_dir: str) -> typing.List[StepDescription]:
     '''
     Convert free hyperparameters in d3m pipeline steps to protocol buffer StepDescription
     '''
     descriptions: typing.List[StepDescription] = []
 
     for step in pipeline.steps:
-        print(step)
         if isinstance(step, PrimitiveStep):
             values = {}
-            # 2019-7-15: Method get_free_hyperparms is gone. Skip for now.
-            # free = step.get_free_hyperparms()
-            # for name, hyperparam_class in free.items():
-            #     default = hyperparam_class.get_default()
-            #     values[name] = to_proto_value_raw(default)
-            descriptions.append(StepDescription(
-                primitive=PrimitiveStepDescription(hyperparams=values)))
+            free = step.get_free_hyperparams()
+            for name, hyperparam_class in free.items():
+                default = hyperparam_class.get_default()
+                values[name] = encode_value({'type': 'object', 'value': str(default)}, scratch_dir)
+            if values:
+                descriptions.append(StepDescription(
+                    primitive=PrimitiveStepDescription(hyperparams=values)))
+            else:
+                descriptions.append(StepDescription(primitive=PrimitiveStepDescription()))
+
         else:
             # TODO: Subpipeline not yet implemented
+            _logger.warning('Subpipeline not implemented')
             pass
 
     return descriptions
