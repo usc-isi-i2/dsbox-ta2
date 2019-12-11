@@ -24,7 +24,7 @@ class DsboxConfig:
     Class for loading and managing DSBox configurations.
 
     The following variables are defined in D3M OS environment
-    * d3m_run: valid values are 'ta2' or 'ta2ta3' (os.environ['D3MRun'])
+    * d3m_run: valid values are 'ta2' or 'ta2ta3' (os.environ['D3MRUN'])
     * deprecated: d3m_context: values are 'TESTING', 'EVALUATION', 'PRODUCTION' (os.environ['D3MCONTEXT'])
     * input_dir: Top-level directory for all inputs (os.environ['D3MINPUTDIR'])
     * problem_schema: File path to problemDoc.json (os.environ['D3MPROBLEMPATH'])
