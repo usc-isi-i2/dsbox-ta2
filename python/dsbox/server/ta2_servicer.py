@@ -8,6 +8,8 @@ import random
 import string
 import sys
 import tempfile
+import time
+import threading
 import traceback
 import typing
 import uuid
@@ -109,8 +111,9 @@ logging.getLogger('').setLevel(logging_level)
 
 _logger = logging.getLogger(__name__)
 
+API_VERSION="2019.12.4"
 communication_value_types = [value_pb2.DATASET_URI, value_pb2.CSV_URI, value_pb2.RAW]
-allowed_value_types = [utils.ValueType.DATASET_URI, utils.ValueType.CSV_URI, utils.ValueType.RAW]
+ALLOWED_VALUE_TYPES = [utils.ValueType.DATASET_URI, utils.ValueType.CSV_URI, utils.ValueType.RAW]
 
 # value_pb2.PICKLE_URI, value_pb2.PICKLE_BLOB
 
@@ -138,6 +141,7 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
         '''
         self.log_msg("Init invoked")
         self.config = config
+        self.original_config = copy.copy(config)
         self.controller = Controller(is_ta3=True)
         self.controller.initialize(config)
 
@@ -149,7 +153,7 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
         if not os.path.exists(self.file_transfer_directory):
             os.makedirs(self.file_transfer_directory)
 
-        # self.problem_parsed = {}
+        # TODO: Should not have this field. Problem should be stored either in DsboxConfig, or in FittedPipeline.
         self.problem: typing.Optional[d3m_problem.Problem] = None
 
         # maps search solution id to config file
@@ -180,6 +184,9 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
         # Problem should not be defined here. Define as part of config?
         self.dataset_uris = []
 
+        # search solutions ticks
+        self.done_ticks = 0
+
     def __del__(self):
         # Clean up scrach directory
         self.temp_dir.cleanup()
@@ -208,6 +215,7 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
         Search Solutions call
         Non streaming
         '''
+        self.config = copy.copy(self.original_config)
         self.config.set_start_time()
         self.log_msg(msg="SearchSolutions invoked")
         self.log_msg(request)
@@ -242,11 +250,20 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
         dataset_uris = [self._map_directories(uri) for uri in self.dataset_uris]
 
         # convert to seconds
-        self.config.timeout = request.time_bound_search * 60
-        self.config.rank_solutions_limit = request.rank_solutions_limit
+        if request.time_bound_search > 0:
+            self.config.timeout = request.time_bound_search * 60
+        else:
+            self.config.timeout = self.original_config.timeout
+        # For testing streaming
+        # self.config.timeout = 2 * 60
 
-        # What to do with time_bound_run?
-        self.config.time_bound_run = request.time_bound_run
+        self.config.rank_solutions_limit = request.rank_solutions_limit
+        # For testing streaming
+        # self.config.rank_solutions_limit = 0
+
+        # Time bound for one pipeline run. Used if pipeline is specified
+        self.config.time_bound_run = request.time_bound_run * 60
+        # self.config.time_bound_run = 2 * 60
 
         # Configure random seed, v2019.12.4
         self.config.random_seed = request.random_seed
@@ -262,7 +279,7 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
 
         logger = self.config._logger
         self.config._logger = None
-        self.search_solution[request_id] = copy.deepcopy(self.config)
+        self.search_solution[request_id] = copy.copy(self.config)
         self.search_solution[request_id]._logger = logger
         self.config._logger = logger
 
@@ -288,47 +305,66 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
 
         problem_config = self.search_solution[request.search_id]
 
+        # If pipeline specified, then just fit the pipeline
         if problem_config.pipeline is not None:
-            self.fit_pipeline(problem_config)
+            _logger.info('Pipline specified')
+            self.fit_produce_pipeline(problem_config)
+            self.log_msg(msg="DONE: GetSearchSolutionsResults invoked with search_id: " + request.search_id)
+            return
 
+        # Use cached result if available
         if request.search_id in self._search_cache:
+            _logger.info('Using cached results')
             search_solutions_results = self._search_cache[request.search_id]
-        else:
+            for solution in search_solutions_results:
+                yield solution
+            self.log_msg(msg="DONE: GetSearchSolutionsResults invoked with search_id: " + request.search_id)
+            return
 
-            self.controller.initialize_from_ta3(problem_config)
-            _ = self.controller.train()
+        # if no limit on number of solutions, then stream back results as they are computed
+        if problem_config.rank_solutions_limit == 0 and problem_config.timeout > 0:
+            _logger.info('Streaming solutions')
+            for response in self.stream_solution_results(request):
+                yield response
+            _logger.info('Done Streaming solutions')
+            return
 
-            candidates = self.controller.get_candidates()
-            self.search_solution_results[request.search_id] = candidates
-            _logger.info('    Found {} solutions.'.format(len(candidates)))
+        # if solution limit, the compute all results before returning
+        _logger.info('Batching solutions')
+        self.controller.initialize_from_ta3(problem_config)
+        _ = self.controller.train()
 
-            results = candidates.values()
-            try:
-                if len(candidates) > problem_config.rank_solutions_limit:
-                    ranked_list = []
-                    for solution in candidates.values():
-                        if 'test_metrics' in solution and solution['test_metrics'] is not None:
-                            rank = solution['test_metrics'][0]['rank']
-                            ranked_list.append((rank, solution))
-                        else:
-                            ranked_list.append((sys.float_info.max, solution))
-                    ranked_list = sorted(ranked_list, key=operator.itemgetter(0))
-                    results = [item[1] for item in ranked_list]
-            except Exception:
-                print("Unexpected error:", sys.exc_info()[0])
+        candidates = self.controller.get_candidates()
+        self.search_solution_results[request.search_id] = candidates
+        _logger.info('    Found {} solutions.'.format(len(candidates)))
 
-            search_solutions_results = []
-            problem = self.controller.get_problem()
-            for solution in results:
-                # Use fitted pipeline id, 'fid'
-                fitted_pipeline_id = solution['fid']
-                if 'test_metrics' in solution and solution['test_metrics'] is not None:
-                    search_solutions_results.append(to_proto_search_solution_request(
-                        problem, fitted_pipeline_id, solution['test_metrics']))
+        results = candidates.values()
+        try:
+            if len(candidates) > problem_config.rank_solutions_limit:
+                ranked_list = []
+                for solution in candidates.values():
+                    if 'test_metrics' in solution and solution['test_metrics'] is not None:
+                        rank = solution['test_metrics'][0]['rank']
+                        ranked_list.append((rank, solution))
+                    else:
+                        ranked_list.append((sys.float_info.max, solution))
+                ranked_list = sorted(ranked_list, key=operator.itemgetter(0))
+                results = [item[1] for item in ranked_list]
+        except Exception:
+            print("Unexpected error:", sys.exc_info()[0])
 
-            check(search_solutions_results)
+        search_solutions_results = []
+        problem = self.controller.get_problem()
+        for solution in results:
+            # Use fitted pipeline id, 'fid'
+            fitted_pipeline_id = solution['fid']
+            if 'test_metrics' in solution and solution['test_metrics'] is not None:
+                search_solutions_results.append(to_proto_search_solution_request(
+                    problem, fitted_pipeline_id, solution['test_metrics']))
 
-            self._search_cache[request.search_id] = search_solutions_results
+        check(search_solutions_results)
+
+        self._search_cache[request.search_id] = search_solutions_results
 
         for solution in search_solutions_results:
             #! kyao
@@ -337,11 +373,73 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
 
         self.log_msg(msg="DONE: GetSearchSolutionsResults invoked with search_id: " + request.search_id)
 
-    def fit_pipeline(self, problem_config):
+    def stream_solution_results(self, request):
+        _logger.info('stream_solution_results 1')
+        start_time = datetime.datetime.now(datetime.timezone.utc)
+
+        problem_config = self.search_solution[request.search_id]
+        time_bound_seconds = problem_config.timeout
+
+        _logger.info('Starting controller')
+        self.controller.initialize_from_ta3(problem_config)
+        problem = self.controller.get_problem()
+
+        # start training in another thread
+        train_thread = threading.Thread(target=controller_train, args=(self.controller,))
+        train_thread.start()
+        _logger.info('Spawned controller thread')
+
+        # sleep a bit to let training thread start
+        history = None
+        for i in range(36):
+            _logger.info('Waiting for controller %s', i*5)
+            time.sleep(5)
+            history = self.controller.get_execution_history()
+            if history:
+                break
+
+        if history is None:
+            _logger.warning('Did not get execution_history')
+        else:
+            _logger.info('Got history')
+
+        time.sleep(60)
+        _logger.info('stream_solution_results 2')
+
+        try:
+            is_computing = True
+            while is_computing:
+                time_remaining = time_bound_seconds - (datetime.datetime.now(datetime.timezone.utc)
+                                                       - start_time).total_seconds()
+                _logger.info('Waiting for result, timeout=%s', time_remaining)
+                if time_remaining < 0:
+                    break
+
+                solution = history.queue.get(block=True, timeout=time_remaining)
+
+                fitted_pipeline_id = solution['fid']
+                _logger.info('Pipeline result: %s', fitted_pipeline_id)
+                if 'test_metrics' in solution and solution['test_metrics'] is not None:
+                    self.done_ticks += 1
+                    response = to_proto_search_solution_request(problem, fitted_pipeline_id, solution['test_metrics'],
+                                                                done_ticks=self.done_ticks)
+                    if response:
+                        _logger.info(response)
+                        yield response
+                    else:
+                        is_computing = False
+                else:
+                    _logger.info('No test metrics. Not returning this result.')
+        except:
+            _logger.info('Timed out.')
+        self.log_msg(msg="DONE: GetSearchSolutionsResults invoked with search_id: " + request.search_id)
+
+    def fit_produce_pipeline(self, problem_config):
         start_time = utils.encode_timestamp(datetime.datetime.now(datetime.timezone.utc))
         self.controller.initialize_from_ta3(problem_config)
         try:
             self.controller.fit_pipeline()
+            self.controller.produce_pipeline()
         except:
             traceback.print_exc()
             response = GetSearchSolutionsResultsResponse(
@@ -362,8 +460,8 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
                 status="Done",
                 start=start_time,
                 end=utils.encode_timestamp(datetime.datetime.now(datetime.timezone.utc))),
-            done_ticks=0,
-            all_ticks=0,
+            done_ticks=1,
+            all_ticks=1,
             solution_id=fitted_pipeline_id
         )
         yield response
@@ -501,9 +599,15 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
         dataset_uri = self._map_directories(dataset_uri)
         dataset = loader.load(dataset_uri=dataset_uri)
 
-        add_true_target(dataset, self.problem)
-
         fitted_pipeline = FittedPipeline.load(fitted_pipeline_id=fitted_pipeline_id, folder_loc=self.config.output_dir)
+
+        # Set target columns
+        if fitted_pipeline.problem:
+            problem = fitted_pipeline.problem
+        else:
+            _logger.warning('Problem not defined in fitted pipeline. Use TA2Servicer.problem.')
+            problem = self.problem
+        add_true_target(dataset, self.problem)
 
         try:
             fitted_pipeline.produce(inputs=[dataset])
@@ -520,10 +624,10 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
             yield response
             return
 
-        timestamp = datetime.datetime.now(datetime.timezone.utc)
+        # timestamp = datetime.datetime.now(datetime.timezone.utc)
 
         steps_progress = []
-        for i, step in enumerate(fitted_pipeline.pipeline.steps):
+        for _ in fitted_pipeline.pipeline.steps:
             steps_progress.append(
                 StepProgress(
                     progress=Progress(
@@ -546,12 +650,11 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
                     print(dataframe.head())
                     filepath = to_csv_file(dataframe,
                                            self.file_transfer_directory,
-                                           "produce_{}_{}".format(request.request_id, expose_output),
-                                           index=False)
+                                           "produce_{}_{}".format(request.request_id, expose_output))
                 else:
                     entry_id = find_entry_id(dataset)
-                    if self.problem:
-                        target_column_name = self.problem['inputs'][0]['targets'][0]['column_name']
+                    if problem:
+                        target_column_name = problem['inputs'][0]['targets'][0]['column_name']
                     else:
                         target_column_name = find_target_column_name(dataset, entry_id)
                     index_column_name, index_column = find_index_column_name_index(dataset, entry_id)
@@ -612,8 +715,6 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
         dataset_uri = self._map_directories(dataset_uri)
         dataset = loader.load(dataset_uri=dataset_uri)
 
-        add_true_target(dataset, self.problem)
-
         try:
             old_fitted_pipeline = FittedPipeline.load(fitted_pipeline_id=fitted_pipeline_id, folder_loc=self.config.output_dir)
         except:
@@ -628,6 +729,14 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
             )
             yield response
             return
+
+        # Set target columns
+        if old_fitted_pipeline.problem:
+            problem = old_fitted_pipeline.problem
+        else:
+            _logger.warning('Problem not defined in fitted pipeline. Use TA2Servicer.problem.')
+            problem = self.problem
+        add_true_target(dataset, self.problem)
 
         if (old_fitted_pipeline.dataset_id == dataset.metadata.query(())['id']
             and old_fitted_pipeline.random_seed == random_seed):
@@ -699,12 +808,11 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
                         print(dataframe.head())
                         filepath = to_csv_file(dataframe,
                                                self.file_transfer_directory,
-                                               "fit_{}_{}".format(request.request_id, expose_output),
-                                               index=False)
+                                               "fit_{}_{}".format(request.request_id, expose_output))
                     else:
                         entry_id = find_entry_id(dataset)
-                        if self.problem:
-                            target_column_name = self.problem['inputs'][0]['targets'][0]['column_name']
+                        if problem:
+                            target_column_name = problem['inputs'][0]['targets'][0]['column_name']
                         else:
                             target_column_name = find_target_column_name(dataset, entry_id)
                         index_column_name, index_column = find_index_column_name_index(dataset, entry_id)
@@ -749,8 +857,8 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
         pipeline = fitted_pipeline.pipeline
 
         result = DescribeSolutionResponse(
-            pipeline=to_proto_pipeline(pipeline, fitted_pipeline.id, allowed_value_types, self.temp_dir.name),
-            steps=to_proto_steps_description(pipeline)
+            pipeline=to_proto_pipeline(pipeline, fitted_pipeline.id, ALLOWED_VALUE_TYPES, self.temp_dir.name),
+            steps=to_proto_steps_description(pipeline, self.temp_dir.name)
         )
 
         check(result)
@@ -875,7 +983,7 @@ def find_index_column_name_index(dataset, entry_id):
     return dataset.metadata.query((entry_id, mbase.ALL_ELEMENTS, target_idx))['name'], target_idx
 
 
-def to_csv_file(dataframe, file_transfer_directory, file_prefix: str, *, index=True) -> str:
+def to_csv_file(dataframe, file_transfer_directory, file_prefix: str) -> str:
     file_path = os.path.join(file_transfer_directory, file_prefix + '.csv')
     # dataframe.to_csv(file_path, index=index)
     export_dataframe(dataframe, file_path)
@@ -927,10 +1035,9 @@ def parse_step_output(output_reference: str) -> dict:
     parts = output_reference.split('.')
     if len(parts) == 2 and parts[0] == 'outputs':
         return {'outputs' : int(parts[1])}
-    elif len(parts) == 3 and parts[0] in ['step', 'steps']:
+    if len(parts) == 3 and parts[0] in ['step', 'steps']:
         return {'steps': int(parts[1]), 'method': parts[2]}
-    else:
-        raise Exception('Pipeline output reference not supported: ' + output_reference)
+    raise Exception('Pipeline output reference not supported: ' + output_reference)
 
 
 # Not Used?
@@ -1091,28 +1198,27 @@ def check(message, *, depth=0):
 def to_proto_value_raw(value):
     if value is None:
         return ValueRaw(null=value_pb2.NULL_VALUE)
-    elif isinstance(value, int):
+    if isinstance(value, int):
         return ValueRaw(int64=value)
-    elif isinstance(value, float):
+    if isinstance(value, float):
         return ValueRaw(double=value)
-    elif isinstance(value, bool):
+    if isinstance(value, bool):
         return ValueRaw(bool=value)
-    elif isinstance(value, str):
+    if isinstance(value, str):
         return ValueRaw(string=value)
-    elif isinstance(value, bytes):
+    if isinstance(value, bytes):
         return ValueRaw(bytes=value)
-    elif isinstance(value, list) or isinstance(value, tuple):
+    if isinstance(value, (list, tuple)):
         alist = []
         for x in value:
             alist.append(to_proto_value_raw(x))
         return ValueRaw(list=ValueList(items=alist))
-    elif isinstance(value, dict):
+    if isinstance(value, dict):
         adict = {}
         for k, v in value.items():
             adict[k] = to_proto_value_raw(v)
         return ValueRaw(dict=ValueDict(items=adict))
-    else:
-        raise ValueError('to_proto_value: Unknown value type {}({})'.format(type(value), value))
+    raise ValueError('to_proto_value: Unknown value type {}({})'.format(type(value), value))
 
 
 def to_proto_primitive(primitive_base: PrimitiveBase) -> Primitive:
@@ -1246,12 +1352,17 @@ def to_proto_problem_target(target: dict):
             resource_id=target['resource_id'],
             column_index=target['column_index'],
             column_name=target['column_name'])
+    return problem_target
 
-def to_proto_search_solution_request(problem, fitted_pipeline_id, metrics_result) -> GetSearchSolutionsResultsResponse:
+def to_proto_search_solution_request(problem, fitted_pipeline_id, metrics_result,
+                                     done_ticks:int = 0, all_ticks:int = 0) -> GetSearchSolutionsResultsResponse:
 
     # search_solutions_results = []
 
     timestamp = Timestamp()
+
+    if done_ticks > all_ticks:
+        all_ticks = done_ticks
 
     # Todo: controller needs to remember the partition method
     scoring_config = ScoringConfiguration(
@@ -1305,8 +1416,8 @@ def to_proto_search_solution_request(problem, fitted_pipeline_id, metrics_result
                           status="Done",
                           start=utils.encode_timestamp(datetime.datetime.now(datetime.timezone.utc)),
                           end=utils.encode_timestamp(datetime.datetime.now(datetime.timezone.utc))),
-        done_ticks=0,  # TODO: Figure out how we want to support this
-        all_ticks=0,  # TODO: Figure out how we want to support this
+        done_ticks=done_ticks,
+        all_ticks=all_ticks,
         solution_id=fitted_pipeline_id,  # TODO: Populate this with the pipeline id
         # internal_score is between 0.0 and 1.0, where 1.0 is the highest score
         internal_score=internal_score,
@@ -1362,25 +1473,32 @@ def to_proto_score_solution_request(problem, fitted_pipeline_id, metrics_result)
     return result
 
 
-def to_proto_steps_description(pipeline: Pipeline) -> typing.List[StepDescription]:
+def encode_value(value, scratch_dir):
+    return utils.encode_value(value, ALLOWED_VALUE_TYPES, scratch_dir)
+
+
+def to_proto_steps_description(pipeline: Pipeline, scratch_dir: str) -> typing.List[StepDescription]:
     '''
     Convert free hyperparameters in d3m pipeline steps to protocol buffer StepDescription
     '''
     descriptions: typing.List[StepDescription] = []
 
     for step in pipeline.steps:
-        print(step)
         if isinstance(step, PrimitiveStep):
             values = {}
-            # 2019-7-15: Method get_free_hyperparms is gone. Skip for now.
-            # free = step.get_free_hyperparms()
-            # for name, hyperparam_class in free.items():
-            #     default = hyperparam_class.get_default()
-            #     values[name] = to_proto_value_raw(default)
-            descriptions.append(StepDescription(
-                primitive=PrimitiveStepDescription(hyperparams=values)))
+            free = step.get_free_hyperparams()
+            for name, hyperparam_class in free.items():
+                default = hyperparam_class.get_default()
+                values[name] = encode_value({'type': 'object', 'value': str(default)}, scratch_dir)
+            if values:
+                descriptions.append(StepDescription(
+                    primitive=PrimitiveStepDescription(hyperparams=values)))
+            else:
+                descriptions.append(StepDescription(primitive=PrimitiveStepDescription()))
+
         else:
             # TODO: Subpipeline not yet implemented
+            _logger.warning('Subpipeline not implemented')
             pass
 
     return descriptions
@@ -1399,3 +1517,6 @@ def to_proto_steps_description(pipeline: Pipeline) -> typing.List[StepDescriptio
     #         # TODO: Subpipeline not yet implemented
     #         pass
     # return descriptions
+
+def controller_train(controller):
+    _ = controller.train()

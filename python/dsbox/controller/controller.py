@@ -3,6 +3,7 @@ import json
 import logging
 import operator
 import os
+import multiprocessing
 import pathlib
 import pickle
 import pprint
@@ -13,8 +14,9 @@ import traceback
 import typing
 import copy
 import datamart
-import multiprocessing
+
 import pandas as pd  # type: ignore
+
 from d3m.base import utils as d3m_utils
 from d3m.container.dataset import Dataset, D3MDatasetLoader
 from d3m.metadata.base import ALL_ELEMENTS
@@ -27,6 +29,7 @@ from datamart_isi.utilities.timeout import timeout_call
 from datamart_isi import config as config_datamart
 from datamart_isi import rest
 
+from dsbox.combinatorial_search.ExecutionHistory import ExecutionHistory
 from dsbox.combinatorial_search.TemplateSpaceBaseSearch import TemplateSpaceBaseSearch
 from dsbox.combinatorial_search.TemplateSpaceParallelBaseSearch import TemplateSpaceParallelBaseSearch
 from dsbox.JobManager.usage_monitor import UsageMonitor
@@ -38,6 +41,7 @@ from dsbox.pipeline.fitted_pipeline import FittedPipeline
 from dsbox.pipeline.ensemble_tuning import EnsembleTuningPipeline, HorizontalTuningPipeline
 from dsbox.template.library import TemplateLibrary
 from dsbox.template.template import DSBoxTemplate
+
 
 # import dsbox.JobManager.mplog as mplog
 
@@ -909,7 +913,7 @@ class Controller:
                 search_result_wikifier = entries.DatamartSearchResult(search_result={}, supplied_data=None, query_json={}, search_type="wikifier")
                 hyper_temp = hyper_augment_default.replace({"search_result":search_result_wikifier.serialize()})
                 augment_primitive = DataMartAugmentPrimitive(hyperparams=hyper_temp)
-                augment_res = augment_primitive.produce(inputs = self.all_dataset).value
+                augment_res = augment_primitive.produce(inputs=self.all_dataset).value
                 # this part's code is only used for saving the pipeline afterwards in TA2 system
                 self.extra_primitive.add("augment" + str(augment_times))
                 self.dump_primitive(augment_primitive, "augment" + str(augment_times))
@@ -924,7 +928,7 @@ class Controller:
                 if each_search.search_type == "wikidata" and len(each_search.search_result["p_nodes_needed"]) > 0:
                     hyper_temp = hyper_augment_default.replace({"search_result":each_search.serialize()})
                     augment_primitive = DataMartAugmentPrimitive(hyperparams=hyper_temp)
-                    augment_res = augment_primitive.produce(inputs = augment_res).value
+                    augment_res = augment_primitive.produce(inputs=augment_res).value
                     # this part's code is only used for saving the pipeline afterwards in TA2 system
                     self.extra_primitive.add("augment" + str(augment_times))
                     self.dump_primitive(augment_primitive, "augment" + str(augment_times))
@@ -939,7 +943,7 @@ class Controller:
                     # now only augment 1 times on gneral search results
                     hyper_temp = hyper_augment_default.replace({"search_result":each_search.serialize()})
                     augment_primitive = DataMartAugmentPrimitive(hyperparams=hyper_temp)
-                    augment_res = augment_primitive.produce(inputs = augment_res).value
+                    augment_res = augment_primitive.produce(inputs=augment_res).value
                     self.extra_primitive.add("augment" + str(augment_times))
                     self.dump_primitive(augment_primitive, "augment" + str(augment_times))
                     augment_times += 1
@@ -1138,8 +1142,8 @@ class Controller:
         # first apply denormalize on input dataset
         from common_primitives.denormalize import Hyperparams as hyper_denormalize, DenormalizePrimitive
         denormalize_hyperparams = hyper_denormalize.defaults()
-        denormalize_primitive = DenormalizePrimitive(hyperparams = denormalize_hyperparams)
-        self.all_dataset = denormalize_primitive.produce(inputs = self.all_dataset).value
+        denormalize_primitive = DenormalizePrimitive(hyperparams=denormalize_hyperparams)
+        self.all_dataset = denormalize_primitive.produce(inputs=self.all_dataset).value
         self.extra_primitive.add("denormalize")
         self.dump_primitive(denormalize_primitive, "denormalize")
         datamart_search_results = None
@@ -1405,15 +1409,15 @@ class Controller:
                     hyperparams_split = hyperparams_split.replace({"stratified":True})
                 else:# if not task_type == "REGRESSION":
                     hyperparams_split = hyperparams_split.replace({"stratified":False})
-                split_primitive = KFoldDatasetSplitPrimitive(hyperparams = hyperparams_split)
+                split_primitive = KFoldDatasetSplitPrimitive(hyperparams=hyperparams_split)
 
             try:
-                split_primitive.set_training_data(dataset = dataset)
+                split_primitive.set_training_data(dataset=dataset)
                 split_primitive.fit()
                 # TODO: is it correct here?
                 query_dataset_list = list(range(n_splits))
-                train_return = split_primitive.produce(inputs = query_dataset_list).value#['learningData']
-                test_return = split_primitive.produce_score_data(inputs = query_dataset_list).value
+                train_return = split_primitive.produce(inputs=query_dataset_list).value#['learningData']
+                test_return = split_primitive.produce_score_data(inputs=query_dataset_list).value
 
             except Exception:
                 # Do not split stratified shuffle fails
@@ -1701,11 +1705,11 @@ class Controller:
 
         hyper_sampler = SplitterHyperparameter.defaults()
         # for test purpose here
-        hyper_sampler = hyper_sampler.replace({"threshold_column_length":2000,"further_reduce_threshold_column_length":2000})
-        sampler = Splitter(hyperparams = hyper_sampler)
-        sampler.set_training_data(inputs = self.all_dataset)
+        hyper_sampler = hyper_sampler.replace({"threshold_column_length":2000, "further_reduce_threshold_column_length":2000})
+        sampler = Splitter(hyperparams=hyper_sampler)
+        sampler.set_training_data(inputs=self.all_dataset)
         sampler.fit()
-        train_split = sampler.produce(inputs = self.all_dataset)
+        train_split = sampler.produce(inputs=self.all_dataset)
 
         _, original_df = d3m_utils.get_tabular_resource(dataset=self.all_dataset, resource_id=None)
         _, split_df = d3m_utils.get_tabular_resource(dataset=train_split.value, resource_id=None)
@@ -1713,7 +1717,7 @@ class Controller:
             self.extra_primitive.add("splitter")
             self.all_dataset = train_split.value
             # pickle this fitted sampler for furture use in pipelines
-            self.dump_primitive(sampler,"splitter")
+            self.dump_primitive(sampler, "splitter")
 
         '''
         # old method here
@@ -1891,14 +1895,14 @@ class Controller:
 
         # if we need to do ensemble tune, we split one extra time
         if self.do_ensemble_tune or self.do_horizontal_tune:
-            self.train_dataset1, self.ensemble_dataset = self.split_dataset(dataset=self.all_dataset, test_size = 0.1)
+            self.train_dataset1, self.ensemble_dataset = self.split_dataset(dataset=self.all_dataset, test_size=0.1)
             self.train_dataset1 = self.train_dataset1[0]
             self.ensemble_dataset = self.ensemble_dataset[0]
             self.train_dataset1, self.test_dataset1 = self.split_dataset(dataset=self.train_dataset1)
 
         else:
             # split the dataset first time
-            self.train_dataset1, self.test_dataset1 = self.split_dataset(dataset=self.all_dataset, test_size = 0.1)
+            self.train_dataset1, self.test_dataset1 = self.split_dataset(dataset=self.all_dataset, test_size=0.1)
             if self._logger.getEffectiveLevel() <= 10:
                 self._save_dataset(self.train_dataset1, pathlib.Path(self.config.dsbox_scratch_dir) / 'train_dataset1')
                 self._save_dataset(self.test_dataset1, pathlib.Path(self.config.dsbox_scratch_dir) / 'test_dataset1')
@@ -1962,6 +1966,9 @@ class Controller:
             self._logger.debug("Failed to save dataset splits", exc_info=True)
 
     # Methods used by TA3
+
+    def get_execution_history(self) -> ExecutionHistory:
+        return self._search_method.history
 
     def get_candidates(self) -> typing.Dict:
         return self._search_method.history.all_reports
