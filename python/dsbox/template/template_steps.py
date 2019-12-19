@@ -135,7 +135,7 @@ class TemplateSteps:
         ]
 
     @staticmethod
-    def dsbox_augmentation_step(datamart_search_results, large_dataset=False):
+    def dsbox_augmentation_step(datamart_search_results, large_dataset=False, augment_algorithm="augment_separately"):
         '''
         dsbox generic step for classification and regression, directly lead to model step
         '''
@@ -160,7 +160,10 @@ class TemplateSteps:
             res2, augment_step_number = TemplateSteps.add_steps_serial(vector_search_results, augment_step_number)
             all_steps.extend(res2)
 
-        res3, augment_step_number = TemplateSteps.add_steps_parallel(general_search_results, augment_step_number)
+        if augment_algorithm == "augment_separately":
+            res3, augment_step_number = TemplateSteps.add_steps_parallel(general_search_results, augment_step_number)
+        elif augment_algorithm == "augment_all_in_one":
+            res3, augment_step_number = TemplateSteps.add_steps_serial(general_search_results, augment_step_number)
         all_steps.extend(res3)
 
         # remove all q nodes here, otherwise cleaner may generate a lot of useless columns

@@ -245,6 +245,7 @@ class TemplateLibrary:
         self.templates.append(DefaultClassificationTemplate)
         self.templates.append(NaiveBayesClassificationTemplate)
         self.templates.append(DefaultRegressionTemplate)
+        """
         self.templates.append(AlternativeClassificationTemplate)
 
         # new tabular classification
@@ -259,7 +260,9 @@ class TemplateLibrary:
         # new tabular regression
         self.templates.append(RandomForestRegressionTemplate)
         self.templates.append(ExtraTreesRegressionTemplate)
+        """
         self.templates.append(GradientBoostingRegressionTemplate)
+        """
         self.templates.append(AlphaZeroEvalTemplate)
         # 2019-7-3: Need to update TESTINGTemplate: "d3m.primitives.data_transformation.update_semantic_types.DatasetCommon" missing
         # self.templates.append(TESTINGTemplate)
@@ -267,6 +270,7 @@ class TemplateLibrary:
         # self.templates.append(SVRRegressionTemplate)
 
         # text templates, but also support tabular data
+
         self.templates.append(DefaultTextClassificationTemplate)
         self.templates.append(DefaultTextRegressionTemplate)
 
@@ -339,7 +343,7 @@ class TemplateLibrary:
         # self.templates.append(DistilPreprocessingTemplate)
         self.templates.append(dsboxClassificationTemplate)
         self.templates.append(dsboxRegressionTemplate)
-
+        """
         self._validate_templates(self.templates)
 
     def _load_single_inline_templates(self, template_name):
@@ -1926,8 +1930,8 @@ class DefaultTimeSeriesForcastingTemplate(DSBoxTemplate):
         self.template = {
             "name": "Default_Time_Series_Forcasting_Template",
             "taskType": TaskKeyword.TIME_SERIES.name,
-            "taskSubtype": "NONE",
-            "inputType": {"table", "timeseries"},  # See SEMANTIC_TYPES.keys() for range of values
+            "taskSubtype": {"forecasting"},
+            "inputType": {"table"},  # See SEMANTIC_TYPES.keys() for range of values
             "output": "model_step",  # Name of the final step generating the prediction
             "target": "extract_target_step",  # Name of the step generating the ground truth
             "steps": [
@@ -2034,8 +2038,8 @@ class ARIMATemplate(DSBoxTemplate):
         self.template = {
             "name": "ARIMA_Template",
             "taskType": TaskKeyword.TIME_SERIES.name,
-            "taskSubtype": "NONE",
-            "inputType": {"table", "timeseries"},  # See SEMANTIC_TYPES.keys() for range of values
+            "taskSubtype": {"forecasting"},
+            "inputType": {"table"},  # See SEMANTIC_TYPES.keys() for range of values
             "output": "ARIMA_step",  # Name of the final step generating the prediction
             "target": "extract_target_step",  # Name of the step generating the ground truth
             "steps": [
@@ -2117,8 +2121,8 @@ class CMUTimeSeriesForcastingTemplate(DSBoxTemplate):
         self.template = {
             "name": "CMU_TimeSeries_Forcasting_emplate",
             "taskType": TaskKeyword.TIME_SERIES.name,
-            "taskSubtype": "NONE",
-            "inputType": {"table", "timeseries"},  # See SEMANTIC_TYPES.keys() for range of values
+            "taskSubtype": {"forecasting"},
+            "inputType": {"table"},  # See SEMANTIC_TYPES.keys() for range of values
             "output": "model_step",  # Name of the final step generating the prediction
             "target": "extract_target_step",  # Name of the step generating the ground truth
             "steps": [
@@ -2221,8 +2225,8 @@ class TimeSeriesForcastingTestingTemplate(DSBoxTemplate):
         self.template = {
             "name": "TimeSeries_Forcasting_Testing_emplate",
             "taskType": TaskKeyword.TIME_SERIES.name,
-            "taskSubtype": "NONE",
-            "inputType": {"table", "timeseries"},  # See SEMANTIC_TYPES.keys() for range of values
+            "taskSubtype": {"forecasting"},
+            "inputType": {"table"},  # See SEMANTIC_TYPES.keys() for range of values
             "output": "model_step",  # Name of the final step generating the prediction
             "target": "extract_target_step",  # Name of the step generating the ground truth
             "steps": [
@@ -2310,8 +2314,8 @@ class TimeSeriesForcastingTestingTemplate2(DSBoxTemplate):
         self.template = {
             "name": "TimeSeries_Forcasting_Testing_emplate",
             "taskType": TaskKeyword.TIME_SERIES.name,
-            "taskSubtype": "NONE",
-            "inputType": {"table", "timeseries"},  # See SEMANTIC_TYPES.keys() for range of values
+            "taskSubtype": {"forecasting"},
+            "inputType": {"table"},  # See SEMANTIC_TYPES.keys() for range of values
             "output": "model_step",  # Name of the final step generating the prediction
             "target": "extract_target_step",  # Name of the step generating the ground truth
             "steps": [

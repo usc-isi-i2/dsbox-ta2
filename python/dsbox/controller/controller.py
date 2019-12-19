@@ -332,6 +332,7 @@ class Controller:
         # If no limit then no need to remove any pipelines
         limit = self.config.rank_solutions_limit
         if limit <= 0:
+            limit = 20
             return
 
         ranked_list = []
@@ -673,15 +674,13 @@ class Controller:
 
         return target_columns
 
-    def do_data_augmentation_rest_api(self, input_all_dataset: Dataset) -> Dataset:
+    def run_wikifier(self, augment_res) -> str:
         """
-        function that do augmentation from rest api(server) side
+            run wikifier before sending dataset to datamart, 
+            then use similiarity of Q nodes vectors to determine which columns may be correct and useful
+            return a jsonfied string that can be sent as keyword to let isi datamart system to 
+            process with specified wikifier columns
         """
-        augment_times = 0
-        system_url = os.environ.get('DATAMART_URL_ISI')
-        datamart_unit = rest.RESTDatamart(connection_url=system_url)
-        augment_res = copy.copy(self.all_dataset)
-
         # try to find target columns which should do wikifier
         target_columns = self.find_possible_candidate(augment_res)
 
@@ -754,39 +753,59 @@ class Controller:
         meta_to_str = json.dumps({config_datamart.wikifier_column_mark: meta_for_wikifier})
         self._logger.info("Following columns should be wikified as:")
         self._logger.info(str(meta_to_str))
+        return meta_to_str
 
-        keywords_from_data = self.config.problem["data_augmentation"][0]["keywords"]
+
+    def do_data_augmentation_rest_api(self, input_all_dataset: Dataset) -> Dataset:
+        """
+        function that do augmentation from rest api(server) side
+        """
+        # with open("/Users/minazuki/Desktop/aug_40.pkl","rb") as f:
+            # self.all_dataset = pickle.load(f)
+        # return None
+
+        augment_times = 0
+        system_url = os.environ.get('DATAMART_URL_ISI')
+        datamart_unit = rest.RESTDatamart(connection_url=system_url)
+        augment_res = copy.copy(self.all_dataset)
+        candidate_aug_res = []
+        # meta_to_str = self.run_wikifier(augment_res)
+        meta_to_str = ""
+
+        try:
+            keywords_from_data = self.config.problem["data_augmentation"][0]["keywords"]
+        except:
+            keywords_from_data = ["woreda", "ethiopia", "flood", "cases" ,"fever"]
+
         query_search = datamart.DatamartQuery(keywords=keywords_from_data + [meta_to_str], variables=None)
 
-        search_unit = datamart_unit.search_with_data(query=query_search, supplied_data=augment_res)
+        search_unit = datamart_unit.search_with_data(query=query_search, 
+                                                     supplied_data=self.all_dataset, 
+                                                     run_wikifier=True,
+                                                     consider_wikifier_columns_only=True, 
+                                                     # if augment with time is set to true, consider time will be useless
+                                                     augment_with_time=True,
+                                                     # consider_time=False,
+                                                     )
         all_results1 = search_unit.get_next_page()
 
         if all_results1 is None:
             self._logger.warning("No search result returned!")
             return self.all_dataset
 
-        for i, each_search_result in enumerate(all_results1):
-            each_search_res_json = each_search_result.get_json_metadata()
-            self._logger.info("------------ Original Search result No.{} ------------".format(str(i)))
-            self._logger.info(each_search_res_json['augmentation'])
-            summary = each_search_res_json['summary'].copy()
-            if "Columns" in summary:
-                summary.pop("Columns")
-            self._logger.info(summary)
-            self._logger.info("-"*100)
-
+        rest.pretty_print_search_results(all_results1)
 
         from common_primitives.datamart_augment import Hyperparams as hyper_augment, DataMartAugmentPrimitive
         hyper_augment_default = hyper_augment.defaults()
         hyper_augment_default = hyper_augment_default.replace({"system_identifier":"ISI"})
 
-        def augment_test_worker(augment_num, res_dict, search_res):
+        def augment_test_worker(augment_num, res_dict, search_res, supplied_dataset):
             def pp(augment_res):
                 return augment_primitive.produce(inputs=augment_res).value
             self._logger.info("Starting testing No.{} augment.".format(augment_num))
             hyper_temp = hyper_augment_default.replace({"search_result":search_res.serialize()})
             augment_primitive = DataMartAugmentPrimitive(hyperparams=hyper_temp)
-            prev_augment_res = copy.copy(self.all_dataset)
+            prev_augment_res = copy.copy(supplied_dataset)
             try:
                 augment_res = timeout_call(3000, pp, [prev_augment_res])
                 if type(augment_res) is str or augment_res is None:
@@ -805,6 +824,7 @@ class Controller:
             except:
                 self._logger.info("Agument No.{} failed with error".format(augment_num))
                 res_dict[augment_num] = False
+            return augment_res
 
         search_result_list = all_results1
         # augment_res_list = []
@@ -815,11 +835,62 @@ class Controller:
         original_shape = original_df.shape
         self._logger.debug("Original dataset's shape is {}".format(original_shape))
 
-        for i, search_res in enumerate(search_result_list):            
-            p = multiprocessing.Process(target=augment_test_worker, args=(i, augment_dict, search_res))
+        augment_res = copy.copy(self.all_dataset)
+
+        """
+        augment one by one way
+        for i, search_res in enumerate(search_result_list):
+            p = multiprocessing.Process(target=augment_test_worker, args=(i, augment_dict, search_res, self.all_dataset))
             jobs.append(p)
             p.start()
+        """
 
+        for i, search_res in enumerate(search_result_list):
+            try:
+                augment_res = augment_test_worker(i, augment_dict, search_res, augment_res)
+                candidate_aug_res.append(search_res)
+            except:
+                pass
+
+        keywords_from_data = ["woreda", "ethiopia", "fuel", "unpaid", "unemployment"]
+
+        query_search = datamart.DatamartQuery(keywords=keywords_from_data + [meta_to_str], variables=None)
+        search_unit = datamart_unit.search_with_data(query=query_search, 
+                                                     supplied_data=self.all_dataset, 
+                                                     run_wikifier=True,
+                                                     consider_wikifier_columns_only=True, 
+                                                     # if augment with time is set to true, consider time will be useless
+                                                     # augment_with_time=True,
+                                                     consider_time=False,
+                                                     )
+        all_results2 = search_unit.get_next_page()
+        
+        rest.pretty_print_search_results(all_results2)
+
+        augmented_id = set()
+        for i, each_search_result in enumerate(all_results1):
+            each_search_res_json = each_search_result.get_json_metadata()
+            summary = each_search_res_json['summary']
+            augmented_id.add(summary['Datamart ID'])
+
+        for i, each_search_result in enumerate(all_results2):
+            each_search_res_json = each_search_result.get_json_metadata()
+            summary = each_search_res_json['summary']
+            if summary['Datamart ID'] not in augmented_id:
+                try:
+                    augment_res = augment_test_worker(i, augment_dict, each_search_result, augment_res)
+                    candidate_aug_res.append(each_search_result)
+                except:
+                    pass
+            else:
+                self._logger.info("No.{} augmented, will not augment again.".format(str(i)))
+
+        # self.all_dataset = augment_res
+
+        return candidate_aug_res
+
+        """
+        # !!! v2019.12.18 must need to change back later here!!!
         not_all_finished = True
         while not_all_finished:
             # check status each 10s
@@ -841,17 +912,11 @@ class Controller:
         for each in can_augment_result_number:
             filterd_results.append(all_results1[each])
 
-        for i, each_search_result in enumerate(filterd_results):
-            each_search_res_json = each_search_result.get_json_metadata()
-            self._logger.info("------------ Filtered Search result No.{} ------------".format(str(i)))
-            self._logger.info(each_search_res_json['augmentation'])
-            summary = each_search_res_json['summary'].copy()
-            if "Columns" in summary:
-                summary.pop("Columns")
-            self._logger.info(summary)
-            self._logger.info("-"*100)
+        rest.pretty_print_search_results(filterd_results)
 
         return filterd_results
+        """
+
 
     def do_data_augmentation(self, input_all_dataset: Dataset) -> Dataset:
         """
@@ -1130,13 +1195,15 @@ class Controller:
         self.extra_primitive.add("denormalize")
         self.dump_primitive(denormalize_primitive, "denormalize")
         datamart_search_results = None
-        if "data_augmentation" in self.config.problem.keys():
-            try:
-                datamart_search_results = self.do_data_augmentation_rest_api(self.all_dataset)
-            except Exception as e:
-                datamart_search_results = None
-                self._logger.error("Running data augmentation failed!!!")
-                traceback.print_exc()
+        # import pdb
+        # pdb.set_trace()
+        # if "data_augmentation" in self.config.problem.keys():
+            # try:
+        datamart_search_results = self.do_data_augmentation_rest_api(self.all_dataset)
+            # except Exception as e:
+                # datamart_search_results = None
+                # self._logger.error("Running data augmentation failed!!!")
+                # traceback.print_exc()
         # load templates
         self.load_templates(datamart_search_results)
 
@@ -1224,7 +1291,7 @@ class Controller:
                     if split_times > self.max_split_times:
                         self.max_split_times = split_times
 
-        if datamart_search_results is not None:
+        if datamart_search_results is not None and len(datamart_search_results) > 0:
             from dsbox.template.template_steps import TemplateSteps
             from dsbox.datapreprocessing.cleaner.splitter import SplitterHyperparameter
             splitter_hyperparam = SplitterHyperparameter.defaults()
@@ -1234,7 +1301,7 @@ class Controller:
             is_large_dataset = supplied_dataframe.shape[0] >= large_dataset_row_length or supplied_dataframe.shape[1] >= large_dataset_column_length
             if is_large_dataset:
                 self._logger.info("Large dataset detected! Will skip wikidata related parts!")
-            augment_steps = TemplateSteps.dsbox_augmentation_step(datamart_search_results, large_dataset=is_large_dataset)
+            augment_steps = TemplateSteps.dsbox_augmentation_step(datamart_search_results, large_dataset=is_large_dataset, augment_algorithm="augment_all_in_one")
             self._logger.info("Totally " + str(len(augment_steps)) + " datamart search results will be considered!")
 
             for each_template in self.template_list:
