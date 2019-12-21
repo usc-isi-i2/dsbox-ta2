@@ -245,7 +245,6 @@ class TemplateLibrary:
         self.templates.append(DefaultClassificationTemplate)
         self.templates.append(NaiveBayesClassificationTemplate)
         self.templates.append(DefaultRegressionTemplate)
-        """
         self.templates.append(AlternativeClassificationTemplate)
 
         # new tabular classification
@@ -260,9 +259,7 @@ class TemplateLibrary:
         # new tabular regression
         self.templates.append(RandomForestRegressionTemplate)
         self.templates.append(ExtraTreesRegressionTemplate)
-        """
         self.templates.append(GradientBoostingRegressionTemplate)
-        """
         self.templates.append(AlphaZeroEvalTemplate)
         # 2019-7-3: Need to update TESTINGTemplate: "d3m.primitives.data_transformation.update_semantic_types.DatasetCommon" missing
         # self.templates.append(TESTINGTemplate)
@@ -270,7 +267,7 @@ class TemplateLibrary:
         # self.templates.append(SVRRegressionTemplate)
 
         # text templates, but also support tabular data
-
+        
         self.templates.append(DefaultTextClassificationTemplate)
         self.templates.append(DefaultTextRegressionTemplate)
 
@@ -343,7 +340,7 @@ class TemplateLibrary:
         # self.templates.append(DistilPreprocessingTemplate)
         self.templates.append(dsboxClassificationTemplate)
         self.templates.append(dsboxRegressionTemplate)
-        """
+
         self._validate_templates(self.templates)
 
     def _load_single_inline_templates(self, template_name):

@@ -775,8 +775,9 @@ class Controller:
         try:
             keywords_from_data = self.config.problem["data_augmentation"][0]["keywords"]
         except:
-            keywords_from_data = ["woreda", "ethiopia", "flood", "cases" ,"fever"]
-
+            # keywords_from_data = ["20", "flood", "duration"]
+            keywords_from_data = ["year", "flood", "duration", "month", "precipitation", "height", "typhoid", "fever", "Relapsing"]
+        
         query_search = datamart.DatamartQuery(keywords=keywords_from_data + [meta_to_str], variables=None)
 
         search_unit = datamart_unit.search_with_data(query=query_search, 
@@ -788,6 +789,15 @@ class Controller:
                                                      # consider_time=False,
                                                      )
         all_results1 = search_unit.get_next_page()
+        candidate_aug_res.extend(all_results1[:2])
+
+        # 5. 2, 5, 20 -year flood flood duration in a month  
+        # 6. precipitation height   
+        # 7. Typhoid fever Total cases   
+        # 8. Relapsing fever total Cases    
+        # 9. 
+        # 10.
+
 
         if all_results1 is None:
             self._logger.warning("No search result returned!")
@@ -845,14 +855,19 @@ class Controller:
             p.start()
         """
 
-        for i, search_res in enumerate(search_result_list):
-            try:
-                augment_res = augment_test_worker(i, augment_dict, search_res, augment_res)
-                candidate_aug_res.append(search_res)
-            except:
-                pass
+        # for i, search_res in enumerate(search_result_list):
+        #     try:
+        #         augment_res = augment_test_worker(i, augment_dict, search_res, augment_res)
+        #         candidate_aug_res.append(search_res)
+        #     except:
+        #         pass
 
-        keywords_from_data = ["woreda", "ethiopia", "fuel", "unpaid", "unemployment"]
+        keywords_from_data = ["Percent", "share" ,"of", "households", "charcoal", "electricity", "burning", "burying", "drinking", "water", "unprotected", "spring", "disposal"]
+
+        # 1. Percent share of total households that use charcoal for fuel  
+        # 2. Percent share of total households that use electricity for fuel    
+        # 3. Percent share of households that use burning /burying for waste disposal   
+        # 4. Percent share of households that obtain drinking water from unprotected well or spring 
 
         query_search = datamart.DatamartQuery(keywords=keywords_from_data + [meta_to_str], variables=None)
         search_unit = datamart_unit.search_with_data(query=query_search, 
@@ -864,7 +879,7 @@ class Controller:
                                                      consider_time=False,
                                                      )
         all_results2 = search_unit.get_next_page()
-        
+        candidate_aug_res.extend(all_results2[:6])
         rest.pretty_print_search_results(all_results2)
 
         augmented_id = set()
@@ -873,19 +888,21 @@ class Controller:
             summary = each_search_res_json['summary']
             augmented_id.add(summary['Datamart ID'])
 
-        for i, each_search_result in enumerate(all_results2):
-            each_search_res_json = each_search_result.get_json_metadata()
-            summary = each_search_res_json['summary']
-            if summary['Datamart ID'] not in augmented_id:
-                try:
-                    augment_res = augment_test_worker(i, augment_dict, each_search_result, augment_res)
-                    candidate_aug_res.append(each_search_result)
-                except:
-                    pass
-            else:
-                self._logger.info("No.{} augmented, will not augment again.".format(str(i)))
+        # for i, each_search_result in enumerate(all_results2):
+        #     each_search_res_json = each_search_result.get_json_metadata()
+        #     summary = each_search_res_json['summary']
+        #     if summary['Datamart ID'] not in augmented_id:
+        #         try:
+        #             augment_res = augment_test_worker(i, augment_dict, each_search_result, augment_res)
+        #             candidate_aug_res.append(each_search_result)
+        #         except:
+        #             pass
+        #     else:
+        #         self._logger.info("No.{} augmented, will not augment again.".format(str(i)))
 
         # self.all_dataset = augment_res
+
+        rest.pretty_print_search_results(candidate_aug_res)
 
         return candidate_aug_res
 

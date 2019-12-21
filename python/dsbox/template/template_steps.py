@@ -204,7 +204,7 @@ class TemplateSteps:
             each_augment_step = {
                 "name": "augment_step" + str(i),
                 "primitives": [
-                    "d3m.primitives.data_preprocessing.do_nothing_for_dataset.DSBOX", 
+                    # "d3m.primitives.data_preprocessing.do_nothing_for_dataset.DSBOX", 
                     {
                         "primitive": "d3m.primitives.data_augmentation.datamart_augmentation.Common",
                         "hyperparameters":
