@@ -93,7 +93,8 @@ class Controller:
         # hard coded unsplit dataset type
         # TODO: check whether "speech" type should be put into this list or not
         self.data_type_cannot_split = ["graph", "edgeList", "audio"]
-        self.task_type_can_split = ["CLASSIFICATION", "REGRESSION", "SEMISUPERVISED_CLASSIFICATION", "SEMISUPERVISED_REGRESSION"]
+        self.task_type_can_split = ["CLASSIFICATION", "REGRESSION", "SEMISUPERVISED_CLASSIFICATION", "SEMISUPERVISED_REGRESSION", "COLLABORATIVE_FILTERING", "OBJECT_DETECTION"]
+        self.task_type_cannot_split = ["FORECASTING","CLUSTERING", "LINK_PREDICTION", "VERTEX_CLASSIFICATION", "COMMUNITY_DETECTION", "GRAPH_MATCHING"]
 
         # !!! hard code here
         # TODO: add if statement to determine it
@@ -139,6 +140,8 @@ class Controller:
         self.wikifier_max_len = 100000
         self.wikifier_selection_rate = 0.1
         self.wikifier_default_size = 1000
+        self.cannot_split = False
+
 
         # reosurce monitor
         self.resource_monitor = UsageMonitor()
@@ -775,8 +778,8 @@ class Controller:
         try:
             keywords_from_data = self.config.problem["data_augmentation"][0]["keywords"]
         except:
-            # keywords_from_data = ["20", "flood", "duration"]
-            keywords_from_data = ["year", "flood", "duration", "month", "precipitation", "height", "typhoid", "fever", "Relapsing"]
+            keywords_from_data = ["flood", "duration"]
+            # keywords_from_data = ["year", "flood", "duration", "month", "precipitation", "height", "typhoid", "fever", "Relapsing"]
         
         query_search = datamart.DatamartQuery(keywords=keywords_from_data + [meta_to_str], variables=None)
 
@@ -855,12 +858,12 @@ class Controller:
             p.start()
         """
 
-        # for i, search_res in enumerate(search_result_list):
-        #     try:
-        #         augment_res = augment_test_worker(i, augment_dict, search_res, augment_res)
-        #         candidate_aug_res.append(search_res)
-        #     except:
-        #         pass
+        for i, search_res in enumerate(search_result_list):
+            try:
+                augment_res = augment_test_worker(i, augment_dict, search_res, augment_res)
+                candidate_aug_res.append(search_res)
+            except:
+                pass
 
         keywords_from_data = ["Percent", "share" ,"of", "households", "charcoal", "electricity", "burning", "burying", "drinking", "water", "unprotected", "spring", "disposal"]
 
@@ -879,7 +882,7 @@ class Controller:
                                                      consider_time=False,
                                                      )
         all_results2 = search_unit.get_next_page()
-        candidate_aug_res.extend(all_results2[:6])
+        
         rest.pretty_print_search_results(all_results2)
 
         augmented_id = set()
@@ -888,21 +891,19 @@ class Controller:
             summary = each_search_res_json['summary']
             augmented_id.add(summary['Datamart ID'])
 
-        # for i, each_search_result in enumerate(all_results2):
-        #     each_search_res_json = each_search_result.get_json_metadata()
-        #     summary = each_search_res_json['summary']
-        #     if summary['Datamart ID'] not in augmented_id:
-        #         try:
-        #             augment_res = augment_test_worker(i, augment_dict, each_search_result, augment_res)
-        #             candidate_aug_res.append(each_search_result)
-        #         except:
-        #             pass
-        #     else:
-        #         self._logger.info("No.{} augmented, will not augment again.".format(str(i)))
+        for i, each_search_result in enumerate(all_results2):
+            each_search_res_json = each_search_result.get_json_metadata()
+            summary = each_search_res_json['summary']
+            if summary['Datamart ID'] not in augmented_id:
+                try:
+                    augment_res = augment_test_worker(i, augment_dict, each_search_result, augment_res)
+                    candidate_aug_res.append(each_search_result)
+                except:
+                    pass
+            else:
+                self._logger.info("No.{} augmented, will not augment again.".format(str(i)))
 
         # self.all_dataset = augment_res
-
-        rest.pretty_print_search_results(candidate_aug_res)
 
         return candidate_aug_res
 
@@ -1203,6 +1204,7 @@ class Controller:
         json_file = os.path.abspath(self.config.dataset_schema_files[0])
         all_dataset_uri = 'file://{}'.format(json_file)
         self.all_dataset = loader.load(dataset_uri=all_dataset_uri)
+
         self._check_and_set_dataset_metadata()
         # first apply denormalize on input dataset
         from common_primitives.denormalize import Hyperparams as hyper_denormalize, DenormalizePrimitive
@@ -1212,11 +1214,10 @@ class Controller:
         self.extra_primitive.add("denormalize")
         self.dump_primitive(denormalize_primitive, "denormalize")
         datamart_search_results = None
-        # import pdb
-        # pdb.set_trace()
-        # if "data_augmentation" in self.config.problem.keys():
+
+        if "data_augmentation" in self.config.problem.keys():
             # try:
-        datamart_search_results = self.do_data_augmentation_rest_api(self.all_dataset)
+            datamart_search_results = self.do_data_augmentation_rest_api(self.all_dataset)
             # except Exception as e:
                 # datamart_search_results = None
                 # self._logger.error("Running data augmentation failed!!!")
@@ -1365,53 +1366,37 @@ class Controller:
 
         return dataset
 
+    def _check_can_split_or_not(self):
+        """
+            function used to check whether the given dataset can be splitted or not
+        """
+        task_type = self.problem_info["task_type"]
+        if not isinstance(task_type, list): 
+            task_type = [task_type]
+        data_type = self.problem_info["data_type"]
+
+        self._logger.info("given task tpye is {}".format(str(task_type)))
+        self._logger.info("given data tpye is {}".format(str(data_type)))
+
+        if len(data_type.intersection(self.data_type_cannot_split)) != 0:
+            self.cannot_split = True
+
+        # check second time if the program think we still can split
+        if not self.cannot_split:
+            task_type_check = set(task_type)
+            if len(task_type_check.intersection(self.task_type_cannot_split)) != 0:
+                self.cannot_split = True
+            elif len(task_type_check.intersection(self.task_type_can_split)) == 0:
+                self.cannot_split = True
+
+        self._logger.info("Summary: Can we split this dataset: {}".format(str(self.cannot_split)))
+
     def split_dataset(self, dataset, random_state=42, test_size=0.2, n_splits=1, need_test_dataset=True):
         """
             Split dataset into 2 parts for training and test
         """
-        '''
-        def _add_meta_data(dataset, res_id, input_part):
-            dataset_with_new_meta = copy.copy(dataset)
-            dataset_metadata = dict(dataset_with_new_meta.metadata.query(()))
-            dataset_metadata['id'] = dataset_metadata['id'] + '_' + str(uuid.uuid4())
-            dataset_with_new_meta.metadata = dataset_with_new_meta.metadata.update((),
-                                                                                   dataset_metadata)
-
-            dataset_with_new_meta[res_id] = input_part
-            meta = dict(dataset_with_new_meta.metadata.query((res_id,)))
-            dimension = dict(meta['dimension'])
-            meta['dimension'] = dimension
-            dimension['length'] = input_part.shape[0]
-            # print(meta)
-            dataset_with_new_meta.metadata = dataset_with_new_meta.metadata.update((res_id,), meta)
-            # pprint(dict(dataset_with_new_meta.metadata.query((res_id,))))
-            return dataset_with_new_meta
-        '''
-        task_type = self.problem_info["task_type"]  # ['problem']['task_type'].name  # 'classification' 'regression'
-        if not isinstance(task_type, list): 
-            task_type = [task_type]
-        # res_id = self.problem_info["res_id"]
-        # target_index = self.problem_info["target_index"]
-        data_type = self.problem_info["data_type"]
-
-        cannot_split = False
-
-        for each in data_type:
-            if each in self.data_type_cannot_split:
-                cannot_split = True
-                break
-
-        # check second time if the program think we still can split
-        if not cannot_split:
-            task_type_check = task_type
-
-            for each in task_type_check:
-                if each not in self.task_type_can_split:
-                    cannot_split = True
-                    break
-
         # if the dataset type in the list that we should not split
-        if cannot_split:
+        if self.cannot_split:
             train_return = []
             test_return = []
             for i in range(n_splits):
@@ -1421,6 +1406,7 @@ class Controller:
 
         # if the dataset type can be split
         else:
+            task_type = self.problem_info["task_type"]
             self._logger.info("split start!")
             train_ratio = 1 - test_size
             if n_splits == 1:
@@ -1451,11 +1437,12 @@ class Controller:
                 train_return = split_primitive.produce(inputs = query_dataset_list).value#['learningData']
                 test_return = split_primitive.produce_score_data(inputs = query_dataset_list).value
 
-            except Exception:
+            except Exception as e:
                 # Do not split stratified shuffle fails
                 train_return = []
                 test_return = []
-                self._logger.info('Not splitting dataset. Stratified shuffle failed')
+                self._logger.warning('Not splitting dataset. Stratified shuffle failed')
+                self._logger.info(str(e))
                 for i in range(n_splits):
                     train_return.append(dataset)
                     test_return.append(None)
@@ -1525,7 +1512,6 @@ class Controller:
                                            input_part=dataset[res_id].iloc[train_index, :].reset_index(drop=True))
                     train_return.append(train)
                     # for special condition that only need get part of the dataset
-                    if need_test_dataset:
                         test = _add_meta_data(dataset=dataset, res_id=res_id,
                                               input_part=dataset[res_id].iloc[test_index, :].reset_index(drop=True))
                         test_return.append(test)
@@ -1750,180 +1736,8 @@ class Controller:
             # pickle this fitted sampler for furture use in pipelines
             self.dump_primitive(sampler,"splitter")
 
-        '''
-        # old method here
-
-        # runtime.add_target_columns_metadata(self.all_dataset, self.config.problem)
-        res_id = self.problem_info['res_id']
-        # check the shape of the dataset
-        main_res_shape = self.all_dataset[res_id].shape
-        # if the column length is larger than the threshold, it may failed in the given time,
-        # so we need to sample part of the dataset
-
-        if main_res_shape[1] > self.threshold_column_length:
-            self._logger.info(
-                "The columns number of the input dataset is very large, now sampling part of them.")
-
-            # first check the target column amount
-            target_column_list = []
-            all_column_length = \
-                self.all_dataset.metadata.query((res_id, ALL_ELEMENTS))['dimension']['length']
-
-            targets_from_problem = self.config.problem_metadata.query(())["inputs"]["data"][0][
-                "targets"]
-            for t in targets_from_problem:
-                target_column_list.append(t["colIndex"])
-            self._logger.info("Totally {} taget found.".format(len(target_column_list)))
-            target_column_length = len(target_column_list)
-
-            # check again on the length of the column to ensure
-            if (main_res_shape[1] - target_column_length - 1) <= self.threshold_column_length:
-                pass
-            else:
-                # TODO: current large dataset processing function is not fully finished!!!
-                attribute_column_length = all_column_length - target_column_length - 1
-                # skip the column 0 which is d3mIndex]
-                is_all_numerical = True
-                # check whether all inputs are categorical or not
-                # for each_column in range(1, attribute_column_length + 1):
-                #     each_metadata = self.all_dataset.metadata.query((res_id,ALL_ELEMENTS,
-                # each_column))
-                #     if 'http://schema.org/Float' not in each_metadata['semantic_types'] or
-                # 'http://schema.org/Integer' not in each_metadata['semantic_types']:
-                #         is_all_numerical = False
-                #         break
-                # two ways to do sampling (random projection or random choice)
-                if is_all_numerical:
-                    # TODO:
-                    # add special template that use random projection directly
-                    # add one special source type for the template special process such kind of
-                    # dataset
-                    self._logger.info(
-                        "Special type of dataset: large column number with all categorical "
-                        "columns.")
-                    self._logger.info("Will reload the template with new task source type.")
-                    self.taskSourceType.add("large_column_number")
-                    # aadd new template specially for large column numbers at the first priority
-                    new_template = self.template_library.get_templates(self.config.task_type,
-                                                                       self.config.task_subtype,
-                                                                       self.taskSourceType)
-                    # find the maximum dataset split requirements
-                    for each_template in new_template:
-                        self.template.insert(0, each_template)
-                        for each_step in each_template.template['steps']:
-                            if "runtime" in each_step and "test_validation" in each_step["runtime"]:
-                                split_times = int(each_step["runtime"]["test_validation"])
-                                if split_times > self.max_split_times:
-                                    self.max_split_times = split_times
-
-                    # else:
-                    # run sampling method to randomly throw some columns
-                    all_attribute_columns_list = set(range(1, all_column_length))
-                    for each in target_column_list:
-                        all_attribute_columns_list.remove(each)
-
-                    # generate new metadata
-                    metadata_new = DataMetadata()
-                    metadata_old = copy.copy(self.all_dataset.metadata)
-
-                    # generate the remained column index randomly and sort it
-                    remained_columns = random.sample(all_attribute_columns_list,
-                                                     self.threshold_column_length)
-                    remained_columns.sort()
-                    remained_columns.insert(0, 0)  # add column 0 (index column)
-                    remained_columns.extend(target_column_list)  # add target columns
-                    # sample the dataset
-                    self.all_dataset[res_id] = self.all_dataset[res_id].iloc[:, remained_columns]
-
-                    new_column_meta = dict(self.all_dataset.metadata.query((res_id, ALL_ELEMENTS)))
-                    new_column_meta['dimension'] = dict(new_column_meta['dimension'])
-                    new_column_meta['dimension'][
-                        'length'] = self.threshold_column_length + 1 + target_column_length
-                    # update whole source description
-                    metadata_new = metadata_new.update((), metadata_old.query(()))
-                    metadata_new = metadata_new.update((res_id,), metadata_old.query((res_id,)))
-                    metadata_new = metadata_new.update((res_id, ALL_ELEMENTS), new_column_meta)
-
-                    # update the metadata on each column remained
-                    metadata_new_target = {}
-                    for new_column_count, each_remained_column in enumerate(remained_columns):
-                        old_selector = (res_id, ALL_ELEMENTS, each_remained_column)
-                        new_selector = (res_id, ALL_ELEMENTS, new_column_count)
-                        metadata_new = metadata_new.update(new_selector,
-                                                           metadata_old.query(old_selector))
-                        # save the new target metadata
-                        if new_column_count > self.threshold_column_length:
-                            metadata_old.query(old_selector)['name']
-                            metadata_new_target[
-                                metadata_old.query(old_selector)['name']] = new_column_count
-                    # update the new metadata to replace the old one
-                    self.all_dataset.metadata = metadata_new
-                    # update traget_index for spliting into train and test dataset
-                    if type(self.problem_info["target_index"]) is list:
-                        for i in range(len(self.problem_info["target_index"])):
-                            self.problem_info["target_index"][
-                                i] = self.threshold_column_length + i + 1
-                    else:
-                        self.problem_info[
-                            "target_index"] = self.threshold_column_length + target_column_length
-
-                    # update problem metadata
-                    problem = dict(self.config.problem_metadata.query(()))
-                    # data_meta = dict(problem["inputs"]["data"][0])
-                    data_meta = []
-                    for each_data in problem["inputs"]["data"]:
-                        # update targets metadata for each target columns
-                        target_meta = []
-                        each_data = dict(each_data)
-                        for each_target in each_data["targets"]:
-                            target_meta_each = dict(each_target)
-                            if target_meta_each['colName'] in metadata_new_target:
-                                target_meta_each['colIndex'] = metadata_new_target[
-                                    target_meta_each['colName']]
-                            else:
-                                self._logger.error("New target column for {} not found:".format(
-                                    target_meta_each['colName']))
-                            # target_meta_each['colIndex'] = self.threshold_column_length + (
-                            # all_column_length - target_meta_each['colIndex'])
-                            target_meta.append(frozendict.FrozenOrderedDict(target_meta_each))
-                        # return the updated target_meta
-                        each_data["targets"] = tuple(target_meta)
-                        data_meta.append(each_data)
-                    # return the updated data_meta
-                    problem["inputs"] = dict(problem["inputs"])
-                    problem["inputs"]["data"] = tuple(data_meta)
-
-                    problem["inputs"] = frozendict.FrozenOrderedDict(problem["inputs"])
-                    problem = frozendict.FrozenOrderedDict(problem)
-
-                    # update problem doc metadata
-
-                    # TODO: self.problem_doc_metadata moved to DsboxConfig
-                    self.problem_doc_metadata = self.problem_doc_metadata.update((), problem)
-                    # updating problem_doc_metadata finished
-
-                    self._logger.info("Random sampling on columns Finished.")
-
-        if main_res_shape[0] > self.threshold_index_length:
-            self._logger.info(
-                "The row number of the input dataset is very large, will send only part of them "
-                "to search.")
-            if main_res_shape[1] > 20:
-                self.threshold_index_length = int(self.threshold_index_length * 0.3)
-                self._logger.info(
-                    "The column number is also very large, will reduce the sampling amount on row "
-                    "number.")
-            # too many indexs, we can run another split dataset
-            index_removed_percent = 1 - float(self.threshold_index_length) / float(
-                main_res_shape[0])
-            # ignore the test part
-            self.all_dataset, _ = self.split_dataset(dataset=self.all_dataset,
-                                                     test_size=index_removed_percent,
-                                                     need_test_dataset=False)
-            self.all_dataset = self.all_dataset[0]
-            self._logger.info("Random sampling on rows Finished.")
-        '''
-
+        # updated v2020.1.15, check whether need to split or not first and remember
+        self._check_can_split_or_not()
         # if we need to do ensemble tune, we split one extra time
         if self.do_ensemble_tune or self.do_horizontal_tune:
             self.train_dataset1, self.ensemble_dataset = self.split_dataset(dataset=self.all_dataset, test_size = 0.1)
@@ -1972,6 +1786,7 @@ class Controller:
         else:
             self.train_dataset2 = None
             self.test_dataset2 = None
+        # save splitted dataset so that we do not send them via multi-processing queue
         from dsbox.combinatorial_search.search_utils import save_pickled_dataset
         save_pickled_dataset(self.train_dataset1, "train_dataset1")
         save_pickled_dataset(self.train_dataset2, "train_dataset2")

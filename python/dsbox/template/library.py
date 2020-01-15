@@ -173,13 +173,14 @@ class TemplateLibrary:
         # if specialized_problem == "Acled_problem":
         #     results = [CMUacledProblemTemplate(), DistilacledProblemTemplate()]
         #     return results
-
         # for timeseries forcating and semi problem, not use MeanBaseline template, it will make meanbaseline to be top rank
-        not_add_mean_base_line_task_types = [TaskKeyword.TIME_SERIES.name, TaskKeyword.SEMISUPERVISED.name]
-        if have_intersection(task, not_add_mean_base_line_task_types):
-            results.append(SRIMeanBaselineTemplate())  # put the meanbaseline here so whatever dataset will have a result
-        else:
-            _logger.info("Will not add MeanBaseline template due to the special input problem task type.")
+
+        # update v2020.1.14: no more mean baseline template
+        # not_add_mean_base_line_task_types = [TaskKeyword.TIME_SERIES.name, TaskKeyword.SEMISUPERVISED.name]
+        # if have_intersection(task, not_add_mean_base_line_task_types):
+        #     results.append(SRIMeanBaselineTemplate())  # put the meanbaseline here so whatever dataset will have a result
+        # else:
+        #     _logger.info("Will not add MeanBaseline template due to the special input problem task type.")
 
         for template_class in self.templates:
             template = template_class()
@@ -238,7 +239,6 @@ class TemplateLibrary:
         # horzontalTemplate
         # self.templates.append(HorizontalTemplate)
         # self.templates.append(DataAugmentRegressionTemplate)
-
         # default tabular templates, encompassing many of the templates below
         self.templates.append(CMUSemisupervisedClassificationTemplate)
         self.templates.append(DefaultSemisupervisedClassificationTemplate)
@@ -246,7 +246,6 @@ class TemplateLibrary:
         self.templates.append(NaiveBayesClassificationTemplate)
         self.templates.append(DefaultRegressionTemplate)
         self.templates.append(AlternativeClassificationTemplate)
-
         # new tabular classification
         # Muxin said it was already included in DefaultClassification
         # self.templates.append(RandomForestClassificationTemplate)
@@ -267,7 +266,7 @@ class TemplateLibrary:
         # self.templates.append(SVRRegressionTemplate)
 
         # text templates, but also support tabular data
-        
+
         self.templates.append(DefaultTextClassificationTemplate)
         self.templates.append(DefaultTextRegressionTemplate)
 
@@ -293,7 +292,6 @@ class TemplateLibrary:
         # kyao  2019-7-24: Enable for test
         self.templates.append(DistilacledProblemTemplate)
         self.templates.append(CMUacledProblemTemplate)
-
         self.templates.append(DefaultTimeseriesCollectionTemplate)
         self.templates.append(TimeSeriesForcastingTestingTemplate)
         self.templates.append(ARIMATemplate)
@@ -311,7 +309,6 @@ class TemplateLibrary:
         self.templates.append(DefaultTimeSeriesForcastingTemplate)
 
         self.templates.append(CMUTimeSeriesForcastingTemplate)
-
         self.templates.append(CMUClusteringTemplate)
         self.templates.append(MichiganVideoClassificationTemplate)
 
@@ -340,7 +337,6 @@ class TemplateLibrary:
         # self.templates.append(DistilPreprocessingTemplate)
         self.templates.append(dsboxClassificationTemplate)
         self.templates.append(dsboxRegressionTemplate)
-
         self._validate_templates(self.templates)
 
     def _load_single_inline_templates(self, template_name):
@@ -648,9 +644,14 @@ class CMUSemisupervisedClassificationTemplate(DSBoxTemplate):
                     "inputs": ["template_input"]
                 },
                 {
+                    "name": "common_profiler_step",
+                    "primitives": ["d3m.primitives.schema_discovery.profiler.Common"],
+                    "inputs": ["to_dataframe_step"]
+                },
+                {
                     "name": "parser_step",#step 2
                     "primitives": ["d3m.primitives.data_transformation.column_parser.Common"],
-                    "inputs": ["to_dataframe_step"]
+                    "inputs": ["common_profiler_step"]
                 },
                 # read X value
                 {
@@ -1411,6 +1412,11 @@ class DataAugmentRegressionTemplate(DSBoxTemplate):
                 "inputs": ["template_input"]
             },
             {
+                "name": "common_profiler_step",
+                "primitives": ["d3m.primitives.schema_discovery.profiler.Common"],
+                "inputs": ["to_dataframe_step"]
+            },
+            {
                 "name": "extract_attribute_step",
                 "primitives": [{
                     "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.Common",
@@ -1423,7 +1429,7 @@ class DataAugmentRegressionTemplate(DSBoxTemplate):
                             'exclude_columns': ()
                         }
                 }],
-                "inputs": ["to_dataframe_step"]
+                "inputs": ["common_profiler_step"]
             },
             {
                 "name": "extract_target_step",
@@ -1564,6 +1570,11 @@ class Large_column_number_with_numerical_only_classification(DSBoxTemplate):
                     "inputs": ["template_input"]
                 },
                 {
+                    "name": "common_profiler_step",
+                    "primitives": ["d3m.primitives.schema_discovery.profiler.Common"],
+                    "inputs": ["to_dataframe_step"]
+                },
+                {
                     "name": "extract_attribute_step",
                     "primitives": [{
                         "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.Common",
@@ -1575,7 +1586,7 @@ class Large_column_number_with_numerical_only_classification(DSBoxTemplate):
                                 'exclude_columns': ()
                             }
                     }],
-                    "inputs": ["to_dataframe_step"]
+                    "inputs": ["common_profiler_step"]
                 },
                 {
                     "name": "extract_target_step",
@@ -1638,6 +1649,11 @@ class Large_column_number_with_numerical_only_regression(DSBoxTemplate):
                     "inputs": ["template_input"]
                 },
                 {
+                    "name": "common_profiler_step",
+                    "primitives": ["d3m.primitives.schema_discovery.profiler.Common"],
+                    "inputs": ["to_dataframe_step"]
+                },
+                {
                     "name": "extract_attribute_step",
                     "primitives": [{
                         "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.Common",
@@ -1649,7 +1665,7 @@ class Large_column_number_with_numerical_only_regression(DSBoxTemplate):
                                 'exclude_columns': ()
                             }
                     }],
-                    "inputs": ["to_dataframe_step"]
+                    "inputs": ["common_profiler_step"]
                 },
                 {
                     "name": "pre_extract_target_step",
@@ -1718,9 +1734,14 @@ class AlphaZeroEvalTemplate(DSBoxTemplate): # this is a template from succeed pi
                     "inputs": ["template_input"]
                 },
                 {
+                    "name": "common_profiler_step",
+                    "primitives": ["d3m.primitives.schema_discovery.profiler.Common"],
+                    "inputs": ["to_dataframe_step"]
+                },
+                {
                     "name": "column_parser_step", # step 2
                     "primitives": ["d3m.primitives.data_transformation.column_parser.Common"],
-                    "inputs": ["to_dataframe_step"]
+                    "inputs": ["common_profiler_step"]
                 },
                 {
                     "name": "extract_attribute_step", # step 3
@@ -1843,13 +1864,18 @@ class TESTINGTemplate(DSBoxTemplate): # this is a template from succeed pipeline
                     "inputs": ["update_semantic_step"]
                 },
                 {
+                    "name": "common_profiler_step",
+                    "primitives": ["d3m.primitives.schema_discovery.profiler.Common"],
+                    "inputs": ["to_dataframe_step"]
+                },
+                {
                     "name": "column_parser_step", # step 3
                     "primitives": [
                         {
                             "primitive": "d3m.primitives.data_transformation.column_parser.Common"
                         }
                     ],
-                    "inputs": ["to_dataframe_step"]
+                    "inputs": ["common_profiler_step"]
                 },
                 {
                     "name": "extract_attribute_step", # step 4
@@ -1927,7 +1953,7 @@ class DefaultTimeSeriesForcastingTemplate(DSBoxTemplate):
         self.template = {
             "name": "Default_Time_Series_Forcasting_Template",
             "taskType": TaskKeyword.TIME_SERIES.name,
-            "taskSubtype": {"forecasting"},
+            "taskSubtype": {"FORECASTING"},
             "inputType": {"table"},  # See SEMANTIC_TYPES.keys() for range of values
             "output": "model_step",  # Name of the final step generating the prediction
             "target": "extract_target_step",  # Name of the step generating the ground truth
@@ -1936,6 +1962,11 @@ class DefaultTimeSeriesForcastingTemplate(DSBoxTemplate):
                     "name": "to_dataframe_step",
                     "primitives": ["d3m.primitives.data_transformation.dataset_to_dataframe.Common"],
                     "inputs": ["template_input"]
+                },
+                {
+                    "name": "common_profiler_step",
+                    "primitives": ["d3m.primitives.schema_discovery.profiler.Common"],
+                    "inputs": ["to_dataframe_step"]
                 },
                 # read Y value
                 {
@@ -1948,7 +1979,7 @@ class DefaultTimeSeriesForcastingTemplate(DSBoxTemplate):
                              'exclude_columns': ()
                              }
                     }],
-                    "inputs": ["to_dataframe_step"]
+                    "inputs": ["common_profiler_step"]
                 },
                 {
                     "name": "extract_target_step",
@@ -1974,7 +2005,7 @@ class DefaultTimeSeriesForcastingTemplate(DSBoxTemplate):
                                 'exclude_columns': ()
                             }
                     }],
-                    "inputs": ["to_dataframe_step"]
+                    "inputs": ["common_profiler_step"]
                 },
                 {
                     "name": "profile_step",
@@ -2035,7 +2066,7 @@ class ARIMATemplate(DSBoxTemplate):
         self.template = {
             "name": "ARIMA_Template",
             "taskType": TaskKeyword.TIME_SERIES.name,
-            "taskSubtype": {"forecasting"},
+            "taskSubtype": {"FORECASTING"},
             "inputType": {"table"},  # See SEMANTIC_TYPES.keys() for range of values
             "output": "ARIMA_step",  # Name of the final step generating the prediction
             "target": "extract_target_step",  # Name of the step generating the ground truth
@@ -2046,6 +2077,11 @@ class ARIMATemplate(DSBoxTemplate):
                     "inputs": ["template_input"]
                 },
                 {
+                    "name": "common_profiler_step",
+                    "primitives": ["d3m.primitives.schema_discovery.profiler.Common"],
+                    "inputs": ["to_dataframe_step"]
+                },
+                {
                     "name": "parser_step",
                     "primitives": [{
                         "primitive": "d3m.primitives.data_transformation.column_parser.Common",
@@ -2053,7 +2089,7 @@ class ARIMATemplate(DSBoxTemplate):
                             "parse_semantic_types": [('http://schema.org/Boolean', 'http://schema.org/Integer', 'http://schema.org/Float', 'https://metadata.datadrivendiscovery.org/types/FloatVector'),]
                         }
                     }],
-                    "inputs": ["to_dataframe_step"]
+                    "inputs": ["common_profiler_step"]
                 },
 
                 # read Y value
@@ -2118,7 +2154,7 @@ class CMUTimeSeriesForcastingTemplate(DSBoxTemplate):
         self.template = {
             "name": "CMU_TimeSeries_Forcasting_emplate",
             "taskType": TaskKeyword.TIME_SERIES.name,
-            "taskSubtype": {"forecasting"},
+            "taskSubtype": {"FORECASTING"},
             "inputType": {"table"},  # See SEMANTIC_TYPES.keys() for range of values
             "output": "model_step",  # Name of the final step generating the prediction
             "target": "extract_target_step",  # Name of the step generating the ground truth
@@ -2129,9 +2165,14 @@ class CMUTimeSeriesForcastingTemplate(DSBoxTemplate):
                     "inputs": ["template_input"]
                 },
                 {
+                    "name": "common_profiler_step",
+                    "primitives": ["d3m.primitives.schema_discovery.profiler.Common"],
+                    "inputs": ["to_dataframe_step"]
+                },
+                {
                     "name": "column_parser_step",
                     "primitives": ["d3m.primitives.data_transformation.column_parser.Common"],
-                    "inputs": ["to_dataframe_step"]
+                    "inputs": ["common_profiler_step"]
                 },
                 {
                     "name": "extract_attribute_step",
@@ -2222,7 +2263,7 @@ class TimeSeriesForcastingTestingTemplate(DSBoxTemplate):
         self.template = {
             "name": "TimeSeries_Forcasting_Testing_emplate",
             "taskType": TaskKeyword.TIME_SERIES.name,
-            "taskSubtype": {"forecasting"},
+            "taskSubtype": {"FORECASTING"},
             "inputType": {"table"},  # See SEMANTIC_TYPES.keys() for range of values
             "output": "model_step",  # Name of the final step generating the prediction
             "target": "extract_target_step",  # Name of the step generating the ground truth
@@ -2231,6 +2272,11 @@ class TimeSeriesForcastingTestingTemplate(DSBoxTemplate):
                     "name": "to_dataframe_step",
                     "primitives": ["d3m.primitives.data_transformation.dataset_to_dataframe.Common"],
                     "inputs": ["template_input"]
+                },
+                {
+                    "name": "common_profiler_step",
+                    "primitives": ["d3m.primitives.schema_discovery.profiler.Common"],
+                    "inputs": ["to_dataframe_step"]
                 },
                 {
                     "name": "extract_attribute_step",
@@ -2244,7 +2290,7 @@ class TimeSeriesForcastingTestingTemplate(DSBoxTemplate):
                                 'exclude_columns': ()
                             }
                     }],
-                    "inputs": ["to_dataframe_step"]
+                    "inputs": ["common_profiler_step"]
                 },
                 {
                     "name": "profiler_step",
@@ -2304,121 +2350,6 @@ class TimeSeriesForcastingTestingTemplate(DSBoxTemplate):
 This template cannot run because of our templates' "input"/"output" schema
 '''
 
-
-class TimeSeriesForcastingTestingTemplate2(DSBoxTemplate):
-    def __init__(self):
-        DSBoxTemplate.__init__(self)
-        self.template = {
-            "name": "TimeSeries_Forcasting_Testing_emplate",
-            "taskType": TaskKeyword.TIME_SERIES.name,
-            "taskSubtype": {"forecasting"},
-            "inputType": {"table"},  # See SEMANTIC_TYPES.keys() for range of values
-            "output": "model_step",  # Name of the final step generating the prediction
-            "target": "extract_target_step",  # Name of the step generating the ground truth
-            "steps": [
-                {
-                    "name": "to_dataframe_step",
-                    "primitives": ["d3m.primitives.data_transformation.dataset_to_dataframe.Common"],
-                    "inputs": ["template_input"]
-                },
-                {
-                    "name": "extract_attribute_step",
-                    "primitives": [{
-                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.Common",
-                        "hyperparameters":
-                            {
-                                'semantic_types': ('https://metadata.datadrivendiscovery.org/types/PrimaryKey',
-                                                   'https://metadata.datadrivendiscovery.org/types/Attribute',),
-                                'use_columns': (),
-                                'exclude_columns': (3,)
-                            }
-                    }],
-                    "inputs": ["to_dataframe_step"]
-                },
-                {
-                    "name": "extract_time_series_file_step",
-                    "primitives": [{
-                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.Common",
-                        "hyperparameters":
-                            {
-                                'semantic_types': (
-                                    'https://metadata.datadrivendiscovery.org/types/FileName',),
-                                'use_columns': (),
-                                'exclude_columns': ()
-                            }
-                    }],
-                    "inputs": ["to_dataframe_step"]
-                },
-                {
-                    "name": "timeseries_to_list_step",
-                    "primitives": ["d3m.primitives.data_preprocessing.time_series_to_list.DSBOX"],
-                    "inputs": ["extract_time_series_file_step"]
-                },
-
-                {
-                    "name": "random_projection_step",
-                    "primitives": [
-                        {
-                            "primitive": "d3m.primitives.feature_extraction.random_projection_timeseries_featurization.DSBOX",
-                            "hyperparameters":{
-                                'generate_metadata':[True],
-                            }
-                        }
-                    ],
-                    "inputs": ["timeseries_to_list_step"]
-                },
-
-                {
-                    "name": "profiler_step",
-                    "primitives": ["d3m.primitives.schema_discovery.profiler.DSBOX"],
-                    "inputs": ["extract_attribute_step"]
-                },
-                {
-                    "name": "data_clean_step",
-                    "primitives": ["d3m.primitives.data_cleaning.cleaning_featurizer.DSBOX"],
-                    "inputs": ["profiler_step"]
-                },
-                {
-                    "name": "encoder_step",
-                    "primitives": ["d3m.primitives.data_preprocessing.encoder.DSBOX"],
-                    "inputs": ["data_clean_step"]
-                },
-                {
-                    "name": "concat_step",
-                    "primitives": ["d3m.primitives.data.HorizontalConcatPrimitive"],
-                    "inputs": ["encoder_step", "random_projection_step"]
-                },
-                # read Y value
-                {
-                    "name": "extract_target_step",
-                    "primitives": [{
-                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.Common",
-                        "hyperparameters":
-                            {
-                                'semantic_types': (
-                                    'https://metadata.datadrivendiscovery.org/types/TrueTarget',),
-                                'use_columns': (),
-                                'exclude_columns': ()
-                            }
-                    }],
-                    "inputs": ["to_dataframe_step"]
-                },
-                {
-                    "name": "model_step",
-                    "primitives": [
-                        {
-                            "primitive": "d3m.primitives.regression.extra_trees.SKlearn",
-                            "hyperparameters": {
-                                'add_index_columns': [True],
-                                'use_semantic_types':[True],
-                            }
-                        }
-                    ],
-                    "inputs": ["concat_step", "extract_target_step"]
-                },
-            ]
-        }
-
 ################################################################################################################
 #####################################   ObjectDetectionTemplates   #############################################
 ################################################################################################################
@@ -2440,6 +2371,11 @@ class DefaultObjectDetectionTemplate(DSBoxTemplate):
                     "primitives": ["d3m.primitives.data_transformation.dataset_to_dataframe.Common"],
                     "inputs": ["template_input"]
                 },
+                {
+                    "name": "common_profiler_step",
+                    "primitives": ["d3m.primitives.schema_discovery.profiler.Common"],
+                    "inputs": ["to_dataframe_step"]
+                },
                 # read X value
                 {
                     "name": "extract_file_step",#step 2
@@ -2454,7 +2390,7 @@ class DefaultObjectDetectionTemplate(DSBoxTemplate):
                                 'exclude_columns': ()
                             }
                     }],
-                    "inputs": ["to_dataframe_step"]
+                    "inputs": ["common_profiler_step"]
                 },
                 {
                     "name": "extract_target_step",# step 3
@@ -2500,6 +2436,11 @@ class JPLObjectDetectionTemplate(DSBoxTemplate):
                     "primitives": ["d3m.primitives.data_transformation.dataset_to_dataframe.Common"],
                     "inputs": ["template_input"]
                 },
+                {
+                    "name": "common_profiler_step",
+                    "primitives": ["d3m.primitives.schema_discovery.profiler.Common"],
+                    "inputs": ["to_dataframe_step"]
+                },
                 # read X,Y value
                 {
                     "name": "extrac_step",# step 2
@@ -2515,7 +2456,7 @@ class JPLObjectDetectionTemplate(DSBoxTemplate):
                                   "http://schema.org/DateTime"),
                             }
                     }],
-                    "inputs": ["to_dataframe_step"]
+                    "inputs": ["common_profiler_step"]
                 },
                 {
                     "name": "image_reader_step", # step 3
@@ -2571,6 +2512,11 @@ class DefaultVideoClassificationTemplate(DSBoxTemplate):
                     "primitives": ["d3m.primitives.data_transformation.dataset_to_dataframe.Common"],
                     "inputs": ["template_input"]
                 },
+                {
+                    "name": "common_profiler_step",
+                    "primitives": ["d3m.primitives.schema_discovery.profiler.Common"],
+                    "inputs": ["to_dataframe_step"]
+                },
                 # read X value
                 {
                     "name": "extract_file_step",#step 2
@@ -2585,7 +2531,7 @@ class DefaultVideoClassificationTemplate(DSBoxTemplate):
                                 'exclude_columns': ()
                             }
                     }],
-                    "inputs": ["to_dataframe_step"]
+                    "inputs": ["common_profiler_step"]
                 },
                 {
                     "name": "extract_target_step",# step 3
@@ -2599,7 +2545,7 @@ class DefaultVideoClassificationTemplate(DSBoxTemplate):
                                 'exclude_columns': ()
                             }
                     }],
-                    "inputs": ["to_dataframe_step"]
+                    "inputs": ["common_profiler_step"]
                 },
                 {
                     "name": "video_reader",#step 4
@@ -2625,8 +2571,8 @@ class DefaultVideoClassificationTemplate(DSBoxTemplate):
                         {
                             "primitive": "d3m.primitives.classification.lstm.DSBOX",
                             "hyperparameters": {
-                                "LSTM_units":[512, 1024, 2048],
-                                "epochs":[10, 100, 1000],
+                                "LSTM_units":[1024, 2048],
+                                "epochs":[100, 1000, 2000],
                             }
                         }
                     ],
@@ -2657,6 +2603,11 @@ class DefaultTimeseriesCollectionTemplate(DSBoxTemplate):
                     "primitives": ["d3m.primitives.data_transformation.dataset_to_dataframe.Common"],
                     "inputs": ["template_input"]
                 },
+                {
+                    "name": "common_profiler_step",
+                    "primitives": ["d3m.primitives.schema_discovery.profiler.Common"],
+                    "inputs": ["to_dataframe_step"]
+                },
                 # read Y value
                 {
                     "name": "pre_extract_target_step",
@@ -2668,7 +2619,7 @@ class DefaultTimeseriesCollectionTemplate(DSBoxTemplate):
                              'exclude_columns': ()
                              }
                     }],
-                    "inputs": ["to_dataframe_step"]
+                    "inputs": ["common_profiler_step"]
                 },
                 {
                     "name": "extract_target_step",
@@ -2690,7 +2641,7 @@ class DefaultTimeseriesCollectionTemplate(DSBoxTemplate):
                 {
                     "name": "timeseries_to_list_step",
                     "primitives": ["d3m.primitives.data_preprocessing.time_series_to_list.DSBOX"],
-                    "inputs": ["to_dataframe_step"]
+                    "inputs": ["common_profiler_step"]
                 },
 
                 {
@@ -2766,6 +2717,11 @@ class DefaultTimeseriesRegressionTemplate(DSBoxTemplate):
                     "primitives": ["d3m.primitives.data_transformation.dataset_to_dataframe.Common"],
                     "inputs": ["template_input"]
                 },
+                {
+                    "name": "common_profiler_step",
+                    "primitives": ["d3m.primitives.schema_discovery.profiler.Common"],
+                    "inputs": ["to_dataframe_step"]
+                },
                 # read Y value
                 {
                     "name": "pre_extract_target_step",
@@ -2777,7 +2733,7 @@ class DefaultTimeseriesRegressionTemplate(DSBoxTemplate):
                              'exclude_columns': ()
                              }
                     }],
-                    "inputs": ["to_dataframe_step"]
+                    "inputs": ["common_profiler_step"]
                 },
                 {
                     "name": "extract_target_step",
@@ -2803,7 +2759,7 @@ class DefaultTimeseriesRegressionTemplate(DSBoxTemplate):
                                 'exclude_columns': ()
                             }
                     }],
-                    "inputs": ["to_dataframe_step"]
+                    "inputs": ["common_profiler_step"]
                 },
                 {
                     "name": "timeseries_to_list_step",
@@ -2890,6 +2846,11 @@ class TA1VggImageProcessingRegressionTemplate(DSBoxTemplate):
                     "primitives": ["d3m.primitives.data_transformation.dataset_to_dataframe.Common"],
                     "inputs": ["template_input"]
                 },
+                {
+                    "name": "common_profiler_step",
+                    "primitives": ["d3m.primitives.schema_discovery.profiler.Common"],
+                    "inputs": ["to_dataframe_step"]
+                },
                 # read Y value
                 {
                     "name": "pre_extract_target_step",
@@ -2901,7 +2862,7 @@ class TA1VggImageProcessingRegressionTemplate(DSBoxTemplate):
                              'exclude_columns': ()
                              }
                     }],
-                    "inputs": ["to_dataframe_step"]
+                    "inputs": ["common_profiler_step"]
                 },
                 {
                     "name": "extract_target_step",
@@ -2916,7 +2877,7 @@ class TA1VggImageProcessingRegressionTemplate(DSBoxTemplate):
                 {
                     "name": "dataframe_to_tensor",
                     "primitives": ["d3m.primitives.data_preprocessing.dataframe_to_tensor.DSBOX"],
-                    "inputs": ["to_dataframe_step"]
+                    "inputs": ["common_profiler_step"]
                 },
                 {
                     "name": "feature_extraction",
@@ -2976,6 +2937,11 @@ class DefaultImageProcessingRegressionTemplate(DSBoxTemplate):
                     "primitives": ["d3m.primitives.data_transformation.dataset_to_dataframe.Common"],
                     "inputs": ["template_input"]
                 },
+                {
+                    "name": "common_profiler_step",
+                    "primitives": ["d3m.primitives.schema_discovery.profiler.Common"],
+                    "inputs": ["to_dataframe_step"]
+                },
                 # read Y value
                 {
                     "name": "pre_extract_target_step",
@@ -2987,7 +2953,7 @@ class DefaultImageProcessingRegressionTemplate(DSBoxTemplate):
                              'exclude_columns': ()
                              }
                     }],
-                    "inputs": ["to_dataframe_step"]
+                    "inputs": ["common_profiler_step"]
                 },
                 {
                     "name": "extract_target_step",
@@ -3008,7 +2974,7 @@ class DefaultImageProcessingRegressionTemplate(DSBoxTemplate):
                 {
                     "name": "dataframe_to_tensor",
                     "primitives": ["d3m.primitives.data_preprocessing.dataframe_to_tensor.DSBOX"],
-                    "inputs": ["to_dataframe_step"]
+                    "inputs": ["common_profiler_step"]
                 },
                 {
                     "name": "feature_extraction",
@@ -3071,6 +3037,11 @@ class DefaultImageProcessingClassificationTemplate(DSBoxTemplate):
                     "primitives": ["d3m.primitives.data_transformation.dataset_to_dataframe.Common"],
                     "inputs": ["template_input"]
                 },
+                {
+                    "name": "common_profiler_step",
+                    "primitives": ["d3m.primitives.schema_discovery.profiler.Common"],
+                    "inputs": ["to_dataframe_step"]
+                },
                 # read Y value
                 {
                     "name": "pre_extract_target_step",
@@ -3082,7 +3053,7 @@ class DefaultImageProcessingClassificationTemplate(DSBoxTemplate):
                              'exclude_columns': ()
                              }
                     }],
-                    "inputs": ["to_dataframe_step"]
+                    "inputs": ["common_profiler_step"]
                 },
                 {
                     "name": "extract_target_step",
@@ -3103,7 +3074,7 @@ class DefaultImageProcessingClassificationTemplate(DSBoxTemplate):
                 {
                     "name": "dataframe_to_tensor",
                     "primitives": ["d3m.primitives.data_preprocessing.dataframe_to_tensor.DSBOX"],
-                    "inputs": ["to_dataframe_step"]
+                    "inputs": ["common_profiler_step"]
                 },
                 {
                     "name": "feature_extraction",
@@ -3284,6 +3255,11 @@ class DefaultLinkPredictionTemplate(DSBoxTemplate):
                     "inputs": ["template_input"]
                 },
                 {
+                    "name": "common_profiler_step",
+                    "primitives": ["d3m.primitives.schema_discovery.profiler.Common"],
+                    "inputs": ["to_dataframe_step"]
+                },
+                {
                     "name": "extract_attribute_step",
                     "primitives": [{
                         "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.Common",
@@ -3295,7 +3271,7 @@ class DefaultLinkPredictionTemplate(DSBoxTemplate):
                                 'exclude_columns': ()
                             }
                     }],
-                    "inputs": ["to_dataframe_step"]
+                    "inputs": ["common_profiler_step"]
                 },
                 {
                     "name": "to_numeric_step",
@@ -3313,7 +3289,7 @@ class DefaultLinkPredictionTemplate(DSBoxTemplate):
                                 'exclude_columns': ()
                             }
                     }],
-                    "inputs": ["to_dataframe_step"]
+                    "inputs": ["common_profiler_step"]
                 },
                 {
                     "name": "model_step",
@@ -3687,9 +3663,14 @@ class CMUClusteringTemplate(DSBoxTemplate):
                     "inputs": ["template_input"]
                 },
                 {
+                    "name": "common_profiler_step",
+                    "primitives": ["d3m.primitives.schema_discovery.profiler.Common"],
+                    "inputs": ["to_dataframe_step"]
+                },
+                {
                     "name": "column_parser_step",# step 1
                     "primitives": ["d3m.primitives.data_transformation.column_parser.Common"],
-                    "inputs":["to_dataframe_step"],
+                    "inputs":["common_profiler_step"],
                 },
 
                 {
@@ -3744,6 +3725,11 @@ class MichiganVideoClassificationTemplate(DSBoxTemplate):
                     "inputs": ["template_input"]
                 },
                 {
+                    "name": "common_profiler_step",
+                    "primitives": ["d3m.primitives.schema_discovery.profiler.Common"],
+                    "inputs": ["to_dataframe_step"]
+                },
+                {
                     "name": "extract_target_step",
                     "primitives": [{
                         "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.Common",
@@ -3755,12 +3741,12 @@ class MichiganVideoClassificationTemplate(DSBoxTemplate):
                                 'exclude_columns': ()
                             }
                     }],
-                    "inputs": ["to_dataframe_step"]
+                    "inputs": ["common_profiler_step"]
                 },
                 {
                     "name": "read_video_step",
                     "primitives": ["d3m.primitives.data_preprocessing.video_reader.Common"],
-                    "inputs": ["to_dataframe_step"]
+                    "inputs": ["common_profiler_step"]
                 },
                 {
                     "name": "featurize_step",
@@ -3822,6 +3808,11 @@ class TA1ClassificationTemplate1(DSBoxTemplate):
                     "inputs": ["template_input"]
                 },
                 {
+                    "name": "common_profiler_step",
+                    "primitives": ["d3m.primitives.schema_discovery.profiler.Common"],
+                    "inputs": ["to_dataframe_step"]
+                },
+                {
                     "name": "extract_attribute_step",
                     "primitives": [{
                         "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.Common",
@@ -3834,7 +3825,7 @@ class TA1ClassificationTemplate1(DSBoxTemplate):
                                 'exclude_columns': ()
                             }
                     }],
-                    "inputs": ["to_dataframe_step"]
+                    "inputs": ["common_profiler_step"]
                 },
                 {
                     "name": "extract_target_step",
@@ -3847,7 +3838,7 @@ class TA1ClassificationTemplate1(DSBoxTemplate):
                                 'exclude_columns': ()
                             }
                     }],
-                    "inputs": ["to_dataframe_step"]
+                    "inputs": ["common_profiler_step"]
                 },
                 {
                     "name": "encode_step",
@@ -3973,6 +3964,11 @@ class TA1Classification_3(DSBoxTemplate):
                     "inputs": ["template_input"]
                 },
                 {
+                    "name": "common_profiler_step",
+                    "primitives": ["d3m.primitives.schema_discovery.profiler.Common"],
+                    "inputs": ["to_dataframe_step"]
+                },
+                {
                     "name": "extract_attribute_step",
                     "primitives": [{
                         "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.Common",
@@ -3985,7 +3981,7 @@ class TA1Classification_3(DSBoxTemplate):
                                 'exclude_columns': ()
                             }
                     }],
-                    "inputs": ["to_dataframe_step"]
+                    "inputs": ["common_profiler_step"]
                 },
                 {
                     "name": "extract_target_step",
@@ -3998,7 +3994,7 @@ class TA1Classification_3(DSBoxTemplate):
                                 'exclude_columns': ()
                             }
                     }],
-                    "inputs": ["to_dataframe_step"]
+                    "inputs": ["common_profiler_step"]
                 },
                 {
                     "name": "profile_step",
@@ -4072,6 +4068,11 @@ class MuxinTA1ClassificationTemplate1(DSBoxTemplate):
                     "inputs": ["template_input"]
                 },
                 {
+                    "name": "common_profiler_step",
+                    "primitives": ["d3m.primitives.schema_discovery.profiler.Common"],
+                    "inputs": ["to_dataframe_step"]
+                },
+                {
                     "name": "extract_attribute_step",
                     "primitives": [{
                         "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.Common",
@@ -4084,7 +4085,7 @@ class MuxinTA1ClassificationTemplate1(DSBoxTemplate):
                                 'exclude_columns': ()
                             }
                     }],
-                    "inputs": ["to_dataframe_step"]
+                    "inputs": ["common_profiler_step"]
                 },
                 {
                     "name": "extract_target_step",
@@ -4097,7 +4098,7 @@ class MuxinTA1ClassificationTemplate1(DSBoxTemplate):
                                 'exclude_columns': ()
                             }
                     }],
-                    "inputs": ["to_dataframe_step"]
+                    "inputs": ["common_profiler_step"]
                 },
                 {
                     "name": "encode1_step",
@@ -4171,6 +4172,11 @@ class MuxinTA1ClassificationTemplate2(DSBoxTemplate):
                     "inputs": ["template_input"]
                 },
                 {
+                    "name": "common_profiler_step",
+                    "primitives": ["d3m.primitives.schema_discovery.profiler.Common"],
+                    "inputs": ["to_dataframe_step"]
+                },
+                {
                     "name": "extract_attribute_step",
                     "primitives": [{
                         "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.Common",
@@ -4183,7 +4189,7 @@ class MuxinTA1ClassificationTemplate2(DSBoxTemplate):
                                 'exclude_columns': ()
                             }
                     }],
-                    "inputs": ["to_dataframe_step"]
+                    "inputs": ["common_profiler_step"]
                 },
                 {
                     "name": "extract_target_step",
@@ -4196,7 +4202,7 @@ class MuxinTA1ClassificationTemplate2(DSBoxTemplate):
                                 'exclude_columns': ()
                             }
                     }],
-                    "inputs": ["to_dataframe_step"]
+                    "inputs": ["common_profiler_step"]
                 },
                 {
                     "name": "encode_step",
@@ -4257,6 +4263,11 @@ class MuxinTA1ClassificationTemplate3(DSBoxTemplate):
                     "inputs": ["template_input"]
                 },
                 {
+                    "name": "common_profiler_step",
+                    "primitives": ["d3m.primitives.schema_discovery.profiler.Common"],
+                    "inputs": ["to_dataframe_step"]
+                },
+                {
                     "name": "extract_attribute_step",
                     "primitives": [{
                         "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.Common",
@@ -4269,12 +4280,12 @@ class MuxinTA1ClassificationTemplate3(DSBoxTemplate):
                                 'exclude_columns': ()
                             }
                     }],
-                    "inputs": ["to_dataframe_step"]
+                    "inputs": ["common_profiler_step"]
                 },
                 {
                     "name": "no_op_step",
                     "primitives": ["d3m.primitives.data_preprocessing.do_nothing.DSBOX"],
-                    "inputs": ["to_dataframe_step"]
+                    "inputs": ["common_profiler_step"]
                 },
                 {
                     "name": "extract_target_step",
@@ -4436,6 +4447,11 @@ class UU3TestTemplate(DSBoxTemplate):
                     "inputs": ["multi_table_processing_step"]
                 },
                 {
+                    "name": "common_profiler_step",
+                    "primitives": ["d3m.primitives.schema_discovery.profiler.Common"],
+                    "inputs": ["to_dataframe_step"]
+                },
+                {
                     "name": "extract_attribute_step",
                     "primitives": [{
                         "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.Common",
@@ -4448,7 +4464,7 @@ class UU3TestTemplate(DSBoxTemplate):
                                 'exclude_columns': ()
                             }
                     }],
-                    "inputs": ["to_dataframe_step"]
+                    "inputs": ["common_profiler_step"]
                 },
                 {
                     "name": "extract_target_step",
@@ -4523,6 +4539,11 @@ class HorizontalTemplate(DSBoxTemplate): #This template only generate processed 
                     "inputs": ["template_input"]
                 },
                 {
+                    "name": "common_profiler_step",
+                    "primitives": ["d3m.primitives.schema_discovery.profiler.Common"],
+                    "inputs": ["to_dataframe_step"]
+                },
+                {
                     "name": "extract_attribute_step",
                     "primitives": [{
                         "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.Common",
@@ -4536,7 +4557,7 @@ class HorizontalTemplate(DSBoxTemplate): #This template only generate processed 
                                 'exclude_columns': ()
                             }
                     }],
-                    "inputs": ["to_dataframe_step"]
+                    "inputs": ["common_profiler_step"]
                 },
                 {
                     "name": "profiler_step",
@@ -4615,9 +4636,14 @@ class CornellMatrixFactorization(DSBoxTemplate):
             "output": "model_step",
             "steps": [
                 {
-                    "name": "to_df_step",
+                    "name": "to_dataframe_step",
                     "primitives":["d3m.primitives.data_transformation.dataset_to_dataframe.Common"],
                     "inputs":["template_input"]
+                },
+                {
+                    "name": "common_profiler_step",
+                    "primitives": ["d3m.primitives.schema_discovery.profiler.Common"],
+                    "inputs": ["to_dataframe_step"]
                 },
                 {
                     "name": "parser_step",
@@ -4627,7 +4653,7 @@ class CornellMatrixFactorization(DSBoxTemplate):
                             "semantic_types": ('https://metadata.datadrivendiscovery.org/types/Attribute',)
                         }
                     }],
-                    "inputs":["to_df_step"]
+                    "inputs":["common_profiler_step"]
                 },
                 {
                     "name": "scaler_step",
@@ -4658,7 +4684,7 @@ class CornellMatrixFactorization(DSBoxTemplate):
                         "hyperparameters": {
                                 "semantic_types":("https://metadata.datadrivendiscovery.org/types/TrueTarget",)}
                 }],
-                    "inputs":["to_df_step"]
+                    "inputs":["common_profiler_step"]
                 },
                 *TemplateSteps.classifier_model(feature_name="matrix_factorization",
                                                 target_name='extract_target_step')
@@ -4875,6 +4901,11 @@ class LupiSvmClassification(DSBoxTemplate):
                     "inputs": ["template_input"]
                 },
                 {
+                    "name": "common_profiler_step",
+                    "primitives": ["d3m.primitives.schema_discovery.profiler.Common"],
+                    "inputs": ["to_dataframe_step"]
+                },
+                {
                     "name": "model_step",
                     "primitives": [{
                         "primitive":  "d3m.primitives.classification.lupi_svm.LupiSvmClassifier",
@@ -4898,12 +4929,12 @@ class LupiSvmClassification(DSBoxTemplate):
                         }
                     },
                     ],
-                    "inputs": ["to_dataframe_step"]
+                    "inputs": ["common_profiler_step"]
                 },
                 {
                     "name": "prediction_step",
                     "primitives": ["d3m.primitives.data_transformation.construct_predictions.Common"],
-                    "inputs": ["model_step", "to_dataframe_step"]
+                    "inputs": ["model_step", "common_profiler_step"]
                 }
 
             ]
@@ -4926,6 +4957,11 @@ class LupiRfClassification(DSBoxTemplate):
                     "inputs": ["template_input"]
                 },
                 {
+                    "name": "common_profiler_step",
+                    "primitives": ["d3m.primitives.schema_discovery.profiler.Common"],
+                    "inputs": ["to_dataframe_step"]
+                },
+                {
                     "name": "extract_target_step",
                     "primitives": [{
                         "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.Common",
@@ -4936,7 +4972,7 @@ class LupiRfClassification(DSBoxTemplate):
                             'exclude_columns': ()
                         }
                     }],
-                    "inputs": ["to_dataframe_step"]
+                    "inputs": ["common_profiler_step"]
                 },
                 {
                     "name": "model_step",
@@ -5000,12 +5036,12 @@ class LupiRfClassification(DSBoxTemplate):
                             }
                         },
                     ],
-                    "inputs": ["to_dataframe_step", "extract_target_step"]
+                    "inputs": ["common_profiler_step", "extract_target_step"]
                 },
                 {
                     "name": "prediction_step",
                     "primitives": ["d3m.primitives.data_transformation.construct_predictions.Common"],
-                    "inputs": ["model_step", "to_dataframe_step"]
+                    "inputs": ["model_step", "common_profiler_step"]
                 }
 
             ]
@@ -5027,9 +5063,14 @@ class BBNacledProblemTemplate(DSBoxTemplate):
                     "inputs": ["template_input"]
                 },
                 {
+                    "name": "common_profiler_step",
+                    "primitives": ["d3m.primitives.schema_discovery.profiler.Common"],
+                    "inputs": ["to_dataframe_step"]
+                },
+                {
                     "name": "parser_step",
                     "primitives": ["d3m.primitives.data_transformation.column_parser.Common"],
-                    "inputs": ["to_dataframe_step"]
+                    "inputs": ["common_profiler_step"]
                 },
                 {
                     "name": "extract_target_step",
@@ -5098,7 +5139,7 @@ class BBNacledProblemTemplate(DSBoxTemplate):
                 {
                     "name": "prediction_step",
                     "primitives": ["d3m.primitives.data_transformation.construct_predictions.Common"],
-                    "inputs": ["model_step", "to_dataframe_step"]
+                    "inputs": ["model_step", "common_profiler_step"]
                 }
 
             ]
@@ -5128,6 +5169,11 @@ class DistilacledProblemTemplate(DSBoxTemplate):
                     'inputs': ['template_input'],
                 },
                 {
+                    "name": "common_profiler_step",
+                    "primitives": ["d3m.primitives.schema_discovery.profiler.Common"],
+                    "inputs": ["steps.0"]
+                },
+                {
                     'name': 'steps.1',
                     'primitives': [
                         {
@@ -5137,7 +5183,7 @@ class DistilacledProblemTemplate(DSBoxTemplate):
                             },
                         },
                     ],
-                    'inputs': ['steps.0'],
+                    'inputs': ['common_profiler_step'],
                 },
                 {
                     'name': 'steps.2',
@@ -5310,6 +5356,11 @@ class CMUacledProblemTemplate(DSBoxTemplate):
                     'inputs': ['template_input'],
                 },
                 {
+                    "name": "common_profiler_step",
+                    "primitives": ["d3m.primitives.schema_discovery.profiler.Common"],
+                    "inputs": ["steps.0"]
+                },
+                {
                     'name': 'steps.1',
                     'primitives': [
                         {
@@ -5318,7 +5369,7 @@ class CMUacledProblemTemplate(DSBoxTemplate):
                             },
                         },
                     ],
-                    'inputs': ['steps.0'],
+                    'inputs': ['common_profiler_step'],
                 },
                 {
                     'name': 'steps.2',
@@ -5409,7 +5460,7 @@ class CMUacledProblemTemplate(DSBoxTemplate):
                             },
                         },
                     ],
-                    'inputs': ['steps.5', 'steps.0'],
+                    'inputs': ['steps.5', 'common_profiler_step'],
                 },
             ]
         }
@@ -5431,9 +5482,14 @@ class DistilPreprocessingTemplate(DSBoxTemplate):
                     "inputs": ["template_input"]
                 },
                 {
+                    "name": "common_profiler_step",
+                    "primitives": ["d3m.primitives.schema_discovery.profiler.Common"],
+                    "inputs": ["to_dataframe_step"]
+                },
+                {
                     "name": "parser_step",
                     "primitives": ["d3m.primitives.data_transformation.column_parser.Common"],
-                    "inputs": ["to_dataframe_step"]
+                    "inputs": ["common_profiler_step"]
                 },
                 {
                     "name": "extract_target_step",
@@ -5595,7 +5651,7 @@ class DistilPreprocessingTemplate(DSBoxTemplate):
                 {
                     "name": "prediction_step",
                     "primitives": ["d3m.primitives.data_transformation.construct_predictions.Common"],
-                    "inputs": ["model_step", "to_dataframe_step"]
+                    "inputs": ["model_step", "common_profiler_step"]
                 }
 
             ]
@@ -5626,9 +5682,14 @@ class SRIVertexClassificationTemplate(DSBoxTemplate):
                     "inputs": ["text_reader_step"]
                 },
                 {
+                    "name": "common_profiler_step",
+                    "primitives": ["d3m.primitives.schema_discovery.profiler.Common"],
+                    "inputs": ["text_reader_step"]
+                },
+                {
                     "name": "parser_step",
                     "primitives": ["d3m.primitives.data_transformation.column_parser.Common"],
-                    "inputs": ["to_dataframe_step"]
+                    "inputs": ["common_profiler_step"]
                 },
                 {
                     "name": "extract_target_step",
@@ -5718,6 +5779,11 @@ class MultiLabelTemplate(DSBoxTemplate):
                     'inputs': ['template_input'],
                 },
                 {
+                    "name": "common_profiler_step",
+                    "primitives": ["d3m.primitives.schema_discovery.profiler.Common"],
+                    "inputs": ["steps.1"]
+                },
+                {
                     'name': 'steps.2',
                     'primitives': [
                         {
@@ -5730,7 +5796,7 @@ class MultiLabelTemplate(DSBoxTemplate):
                             },
                         },
                     ],
-                    'inputs': ['steps.1'],
+                    'inputs': ['common_profiler_step'],
                 },
                 {
                     'name': 'steps.3',
@@ -5745,7 +5811,7 @@ class MultiLabelTemplate(DSBoxTemplate):
                             },
                         },
                     ],
-                    'inputs': ['steps.1'],
+                    'inputs': ['common_profiler_step'],
                 },
                 {
                     'name': 'steps.4',
