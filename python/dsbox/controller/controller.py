@@ -185,7 +185,13 @@ class Controller:
         self._logger.info("Recevied config problem is:")
         self._logger.info(str(self.config.problem['inputs']))
 
-        for dataset in self.config.problem['inputs']:
+        temp = copy.deepcopy(self.config.problem['inputs'])
+        self._logger.info("Type of temp is {}".format(str(type(temp))))
+        self._logger.info("length of temp is" + str(len(temp)))
+        self._logger.info("inside temp is " + str(temp))
+        self._logger.info(str(temp[0]))
+        
+        for dataset in temp:
             self._logger.info("processing: " + str(dataset))
             if 'targets' not in dataset:
                 self._logger.warning("No targets in {}".format(str(dataset)))
