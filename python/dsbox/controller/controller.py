@@ -184,11 +184,14 @@ class Controller:
         # Set true target column(s)
         self._logger.info("Recevied config problem is:")
         self._logger.info(str(self.config.problem['inputs']))
-        
+
         for dataset in self.config.problem['inputs']:
+            self._logger.info("processing: " + str(dataset))
             if 'targets' not in dataset:
+                self._logger.warning("No targets in {}".format(str(dataset)))
                 continue
             for info in dataset['targets']:
+                self._logger.debug(f'Trying to add true target tag for {selector}')
                 selector = (info['resource_id'], ALL_ELEMENTS, info['column_index'])
 
                 self.all_dataset.metadata = self.all_dataset.metadata.add_semantic_type(selector, ColumnRole.TRUE_TARGET)
