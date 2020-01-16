@@ -190,15 +190,15 @@ class Controller:
         self._logger.info("length of temp is" + str(len(temp)))
         self._logger.info("inside temp is " + str(temp))
         self._logger.info(str(temp[0]))
-        
+
         for dataset in temp:
             self._logger.info("processing: " + str(dataset))
             if 'targets' not in dataset:
                 self._logger.warning("No targets in {}".format(str(dataset)))
                 continue
             for info in dataset['targets']:
-                self._logger.debug(f'Trying to add true target tag for {selector}')
                 selector = (info['resource_id'], ALL_ELEMENTS, info['column_index'])
+                self._logger.debug(f'Trying to add true target tag for {selector}')
 
                 self.all_dataset.metadata = self.all_dataset.metadata.add_semantic_type(selector, ColumnRole.TRUE_TARGET)
                 self.all_dataset.metadata = self.all_dataset.metadata.add_semantic_type(selector, ColumnRole.TARGET)
@@ -691,9 +691,9 @@ class Controller:
 
     def run_wikifier(self, augment_res) -> str:
         """
-            run wikifier before sending dataset to datamart, 
+            run wikifier before sending dataset to datamart,
             then use similiarity of Q nodes vectors to determine which columns may be correct and useful
-            return a jsonfied string that can be sent as keyword to let isi datamart system to 
+            return a jsonfied string that can be sent as keyword to let isi datamart system to
             process with specified wikifier columns
         """
         # try to find target columns which should do wikifier
@@ -764,7 +764,7 @@ class Controller:
             for name in remove_set:
                 if name in meta_for_wikifier.keys():
                     del meta_for_wikifier[name]
-        
+
         meta_to_str = json.dumps({config_datamart.wikifier_column_mark: meta_for_wikifier})
         self._logger.info("Following columns should be wikified as:")
         self._logger.info(str(meta_to_str))
@@ -792,13 +792,13 @@ class Controller:
         except:
             keywords_from_data = ["flood", "duration"]
             # keywords_from_data = ["year", "flood", "duration", "month", "precipitation", "height", "typhoid", "fever", "Relapsing"]
-        
+
         query_search = datamart.DatamartQuery(keywords=keywords_from_data + [meta_to_str], variables=None)
 
-        search_unit = datamart_unit.search_with_data(query=query_search, 
-                                                     supplied_data=self.all_dataset, 
+        search_unit = datamart_unit.search_with_data(query=query_search,
+                                                     supplied_data=self.all_dataset,
                                                      run_wikifier=True,
-                                                     consider_wikifier_columns_only=True, 
+                                                     consider_wikifier_columns_only=True,
                                                      # if augment with time is set to true, consider time will be useless
                                                      augment_with_time=True,
                                                      # consider_time=False,
@@ -806,11 +806,11 @@ class Controller:
         all_results1 = search_unit.get_next_page()
         candidate_aug_res.extend(all_results1[:2])
 
-        # 5. 2, 5, 20 -year flood flood duration in a month  
-        # 6. precipitation height   
-        # 7. Typhoid fever Total cases   
-        # 8. Relapsing fever total Cases    
-        # 9. 
+        # 5. 2, 5, 20 -year flood flood duration in a month
+        # 6. precipitation height
+        # 7. Typhoid fever Total cases
+        # 8. Relapsing fever total Cases
+        # 9.
         # 10.
 
 
@@ -879,22 +879,22 @@ class Controller:
 
         keywords_from_data = ["Percent", "share" ,"of", "households", "charcoal", "electricity", "burning", "burying", "drinking", "water", "unprotected", "spring", "disposal"]
 
-        # 1. Percent share of total households that use charcoal for fuel  
-        # 2. Percent share of total households that use electricity for fuel    
-        # 3. Percent share of households that use burning /burying for waste disposal   
-        # 4. Percent share of households that obtain drinking water from unprotected well or spring 
+        # 1. Percent share of total households that use charcoal for fuel
+        # 2. Percent share of total households that use electricity for fuel
+        # 3. Percent share of households that use burning /burying for waste disposal
+        # 4. Percent share of households that obtain drinking water from unprotected well or spring
 
         query_search = datamart.DatamartQuery(keywords=keywords_from_data + [meta_to_str], variables=None)
-        search_unit = datamart_unit.search_with_data(query=query_search, 
-                                                     supplied_data=self.all_dataset, 
+        search_unit = datamart_unit.search_with_data(query=query_search,
+                                                     supplied_data=self.all_dataset,
                                                      run_wikifier=True,
-                                                     consider_wikifier_columns_only=True, 
+                                                     consider_wikifier_columns_only=True,
                                                      # if augment with time is set to true, consider time will be useless
                                                      # augment_with_time=True,
                                                      consider_time=False,
                                                      )
         all_results2 = search_unit.get_next_page()
-        
+
         rest.pretty_print_search_results(all_results2)
 
         augmented_id = set()
@@ -1383,7 +1383,7 @@ class Controller:
             function used to check whether the given dataset can be splitted or not
         """
         task_type = self.problem_info["task_type"]
-        if not isinstance(task_type, list): 
+        if not isinstance(task_type, list):
             task_type = [task_type]
         data_type = self.problem_info["data_type"]
 
