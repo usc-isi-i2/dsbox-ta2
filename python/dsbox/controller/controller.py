@@ -182,6 +182,9 @@ class Controller:
                 self._logger.debug(f'Removing suggest target tag for {selector}')
 
         # Set true target column(s)
+        self._logger.info("Recevied config problem is:")
+        self._logger.info(str(self.config.problem['inputs']))
+        
         for dataset in self.config.problem['inputs']:
             if 'targets' not in dataset:
                 continue
