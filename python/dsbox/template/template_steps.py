@@ -23,6 +23,11 @@ class TemplateSteps:
                 "inputs": ["template_input"]
             },
             {
+                "name": "common_profiler_step",
+                "primitives": ["d3m.primitives.schema_discovery.profiler.Common"],
+                "inputs": ["to_dataframe_step"]
+            },
+            {
                 "name": "extract_attribute_step",
                 "primitives": [{
                     "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.Common",
@@ -36,7 +41,7 @@ class TemplateSteps:
                             'exclude_columns': ()
                         }
                 }],
-                "inputs": ["to_dataframe_step"]
+                "inputs": ["common_profiler_step"]
             },
             {
                 "name": "profiler_step",
@@ -135,7 +140,7 @@ class TemplateSteps:
         ]
 
     @staticmethod
-    def dsbox_augmentation_step(datamart_search_results, large_dataset=False):
+    def dsbox_augmentation_step(datamart_search_results, large_dataset=False, augment_algorithm="augment_separately"):
         '''
         dsbox generic step for classification and regression, directly lead to model step
         '''
@@ -160,7 +165,10 @@ class TemplateSteps:
             res2, augment_step_number = TemplateSteps.add_steps_serial(vector_search_results, augment_step_number)
             all_steps.extend(res2)
 
-        res3, augment_step_number = TemplateSteps.add_steps_parallel(general_search_results, augment_step_number)
+        if augment_algorithm == "augment_separately":
+            res3, augment_step_number = TemplateSteps.add_steps_parallel(general_search_results, augment_step_number)
+        elif augment_algorithm == "augment_all_in_one":
+            res3, augment_step_number = TemplateSteps.add_steps_serial(general_search_results, augment_step_number)
         all_steps.extend(res3)
 
         # remove all q nodes here, otherwise cleaner may generate a lot of useless columns
@@ -262,6 +270,11 @@ class TemplateSteps:
                 "inputs": ["template_input"]
             },
             {
+                "name": "common_profiler_step",
+                "primitives": ["d3m.primitives.schema_discovery.profiler.Common"],
+                "inputs": ["to_dataframe_step"]
+            },
+            {
                 "name": "extract_attribute_step",
                 "primitives": [{
                     "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.Common",
@@ -274,7 +287,7 @@ class TemplateSteps:
                             'exclude_columns': ()
                         }
                 }],
-                "inputs": ["to_dataframe_step"]
+                "inputs": ["common_profiler_step"]
             },
             {
                 "name": "profiler_step",
@@ -379,6 +392,11 @@ class TemplateSteps:
                 "inputs": ["template_input"]
             },
             {
+                "name": "common_profiler_step",
+                "primitives": ["d3m.primitives.schema_discovery.profiler.Common"],
+                "inputs": ["to_dataframe_step"]
+            },
+            {
                 "name": "extract_attribute_step",
                 "primitives": [{
                     "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.Common",
@@ -391,7 +409,7 @@ class TemplateSteps:
                             'exclude_columns': ()
                         }
                 }],
-                "inputs": ["to_dataframe_step"]
+                "inputs": ["common_profiler_step"]
             },
             {
                 "name": "profiler_step",
@@ -604,6 +622,11 @@ class TemplateSteps:
                     "inputs": ["template_input"]
                 },
                 {
+                    "name": "common_profiler_step",
+                    "primitives": ["d3m.primitives.schema_discovery.profiler.Common"],
+                    "inputs": ["to_dataframe_step"]
+                },
+                {
                     "name": attribute_name,
                     "primitives": [{
                         "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.Common",
@@ -616,7 +639,7 @@ class TemplateSteps:
                                 'exclude_columns': ()
                             }
                     }],
-                    "inputs": ["to_dataframe_step"]
+                    "inputs": ["common_profiler_step"]
                 },
                 {
                     "name": "pre_"+target_name,

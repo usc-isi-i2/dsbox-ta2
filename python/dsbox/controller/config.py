@@ -261,7 +261,7 @@ class DsboxConfig:
         # self.task_keywords = self.problem['problem']['task_keywords']
         self.task_type = self.problem['problem']['task_keywords']
         self.task_subtype = self.problem['problem']['task_keywords']
-
+        
         dataset_ids = [obj['dataset_id'] for obj in self.problem['inputs']]
         if len(dataset_ids) > 1:
             self._logger.warning(f"ProblemDoc specifies more than one dataset id: {dataset_ids}")
