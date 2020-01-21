@@ -369,7 +369,7 @@ class DSBoxTemplate():
                         name=hyperName, argument_type=self.argmentsmapper["value"],
                         data=hyper[hyperName])
 
-            if self.need_add_reference and primitive_name == 'd3m.primitives.data_transformation.construct_predictions.DataFrameCommon':
+            if primitive_name == 'd3m.primitives.data_transformation.construct_predictions.Common':
                 primitive_step.add_argument("reference",metadata_base.ArgumentType.CONTAINER,"steps.0.produce")
 
             # first we need to extract the types of the primtive's input and
