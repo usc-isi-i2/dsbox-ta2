@@ -6,6 +6,7 @@ import time
 import typing
 
 from d3m.metadata.problem import Problem
+from d3m.metadata.pipeline import Pipeline
 
 
 class RuntimeSetting:
@@ -23,7 +24,7 @@ class DsboxConfig:
     Class for loading and managing DSBox configurations.
 
     The following variables are defined in D3M OS environment
-    * d3m_run: valid values are 'ta2' or 'ta2ta3' (os.environ['D3MRun'])
+    * d3m_run: valid values are 'ta2' or 'ta2ta3' (os.environ['D3MRUN'])
     * deprecated: d3m_context: values are 'TESTING', 'EVALUATION', 'PRODUCTION' (os.environ['D3MCONTEXT'])
     * input_dir: Top-level directory for all inputs (os.environ['D3MINPUTDIR'])
     * problem_schema: File path to problemDoc.json (os.environ['D3MPROBLEMPATH'])
@@ -32,7 +33,10 @@ class DsboxConfig:
     * static_dir: Directory containing primitives' static fiels (os.environ['D3MSTATICDIR'])
     * cpu: Available CPU units, for example 56.
     * ram: Available memory in GB, for example 15.
-    * timeout: Time limit in seconds, for example 3600.
+    * timeout: Time limit in seconds, for example 3600. This property can be set either
+      through the environment variable D3MTIMEOUT (in second units), or through
+      SearchSolutionRequest time_bound_search field (in minute units). The
+      SearchSolutionRequest field takes precedence.
 
     D3M output directory structure:
     * pipelines_ranked (pipelines_ranked_dir) - a directory with ranked pipelines to be
@@ -79,6 +83,7 @@ class DsboxConfig:
         self.static_dir: str = ''
         self.cpu: int = 0
         self.ram: str = ''
+        # See timeout property
         self._timeout: int = 0
 
         # D3M output directories
@@ -89,11 +94,15 @@ class DsboxConfig:
         self.pipeline_runs_dir: str = ''
         self.additional_inputs_dir: str = ''
 
+        self.pipelines_ranked_temp_dir: str = ''
+
         # == D3M TA3 SearchSolutionsRequest parameters
         # Number of ranked solution to return
         self.rank_solutions_limit: int = 0
-        # time bound on individual pipeline run
+        # Time bound on individual pipeline run. Store as seconds (input is minutes).
         self.time_bound_run: int = 0
+        # Random seed used to initiate search
+        self.random_seed = 0
 
         # DSBox output directories
         self.dsbox_output_dir: str = ''
@@ -120,6 +129,9 @@ class DsboxConfig:
         # ==== Derived variables
         self.problem: Problem = {}
 
+        # TA3 can directly supply a pipeline. When pipeline is given, problem spec if optional
+        self.pipeline: Pipeline = None
+
         # List of file path to datasetDoc.json files
         self.dataset_schema_files: typing.List[str] = []
         # json dict
@@ -130,6 +142,8 @@ class DsboxConfig:
 
     @property
     def timeout(self) -> int:
+        '''
+        '''
         return self._timeout
 
     @timeout.setter
@@ -223,8 +237,8 @@ class DsboxConfig:
         if 'DSBOX_SEARCH_METHOD' in os.environ:
             self.search_method = os.environ['DSBOX_SEARCH_METHOD']
         else:
-            # self.search_method = 'parallel'
-            self.search_method = 'serial'
+            self.search_method = 'parallel'
+            # self.search_method = 'serial'
 
     def _setup(self):
         self._define_create_output_dirs()
@@ -277,6 +291,7 @@ class DsboxConfig:
         self.pipeline_runs_dir = os.path.join(self.output_dir, 'pipeline_runs')
         self.additional_inputs_dir = os.path.join(self.output_dir, 'additional_inputs')
         # DSBox directories
+        self.pipelines_ranked_temp_dir = os.path.join(self.output_dir, 'pipelines_ranked_temp')
         self.dsbox_output_dir = self.output_dir
 
         # For storing fitted pipeline with pickled primitives
@@ -295,7 +310,7 @@ class DsboxConfig:
 
         os.makedirs(self.output_dir, exist_ok=True)
         for directory in [
-                self.pipelines_ranked_dir, self.pipelines_scored_dir,
+                self.pipelines_ranked_dir, self.pipelines_ranked_temp_dir, self.pipelines_scored_dir,
                 self.pipelines_searched_dir, self.subpipelines_dir, self.pipeline_runs_dir,
                 self.additional_inputs_dir, self.local_dir,
                 self.dsbox_output_dir, self.pipelines_fitted_dir, self.pipelines_failed_dir, self.pipelines_info_dir,

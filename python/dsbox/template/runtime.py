@@ -1,16 +1,16 @@
+''
 import contextlib
+import json
 import logging
-import pprint
 import os
+import pdb
+import pprint
 import sys
+import tarfile
 import tempfile
 import time
+import traceback
 import typing
-import pdb
-import json
-import numpy as np
-import multiprocessing as mp
-import d3m.runtime as runtime_base
 
 from collections import defaultdict
 from multiprocessing import current_process
@@ -18,9 +18,16 @@ from multiprocessing import current_process
 from pandas import DataFrame  # type: ignore
 from sklearn.model_selection import KFold, StratifiedKFold  # type: ignore
 
+import numpy as np
+
+import d3m.runtime as runtime_base
+
 from d3m import container
 from d3m import exceptions
-from d3m.metadata import base as metadata_base, pipeline as pipeline_module, pipeline_run as pipeline_run_module, problem
+from d3m.metadata import base as metadata_base
+from d3m.metadata import pipeline as pipeline_module
+from d3m.metadata import pipeline_run as pipeline_run_module
+from d3m.metadata import problem
 from d3m.primitive_interfaces import base
 
 from dsbox.JobManager.cache import PrimitivesCache
@@ -128,11 +135,8 @@ class Runtime(runtime_base.Runtime):
         self.timing["total_time_used"] = 0.0
         self.task_type = task_type
         # 2019-7-12: Not working turning cache off for now
-        self.use_cache = False
+        self.use_cache = True
         # self.timing["total_time_used_without_cache"] = 0.0
-
-        # ! Not used?
-        self.skip_fit_phase = False
 
         # Debug mode. If true compare cache with actual result.
         self.validate_cache = True
@@ -140,29 +144,52 @@ class Runtime(runtime_base.Runtime):
         self.recorder_all = dict()
         self.record_frequency = 0.1
 
+        # Dataframe and metadata debug files
+        self.dfs_files = []
+
     def set_not_use_cache(self) -> None:
         self.use_cache = False
 
     def set_metric_descriptions(self, metric_descriptions):
         self.metric_descriptions = metric_descriptions
 
-    # def _do_run(self) -> None:
-          # this method can't run with daemon process!!
-    #     # v2019.10.2: adapted from d3m.runtime here
-    #     current_pid = os.getpid()
-    #     recorder = mp.Queue()
-    #     recorder_all = dict()
-        
-    #     for step_index, step in enumerate(self.pipeline.steps):
-    #         recorder_list = []
-    #         p = mp.Process(target=measure_usage, args=(recorder, os.getpid(), self.record_frequency))
-    #         p.start()
-    #         self.current_step = step_index
-    #         self._do_run_step(step)
-    #         p.terminate()
-    #         while not recorder.empty():
-    #             recorder_list.append(recorder.get())
-    #         self.recorder_all[step_index] = recorder_list
+    def _tar_dfs_files(self, prefix):
+        # Tar debug files to reduce the number of files
+        if self.dfs_files:
+            cur_dir = os.curdir
+            os.chdir(os.path.join(self.log_dir, 'dfs'))
+            tar_filename = '{}_{}_{}_{}.tar.gz'.format(prefix, self.template_name, self.pipeline.id.split('-')[0],
+                                                       self.fitted_pipeline_id.split('-')[0])
+            with tarfile.open(tar_filename, mode='w:gz') as tf:
+                for filepath in self.dfs_files:
+                    if os.path.exists(filepath):
+                        arcname = filepath.split('/')[-1]
+                        tf.add(filepath, arcname=arcname)
+            for filepath in self.dfs_files:
+                if os.path.exists(filepath):
+                    os.remove(filepath)
+                else:
+                    _logger.debug(f'File not found, not removing: {filepath}')
+            os.chdir(cur_dir)
+
+    def _do_run(self) -> None:
+        if self.phase == metadata_base.PipelineRunPhase.FIT:
+            prefix = 'fit'
+        else:
+            prefix = 'pro'
+        try:
+            super()._do_run()
+        except:
+            filename = '{}_{}_{}_{}_exception.txt'.format(prefix, self.template_name, self.pipeline.id.split('-')[0],
+                                                          self.fitted_pipeline_id.split('-')[0])
+            self.dfs_files.append(filename)
+            with open(os.path.join(self.log_dir, 'dfs', filename), 'w') as fd:
+                traceback.print_exc(file=fd)
+            prefix = 'exception_' + prefix
+            self._tar_dfs_files(prefix)
+            raise
+        else:
+            self._tar_dfs_files(prefix)
 
     def _run_primitive(self, step: pipeline_module.PrimitiveStep) -> None:
         '''
@@ -185,7 +212,7 @@ class Runtime(runtime_base.Runtime):
         if self.phase == metadata_base.PipelineRunPhase.FIT:
             hyperparams = self._prepare_primitive_hyperparams(step)
 
-            prim_name, prim_hash = self.cache._get_hash(
+            prim_name, prim_hash = self.cache.get_hash(
                 hash_prefix=None,
                 pipe_step=self.pipeline.steps[self.current_step],
                 primitive_arguments=arguments,
@@ -249,11 +276,7 @@ class Runtime(runtime_base.Runtime):
                             break
                     is_equal, reason = self._equals(outputs_actual, outputs)
                     if not is_equal:
-                        _logger.error(f'========== CACHED PRIMITIVE OUTPUT DIFFERS : {reason}')
-                        _logger.error('==== Output from new created primtive')
-                        _logger.error(pprint.pformat(outputs_actual))
-                        _logger.error('==== Output from cached primitive')
-                        _logger.error(pprint.pformat(outputs))
+                        self._log_cache_difference(step, reason, outputs_actual, outputs)
 
             else:
                 # Primitve is newly create, must fit it
@@ -487,6 +510,7 @@ class Runtime(runtime_base.Runtime):
     #     self.timing["total_time_used"] += (time.time() - time_start)
     #     _logger.debug(f"   done primitive: {this_step.primitive.metadata.query()['name']}")
 
+
     def _check_primitive_output(self, primitive_step, primitives_outputs):
         for output_id in primitive_step.outputs:
             output_data_reference = 'steps.{i}.{output_id}'.format(i=primitive_step.index, output_id=output_id)
@@ -496,6 +520,53 @@ class Runtime(runtime_base.Runtime):
                 for col in range(col_size):
                     if len(output.metadata.query((metadata_base.ALL_ELEMENTS, col))) == 0:
                         _logger.warning(f'Incomplete metadata at col {col}. Primitive={primitive_step.primitive}')
+
+    def _log_cache_difference(self, primitive_step, reason: str, outputs_actual: dict, outputs: dict):
+        _logger.error(f'========== CACHED PRIMITIVE OUTPUT DIFFERS {primitive_step.primitive} : {reason}')
+        _logger.error('==== Output from new created primtive')
+        _logger.error(pprint.pformat(outputs_actual))
+        _logger.error('==== Output from cached primitive')
+        _logger.error(pprint.pformat(outputs))
+
+        n_step = primitive_step.index
+        for output_id in primitive_step.outputs:
+            prefix = 'err_new_' + output_id
+            debug_file = os.path.join(
+                self.log_dir, 'dfs',
+                '{}_{}_{}_{}_{:02}_{}'.format(prefix, self.template_name, self.pipeline.id.split('-')[0],
+                                              self.fitted_pipeline_id.split('-')[0], n_step,
+                                              primitive_step.primitive))
+            if outputs_actual[output_id] is None:
+                with open(debug_file) as f:
+                    f.write("None")
+            else:
+                if isinstance(outputs_actual[output_id], DataFrame):
+                    try:
+                        outputs_actual[output_id][:MAX_DUMP_SIZE].to_csv(debug_file)
+                        with open(debug_file + '.pickle', 'wb') as fd:
+                            pickle.dump(outputs[output_id], fd)
+                    except Exception:
+                        pass
+
+            prefix = 'err_cache_' + output_id
+            debug_file = os.path.join(
+                self.log_dir, 'dfs',
+                '{}_{}_{}_{}_{:02}_{}'.format(prefix, self.template_name, self.pipeline.id.split('-')[0],
+                                              self.fitted_pipeline_id.split('-')[0], n_step,
+                                              primitive_step.primitive))
+            if outputs[output_id] is None:
+                with open(debug_file) as f:
+                    f.write("None")
+            else:
+                if isinstance(outputs[output_id], DataFrame):
+                    try:
+                        outputs[output_id][:MAX_DUMP_SIZE].to_csv(debug_file)
+                        with open(debug_file + '.pickle', 'wb') as fd:
+                            pickle.dump(outputs[output_id], fd)
+                    except Exception:
+                        pass
+
+
 
     def _log_step_output(self, prefix: str, output_data_reference, primitive_step, primitives_outputs):
         '''
@@ -532,14 +603,17 @@ class Runtime(runtime_base.Runtime):
             if primitives_outputs[output_data_reference] is None:
                 with open(debug_file) as f:
                     f.write("None")
+                self.dfs_files.append(debug_file)
             else:
                 if isinstance(primitives_outputs[output_data_reference], DataFrame):
                     try:
+                        self.dfs_files.append(debug_file)
                         primitives_outputs[output_data_reference][:MAX_DUMP_SIZE].to_csv(debug_file)
                     except Exception:
                         pass
                 try:
                     metadata_filepath = debug_file + '_meta'
+                    self.dfs_files.append(metadata_filepath)
                     with open(metadata_filepath, 'w') as out:
                         primitives_outputs[output_data_reference].metadata.pretty_print(handle=out)
                 except Exception:

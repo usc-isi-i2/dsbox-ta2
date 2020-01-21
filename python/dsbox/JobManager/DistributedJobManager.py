@@ -30,7 +30,7 @@ class WorkerQueueHandler(logging.handlers.QueueHandler):
 
     def prepare(self, record):
         if record is not None and record.msg is not None:
-            record.msg = f'{current_process().name:17} > ' + record.msg
+            record.msg = f'{current_process().name:17} > ' + str(record.msg)
         return super().prepare(record)
 
     # def emit(self, record):

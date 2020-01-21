@@ -130,7 +130,7 @@ class TemplateSpaceBaseSearch(typing.Generic[T]):
                     traceback.print_exc()
                     _logger.error(f'Search template pipeline FAILED {search.template}')
                     _logger.error(traceback.format_exc())
-                    _logger.debug("Failed candidate: {candidate}")
+                    _logger.debug(f"Failed candidate: {candidate}")
                     report = None
 
                 kwargs_bundle = self._prepare_job_posting(candidate=candidate,
@@ -139,6 +139,8 @@ class TemplateSpaceBaseSearch(typing.Generic[T]):
                                             report=report)
 
         self.cacheManager.cleanup()
+        self.history.done()
+
         return self.history.get_best_history()
 
     def _done(self, success_count, *, one_pipeline_only=False):

@@ -3,19 +3,21 @@
 # path_setup()
 
 import argparse
-import grpc
 import logging
 import os
 import pprint
 import sys
+import tempfile
 import typing
 
 import google
+import grpc
 
+import ta3ta2_api.utils as utils
 from ta3ta2_api import core_pb2_grpc as cpg
 
-from ta3ta2_api import problem_pb2 as problem_pb2
-from ta3ta2_api import value_pb2 as value_pb2
+from ta3ta2_api import problem_pb2
+from ta3ta2_api import value_pb2
 
 from ta3ta2_api.core_pb2 import HelloRequest
 from ta3ta2_api.core_pb2 import SearchSolutionsRequest
@@ -32,20 +34,21 @@ from ta3ta2_api.core_pb2 import GetProduceSolutionResultsRequest
 from ta3ta2_api.core_pb2 import ListPrimitivesRequest
 
 from ta3ta2_api.value_pb2 import Value
-from ta3ta2_api.value_pb2 import ValueType
+# from ta3ta2_api.value_pb2 import ValueType
 
 from ta3ta2_api.pipeline_pb2 import PipelineDescription
 
 from ta3ta2_api.problem_pb2 import ProblemDescription
 from ta3ta2_api.problem_pb2 import ProblemPerformanceMetric
-from ta3ta2_api.problem_pb2 import PerformanceMetric
+# from ta3ta2_api.problem_pb2 import PerformanceMetric
 from ta3ta2_api.problem_pb2 import Problem
-from ta3ta2_api.problem_pb2 import TaskType
-from ta3ta2_api.problem_pb2 import TaskSubtype
+from ta3ta2_api.problem_pb2 import TaskKeyword
 from ta3ta2_api.problem_pb2 import ProblemInput
 from ta3ta2_api.problem_pb2 import ProblemTarget
 
-from d3m.metadata.problem import parse_problem_description
+# from d3m.metadata.problem import parse_problem_description
+import d3m.metadata.pipeline as d3m_pipeline
+import d3m.metadata.problem as d3m_problem
 
 from dsbox.controller.config import find_dataset_docs
 
@@ -53,46 +56,51 @@ logging.basicConfig(level=logging.DEBUG, format='%(asctime)s [%(levelname)s] %(n
 _logger = logging.getLogger(__name__)
 
 
+API_VERSION="2019.12.4"
+ALLOWED_VALUE_TYPES = [utils.ValueType.DATASET_URI, utils.ValueType.CSV_URI, utils.ValueType.RAW]
+
 PRINT_REQUEST = True
-dataset_base_path = ''
-daset_docs = {}
+DATASET_BASE_PATH = ''
+DASET_DOCS = {}
 
 
 def config_datasets(datasets, use_docker_server) -> typing.List:
-    global dataset_base_path, dataset_docs
+    global DATASET_BASE_PATH, DATASET_DOCS
+    root_dir = '/data/dsbox/datasets_v4.0.0/'
     if use_docker_server:
-        dataset_base_path = '/input'
+        DATASET_BASE_PATH = '/input'
     elif datasets == 'seed_aug':
-        dataset_base_path = '/nfs1/dsbox-repo/data/datasets-v32/seed_datasets_data_augmentation'
+        DATASET_BASE_PATH = root_dir + 'seed_datasets_data_augmentation'
     elif datasets == 'seed':
-        dataset_base_path = '/nfs1/dsbox-repo/data/datasets-v32/seed_datasets_current'
+        DATASET_BASE_PATH = root_dir + 'seed_datasets_current'
     else:
-        dataset_base_path = '/nfs1/dsbox-repo/data/datasets-v32/seed_datasets_current'
+        DATASET_BASE_PATH = root_dir + 'seed_datasets_current'
 
-    print('Using dataset base path:', dataset_base_path)
-    dataset_docs = find_dataset_docs(dataset_base_path, _logger)
-    return dataset_base_path
+    print('Using dataset base path:', DATASET_BASE_PATH)
+    DATASET_DOCS = find_dataset_docs(DATASET_BASE_PATH, _logger)
+    return DATASET_BASE_PATH
 
 
 def get_problem_description(dataset_base_path, dataset_name: str, problem_type: str) -> dict:
     dataset_names = os.listdir(dataset_base_path)
     if dataset_name not in dataset_names:
-        _logger.error(f'Cannot find {dataset_name}. Possible names are {dataset_names}')
+        _logger.error('Cannot find %s. Possible names are %s', dataset_name, dataset_names)
         raise Exception(f'Cannot find {dataset_name}')
-    if problem_type == 'TRAIN' or problem_type == 'TEST':
-        problem_filepath = os.path.join(dataset_base_path, dataset_name, problem_type, 'problem_'+problem_type, 'problemDoc.json')
+    if problem_type in ('TRAIN', 'TEST'):
+        problem_filepath = os.path.join(dataset_base_path, dataset_name, problem_type, 'problem_'+problem_type,
+                                        'problemDoc.json')
     else:
         problem_filepath = os.path.join(dataset_base_path, dataset_name, dataset_name + '_problem', 'problemDoc.json')
     if not os.path.exists(problem_filepath):
         raise Exception(f'Cannot find problem doc: {problem_filepath}')
-    return parse_problem_description(problem_filepath)
+    problem_filepath = 'file://' + problem_filepath
+    return d3m_problem.Problem.load(problem_filepath)
 
 
 class DatasetInfo():
-    def __init__(self, id, dataset_base_path, task_type, task_subtype, metric, target_index, resource_id, column_index, column_name):
+    def __init__(self, id, dataset_base_path, task_keywords, metric, target_index, resource_id, column_index, column_name):
         self.id = id
-        self.task_type = task_type
-        self.task_subtype = task_subtype
+        self.task_keywords = task_keywords
         self.metric = metric
         self.target_index = target_index
         self.resource_id = resource_id
@@ -114,32 +122,34 @@ class DatasetInfo():
         datasets_info_dict = {}
         datasets_info_dict['38_sick'] = DatasetInfo(
             '38_sick', dataset_base_path,
-            problem_pb2.CLASSIFICATION, problem_pb2.BINARY, problem_pb2.F1_MACRO,
+            [problem_pb2.CLASSIFICATION, problem_pb2.BINARY, problem_pb2.TABULAR],
+            problem_pb2.F1_MACRO,
             30, '0', 30, 'Class')
         datasets_info_dict['185_baseball'] = DatasetInfo(
             '185_baseball', dataset_base_path,
-            problem_pb2.CLASSIFICATION, problem_pb2.MULTICLASS, problem_pb2.F1_MACRO,
+            [problem_pb2.CLASSIFICATION, problem_pb2.MULTICLASS, problem_pb2.TABULAR],
+            problem_pb2.F1_MACRO,
             0, '0', 18, 'Hall_of_Fame')
         datasets_info_dict['LL0_1100_popularkids'] = DatasetInfo(
             'LL0_1100_popularkids', dataset_base_path,
-            problem_pb2.CLASSIFICATION, problem_pb2.MULTICLASS, problem_pb2.F1_MACRO,
+            [problem_pb2.CLASSIFICATION, problem_pb2.MULTICLASS, problem_pb2.TABULAR],
+            problem_pb2.F1_MACRO,
             0, '0', 7, 'Goals')
         datasets_info_dict['59_umls'] = DatasetInfo(
             '59_umls', dataset_base_path,
-            problem_pb2.LINK_PREDICTION, problem_pb2.NONE, problem_pb2.ACCURACY,
+            [problem_pb2.LINK_PREDICTION, problem_pb2.GRAPH],
+            problem_pb2.ACCURACY,
             0, '1', 4, 'linkExists')
         datasets_info_dict['22_handgeometry'] = DatasetInfo(
             '22_handgeometry', dataset_base_path,
-            problem_pb2.REGRESSION, problem_pb2.UNIVARIATE, problem_pb2.MEAN_SQUARED_ERROR,
+            [problem_pb2.REGRESSION, problem_pb2.UNIVARIATE, problem_pb2.IMAGE],
+            problem_pb2.MEAN_SQUARED_ERROR,
             0, '1', 2, 'WRISTBREADTH')
         datasets_info_dict['196_autoMpg'] = DatasetInfo(
             '196_autoMpg',  dataset_base_path,
-            problem_pb2.REGRESSION, problem_pb2.UNIVARIATE, problem_pb2.MEAN_SQUARED_ERROR,
+            [problem_pb2.REGRESSION, problem_pb2.UNIVARIATE, problem_pb2.TABULAR],
+            problem_pb2.MEAN_SQUARED_ERROR,
             0, '0', 8, 'class')
-        datasets_info_dict['185_baseball_new'] = DatasetInfo(
-            '185_baseball', '/nfs1/dsbox-repo/data/dataset-2019/seed_datasets_current',
-            problem_pb2.CLASSIFICATION, problem_pb2.MULTICLASS, problem_pb2.F1_MACRO,
-            0, '0', 18, 'Hall_of_Fame')
         return datasets_info_dict
 
 
@@ -151,14 +161,24 @@ class Client(object):
     '''
 
     def __init__(self):
-        self.time_bound = 10  # minutes
+        # TA2 run search timeout limit
+        self.time_bound_search = 10  # minutes
+
+        # Search give pipeline timeout limit
+        self.time_bound_run = 3  # minutes
+
+        # Limit the number of search solutions return. If zero, then return all solutions
+        # and stream back solutions are they are searched.
+        self.rank_solutions_limit = 0
+
+        self.scratch_dir = tempfile.TemporaryDirectory().name
 
     def main(self, argv):
         '''
         Main entry point for the TA2 test client
         '''
 
-        _logger.info("Running TA2/TA3 Interface version v2019.1.22")
+        _logger.info("Running TA2/TA3 Interface version %s", API_VERSION)
 
         # Standardized TA2-TA3 port is 45042
         address = 'localhost:45042'
@@ -182,22 +202,33 @@ class Client(object):
 
         parser.add_argument('--basic', action='store_true')
         parser.add_argument('--complete', action='store_true')
-        parser.add_argument('--solution')
-        parser.add_argument('--produce')
-        parser.add_argument('--fit')
-        parser.add_argument('--end-search')
+        parser.add_argument('--solution', help='Describe solution')
+        parser.add_argument('--produce', help='Call pipeline produce, given solution id')
+        parser.add_argument('--fit', help='Call pipeline produce, given solution id')
+        parser.add_argument('--end-search', help='End search, given search id')
 
-        parser.add_argument('--time-bound', type=int, default=self.time_bound, help='Time bound in minutes (default: %(default)s)')
+        parser.add_argument('--time-bound-search', type=int, default=self.time_bound_search,
+                            help='Time bound limit for TA2 search (default: %(default)s minutes)')
+        parser.add_argument('--time-bound-run', type=int, default=self.time_bound_run,
+                            help='Time bound limit for searching given pipeline (default: %(default)s minutes)')
+        parser.add_argument('--rank_solutions_limit', type=int, default=self.rank_solutions_limit,
+                            help='Limit the number of search solutions return. If zero, then return all solutions and'
+                            'stream back solutions are they are searched.')
+
+        parser.add_argument('--pipeline', help='Call SearchSolutions, give saved pipeline description json file')
+
         args = parser.parse_args()
 
-        self.time_bound = args.time_bound
+        self.time_bound_search = args.time_bound_search
+        self.time_bound_run = args.time_bound_run
+        self.rank_solutions_limit = args.rank_solutions_limit
 
         datasets = 'seed'
         if args.datasets:
             datasets = args.datasets
         config_datasets(datasets, args.docker)
-        train_problem_desc = get_problem_description(dataset_base_path, args.dataset, 'TRAIN')
-        test_problem_desc = get_problem_description(dataset_base_path, args.dataset, 'TEST')
+        train_problem_desc = get_problem_description(DATASET_BASE_PATH, args.dataset, 'TRAIN')
+        test_problem_desc = get_problem_description(DATASET_BASE_PATH, args.dataset, 'TEST')
 
         pprint.pprint(train_problem_desc)
 
@@ -230,8 +261,72 @@ class Client(object):
             self.endSearchSolutions(stub, search_id)
         elif args.list:
             self.listPrimitives(stub)
+        elif args.pipeline:
+            with open(args.pipeline, 'r') as fd:
+                pipeline = d3m_pipeline.Pipeline.from_json(fd)
+            self.execute_pipeline(stub, train_problem_desc, pipeline)
         else:
             print('Try adding --basic')
+
+    def execute_pipeline(self, stub, problem: d3m_problem.Problem, pipeline: d3m_pipeline.Pipeline):
+
+        searchSolutionsResponse = self.searchSolutionsPipeline(stub, problem, pipeline)
+
+        search_id = searchSolutionsResponse.search_id
+
+        solutions = self.processSearchSolutionsResultsResponses(stub, search_id)
+
+    def searchSolutionsPipeline(self, stub, problem: d3m_problem.Problem, pipeline: d3m_pipeline.Pipeline):
+        _logger.info("Call Search Solutions with pipeline: %s", pipeline.id)
+
+        template = utils.encode_pipeline_description(pipeline, ALLOWED_VALUE_TYPES, self.scratch_dir)
+
+        metric = problem['problem']['performance_metrics'][0]
+
+        request = SearchSolutionsRequest(
+            user_agent="Test Client",
+            version=API_VERSION,
+            time_bound_search=self.time_bound_search,
+            priority=0,
+            allowed_value_types=[value_pb2.RAW],
+            problem=ProblemDescription(
+                problem=Problem(
+                    # id=problem['id'],
+                    # version="3.1.2",
+                    # name=problem['id'],
+                    # description=problem['id'],
+                    task_keywords=[x.value for x in problem['problem']['task_keywords']],
+                    performance_metrics=[
+                        ProblemPerformanceMetric(
+                            # metric=problem['problem']['performance_metrics'][0]['metric'].value,
+                            metric=metric['metric'].value,
+                            k=metric.get('params', {}).get('k', None),
+                            pos_label=metric.get('params', {}).get('pos_label', None),
+
+                        )]
+                    ),
+                inputs=[ProblemInput(
+                    dataset_id=problem['inputs'][0]['dataset_id'],
+                    targets=[
+                        ProblemTarget(
+                            target_index=problem['inputs'][0]['targets'][0]['target_index'],
+                            resource_id=problem['inputs'][0]['targets'][0]['resource_id'],
+                            column_index=problem['inputs'][0]['targets'][0]['column_index'],
+                            column_name=problem['inputs'][0]['targets'][0]['column_name']
+                        )
+                        ])]
+                ),
+            template=template, # TODO: We will handle pipelines later D3M-61
+            inputs=[Value(dataset_uri='file://' + DATASET_DOCS[problem['inputs'][0]['dataset_id']]),],
+            time_bound_run=self.time_bound_run, # in minutes
+            rank_solutions_limit=self.rank_solutions_limit
+        )
+        print_request(request)
+        reply = stub.SearchSolutions(request)
+        log_msg(reply)
+        return reply
+
+
 
     def basicPipelineSearch(self, stub, train_problem, test_problem, end_search=False):
         '''
@@ -359,11 +454,12 @@ class Client(object):
     '''
     def searchSolutions(self, stub, problem):
         _logger.info("Calling Search Solutions:")
+        print([x.value for x in problem['problem']['task_keywords']])
         metric = problem['problem']['performance_metrics'][0]
         request = SearchSolutionsRequest(
             user_agent="Test Client",
-            version="2019.1.22",
-            time_bound_search=self.time_bound,
+            version=API_VERSION,
+            time_bound_search=self.time_bound_search,
             priority=0,
             allowed_value_types=[value_pb2.RAW],
             problem=ProblemDescription(
@@ -372,8 +468,7 @@ class Client(object):
                     # version="3.1.2",
                     # name=problem['id'],
                     # description=problem['id'],
-                    task_type=problem['problem']['task_type'].value,
-                    task_subtype=problem['problem']['task_subtype'].value,
+                    task_keywords=[x.value for x in problem['problem']['task_keywords']],
                     performance_metrics=[
                         ProblemPerformanceMetric(
                             # metric=problem['problem']['performance_metrics'][0]['metric'].value,
@@ -395,9 +490,9 @@ class Client(object):
                         ])]
                 ),
             template=PipelineDescription(), # TODO: We will handle pipelines later D3M-61
-            inputs=[Value(dataset_uri='file://' + dataset_docs[problem['inputs'][0]['dataset_id']]),],
-            time_bound_run=5, # in minutes
-            rank_solutions_limit=20
+            inputs=[Value(dataset_uri='file://' + DATASET_DOCS[problem['inputs'][0]['dataset_id']]),],
+            time_bound_run=self.time_bound_run, # in minutes
+            rank_solutions_limit=self.rank_solutions_limit
         )
         print_request(request)
         reply = stub.SearchSolutions(request)
@@ -433,7 +528,7 @@ class Client(object):
 
         request = ScoreSolutionRequest(
             solution_id=solution_id,
-            inputs=[Value(dataset_uri='file://' + dataset_docs[problem['inputs'][0]['dataset_id']])],
+            inputs=[Value(dataset_uri='file://' + DATASET_DOCS[problem['inputs'][0]['dataset_id']])],
             performance_metrics=[ProblemPerformanceMetric(
                 metric=problem_pb2.ACCURACY
             )],
@@ -491,7 +586,7 @@ class Client(object):
 
         request = FitSolutionRequest(
             solution_id=solution_id,
-            inputs=[Value(dataset_uri='file://' + dataset_docs[problem['inputs'][0]['dataset_id']])],
+            inputs=[Value(dataset_uri='file://' + DATASET_DOCS[problem['inputs'][0]['dataset_id']])],
             # expose_outputs = ['steps.7.produce'],
             expose_outputs=['outputs.0'],
             expose_value_types=[value_pb2.CSV_URI]
@@ -516,7 +611,7 @@ class Client(object):
 
         request = ProduceSolutionRequest(
             fitted_solution_id=solution_id,
-            inputs=[Value(dataset_uri='file://' + dataset_docs[problem['inputs'][0]['dataset_id']])],
+            inputs=[Value(dataset_uri='file://' + DATASET_DOCS[problem['inputs'][0]['dataset_id']])],
             # expose_outputs = ['steps.7.produce'],
             expose_outputs=['outputs.0'],
             expose_value_types=[value_pb2.CSV_URI]
