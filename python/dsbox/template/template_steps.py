@@ -469,6 +469,65 @@ class TemplateSteps:
         ]
 
     @staticmethod
+    def dsbox_feature_constructor(ptype, first_input='impute_step', second_input='extract_target_step', output_name='feature_step'):
+        '''
+        dsbox feature selection steps for classification and regression, lead to feature selector steps
+        '''
+        if ptype == "regression":
+            return [
+                {
+                    "name": output_name,
+                    "primitives": [
+                        {
+                            "primitive": "d3m.primitives.feature_construction.echo_ib.DSBOX",
+                            "hyperparameters": {
+                                'task_type':['REGRESSION'],
+                                'activation':['elu','tanh'],
+                                'lr':[0.0001, 0.01, 0.1],
+                                'n_hidden':[10, 50, 100],
+                                'epochs':[10, 100, 400],
+                                'batch':[10]
+                            }
+                        },
+                        {
+                            "primitive": "d3m.primitives.feature_construction.corex_continuous.DSBOX",
+                            "hyperparameters": {
+                                'n_hidden':[10, 49]
+                            }
+                        }
+                    ],
+                    "inputs":[first_input, second_input]
+                },
+            ]
+        else:
+            return [
+                {
+                    "name": output_name,
+                    "primitives": [
+                        {
+                            "primitive": "d3m.primitives.feature_construction.echo_ib.DSBOX",
+                            "hyperparameters": {
+                                'task_type':['CLASSIFICATION'],
+                                'activation':['elu','tanh'],
+                                'lr':[0.0001, 0.01, 0.1],
+                                'n_hidden':[10, 50, 100],
+                                'epochs':[10, 100, 400],
+                                'batch':[10]
+                            }
+                        },
+                        {
+                            "primitive": "d3m.primitives.feature_construction.corex_continuous.DSBOX",
+                            "hyperparameters": {
+                                'n_hidden':[10, 49]
+                            }
+                        }
+                    ],
+                    "inputs":[first_input, second_input]
+                },
+            ]
+
+
+    @staticmethod
     def dsbox_feature_selector(ptype, first_input='impute_step', second_input='extract_target_step'):
         '''
         dsbox feature selection steps for classification and regression, lead to feature selector steps
@@ -500,6 +559,20 @@ class TemplateSteps:
                                 "param": [5, 7, 10, 15, 30, 50, 75],
                             }
                         },
+                        # {
+                        #     "primitive": "d3m.primitives.feature_selection.joint_mutual_information.AutoRPI",
+                        #     "hyperparameters": {
+                        #         #'method': ["counting", "pseudoBayesian", "fullBayesian"],
+                        #         'nbins': [2, 5, 10, 13, 20]
+                        #         }
+                        # },
+                        # {
+                        #     "primitive": "d3m.primitives.feature_selection.joint_mutual_information.AutoRPI",
+                        #     "hyperparameters": {
+                        #         #'method': ["counting", "pseudoBayesian", "fullBayesian"],
+                        #         'nbins': [2, 5, 10, 13, 20]
+                        #         }
+                        # },
                         {
                             "primitive": "d3m.primitives.feature_selection.joint_mutual_information.AutoRPI",
                             "hyperparameters": {
