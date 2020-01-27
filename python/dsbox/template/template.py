@@ -330,35 +330,35 @@ class DSBoxTemplate():
             else:
                 raise exceptions.InvalidArgumentValueError("Error, can't find the primitive : ",
                                                            primitive_name)
+            # no longer needed
+            # if primitive_name == "d3m.primitives.data_augmentation.datamart_augmentation.DSBOX":
+            #     hyper = binding[step]["hyperparameters"]
+            #     primitive_step.add_argument("inputs1",metadata_base.ArgumentType.CONTAINER,"steps.0.produce")
+            #     primitive_step.add_argument("inputs2",metadata_base.ArgumentType.CONTAINER, templateinput)
+            #     for hyperName in hyper.keys():
+            #         primitive_step.add_hyperparameter(
+            #             # argument_type should be fixed type not the type of the data!!
+            #             name=hyperName, argument_type=self.argmentsmapper["value"],
+            #             data=hyper[hyperName])
+            #     # pre v2019.1.21
+            #     pipeline.add_step(primitive_step)
+            #     primitive_step.add_output("produce")
+            #     outputs[step] = f'steps.{primitive_step.index}.produce'
+            #     continue
 
-            if primitive_name == "d3m.primitives.data_augmentation.datamart_augmentation.DSBOX":
-                hyper = binding[step]["hyperparameters"]
-                primitive_step.add_argument("inputs1",metadata_base.ArgumentType.CONTAINER,"steps.0.produce")
-                primitive_step.add_argument("inputs2",metadata_base.ArgumentType.CONTAINER, templateinput)
-                for hyperName in hyper.keys():
-                    primitive_step.add_hyperparameter(
-                        # argument_type should be fixed type not the type of the data!!
-                        name=hyperName, argument_type=self.argmentsmapper["value"],
-                        data=hyper[hyperName])
-                # pre v2019.1.21
-                pipeline.add_step(primitive_step)
-                primitive_step.add_output("produce")
-                outputs[step] = f'steps.{primitive_step.index}.produce'
-                continue
-
-            if primitive_name == "d3m.primitives.data_augmentation.datamart_query.DSBOX":
-                primitive_step.add_argument("inputs",metadata_base.ArgumentType.CONTAINER, templateinput)
-                hyper = binding[step]["hyperparameters"]
-                for hyperName in hyper.keys():
-                    primitive_step.add_hyperparameter(
-                        # argument_type should be fixed type not the type of the data!!
-                        name=hyperName, argument_type=self.argmentsmapper["value"],
-                        data=hyper[hyperName])
-                # pre v2019.1.21
-                pipeline.add_step(primitive_step)
-                primitive_step.add_output("produce")
-                outputs[step] = f'steps.{primitive_step.index}.produce'
-                continue
+            # if primitive_name == "d3m.primitives.data_augmentation.datamart_query.DSBOX":
+            #     primitive_step.add_argument("inputs",metadata_base.ArgumentType.CONTAINER, templateinput)
+            #     hyper = binding[step]["hyperparameters"]
+            #     for hyperName in hyper.keys():
+            #         primitive_step.add_hyperparameter(
+            #             # argument_type should be fixed type not the type of the data!!
+            #             name=hyperName, argument_type=self.argmentsmapper["value"],
+            #             data=hyper[hyperName])
+            #     # pre v2019.1.21
+            #     pipeline.add_step(primitive_step)
+            #     primitive_step.add_output("produce")
+            #     outputs[step] = f'steps.{primitive_step.index}.produce'
+            #     continue
 
 
             if binding[step]["hyperparameters"] != {}:
@@ -369,8 +369,9 @@ class DSBoxTemplate():
                         name=hyperName, argument_type=self.argmentsmapper["value"],
                         data=hyper[hyperName])
 
+            # add reference to denormalized results if construct predictions steps added
             if primitive_name == 'd3m.primitives.data_transformation.construct_predictions.Common':
-                primitive_step.add_argument("reference",metadata_base.ArgumentType.CONTAINER,"steps.0.produce")
+                primitive_step.add_argument("reference", metadata_base.ArgumentType.CONTAINER, "steps.0.produce")
 
             # first we need to extract the types of the primtive's input and
             # the generators's output type.

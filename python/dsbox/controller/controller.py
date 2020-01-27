@@ -96,8 +96,8 @@ class Controller:
         # hard coded unsplit dataset type
         # TODO: check whether "speech" type should be put into this list or not
         self.data_type_cannot_split = ["graph", "edgeList", "audio"]
-        self.task_type_can_split = ["CLASSIFICATION", "REGRESSION", "SEMISUPERVISED_CLASSIFICATION", "SEMISUPERVISED_REGRESSION", "COLLABORATIVE_FILTERING", "OBJECT_DETECTION"]
-        self.task_type_cannot_split = ["FORECASTING","CLUSTERING", "LINK_PREDICTION", "VERTEX_CLASSIFICATION", "COMMUNITY_DETECTION", "GRAPH_MATCHING"]
+        self.task_type_can_split = ["CLASSIFICATION", "REGRESSION", "SEMISUPERVISED_CLASSIFICATION", "SEMISUPERVISED_REGRESSION", "COLLABORATIVE_FILTERING", "OBJECT_DETECTION", "FORECASTING"]
+        self.task_type_cannot_split = ["CLUSTERING", "LINK_PREDICTION", "VERTEX_CLASSIFICATION", "COMMUNITY_DETECTION", "GRAPH_MATCHING"]
 
         # !!! hard code here
         # TODO: add if statement to determine it
@@ -1471,116 +1471,53 @@ class Controller:
         else:
             task_type = self.problem_info["task_type"]
             self._logger.info("split start!")
-            train_ratio = 1 - test_size
-            if n_splits == 1:
-                from common_primitives.train_score_split import TrainScoreDatasetSplitPrimitive, Hyperparams as hyper_train_split
-                hyperparams_split = hyper_train_split.defaults()
-                hyperparams_split = hyperparams_split.replace({"train_score_ratio": train_ratio, "shuffle": True})
-                if 'CLASSIFICATION' in task_type:
-                    hyperparams_split = hyperparams_split.replace({"stratified": True})
-                else:  # if not task_type == "REGRESSION":
-                    hyperparams_split = hyperparams_split.replace({"stratified": False})
-                split_primitive = TrainScoreDatasetSplitPrimitive(hyperparams=hyperparams_split)
-
+            
+            if "FORECASTING" in task_type:
+                from common_primitives.kfold_split_timeseries import Hyperparams as hyper_k_fold_timeseries, KFoldTimeSeriesSplitPrimitive
+                hyperparams_split = hyper_k_fold_timeseries.defaults()
+                split_primitive = KFoldTimeSeriesSplitPrimitive(hyperparams=hyperparams_split)
+            # no forcasting, doing normal train-score split
             else:
-                from common_primitives.kfold_split import KFoldDatasetSplitPrimitive, Hyperparams as hyper_k_fold
-                hyperparams_split = hyper_k_fold.defaults()
-                hyperparams_split = hyperparams_split.replace({"number_of_folds":n_splits, "shuffle":True})
-                if 'CLASSIFICATION' in task_type:
-                    hyperparams_split = hyperparams_split.replace({"stratified":True})
-                else:# if not task_type == "REGRESSION":
-                    hyperparams_split = hyperparams_split.replace({"stratified":False})
-                split_primitive = KFoldDatasetSplitPrimitive(hyperparams=hyperparams_split)
+                train_ratio = 1 - test_size
+                if n_splits == 1:
+                    from common_primitives.train_score_split import TrainScoreDatasetSplitPrimitive, Hyperparams as hyper_train_split
+                    hyperparams_split = hyper_train_split.defaults()
+                    hyperparams_split = hyperparams_split.replace({"train_score_ratio": train_ratio, "shuffle": True})
+                    if 'CLASSIFICATION' in task_type:
+                        hyperparams_split = hyperparams_split.replace({"stratified": True})
+                    else:  # if not task_type == "REGRESSION":
+                        hyperparams_split = hyperparams_split.replace({"stratified": False})
+                    split_primitive = TrainScoreDatasetSplitPrimitive(hyperparams=hyperparams_split)
+
+                else:
+                    from common_primitives.kfold_split import KFoldDatasetSplitPrimitive, Hyperparams as hyper_k_fold
+                    hyperparams_split = hyper_k_fold.defaults()
+                    hyperparams_split = hyperparams_split.replace({"number_of_folds":n_splits, "shuffle":True})
+                    if 'CLASSIFICATION' in task_type:
+                        hyperparams_split = hyperparams_split.replace({"stratified":True})
+                    else:# if not task_type == "REGRESSION":
+                        hyperparams_split = hyperparams_split.replace({"stratified":False})
+                    split_primitive = KFoldDatasetSplitPrimitive(hyperparams=hyperparams_split)
 
             try:
                 split_primitive.set_training_data(dataset=dataset)
                 split_primitive.fit()
                 # TODO: is it correct here?
                 query_dataset_list = list(range(n_splits))
-                train_return = split_primitive.produce(inputs=query_dataset_list).value#['learningData']
+                train_return = split_primitive.produce(inputs=query_dataset_list).value
                 test_return = split_primitive.produce_score_data(inputs=query_dataset_list).value
 
             except Exception as e:
                 # Do not split stratified shuffle fails
                 train_return = []
                 test_return = []
-                self._logger.warning('Not splitting dataset. Stratified shuffle failed')
+                self._logger.warning('Split failed! Please check!!!')
                 self._logger.info(str(e))
                 for i in range(n_splits):
                     train_return.append(dataset)
                     test_return.append(None)
 
             self._logger.info("split done!")
-
-
-            '''
-            # old method (achieved by ourselves) to generate splitted datasets
-
-            if task_type == 'CLASSIFICATION':
-                self._logger.info("split start!!!!!!")
-                try:
-                    # Use stratified sample to split the dataset
-                    sss = StratifiedShuffleSplit(n_splits=n_splits, test_size=test_size,
-                                                 random_state=random_state)
-                    sss.get_n_splits(dataset[res_id], dataset[res_id].iloc[:, target_index])
-
-                    for train_index, test_index in sss.split(dataset[res_id],
-                                                             dataset[res_id].iloc[:, target_index]):
-                        indf = dataset[res_id]
-                        outdf_train = pd.DataFrame(columns=dataset[res_id].columns)
-
-                        for each_index in train_index:
-                            outdf_train = outdf_train.append(indf.loc[each_index],
-                                                             ignore_index=True)
-
-                        # reset to sequential
-                        outdf_train = outdf_train.reset_index(drop=True)
-
-                        outdf_train = d3m_DataFrame(outdf_train, generate_metadata=False)
-                        train = _add_meta_data(dataset=dataset, res_id=res_id,
-                                               input_part=outdf_train)
-                        train_return.append(train)
-
-                        # for special condition that only need get part of the dataset
-                        if need_test_dataset:
-                            outdf_test = pd.DataFrame(columns=dataset[res_id].columns)
-                            for each_index in test_index:
-                                outdf_test = outdf_test.append(indf.loc[each_index],
-                                                               ignore_index=True)
-                            # reset to sequential
-                            outdf_test = outdf_test.reset_index(drop=True)
-                            outdf_test = d3m_DataFrame(outdf_test, generate_metadata=False)
-                            test = _add_meta_data(dataset=dataset, res_id=res_id,
-                                                  input_part=outdf_test)
-                            test_return.append(test)
-                        else:
-                            test_return.append(None)
-
-                    self._logger.info("split done!!!!!!")
-                except Exception:
-                    # Do not split stratified shuffle fails
-                    self._logger.info('Not splitting dataset. Stratified shuffle failed')
-                    for i in range(n_splits):
-                        train_return.append(dataset)
-                        test_return.append(None)
-
-            else:
-                # Use random split
-                if not task_type == "REGRESSION":
-                    print('USING Random Split to split task type: {}'.format(task_type))
-                ss = ShuffleSplit(n_splits=n_splits, test_size=test_size, random_state=random_state)
-                ss.get_n_splits(dataset[res_id])
-                for train_index, test_index in ss.split(dataset[res_id]):
-                    train = _add_meta_data(dataset=dataset, res_id=res_id,
-                                           input_part=dataset[res_id].iloc[train_index, :].reset_index(drop=True))
-                    train_return.append(train)
-                    # for special condition that only need get part of the dataset
-                        test = _add_meta_data(dataset=dataset, res_id=res_id,
-                                              input_part=dataset[res_id].iloc[test_index, :].reset_index(drop=True))
-                        test_return.append(test)
-                    else:
-                        test_return.append(None)
-            '''
         return train_return, test_return
 
     def test(self) -> Status:
