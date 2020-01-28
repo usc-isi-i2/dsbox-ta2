@@ -130,7 +130,7 @@ class TemplateLibrary:
             "Default_timeseries_collection_template": DefaultTimeseriesCollectionTemplate,
             "Michigan_Video_Classification_Template": MichiganVideoClassificationTemplate,
             "DefaultTimeseriesRegressionTemplate": DefaultTimeseriesRegressionTemplate,
-            "DefaultImageProcessingClassificationTemplate": DefaultImageProcessingClassificationTemplate,
+            "ImageProcessingClassificationTemplate2": ImageProcessingClassificationTemplate2,
             "ARIMA_Template": ARIMATemplate,
             "TimeSeriesForcastingTestingTemplate": TimeSeriesForcastingTestingTemplate,
             "DefaultObjectDetectionTemplate": DefaultObjectDetectionTemplate,
@@ -281,7 +281,7 @@ class TemplateLibrary:
         self.templates.append(DefaultVideoClassificationTemplate)
         self.templates.append(DefaultImageProcessingClassificationTemplate)
         self.templates.append(TA1VggImageProcessingRegressionTemplate)
-        self.templates.add(DefaultImageProcessingClassificationTemplate)
+        self.templates.append(ImageProcessingClassificationTemplate2)
 
         # Privileged information
         # self.templates.append(LupiSvmClassification)
@@ -5840,7 +5840,7 @@ class MultiLabelTemplate(DSBoxTemplate):
         }
 
 
-class DefaultImageProcessingClassificationTemplate(DSBoxTemplate):
+class ImageProcessingClassificationTemplate2(DSBoxTemplate):
     def __init__(self):
         DSBoxTemplate.__init__(self)
         self.template = {
@@ -5903,28 +5903,8 @@ class DefaultImageProcessingClassificationTemplate(DSBoxTemplate):
                     "inputs": ["dataframe_to_tensor"]
                 },
                 {
-                    "name": "PCA_step",
-                    "primitives": [
-                        {
-                            "primitive": "d3m.primitives.feature_extraction.pca.SKlearn",
-                            "hyperparameters": {
-                                'add_index_columns': [True],
-                                'use_semantic_types': [True]
-                            }
-                        },
-                    "d3m.primitives.data_preprocessing.do_nothing.DSBOX"
-                    ],
-                    "inputs": ["feature_extraction"]
-                },
-                {
                     "name": "model_step",
                     "primitives": [
-                        {
-                            "primitive": "d3m.primitives.classification.random_forest.SKlearn",
-                            "hyperparameters": {
-                                'add_index_columns': [True],
-                            }
-                        },
                         {
                             "primitive": "d3m.primitives.classification.xgboost_gbtree.Common",
                             "hyperparameters": {
