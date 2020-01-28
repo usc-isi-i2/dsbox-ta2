@@ -130,7 +130,7 @@ class TemplateLibrary:
             "Default_timeseries_collection_template": DefaultTimeseriesCollectionTemplate,
             "Michigan_Video_Classification_Template": MichiganVideoClassificationTemplate,
             "DefaultTimeseriesRegressionTemplate": DefaultTimeseriesRegressionTemplate,
-            # "DefaultImageClassificationWithCNNTemplate": DefaultImageClassificationWithCNNTemplate,
+            "DefaultImageProcessingClassificationTemplate": DefaultImageProcessingClassificationTemplate,
             "ARIMA_Template": ARIMATemplate,
             "TimeSeriesForcastingTestingTemplate": TimeSeriesForcastingTestingTemplate,
             "DefaultObjectDetectionTemplate": DefaultObjectDetectionTemplate,
@@ -281,6 +281,7 @@ class TemplateLibrary:
         self.templates.append(DefaultVideoClassificationTemplate)
         self.templates.append(DefaultImageProcessingClassificationTemplate)
         self.templates.append(TA1VggImageProcessingRegressionTemplate)
+        self.templates.add(DefaultImageProcessingClassificationTemplate)
 
         # Privileged information
         # self.templates.append(LupiSvmClassification)
@@ -5836,4 +5837,113 @@ class MultiLabelTemplate(DSBoxTemplate):
                     'inputs': ['steps.4', 'steps.3'],
                 },
             ],
+        }
+
+
+class DefaultImageProcessingClassificationTemplate(DSBoxTemplate):
+    def __init__(self):
+        DSBoxTemplate.__init__(self)
+        self.template = {
+            "name": "TA1ImageProcessingClassificationTemplate",
+            "taskType": TaskKeyword.CLASSIFICATION.name,
+            # See TaskKeyword, range include 'CLASSIFICATION', 'CLUSTERING', 'COLLABORATIVE_FILTERING', 'COMMUNITY_DETECTION', 'GRAPH_CLUSTERING', 'GRAPH_MATCHING', 'LINK_PREDICTION', 'REGRESSION', 'TIME_SERIES', 'VERTEX_NOMINATION'
+            "taskSubtype": {TaskKeyword.BINARY.name, TaskKeyword.MULTICLASS.name},
+            "inputType": "image",  # See SEMANTIC_TYPES.keys() for range of values
+            "output": "model_step",  # Name of the final step generating the prediction
+            "target": "extract_target_step",  # Name of the step generating the ground truth
+            "steps": [
+                {
+                    "name": "denormalize_step",
+                    "primitives": ["d3m.primitives.data_transformation.denormalize.Common"],
+                    "inputs": ["template_input"]
+                },
+                {
+                    "name": "to_dataframe_step",
+                    "primitives": ["d3m.primitives.data_transformation.dataset_to_dataframe.Common"],
+                    "inputs": ["denormalize_step"]
+                },
+                # read Y value
+                {
+                    "name": "pre_extract_target_step",
+                    "primitives": [{
+                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.Common",
+                        "hyperparameters":
+                            {'semantic_types': ('https://metadata.datadrivendiscovery.org/types/TrueTarget',),
+                             'use_columns': (),
+                             'exclude_columns': ()
+                             }
+                    }],
+                    "inputs": ["to_dataframe_step"]
+                },
+                {
+                    "name": "extract_target_step",
+                    "primitives": [{
+                        "primitive": "d3m.primitives.data_transformation.to_numeric.DSBOX",
+                        "hyperparameters": {
+                            "drop_non_numeric_columns": [False]
+                        }
+                    }],
+                    "inputs": ["pre_extract_target_step"]
+                },
+                {
+                    "name": "dataframe_to_tensor",
+                    "primitives": ["d3m.primitives.data_preprocessing.dataframe_to_tensor.DSBOX"],
+                    "inputs": ["to_dataframe_step"]
+                },
+                {
+                    "name": "feature_extraction",
+                    "primitives": [
+                        {
+                            "primitive": "d3m.primitives.feature_extraction.resnet50_image_feature.DSBOX",
+                            "hyperparameters": {
+                                'generate_metadata': [True]
+                            }
+                        }
+                    ],
+                    "inputs": ["dataframe_to_tensor"]
+                },
+                {
+                    "name": "PCA_step",
+                    "primitives": [
+                        {
+                            "primitive": "d3m.primitives.feature_extraction.pca.SKlearn",
+                            "hyperparameters": {
+                                'add_index_columns': [True],
+                                'use_semantic_types': [True]
+                            }
+                        },
+                    "d3m.primitives.data_preprocessing.do_nothing.DSBOX"
+                    ],
+                    "inputs": ["feature_extraction"]
+                },
+                {
+                    "name": "model_step",
+                    "primitives": [
+                        {
+                            "primitive": "d3m.primitives.classification.random_forest.SKlearn",
+                            "hyperparameters": {
+                                'add_index_columns': [True],
+                            }
+                        },
+                        {
+                            "primitive": "d3m.primitives.classification.xgboost_gbtree.Common",
+                            "hyperparameters": {
+                            }
+                        },
+                        {
+                            "primitive": "d3m.primitives.classification.xgboost_dart.Common",
+                            "hyperparameters": {
+                            }
+                        },
+                        {
+                            "primitive": "d3m.primitives.classification.linear_discriminant_analysis.SKlearn",
+                            "hyperparameters": {
+                            }
+                        }
+
+
+                    ],
+                    "inputs": ["PCA_step", "extract_target_step"]
+                },
+            ]
         }

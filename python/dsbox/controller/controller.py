@@ -634,36 +634,17 @@ class Controller:
 
         use_multiprocessing = True
 
-        # 2019.7.19: added here to let system always run with serial mode for some speical dataset
+        # updated v2020.1.23: some special datasets need gpu resources, which should not run in parallel mode
         try:
-            try:
-                import networkx
-                from d3m import container
-                loader = D3MDatasetLoader()
-                json_file = os.path.abspath(self.config.dataset_schema_files[0])
-                all_dataset_uri = 'file://{}'.format(json_file)
-                inputs = loader.load(dataset_uri=all_dataset_uri)
-                # inputs = Dataset object
-                max_accept_graph_size_for_parallel = 4000
-                for resource_id, resource in inputs.items():
-                    if isinstance(resource, networkx.classes.graph.Graph):
-                        edgelist = networkx.to_pandas_edgelist(resource)
-                    if isinstance(resource, container.DataFrame) and inputs.metadata.has_semantic_type((resource_id,), 'https://metadata.datadrivendiscovery.org/types/EdgeList'):
-                        edgelist = resource #self._update_edge_list(outputs, resource_id)
-                graph_size = edgelist.shape[0]
-            except:
-                graph_size = None
-            if graph_size and graph_size > max_accept_graph_size_for_parallel:
-                self._logger.warning("Change to serial mode for the graph problem with size larger than " + str(max_accept_graph_size_for_parallel))
-                self.config.search_method = "serial"
-            # kyao 2019-7-24: Try parallel
-            # if "LL0_acled" in self.config.problem['id'] or "LL1_VTXC_1343_cora" in self.config.problem['id']:
-            #     self._logger.warning("Change to serial mode for the speical problem id: " + str(self.config.problem['id']))
-            #     self.config.search_method = "serial"
-
+            task_keywords_set = set([x.name.lower() for x in self.config.problem['problem']['task_keywords']])
         except:
-            pass
-        # END change for 2019.7.19
+            task_keywords_set = set()
+        run_series_taskkeywords = {"graph", "video", "image", "audio"}
+        intersect_res = task_keywords_set.intersection(run_series_taskkeywords)
+        if len(intersect_res) > 0:
+            self._logger.warning("Change to serial mode for special task keywords {}".format(str(intersect_res)))
+            self.config.search_method = "serial"
+        # END change for v2020.1.23
 
         if self.config.search_method == 'serial':
             self._search_method = TemplateSpaceBaseSearch()
