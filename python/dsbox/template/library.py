@@ -5844,7 +5844,7 @@ class ImageProcessingClassificationTemplate2(DSBoxTemplate):
     def __init__(self):
         DSBoxTemplate.__init__(self)
         self.template = {
-            "name": "TA1ImageProcessingClassificationTemplate",
+            "name": "ImageProcessingClassificationTemplate2",
             "taskType": TaskKeyword.CLASSIFICATION.name,
             # See TaskKeyword, range include 'CLASSIFICATION', 'CLUSTERING', 'COLLABORATIVE_FILTERING', 'COMMUNITY_DETECTION', 'GRAPH_CLUSTERING', 'GRAPH_MATCHING', 'LINK_PREDICTION', 'REGRESSION', 'TIME_SERIES', 'VERTEX_NOMINATION'
             "taskSubtype": {TaskKeyword.BINARY.name, TaskKeyword.MULTICLASS.name},
@@ -5901,6 +5901,21 @@ class ImageProcessingClassificationTemplate2(DSBoxTemplate):
                         }
                     ],
                     "inputs": ["dataframe_to_tensor"]
+                },
+                {
+                    "name": "PCA_step",
+                    "primitives": [
+                        {
+                            "primitive": "d3m.primitives.feature_extraction.pca.SKlearn",
+                            "hyperparameters": {
+                                'add_index_columns': [True],
+                                'use_semantic_types': [True]
+                            }
+                        },
+                        "d3m.primitives.data_preprocessing.do_nothing.DSBOX"
+                    
+                    ],
+                    "inputs": ["feature_extraction"]
                 },
                 {
                     "name": "model_step",

@@ -1433,7 +1433,10 @@ class Controller:
             elif len(task_type_check.intersection(self.task_type_can_split)) == 0:
                 self.cannot_split = True
 
-        self._logger.info("Summary: Can we split this dataset: {}".format(str(self.cannot_split)))
+        if self.cannot_split:
+            self._logger.info("Summary: Can't split")
+        else:
+            self._logger.info("Summary: Can split")
 
     def split_dataset(self, dataset, random_state=42, test_size=0.2, n_splits=1, need_test_dataset=True):
         """
