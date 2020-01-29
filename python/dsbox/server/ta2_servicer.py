@@ -394,7 +394,10 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
         for i in range(36):
             _logger.info('Waiting for controller %s', i*5)
             time.sleep(5)
-            history = self.controller.get_execution_history()
+            try:
+                history = self.controller.get_execution_history()
+            except AttributeError:
+                pass
             if history:
                 break
 
