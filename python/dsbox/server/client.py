@@ -56,7 +56,8 @@ logging.basicConfig(level=logging.DEBUG, format='%(asctime)s [%(levelname)s] %(n
 _logger = logging.getLogger(__name__)
 
 
-API_VERSION="2019.12.4"
+# API_VERSION="2019.12.4"
+API_VERSION="2020.1.9"
 ALLOWED_VALUE_TYPES = [utils.ValueType.DATASET_URI, utils.ValueType.CSV_URI, utils.ValueType.RAW]
 
 PRINT_REQUEST = True
@@ -66,7 +67,8 @@ DASET_DOCS = {}
 
 def config_datasets(datasets, use_docker_server) -> typing.List:
     global DATASET_BASE_PATH, DATASET_DOCS
-    root_dir = '/data/dsbox/datasets_v4.0.0/'
+    # root_dir = '/data/dsbox/datasets_v4.0.0/'
+    root_dir = '/data/dsbox/datasets_MIN_METADATA/datasets/'
     if use_docker_server:
         DATASET_BASE_PATH = '/input'
     elif datasets == 'seed_aug':
