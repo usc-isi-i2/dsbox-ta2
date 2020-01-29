@@ -156,8 +156,8 @@ class TemplateLibrary:
         if run_single_template:
             self._load_single_inline_templates(run_single_template)
         else:
-            pass
-            # self._load_inline_templates()
+            # pass
+            self._load_inline_templates()
 
 
     def get_templates(self, task: typing.List[TaskKeyword], subtype: typing.List[TaskKeyword], taskSourceType: typing.Set,
