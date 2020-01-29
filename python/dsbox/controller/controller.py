@@ -47,7 +47,7 @@ from dsbox.template.template import DSBoxTemplate
 
 __all__ = ['Status', 'Controller', 'controller_instance']
 
-
+logging.getLogger('PIL.PngImagePlugin').setLevel(logging.WARNING)
 # pd.set_option("display.max_rows", 100)
 
 controller_instance = None
@@ -190,10 +190,6 @@ class Controller:
         self._logger.info(str(self.config.problem['inputs']))
 
         temp = copy.deepcopy(self.config.problem['inputs'])
-        self._logger.info("Type of temp is {}".format(str(type(temp))))
-        self._logger.info("length of temp is" + str(len(temp)))
-        self._logger.info("inside temp is " + str(temp))
-        self._logger.info(str(temp[0]))
 
         for dataset in temp:
             self._logger.info("processing: " + str(dataset))
@@ -645,6 +641,8 @@ class Controller:
             self._logger.warning("Change to serial mode for special task keywords {}".format(str(intersect_res)))
             self.config.search_method = "serial"
         # END change for v2020.1.23
+
+        self._logger.info("Current running on {} mode".format(self.config.search_method))
 
         if self.config.search_method == 'serial':
             self._search_method = TemplateSpaceBaseSearch()
@@ -1259,7 +1257,20 @@ class Controller:
         self.config = config
         self._load_schema(is_ta3=True)
         self._log_init()
+        
+        # updated v2020.1.23: some special datasets need gpu resources, which should not run in parallel mode
+        try:
+            task_keywords_set = set([x.name.lower() for x in self.config.problem['problem']['task_keywords']])
+        except:
+            task_keywords_set = set()
+        run_series_taskkeywords = {"graph", "video", "image", "audio"}
+        intersect_res = task_keywords_set.intersection(run_series_taskkeywords)
+        if len(intersect_res) > 0:
+            self._logger.warning("Change to serial mode for special task keywords {}".format(str(intersect_res)))
+            self.config.search_method = "serial"
+        # END change for v2020.1.23
 
+        self._logger.info("Current running on {} mode".format(self.config.search_method))
         # Dataset
         loader = D3MDatasetLoader()
 

@@ -254,7 +254,7 @@ class DSBoxTemplate():
                 return True
         return False
 
-    def bind_primitive_IO(self, primitive: PrimitiveStep, templateIO):
+    def bind_primitive_IO(self, primitive: PrimitiveStep, templateIO: typing.List[str], primitive_name: str):
         # print(templateIO)
         if len(templateIO) == 1:
             primitive.add_argument(
@@ -369,16 +369,12 @@ class DSBoxTemplate():
                         name=hyperName, argument_type=self.argmentsmapper["value"],
                         data=hyper[hyperName])
 
-            # add reference to denormalized results if construct predictions steps added
-            if primitive_name == 'd3m.primitives.data_transformation.construct_predictions.Common':
-                primitive_step.add_argument("reference", metadata_base.ArgumentType.CONTAINER, "steps.0.produce")
-
+            step_parameters = binding[step]["inputs"]
             # first we need to extract the types of the primtive's input and
             # the generators's output type.
             # then we need to compare those and in case we have different
             # types, add the intermediate type caster in the pipeline
             # print(outputs)
-            step_parameters = binding[step]["inputs"]
             step_arguments = []
             for parameter in step_parameters:
                 if type(parameter) is list:
@@ -386,7 +382,7 @@ class DSBoxTemplate():
                 else:
                     argument = outputs[parameter]
                 step_arguments.append(argument)
-            self.bind_primitive_IO(primitive_step, step_arguments)
+            self.bind_primitive_IO(primitive_step, step_arguments, primitive_name)
             pipeline.add_step(primitive_step)
             # pre v2019.1.21
             # outputs[step] = primitive_step.add_output("produce")
