@@ -3368,7 +3368,7 @@ class DistilGraphMatchingTemplate(DSBoxTemplate):
                             } 
                         }
                     ],
-                    "inputs":["parse_step"]
+                    "inputs":["parse_step", "parse_step_produce_target"]
                 },
             ]
         }
@@ -3400,7 +3400,7 @@ class DistilLinkPredictionTemplate(DSBoxTemplate):
                             } 
                         }
                     ],
-                    "inputs":["parse_step", "parse_step"]
+                    "inputs":["parse_step", "parse_step_produce_target"]
                 },
             ]
         }

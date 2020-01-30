@@ -1257,7 +1257,7 @@ class Controller:
         self.config = config
         self._load_schema(is_ta3=True)
         self._log_init()
-        
+
         # updated v2020.1.23: some special datasets need gpu resources, which should not run in parallel mode
         try:
             task_keywords_set = set([x.name.lower() for x in self.config.problem['problem']['task_keywords']])
@@ -1309,13 +1309,19 @@ class Controller:
             self.fitted_pipeline = None
             self._check_and_set_dataset_metadata()
 
-            # first apply denormalize on input dataset
-            from common_primitives.denormalize import Hyperparams as hyper_denormalize, DenormalizePrimitive
-            denormalize_hyperparams = hyper_denormalize.defaults()
-            denormalize_primitive = DenormalizePrimitive(hyperparams=denormalize_hyperparams)
-            self.all_dataset = denormalize_primitive.produce(inputs=self.all_dataset).value
-            self.extra_primitive.add("denormalize")
-            self.dump_primitive(denormalize_primitive, "denormalize")
+            # first apply denormalize on input dataset if needed
+            not_run_denomormalize = {"graph", "audio"}
+            intersect_res = task_keywords_set.intersection(not_run_denomormalize)
+            if len(intersect_res) > 0:
+                self._logger.warning("Not run denormalize primitive for speical task keywords")
+            else:
+                from common_primitives.denormalize import Hyperparams as hyper_denormalize, DenormalizePrimitive
+                denormalize_hyperparams = hyper_denormalize.defaults()
+                denormalize_primitive = DenormalizePrimitive(hyperparams=denormalize_hyperparams)
+                self.all_dataset = denormalize_primitive.produce(inputs=self.all_dataset).value
+                self.extra_primitive.add("denormalize")
+                self.dump_primitive(denormalize_primitive, "denormalize")
+
             datamart_search_results = None
             if "data_augmentation" in self.config.problem.keys():
                 datamart_search_results = self.do_data_augmentation_rest_api(self.all_dataset)

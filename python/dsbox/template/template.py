@@ -10,6 +10,8 @@ from d3m.metadata import base as metadata_base
 from d3m.metadata.pipeline import Pipeline, PrimitiveStep
 from .configuration_space import SimpleConfigurationSpace, ConfigurationPoint
 
+DISTIL_SPEICAL_PRIMITIVES = ("d3m.primitives.data_transformation.load_single_graph.DistilSingleGraphLoader".lower(), "d3m.primitives.data_transformation.load_single_graph.DistilSingleGraphLoader".lower())
+
 
 class HyperparamDirective(utils.Enum):
     """
@@ -180,6 +182,10 @@ class DSBoxTemplate():
 
                 if in_arg == "template_input":
                     continue
+
+                # hack to distil primitives
+                if in_arg.endswith("_produce_target"):
+                    in_arg = in_arg[:-15]
 
                 # if list, assume it's okay
                 if in_primitive_value is container.List and type(in_arg) is list:
@@ -387,6 +393,11 @@ class DSBoxTemplate():
             # pre v2019.1.21
             # outputs[step] = primitive_step.add_output("produce")
             primitive_step.add_output("produce")
+            # hack here for distil primitives cause they have some speicial step naming
+            if primitive_name.lower() in DISTIL_SPEICAL_PRIMITIVES:
+                primitive_step.add_output("produce_target")
+                outputs[step + "_produce_target"] = f'steps.{primitive_step.index}.produce_target'
+
             outputs[step] = f'steps.{primitive_step.index}.produce'
         # END FOR
 
