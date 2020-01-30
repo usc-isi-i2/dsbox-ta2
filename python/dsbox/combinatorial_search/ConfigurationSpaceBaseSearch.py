@@ -213,56 +213,57 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
         self._repeat_times_level_2 = 1
         self._repeat_times_level_1 = 1
 
-        # for timeseries forcasting, we can't compare directly
-        if TaskKeyword.TIME_SERIES in self.problem['problem']['task_keywords']:
-            # just skip for now
-            # TODO: add one way to evalute time series forecasting pipeline quality
-            # (something like sliding window)
-            fitted_pipeline = FittedPipeline(
-                pipeline=pipeline,
-                dataset_id=self.train_dataset1.metadata.query(())['id'],
-                metric_descriptions=self.performance_metrics,
-                template=self.template, problem=self.problem, extra_primitive=self.extra_primitive, random_seed=self.random_seed)
-            fitted_pipeline.fit(cache=cache, inputs=[self.train_dataset1], save_loc=self.output_directory)
-            fitted_pipeline.save(self.output_directory)
+        # updated v2020.1.24: we can split timeseries forcasting data now, no need to run hack codes here
+        # # for timeseries forcasting, we can't compare directly
+        # if TaskKeyword.TIME_SERIES in self.problem['problem']['task_keywords']:
+        #     # just skip for now
+        #     # TODO: add one way to evalute time series forecasting pipeline quality
+        #     # (something like sliding window)
+        #     fitted_pipeline = FittedPipeline(
+        #         pipeline=pipeline,
+        #         dataset_id=self.train_dataset1.metadata.query(())['id'],
+        #         metric_descriptions=self.performance_metrics,
+        #         template=self.template, problem=self.problem, extra_primitive=self.extra_primitive, random_seed=self.random_seed)
+        #     fitted_pipeline.fit(cache=cache, inputs=[self.train_dataset1], save_loc=self.output_directory)
+        #     fitted_pipeline.save(self.output_directory)
 
-            training_ground_truth = get_target_columns(self.train_dataset1)
+        #     training_ground_truth = get_target_columns(self.train_dataset1)
 
-            # fake_metric = calculate_score(training_ground_truth, training_ground_truth,
-            #     self.performance_metrics, self.task_type, SpecialMetric().regression_metric)
+        #     # fake_metric = calculate_score(training_ground_truth, training_ground_truth,
+        #     #     self.performance_metrics, self.task_type, SpecialMetric().regression_metric)
 
-            fake_metric = score_prediction(training_ground_truth, [self.train_dataset1], self.problem, self.performance_metrics, self.random_seed)
+        #     fake_metric = score_prediction(training_ground_truth, [self.train_dataset1], self.problem, self.performance_metrics, self.random_seed)
 
-            # HACK, if mean_base_line then make it slightly worse
-            if fitted_pipeline.template_name == 'SRI_Mean_Baseline_Template':
-                result = fake_metric[0]
-                if result['metric'].best_value() < result['metric'].worst_value():
-                    result['value'] = result['value'] + 0.1
-                    fake_metric[0].normalize(result['value'])
-                else:
-                    result['value'] = result['value'] - 0.1
-                    fake_metric[0].normalize(result['value'])
+        #     # HACK, if mean_base_line then make it slightly worse
+        #     if fitted_pipeline.template_name == 'SRI_Mean_Baseline_Template':
+        #         result = fake_metric[0]
+        #         if result['metric'].best_value() < result['metric'].worst_value():
+        #             result['value'] = result['value'] + 0.1
+        #             fake_metric[0].normalize(result['value'])
+        #         else:
+        #             result['value'] = result['value'] - 0.1
+        #             fake_metric[0].normalize(result['value'])
 
-            fitted_pipeline.set_metric(fake_metric[0])
+        #     fitted_pipeline.set_metric(fake_metric[0])
 
-            # [{'column_name': 'Class', 'metric': 'f1', 'value': 0.1}]
-            data = {
-                # 2019-7-10: return pipeline.id as id to make debugging easier
-                'id': fitted_pipeline.pipeline.id,
-                'fid': fitted_pipeline.id,
-                'fitted_pipeline': fitted_pipeline,
-                'training_metrics': fake_metric,
-                'cross_validation_metrics': None,
-                'test_metrics': fake_metric,
-                'total_runtime': time.time() - start_time,
-                'configuration': configuration,
-                'ensemble_tuning_result': None,
-                'ensemble_tuning_metrics': None,
-            }
+        #     # [{'column_name': 'Class', 'metric': 'f1', 'value': 0.1}]
+        #     data = {
+        #         # 2019-7-10: return pipeline.id as id to make debugging easier
+        #         'id': fitted_pipeline.pipeline.id,
+        #         'fid': fitted_pipeline.id,
+        #         'fitted_pipeline': fitted_pipeline,
+        #         'training_metrics': fake_metric,
+        #         'cross_validation_metrics': None,
+        #         'test_metrics': fake_metric,
+        #         'total_runtime': time.time() - start_time,
+        #         'configuration': configuration,
+        #         'ensemble_tuning_result': None,
+        #         'ensemble_tuning_metrics': None,
+        #     }
 
-            fitted_pipeline.auxiliary = dict(data)
-            fitted_pipeline.save(self.output_directory)
-            return data
+        #     fitted_pipeline.auxiliary = dict(data)
+        #     fitted_pipeline.save(self.output_directory)
+        #     return data
 
         # following codes should only for running in the normal validation that can be splitted and tested
         # if in cross validation mode
@@ -539,7 +540,6 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
             #  object second time
             # So here we need to create a new FittedPipeline object to run second time's
             # runtime.fit()
-
             fitted_pipeline_final = FittedPipeline(
                 pipeline=pipeline,
                 dataset_id=self.all_dataset.metadata.query(())['id'],
@@ -592,7 +592,6 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
                     self._save_failed_pipeline(sys.exc_info(), self.evaluating_pipeline)
                     _logger.exception(f'Pickle test failed', exc_info=True)
                     return
-
 
         # still return the original fitted_pipeline with relation to train_dataset1
         return data

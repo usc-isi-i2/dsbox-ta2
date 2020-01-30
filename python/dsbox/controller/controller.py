@@ -47,7 +47,7 @@ from dsbox.template.template import DSBoxTemplate
 
 __all__ = ['Status', 'Controller', 'controller_instance']
 
-
+logging.getLogger('PIL.PngImagePlugin').setLevel(logging.WARNING)
 # pd.set_option("display.max_rows", 100)
 
 controller_instance = None
@@ -96,8 +96,8 @@ class Controller:
         # hard coded unsplit dataset type
         # TODO: check whether "speech" type should be put into this list or not
         self.data_type_cannot_split = ["graph", "edgeList", "audio"]
-        self.task_type_can_split = ["CLASSIFICATION", "REGRESSION", "SEMISUPERVISED_CLASSIFICATION", "SEMISUPERVISED_REGRESSION", "COLLABORATIVE_FILTERING", "OBJECT_DETECTION"]
-        self.task_type_cannot_split = ["FORECASTING","CLUSTERING", "LINK_PREDICTION", "VERTEX_CLASSIFICATION", "COMMUNITY_DETECTION", "GRAPH_MATCHING"]
+        self.task_type_can_split = ["CLASSIFICATION", "REGRESSION", "SEMISUPERVISED_CLASSIFICATION", "SEMISUPERVISED_REGRESSION", "COLLABORATIVE_FILTERING", "OBJECT_DETECTION", "FORECASTING"]
+        self.task_type_cannot_split = ["CLUSTERING", "LINK_PREDICTION", "VERTEX_CLASSIFICATION", "COMMUNITY_DETECTION", "GRAPH_MATCHING"]
 
         # !!! hard code here
         # TODO: add if statement to determine it
@@ -190,10 +190,6 @@ class Controller:
         self._logger.info(str(self.config.problem['inputs']))
 
         temp = copy.deepcopy(self.config.problem['inputs'])
-        self._logger.info("Type of temp is {}".format(str(type(temp))))
-        self._logger.info("length of temp is" + str(len(temp)))
-        self._logger.info("inside temp is " + str(temp))
-        self._logger.info(str(temp[0]))
 
         for dataset in temp:
             self._logger.info("processing: " + str(dataset))
@@ -634,36 +630,19 @@ class Controller:
 
         use_multiprocessing = True
 
-        # 2019.7.19: added here to let system always run with serial mode for some speical dataset
+        # updated v2020.1.23: some special datasets need gpu resources, which should not run in parallel mode
         try:
-            try:
-                import networkx
-                from d3m import container
-                loader = D3MDatasetLoader()
-                json_file = os.path.abspath(self.config.dataset_schema_files[0])
-                all_dataset_uri = 'file://{}'.format(json_file)
-                inputs = loader.load(dataset_uri=all_dataset_uri)
-                # inputs = Dataset object
-                max_accept_graph_size_for_parallel = 4000
-                for resource_id, resource in inputs.items():
-                    if isinstance(resource, networkx.classes.graph.Graph):
-                        edgelist = networkx.to_pandas_edgelist(resource)
-                    if isinstance(resource, container.DataFrame) and inputs.metadata.has_semantic_type((resource_id,), 'https://metadata.datadrivendiscovery.org/types/EdgeList'):
-                        edgelist = resource #self._update_edge_list(outputs, resource_id)
-                graph_size = edgelist.shape[0]
-            except:
-                graph_size = None
-            if graph_size and graph_size > max_accept_graph_size_for_parallel:
-                self._logger.warning("Change to serial mode for the graph problem with size larger than " + str(max_accept_graph_size_for_parallel))
-                self.config.search_method = "serial"
-            # kyao 2019-7-24: Try parallel
-            # if "LL0_acled" in self.config.problem['id'] or "LL1_VTXC_1343_cora" in self.config.problem['id']:
-            #     self._logger.warning("Change to serial mode for the speical problem id: " + str(self.config.problem['id']))
-            #     self.config.search_method = "serial"
-
+            task_keywords_set = set([x.name.lower() for x in self.config.problem['problem']['task_keywords']])
         except:
-            pass
-        # END change for 2019.7.19
+            task_keywords_set = set()
+        run_series_taskkeywords = {"graph", "video", "image", "audio"}
+        intersect_res = task_keywords_set.intersection(run_series_taskkeywords)
+        if len(intersect_res) > 0:
+            self._logger.warning("Change to serial mode for special task keywords {}".format(str(intersect_res)))
+            self.config.search_method = "serial"
+        # END change for v2020.1.23
+
+        self._logger.info("Current running on {} mode".format(self.config.search_method))
 
         if self.config.search_method == 'serial':
             self._search_method = TemplateSpaceBaseSearch()
@@ -1279,6 +1258,19 @@ class Controller:
         self._load_schema(is_ta3=True)
         self._log_init()
 
+        # updated v2020.1.23: some special datasets need gpu resources, which should not run in parallel mode
+        try:
+            task_keywords_set = set([x.name.lower() for x in self.config.problem['problem']['task_keywords']])
+        except:
+            task_keywords_set = set()
+        run_series_taskkeywords = {"graph", "video", "image", "audio"}
+        intersect_res = task_keywords_set.intersection(run_series_taskkeywords)
+        if len(intersect_res) > 0:
+            self._logger.warning("Change to serial mode for special task keywords {}".format(str(intersect_res)))
+            self.config.search_method = "serial"
+        # END change for v2020.1.23
+
+        self._logger.info("Current running on {} mode".format(self.config.search_method))
         # Dataset
         loader = D3MDatasetLoader()
 
@@ -1317,13 +1309,19 @@ class Controller:
             self.fitted_pipeline = None
             self._check_and_set_dataset_metadata()
 
-            # first apply denormalize on input dataset
-            from common_primitives.denormalize import Hyperparams as hyper_denormalize, DenormalizePrimitive
-            denormalize_hyperparams = hyper_denormalize.defaults()
-            denormalize_primitive = DenormalizePrimitive(hyperparams=denormalize_hyperparams)
-            self.all_dataset = denormalize_primitive.produce(inputs=self.all_dataset).value
-            self.extra_primitive.add("denormalize")
-            self.dump_primitive(denormalize_primitive, "denormalize")
+            # first apply denormalize on input dataset if needed
+            not_run_denomormalize = {"graph", "audio"}
+            intersect_res = task_keywords_set.intersection(not_run_denomormalize)
+            if len(intersect_res) > 0:
+                self._logger.warning("Not run denormalize primitive for speical task keywords")
+            else:
+                from common_primitives.denormalize import Hyperparams as hyper_denormalize, DenormalizePrimitive
+                denormalize_hyperparams = hyper_denormalize.defaults()
+                denormalize_primitive = DenormalizePrimitive(hyperparams=denormalize_hyperparams)
+                self.all_dataset = denormalize_primitive.produce(inputs=self.all_dataset).value
+                self.extra_primitive.add("denormalize")
+                self.dump_primitive(denormalize_primitive, "denormalize")
+
             datamart_search_results = None
             if "data_augmentation" in self.config.problem.keys():
                 datamart_search_results = self.do_data_augmentation_rest_api(self.all_dataset)
@@ -1452,7 +1450,10 @@ class Controller:
             elif len(task_type_check.intersection(self.task_type_can_split)) == 0:
                 self.cannot_split = True
 
-        self._logger.info("Summary: Can we split this dataset: {}".format(str(self.cannot_split)))
+        if self.cannot_split:
+            self._logger.info("Summary: Can't split")
+        else:
+            self._logger.info("Summary: Can split")
 
     def split_dataset(self, dataset, random_state=42, test_size=0.2, n_splits=1, need_test_dataset=True):
         """
@@ -1471,116 +1472,53 @@ class Controller:
         else:
             task_type = self.problem_info["task_type"]
             self._logger.info("split start!")
-            train_ratio = 1 - test_size
-            if n_splits == 1:
-                from common_primitives.train_score_split import TrainScoreDatasetSplitPrimitive, Hyperparams as hyper_train_split
-                hyperparams_split = hyper_train_split.defaults()
-                hyperparams_split = hyperparams_split.replace({"train_score_ratio": train_ratio, "shuffle": True})
-                if 'CLASSIFICATION' in task_type:
-                    hyperparams_split = hyperparams_split.replace({"stratified": True})
-                else:  # if not task_type == "REGRESSION":
-                    hyperparams_split = hyperparams_split.replace({"stratified": False})
-                split_primitive = TrainScoreDatasetSplitPrimitive(hyperparams=hyperparams_split)
-
+            
+            if "FORECASTING" in task_type:
+                from common_primitives.kfold_split_timeseries import Hyperparams as hyper_k_fold_timeseries, KFoldTimeSeriesSplitPrimitive
+                hyperparams_split = hyper_k_fold_timeseries.defaults()
+                split_primitive = KFoldTimeSeriesSplitPrimitive(hyperparams=hyperparams_split)
+            # no forcasting, doing normal train-score split
             else:
-                from common_primitives.kfold_split import KFoldDatasetSplitPrimitive, Hyperparams as hyper_k_fold
-                hyperparams_split = hyper_k_fold.defaults()
-                hyperparams_split = hyperparams_split.replace({"number_of_folds":n_splits, "shuffle":True})
-                if 'CLASSIFICATION' in task_type:
-                    hyperparams_split = hyperparams_split.replace({"stratified":True})
-                else:# if not task_type == "REGRESSION":
-                    hyperparams_split = hyperparams_split.replace({"stratified":False})
-                split_primitive = KFoldDatasetSplitPrimitive(hyperparams=hyperparams_split)
+                train_ratio = 1 - test_size
+                if n_splits == 1:
+                    from common_primitives.train_score_split import TrainScoreDatasetSplitPrimitive, Hyperparams as hyper_train_split
+                    hyperparams_split = hyper_train_split.defaults()
+                    hyperparams_split = hyperparams_split.replace({"train_score_ratio": train_ratio, "shuffle": True})
+                    if 'CLASSIFICATION' in task_type:
+                        hyperparams_split = hyperparams_split.replace({"stratified": True})
+                    else:  # if not task_type == "REGRESSION":
+                        hyperparams_split = hyperparams_split.replace({"stratified": False})
+                    split_primitive = TrainScoreDatasetSplitPrimitive(hyperparams=hyperparams_split)
+
+                else:
+                    from common_primitives.kfold_split import KFoldDatasetSplitPrimitive, Hyperparams as hyper_k_fold
+                    hyperparams_split = hyper_k_fold.defaults()
+                    hyperparams_split = hyperparams_split.replace({"number_of_folds":n_splits, "shuffle":True})
+                    if 'CLASSIFICATION' in task_type:
+                        hyperparams_split = hyperparams_split.replace({"stratified":True})
+                    else:# if not task_type == "REGRESSION":
+                        hyperparams_split = hyperparams_split.replace({"stratified":False})
+                    split_primitive = KFoldDatasetSplitPrimitive(hyperparams=hyperparams_split)
 
             try:
                 split_primitive.set_training_data(dataset=dataset)
                 split_primitive.fit()
                 # TODO: is it correct here?
                 query_dataset_list = list(range(n_splits))
-                train_return = split_primitive.produce(inputs=query_dataset_list).value#['learningData']
+                train_return = split_primitive.produce(inputs=query_dataset_list).value
                 test_return = split_primitive.produce_score_data(inputs=query_dataset_list).value
 
             except Exception as e:
                 # Do not split stratified shuffle fails
                 train_return = []
                 test_return = []
-                self._logger.warning('Not splitting dataset. Stratified shuffle failed')
+                self._logger.warning('Split failed! Please check!!!')
                 self._logger.info(str(e))
                 for i in range(n_splits):
                     train_return.append(dataset)
                     test_return.append(None)
 
             self._logger.info("split done!")
-
-
-            '''
-            # old method (achieved by ourselves) to generate splitted datasets
-
-            if task_type == 'CLASSIFICATION':
-                self._logger.info("split start!!!!!!")
-                try:
-                    # Use stratified sample to split the dataset
-                    sss = StratifiedShuffleSplit(n_splits=n_splits, test_size=test_size,
-                                                 random_state=random_state)
-                    sss.get_n_splits(dataset[res_id], dataset[res_id].iloc[:, target_index])
-
-                    for train_index, test_index in sss.split(dataset[res_id],
-                                                             dataset[res_id].iloc[:, target_index]):
-                        indf = dataset[res_id]
-                        outdf_train = pd.DataFrame(columns=dataset[res_id].columns)
-
-                        for each_index in train_index:
-                            outdf_train = outdf_train.append(indf.loc[each_index],
-                                                             ignore_index=True)
-
-                        # reset to sequential
-                        outdf_train = outdf_train.reset_index(drop=True)
-
-                        outdf_train = d3m_DataFrame(outdf_train, generate_metadata=False)
-                        train = _add_meta_data(dataset=dataset, res_id=res_id,
-                                               input_part=outdf_train)
-                        train_return.append(train)
-
-                        # for special condition that only need get part of the dataset
-                        if need_test_dataset:
-                            outdf_test = pd.DataFrame(columns=dataset[res_id].columns)
-                            for each_index in test_index:
-                                outdf_test = outdf_test.append(indf.loc[each_index],
-                                                               ignore_index=True)
-                            # reset to sequential
-                            outdf_test = outdf_test.reset_index(drop=True)
-                            outdf_test = d3m_DataFrame(outdf_test, generate_metadata=False)
-                            test = _add_meta_data(dataset=dataset, res_id=res_id,
-                                                  input_part=outdf_test)
-                            test_return.append(test)
-                        else:
-                            test_return.append(None)
-
-                    self._logger.info("split done!!!!!!")
-                except Exception:
-                    # Do not split stratified shuffle fails
-                    self._logger.info('Not splitting dataset. Stratified shuffle failed')
-                    for i in range(n_splits):
-                        train_return.append(dataset)
-                        test_return.append(None)
-
-            else:
-                # Use random split
-                if not task_type == "REGRESSION":
-                    print('USING Random Split to split task type: {}'.format(task_type))
-                ss = ShuffleSplit(n_splits=n_splits, test_size=test_size, random_state=random_state)
-                ss.get_n_splits(dataset[res_id])
-                for train_index, test_index in ss.split(dataset[res_id]):
-                    train = _add_meta_data(dataset=dataset, res_id=res_id,
-                                           input_part=dataset[res_id].iloc[train_index, :].reset_index(drop=True))
-                    train_return.append(train)
-                    # for special condition that only need get part of the dataset
-                        test = _add_meta_data(dataset=dataset, res_id=res_id,
-                                              input_part=dataset[res_id].iloc[test_index, :].reset_index(drop=True))
-                        test_return.append(test)
-                    else:
-                        test_return.append(None)
-            '''
         return train_return, test_return
 
     def test(self) -> Status:

@@ -10,6 +10,8 @@ from d3m.metadata import base as metadata_base
 from d3m.metadata.pipeline import Pipeline, PrimitiveStep
 from .configuration_space import SimpleConfigurationSpace, ConfigurationPoint
 
+DISTIL_SPEICAL_PRIMITIVES = ("d3m.primitives.data_transformation.load_single_graph.DistilSingleGraphLoader".lower(), "d3m.primitives.data_transformation.load_single_graph.DistilSingleGraphLoader".lower())
+
 
 class HyperparamDirective(utils.Enum):
     """
@@ -181,6 +183,10 @@ class DSBoxTemplate():
                 if in_arg == "template_input":
                     continue
 
+                # hack to distil primitives
+                if in_arg.endswith("_produce_target"):
+                    in_arg = in_arg[:-15]
+
                 # if list, assume it's okay
                 if in_primitive_value is container.List and type(in_arg) is list:
                     continue
@@ -254,7 +260,7 @@ class DSBoxTemplate():
                 return True
         return False
 
-    def bind_primitive_IO(self, primitive: PrimitiveStep, templateIO):
+    def bind_primitive_IO(self, primitive: PrimitiveStep, templateIO: typing.List[str], primitive_name: str):
         # print(templateIO)
         if len(templateIO) == 1:
             primitive.add_argument(
@@ -330,35 +336,35 @@ class DSBoxTemplate():
             else:
                 raise exceptions.InvalidArgumentValueError("Error, can't find the primitive : ",
                                                            primitive_name)
+            # no longer needed
+            # if primitive_name == "d3m.primitives.data_augmentation.datamart_augmentation.DSBOX":
+            #     hyper = binding[step]["hyperparameters"]
+            #     primitive_step.add_argument("inputs1",metadata_base.ArgumentType.CONTAINER,"steps.0.produce")
+            #     primitive_step.add_argument("inputs2",metadata_base.ArgumentType.CONTAINER, templateinput)
+            #     for hyperName in hyper.keys():
+            #         primitive_step.add_hyperparameter(
+            #             # argument_type should be fixed type not the type of the data!!
+            #             name=hyperName, argument_type=self.argmentsmapper["value"],
+            #             data=hyper[hyperName])
+            #     # pre v2019.1.21
+            #     pipeline.add_step(primitive_step)
+            #     primitive_step.add_output("produce")
+            #     outputs[step] = f'steps.{primitive_step.index}.produce'
+            #     continue
 
-            if primitive_name == "d3m.primitives.data_augmentation.datamart_augmentation.DSBOX":
-                hyper = binding[step]["hyperparameters"]
-                primitive_step.add_argument("inputs1",metadata_base.ArgumentType.CONTAINER,"steps.0.produce")
-                primitive_step.add_argument("inputs2",metadata_base.ArgumentType.CONTAINER, templateinput)
-                for hyperName in hyper.keys():
-                    primitive_step.add_hyperparameter(
-                        # argument_type should be fixed type not the type of the data!!
-                        name=hyperName, argument_type=self.argmentsmapper["value"],
-                        data=hyper[hyperName])
-                # pre v2019.1.21
-                pipeline.add_step(primitive_step)
-                primitive_step.add_output("produce")
-                outputs[step] = f'steps.{primitive_step.index}.produce'
-                continue
-
-            if primitive_name == "d3m.primitives.data_augmentation.datamart_query.DSBOX":
-                primitive_step.add_argument("inputs",metadata_base.ArgumentType.CONTAINER, templateinput)
-                hyper = binding[step]["hyperparameters"]
-                for hyperName in hyper.keys():
-                    primitive_step.add_hyperparameter(
-                        # argument_type should be fixed type not the type of the data!!
-                        name=hyperName, argument_type=self.argmentsmapper["value"],
-                        data=hyper[hyperName])
-                # pre v2019.1.21
-                pipeline.add_step(primitive_step)
-                primitive_step.add_output("produce")
-                outputs[step] = f'steps.{primitive_step.index}.produce'
-                continue
+            # if primitive_name == "d3m.primitives.data_augmentation.datamart_query.DSBOX":
+            #     primitive_step.add_argument("inputs",metadata_base.ArgumentType.CONTAINER, templateinput)
+            #     hyper = binding[step]["hyperparameters"]
+            #     for hyperName in hyper.keys():
+            #         primitive_step.add_hyperparameter(
+            #             # argument_type should be fixed type not the type of the data!!
+            #             name=hyperName, argument_type=self.argmentsmapper["value"],
+            #             data=hyper[hyperName])
+            #     # pre v2019.1.21
+            #     pipeline.add_step(primitive_step)
+            #     primitive_step.add_output("produce")
+            #     outputs[step] = f'steps.{primitive_step.index}.produce'
+            #     continue
 
 
             if binding[step]["hyperparameters"] != {}:
@@ -369,15 +375,12 @@ class DSBoxTemplate():
                         name=hyperName, argument_type=self.argmentsmapper["value"],
                         data=hyper[hyperName])
 
-            if primitive_name == 'd3m.primitives.data_transformation.construct_predictions.Common':
-                primitive_step.add_argument("reference",metadata_base.ArgumentType.CONTAINER,"steps.0.produce")
-
+            step_parameters = binding[step]["inputs"]
             # first we need to extract the types of the primtive's input and
             # the generators's output type.
             # then we need to compare those and in case we have different
             # types, add the intermediate type caster in the pipeline
             # print(outputs)
-            step_parameters = binding[step]["inputs"]
             step_arguments = []
             for parameter in step_parameters:
                 if type(parameter) is list:
@@ -385,11 +388,22 @@ class DSBoxTemplate():
                 else:
                     argument = outputs[parameter]
                 step_arguments.append(argument)
-            self.bind_primitive_IO(primitive_step, step_arguments)
+            self.bind_primitive_IO(primitive_step, step_arguments, primitive_name)
             pipeline.add_step(primitive_step)
             # pre v2019.1.21
             # outputs[step] = primitive_step.add_output("produce")
             primitive_step.add_output("produce")
+            # hack here for distil primitives cause they have some speicial step naming
+            """
+            TODO: is there any better to do this? 
+            the query information from metadata only shows the output is a:
+                d3m.primitive_interfaces.base.CallResult[d3m.container.list.List]
+            should figure out some possible way to get the details
+            """
+            if primitive_name.lower() in DISTIL_SPEICAL_PRIMITIVES:
+                primitive_step.add_output("produce_target")
+                outputs[step + "_produce_target"] = f'steps.{primitive_step.index}.produce_target'
+
             outputs[step] = f'steps.{primitive_step.index}.produce'
         # END FOR
 

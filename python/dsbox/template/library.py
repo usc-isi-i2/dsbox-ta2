@@ -117,7 +117,10 @@ class TemplateLibrary:
 
             "Cornell_matrix_factorization": CornellMatrixFactorization,
             "BBN_audio_classification_template": BBNAudioClassificationTemplate,
+            "DistilAudioClassificationTemplate": DistilAudioClassificationTemplate,
             "SRI_GraphMatching_Template": SRIGraphMatchingTemplate,
+            "Distil_GraphMatching_Template": DistilGraphMatchingTemplate,
+            "Distil_LinkPrediction_Template": DistilLinkPredictionTemplate,
             "SRI_Vertex_Nomination_Template": SRIVertexNominationTemplate,
             "SRI_Collaborative_Filtering_Template": SRICollaborativeFilteringTemplate,
             "SRI_Community_Detection_Template": SRICommunityDetectionTemplate,
@@ -130,7 +133,7 @@ class TemplateLibrary:
             "Default_timeseries_collection_template": DefaultTimeseriesCollectionTemplate,
             "Michigan_Video_Classification_Template": MichiganVideoClassificationTemplate,
             "DefaultTimeseriesRegressionTemplate": DefaultTimeseriesRegressionTemplate,
-            # "DefaultImageClassificationWithCNNTemplate": DefaultImageClassificationWithCNNTemplate,
+            "ImageProcessingClassificationTemplate2": ImageProcessingClassificationTemplate2,
             "ARIMA_Template": ARIMATemplate,
             "TimeSeriesForcastingTestingTemplate": TimeSeriesForcastingTestingTemplate,
             "DefaultObjectDetectionTemplate": DefaultObjectDetectionTemplate,
@@ -148,12 +151,17 @@ class TemplateLibrary:
 
             # Multi-label
             "Multi_Label_tempalte": MultiLabelTemplate,
+
+            # SK dummpy templates
+            "SKDummyTemplate": SKDummyTemplate,
         }
 
         if run_single_template:
             self._load_single_inline_templates(run_single_template)
         else:
+            # pass
             self._load_inline_templates()
+
 
     def get_templates(self, task: typing.List[TaskKeyword], subtype: typing.List[TaskKeyword], taskSourceType: typing.Set,
                       specialized_problem: SpecializedProblem = SpecializedProblem.NONE) -> typing.List[DSBoxTemplate]:
@@ -175,12 +183,11 @@ class TemplateLibrary:
         #     return results
         # for timeseries forcating and semi problem, not use MeanBaseline template, it will make meanbaseline to be top rank
 
-        # update v2020.1.14: no more mean baseline template
-        # not_add_mean_base_line_task_types = [TaskKeyword.TIME_SERIES.name, TaskKeyword.SEMISUPERVISED.name]
-        # if have_intersection(task, not_add_mean_base_line_task_types):
-        #     results.append(SRIMeanBaselineTemplate())  # put the meanbaseline here so whatever dataset will have a result
-        # else:
-        #     _logger.info("Will not add MeanBaseline template due to the special input problem task type.")
+        # update v2020.1.28: try sk dummy
+        not_add_mean_base_line_task_types = [TaskKeyword.TIME_SERIES.name, TaskKeyword.SEMISUPERVISED.name]
+        if not have_intersection(task, not_add_mean_base_line_task_types):
+            results.append(SKDummyTemplate())  # put the meanbaseline here so whatever dataset will have a result
+        _logger.info("Will add SK Dummy template.")
 
         for template_class in self.templates:
             template = template_class()
@@ -281,6 +288,7 @@ class TemplateLibrary:
         self.templates.append(DefaultVideoClassificationTemplate)
         self.templates.append(DefaultImageProcessingClassificationTemplate)
         self.templates.append(TA1VggImageProcessingRegressionTemplate)
+        self.templates.append(ImageProcessingClassificationTemplate2)
 
         # Privileged information
         # self.templates.append(LupiSvmClassification)
@@ -301,10 +309,21 @@ class TemplateLibrary:
 
 
         self.templates.append(SRICommunityDetectionTemplate)
-        self.templates.append(SRIGraphMatchingTemplate)
+        
         self.templates.append(SRIVertexNominationTemplate)
 
+        # audio templates
         self.templates.append(BBNAudioClassificationTemplate)
+        self.templates.append(DistilAudioClassificationTemplate)
+
+        # graph matching templates
+        self.templates.append(SRIGraphMatchingTemplate)
+        self.templates.append(JHUGraphMatchingTemplate)
+        self.templates.append(DistilGraphMatchingTemplate)
+
+        # link prediction templates 
+        self.templates.append(DistilLinkPredictionTemplate)
+
         self.templates.append(SRICollaborativeFilteringTemplate)
         self.templates.append(DefaultTimeSeriesForcastingTemplate)
 
@@ -313,7 +332,7 @@ class TemplateLibrary:
         self.templates.append(MichiganVideoClassificationTemplate)
 
         self.templates.append(JHUVertexNominationTemplate)
-        self.templates.append(JHUGraphMatchingTemplate)
+        
 
         self.templates.append(CornellMatrixFactorization)
         self.templates.append(SRIVertexClassificationTemplate)
@@ -483,7 +502,7 @@ class AlternativeClassificationTemplate(DSBoxTemplate):
                                 "name": "construct_predictions_step",#step 7
                                 "primitives": ["d3m.primitives.data_transformation.construct_predictions.Common"],
                                 "inputs": ["model_step", "to_dataframe_step"]
-                            }
+                         }
 
                      ]
         }
@@ -3029,7 +3048,7 @@ class DefaultImageProcessingClassificationTemplate(DSBoxTemplate):
             # See TaskKeyword, range include 'CLASSIFICATION', 'CLUSTERING', 'COLLABORATIVE_FILTERING', 'COMMUNITY_DETECTION', 'GRAPH_CLUSTERING', 'GRAPH_MATCHING', 'LINK_PREDICTION', 'REGRESSION', 'TIME_SERIES', 'VERTEX_NOMINATION'
             "taskSubtype": {TaskKeyword.BINARY.name, TaskKeyword.MULTICLASS.name},
             "inputType": "image",  # See SEMANTIC_TYPES.keys() for range of values
-            "output": "classification_step",  # Name of the final step generating the prediction
+            "output": "construct_predictions_step",  # Name of the final step generating the prediction
             "target": "extract_target_step",  # Name of the step generating the ground truth
             "steps": [
                 {
@@ -3042,6 +3061,11 @@ class DefaultImageProcessingClassificationTemplate(DSBoxTemplate):
                     "primitives": ["d3m.primitives.schema_discovery.profiler.Common"],
                     "inputs": ["to_dataframe_step"]
                 },
+                {
+                    "name": "parser_step",
+                    "primitives": ["d3m.primitives.data_transformation.column_parser.Common"],
+                    "inputs": ["common_profiler_step"]
+                },
                 # read Y value
                 {
                     "name": "pre_extract_target_step",
@@ -3053,7 +3077,7 @@ class DefaultImageProcessingClassificationTemplate(DSBoxTemplate):
                              'exclude_columns': ()
                              }
                     }],
-                    "inputs": ["common_profiler_step"]
+                    "inputs": ["parser_step"]
                 },
                 {
                     "name": "extract_target_step",
@@ -3074,7 +3098,7 @@ class DefaultImageProcessingClassificationTemplate(DSBoxTemplate):
                 {
                     "name": "dataframe_to_tensor",
                     "primitives": ["d3m.primitives.data_preprocessing.dataframe_to_tensor.DSBOX"],
-                    "inputs": ["common_profiler_step"]
+                    "inputs": ["parser_step"]
                 },
                 {
                     "name": "feature_extraction",
@@ -3104,7 +3128,7 @@ class DefaultImageProcessingClassificationTemplate(DSBoxTemplate):
                 },
 
                 {
-                    "name": "classification_step",
+                    "name": "model_step",
                     "primitives": [
                         {
                             "primitive": "d3m.primitives.classification.random_forest.SKlearn",
@@ -3119,6 +3143,11 @@ class DefaultImageProcessingClassificationTemplate(DSBoxTemplate):
                     ],
                     "inputs": ["PCA_step", "extract_target_step"]
                 },
+                {
+                    "name": "construct_predictions_step",#step 7
+                    "primitives": ["d3m.primitives.data_transformation.construct_predictions.Common"],
+                    "inputs": ["model_step", "to_dataframe_step"]
+                }
             ]
         }
 ################################################################################################################
@@ -3244,9 +3273,10 @@ class DefaultLinkPredictionTemplate(DSBoxTemplate):
         DSBoxTemplate.__init__(self)
         self.template = {
             "name": "Default_LinkPrediction_Template",
-            "taskType": {TaskKeyword.LINK_PREDICTION.name, TaskKeyword.GRAPH_MATCHING.name, TaskKeyword.VERTEX_CLASSIFICATION.name},
-            "taskSubtype": "NONE",
-            "inputType": {"edgeList", "graph"},
+            "taskType": {TaskKeyword.GRAPH_MATCHING.name, TaskKeyword.GRAPH.name, TaskKeyword.LINK_PREDICTION.name},
+            # for some special condition, the taskSubtype can be "NONE" which indicate no taskSubtype given
+            "taskSubtype":  {"NONE", TaskKeyword.GRAPH_MATCHING.name, TaskKeyword.GRAPH.name, TaskKeyword.LINK_PREDICTION.name},
+            "inputType": {"graph"},
             "output": "model_step",
             "steps": [
                 {
@@ -3312,16 +3342,79 @@ class DefaultLinkPredictionTemplate(DSBoxTemplate):
             ]
         }
 
+class DistilGraphMatchingTemplate(DSBoxTemplate):
+    def __init__(self):
+        DSBoxTemplate.__init__(self)
+        self.template = {
+            "name": "Distil_GraphMatching_Template",
+            "taskType": {TaskKeyword.GRAPH_MATCHING.name, TaskKeyword.GRAPH.name},
+            # for some special condition, the taskSubtype can be "NONE" which indicate no taskSubtype given
+            "taskSubtype":  {"NONE", TaskKeyword.GRAPH_MATCHING.name, TaskKeyword.GRAPH.name},
+            "inputType": {"graph"},
+            "output": "predict_step",
+            "steps": [
+                {
+                    "name": "parse_step",
+                    "primitives": ["d3m.primitives.data_transformation.load_graphs.DistilGraphLoader"],
+                    "inputs":['template_input']
+                    },
+                {
+                    "name": "predict_step",
+                    "primitives":[
+                        {
+                            "primitive": "d3m.primitives.graph_matching.seeded_graph_matching.DistilSeededGraphMatcher",
+                            "hyperparameters": {
+                                "metric": [("accuracy"),]
+                            } 
+                        }
+                    ],
+                    "inputs":["parse_step", "parse_step_produce_target"]
+                },
+            ]
+        }
+
+
+class DistilLinkPredictionTemplate(DSBoxTemplate):
+    def __init__(self):
+        DSBoxTemplate.__init__(self)
+        self.template = {
+            "name": "Distil_LinkPrediction_Template",
+            "taskType": {TaskKeyword.GRAPH_MATCHING.name, TaskKeyword.GRAPH.name, TaskKeyword.LINK_PREDICTION.name},
+            # for some special condition, the taskSubtype can be "NONE" which indicate no taskSubtype given
+            "taskSubtype":  {"NONE", TaskKeyword.GRAPH_MATCHING.name, TaskKeyword.GRAPH.name, TaskKeyword.LINK_PREDICTION.name},
+            "inputType": {"graph"},
+            "output": "predict_step",
+            "steps": [
+                {
+                    "name": "parse_step",
+                    "primitives": ["d3m.primitives.data_transformation.load_single_graph.DistilSingleGraphLoader"],
+                    "inputs":['template_input']
+                    },
+                {
+                    "name": "predict_step",
+                    "primitives":[
+                        {
+                            "primitive": "d3m.primitives.link_prediction.link_prediction.DistilLinkPrediction",
+                            "hyperparameters": {
+                                "metric": [("accuracy"),]
+                            } 
+                        }
+                    ],
+                    "inputs":["parse_step", "parse_step_produce_target"]
+                },
+            ]
+        }
+
 
 class SRIGraphMatchingTemplate(DSBoxTemplate):
     def __init__(self):
         DSBoxTemplate.__init__(self)
         self.template = {
             "name": "SRI_GraphMatching_Template",
-            "taskType": {TaskKeyword.GRAPH_MATCHING.name, TaskKeyword.LINK_PREDICTION.name},
+            "taskType": {TaskKeyword.GRAPH_MATCHING.name, TaskKeyword.GRAPH.name, TaskKeyword.LINK_PREDICTION.name},
             # for some special condition, the taskSubtype can be "NONE" which indicate no taskSubtype given
-            "taskSubtype":  {"NONE", TaskKeyword.NONOVERLAPPING.name, TaskKeyword.OVERLAPPING.name, TaskKeyword.MULTICLASS.name, TaskKeyword.BINARY.name, TaskKeyword.MULTILABEL.name, TaskKeyword.MULTIVARIATE.name, TaskKeyword.UNIVARIATE.name},
-            "inputType": {"edgeList", "graph"},
+            "taskSubtype":  {"NONE", TaskKeyword.GRAPH_MATCHING.name, TaskKeyword.GRAPH.name, TaskKeyword.LINK_PREDICTION.name},
+            "inputType": {"graph"},
             "output": "predict_step",
             "steps": [
                 {
@@ -3616,6 +3709,86 @@ class BBNAudioClassificationTemplate(DSBoxTemplate):
                 }
             ]
         }
+
+
+class DistilAudioClassificationTemplate(DSBoxTemplate):
+    def __init__(self):
+        DSBoxTemplate.__init__(self)
+        self.template = {
+            "name": "DistilAudioClassificationTemplate",
+            "taskType": {TaskKeyword.CLASSIFICATION.name},
+            "taskSubtype": {TaskKeyword.BINARY.name, TaskKeyword.MULTICLASS.name},
+            "inputType": "audio",
+            "output": "construct_predictions_step",  # Name of the final step generating the prediction
+            "target": "extract_target_step",  # Name of the step generating the ground truth
+            "steps": [
+                {
+                    "name": "dataset_loader_step",
+                    "primitives": ["d3m.primitives.data_preprocessing.audio_loader.DistilAudioDatasetLoader"],
+                    "inputs": ["template_input"]
+                },
+                {
+                    "name": "column_parser_step",
+                    "primitives": [
+                        {
+                            "primitive": "d3m.primitives.data_transformation.column_parser.DataFrameCommon",
+                            "hyperparameters": {
+                                "parse_semantic_types": (            
+                                    "http://schema.org/Boolean",
+                                    "http://schema.org/Integer",
+                                    "http://schema.org/Float",
+                                    "https://metadata.datadrivendiscovery.org/types/FloatVector"),
+                            }
+
+                        }],
+                    "inputs": ["dataset_loader_step"]
+                },
+                # read Y value
+                {
+                    "name": "extract_target_step",
+                    "primitives": [{
+                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.Common",
+                        "hyperparameters":
+                            {'semantic_types': (
+                                "https://metadata.datadrivendiscovery.org/types/Target",
+                                'https://metadata.datadrivendiscovery.org/types/TrueTarget',),
+                             'use_columns': (),
+                             'exclude_columns': ()
+                             }
+                    }],
+                    "inputs": ["column_parser_step"]
+                },
+                # read X value
+                {
+                    "name": "extract_attribute_step",
+                    "primitives": [{
+                        "primitive": "d3m.primitives.feature_extraction.audio_transfer.DistilAudioTransfer",
+                        "hyperparameters":
+                            {}
+                    }],
+                    "inputs": ["column_parser_step"]
+                },
+                {
+                    "name": "model_step",
+                    "primitives": [
+                        {
+                            "primitive": "d3m.primitives.learner.random_forest.DistilEnsembleForest",
+                            "hyperparameters": {
+                            "metric": [("accuracy")]
+                            }
+                        },
+                    ],
+                    "inputs": ["extract_attribute_step", "extract_target_step"]
+                },
+                {
+                    "name": "construct_predictions_step",#step 7
+                    "primitives": ["d3m.primitives.data_transformation.construct_predictions.Common"],
+                    "inputs": ["model_step", "column_parser_step"]
+                }
+            ]
+        }
+
+
 
 ################################################################################################################
 #####################################   SRIMeanbaselineTemplate   ##############################################
@@ -5836,4 +6009,186 @@ class MultiLabelTemplate(DSBoxTemplate):
                     'inputs': ['steps.4', 'steps.3'],
                 },
             ],
+        }
+
+
+class ImageProcessingClassificationTemplate2(DSBoxTemplate):
+    def __init__(self):
+        DSBoxTemplate.__init__(self)
+        self.template = {
+            "name": "ImageProcessingClassificationTemplate2",
+            "taskType": TaskKeyword.CLASSIFICATION.name,
+            # See TaskKeyword, range include 'CLASSIFICATION', 'CLUSTERING', 'COLLABORATIVE_FILTERING', 'COMMUNITY_DETECTION', 'GRAPH_CLUSTERING', 'GRAPH_MATCHING', 'LINK_PREDICTION', 'REGRESSION', 'TIME_SERIES', 'VERTEX_NOMINATION'
+            "taskSubtype": {TaskKeyword.BINARY.name, TaskKeyword.MULTICLASS.name},
+            "inputType": "image",  # See SEMANTIC_TYPES.keys() for range of values
+            "output": "construct_predictions_step",  # Name of the final step generating the prediction
+            "target": "extract_target_step",  # Name of the step generating the ground truth
+            "steps": [
+                {
+                    "name": "to_dataframe_step",
+                    "primitives": ["d3m.primitives.data_transformation.dataset_to_dataframe.Common"],
+                    "inputs": ["template_input"]
+                },
+                {
+                    "name": "common_profiler_step",
+                    "primitives": ["d3m.primitives.schema_discovery.profiler.Common"],
+                    "inputs": ["to_dataframe_step"]
+                },
+                # read Y value
+                {
+                    "name": "pre_extract_target_step",
+                    "primitives": [{
+                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.Common",
+                        "hyperparameters":
+                            {'semantic_types': (
+                                'https://metadata.datadrivendiscovery.org/types/PrimaryKey',
+                                'https://metadata.datadrivendiscovery.org/types/TrueTarget',),
+                             'use_columns': (),
+                             'exclude_columns': ()
+                             }
+                    }],
+                    "inputs": ["common_profiler_step"]
+                },
+                {
+                    "name": "extract_target_step",
+                    "primitives": [{
+                        "primitive": "d3m.primitives.data_transformation.to_numeric.DSBOX",
+                        "hyperparameters": {
+                            "drop_non_numeric_columns": [False]
+                        }
+                    }],
+                    "inputs": ["pre_extract_target_step"]
+                },
+                {
+                    "name": "dataframe_to_tensor",
+                    "primitives": ["d3m.primitives.data_preprocessing.dataframe_to_tensor.DSBOX"],
+                    "inputs": ["to_dataframe_step"]
+                },
+                {
+                    "name": "feature_extraction",
+                    "primitives": [
+                        {
+                            "primitive": "d3m.primitives.feature_extraction.resnet50_image_feature.DSBOX",
+                            "hyperparameters": {
+                                'generate_metadata': [True]
+                            }
+                        }
+                    ],
+                    "inputs": ["dataframe_to_tensor"]
+                },
+                {
+                    "name": "PCA_step",
+                    "primitives": [
+                        {
+                            "primitive": "d3m.primitives.feature_extraction.pca.SKlearn",
+                            "hyperparameters": {
+                                'add_index_columns': [True],
+                                'use_semantic_types': [True]
+                            }
+                        },
+                        "d3m.primitives.data_preprocessing.do_nothing.DSBOX"
+                    
+                    ],
+                    "inputs": ["feature_extraction"]
+                },
+                {
+                    "name": "model_step",
+                    "primitives": [
+                        {
+                            "primitive": "d3m.primitives.classification.xgboost_gbtree.Common",
+                            "hyperparameters": {
+                            }
+                        },
+                        {
+                            "primitive": "d3m.primitives.classification.xgboost_dart.Common",
+                            "hyperparameters": {
+                            }
+                        },
+                        {
+                            "primitive": "d3m.primitives.classification.linear_discriminant_analysis.SKlearn",
+                            "hyperparameters": {
+                            }
+                        }
+                    ],
+                    "inputs": ["PCA_step", "extract_target_step"]
+                },
+                {
+                    "name": "construct_predictions_step",#step 7
+                    "primitives": ["d3m.primitives.data_transformation.construct_predictions.Common"],
+                    "inputs": ["model_step", "to_dataframe_step"]
+                }
+            ]
+        }
+
+class SKDummyTemplate(DSBoxTemplate):
+    def __init__(self):
+        DSBoxTemplate.__init__(self)
+        self.template = {
+            "name": "SKDummyTemplate",
+            "taskType": {TaskKeyword.CLASSIFICATION.name, TaskKeyword.REGRESSION.name},
+            # See TaskKeyword, range include 'CLASSIFICATION', 'CLUSTERING', 'COLLABORATIVE_FILTERING', 'COMMUNITY_DETECTION', 'GRAPH_CLUSTERING', 'GRAPH_MATCHING', 'LINK_PREDICTION', 'REGRESSION', 'TIME_SERIES', 'VERTEX_NOMINATION'
+            "taskSubtype": {TaskKeyword.BINARY.name, TaskKeyword.MULTICLASS.name, TaskKeyword.UNIVARIATE.name, TaskKeyword.MULTIVARIATE.name, "NONE"},
+            "inputType": {"image", "table", "audio", "video", "graph"},  # See SEMANTIC_TYPES.keys() for range of values
+            "output": "construct_predictions_step",  # Name of the final step generating the prediction
+            "target": "extract_target_step",  # Name of the step generating the ground truth
+            "steps": [
+                {
+                    "name": "to_dataframe_step",
+                    "primitives": ["d3m.primitives.data_transformation.dataset_to_dataframe.Common"],
+                    "inputs": ["template_input"]
+                },
+                {
+                    "name": "common_profiler_step",
+                    "primitives": ["d3m.primitives.schema_discovery.profiler.Common"],
+                    "inputs": ["to_dataframe_step"]
+                },
+                # read Y value
+                {
+                    "name": "extract_target_step",
+                    "primitives": [{
+                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.Common",
+                        "hyperparameters":
+                            {'semantic_types': (
+                                'https://metadata.datadrivendiscovery.org/types/TrueTarget',),
+                             'use_columns': (),
+                             'exclude_columns': ()
+                             }
+                    }],
+                    "inputs": ["common_profiler_step"]
+                },
+                # read X value
+                {
+                    "name": "extract_attribute_step",
+                    "primitives": [{
+                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.Common",
+                        "hyperparameters":
+                            {'semantic_types': ('https://metadata.datadrivendiscovery.org/types/Attribute',),
+                             'use_columns': (),
+                             'exclude_columns': ()
+                             }
+                    }],
+                    "inputs": ["common_profiler_step"]
+                },
+                {
+                    "name": "model_step",
+                    "primitives": [
+                        {
+                            "primitive": "d3m.primitives.classification.dummy.SKlearn",
+                            "hyperparameters": {
+                            }
+                        },
+                        {
+                            "primitive": "d3m.primitives.regression.dummy.SKlearn",
+                            "hyperparameters": {
+                            }
+                        },
+                    ],
+                    "inputs": ["extract_attribute_step", "extract_target_step"]
+                },
+                {
+                    "name": "construct_predictions_step",#step 7
+                    "primitives": ["d3m.primitives.data_transformation.construct_predictions.Common"],
+                    "inputs": ["model_step", "to_dataframe_step"]
+                }
+            ]
         }
