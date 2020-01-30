@@ -394,6 +394,12 @@ class DSBoxTemplate():
             # outputs[step] = primitive_step.add_output("produce")
             primitive_step.add_output("produce")
             # hack here for distil primitives cause they have some speicial step naming
+            """
+            TODO: is there any better to do this? 
+            the query information from metadata only shows the output is a:
+                d3m.primitive_interfaces.base.CallResult[d3m.container.list.List]
+            should figure out some possible way to get the details
+            """
             if primitive_name.lower() in DISTIL_SPEICAL_PRIMITIVES:
                 primitive_step.add_output("produce_target")
                 outputs[step + "_produce_target"] = f'steps.{primitive_step.index}.produce_target'
