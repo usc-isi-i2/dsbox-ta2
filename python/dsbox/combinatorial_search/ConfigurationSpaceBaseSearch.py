@@ -662,11 +662,12 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
         test_metrics = score_prediction(test_prediction, [pickle_dataset],
                                          self.problem, self.performance_metrics, self.random_seed)
 
-        _logger.info("Test pickled pipeline. id: {}".format(fitted_pipeline.id))
-        self._test_pickled_pipeline(folder_loc=self.output_directory,
-                                    pipeline_id=fitted_pipeline.id,
-                                    test_dataset=pickle_dataset,
-                                    test_metrics=test_metrics)
+        # updated v2020.1.30: block pickle test
+        # _logger.info("Test pickled pipeline. id: {}".format(fitted_pipeline.id))
+        # self._test_pickled_pipeline(folder_loc=self.output_directory,
+                                    # pipeline_id=fitted_pipeline.id,
+                                    # test_dataset=pickle_dataset,
+                                    # test_metrics=test_metrics)
 
     def _test_pickled_pipeline(self, folder_loc: str, pipeline_id: str, test_dataset: Dataset,
                                test_metrics: typing.List) -> None:
