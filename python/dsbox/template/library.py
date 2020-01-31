@@ -6238,7 +6238,6 @@ class ImageProcessingClassificationTemplate2(DSBoxTemplate):
                             }
                         },
                         "d3m.primitives.data_preprocessing.do_nothing.DSBOX"
-                    
                     ],
                     "inputs": ["feature_extraction"]
                 },

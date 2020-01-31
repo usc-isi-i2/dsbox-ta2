@@ -1036,103 +1036,6 @@ class Controller:
             traceback.print_exc()
             return self.all_dataset
 
-    # No longer needed
-    # def add_d3m_index_and_prediction_class_name(self, prediction, from_dataset = None):
-    #     """
-    #         The function to process the prediction results
-    #         1. If no prediction column name founnd, add the prediction column name
-    #         2. Add the d3m index into the output predictions
-    #     """
-    #     # setup an initial condition
-    #     if not from_dataset:
-    #         from_dataset = self.all_dataset
-
-    #     prediction_class_name = []
-    #     try:
-    #         with open(self.config.dataset_schema_files[0], 'r') as dataset_description_file:
-    #             dataset_description = json.load(dataset_description_file)
-    #             for each_resource in dataset_description["dataResources"]:
-    #                 if "columns" in each_resource:
-    #                     for each_column in each_resource["columns"]:
-    #                         if "suggestedTarget" in each_column["role"] or "target" in each_column["role"]:
-    #                             prediction_class_name.append(each_column["colName"])
-    #     except:
-    #         self._logger.error(
-    #             "[Warning] Can't find the prediction class name, will use default name "
-    #             "'prediction'.")
-    #         prediction_class_name.append("prediction")
-
-    #     # if the prediction results do not have d3m_index column
-    #     if 'd3mIndex' not in prediction.columns:
-    #         d3m_index = get_target_columns(from_dataset)["d3mIndex"]
-    #         d3m_index = d3m_index.reset_index().drop(columns=['index'])
-    #         # prediction.drop("confidence", axis=1, inplace=True, errors = "ignore")#some
-    #         # prediction has "confidence"
-    #         prediction_col_name = ['d3mIndex']
-    #         for each in prediction.columns:
-    #             prediction_col_name.append(each)
-    #         prediction['d3mIndex'] = d3m_index
-    #         prediction = prediction[prediction_col_name]
-    #         prediction_col_name.remove('d3mIndex')
-    #         for i in range(len(prediction_class_name)):
-    #             prediction = prediction.rename(
-    #                 columns={prediction_col_name[i]: prediction_class_name[i]})
-    #     else:
-    #         prediction_col_name = list(prediction.columns)
-    #         prediction_col_name.remove('d3mIndex')
-    #         for i in range(len(prediction_class_name)):
-    #             prediction = prediction.rename(
-    #                 columns={prediction_col_name[i]: prediction_class_name[i]})
-    #     return prediction
-
-    def auto_regress_convert_and_add_metadata(self, dataset: Dataset):
-        """
-        Muxin said it is useless, just keep it for now
-        """
-        return dataset
-        # """
-        # Add metadata to the dataset from problem_doc_metadata
-        # If the dataset is timeseriesforecasting, do auto convert for timeseriesforecasting prob
-        # Paramters
-        # ---------
-        # dataset
-        #     Dataset
-        # problem_doc_metadata:
-        #     Metadata about the problemDoc
-        # """
-        # problem = self.config.problem_metadata.query(())
-        # targets = problem["inputs"]["data"][0]["targets"]
-        # for each_target in range(len(targets)):
-        #     resID = targets[each_target]["resID"]
-        #     colIndex = targets[each_target]["colIndex"]
-        #     if problem["about"]["taskType"] == "timeSeriesForecasting" or problem["about"][
-        #         "taskType"] == "regression":
-        #         dataset[resID].iloc[:, colIndex] = pd.to_numeric(dataset[resID].iloc[:, colIndex],
-        #                                                          downcast="float", errors="coerce")
-        #         meta = dict(dataset.metadata.query((resID, ALL_ELEMENTS, colIndex)))
-        #         meta["structural_type"] = float
-        #         dataset.metadata = dataset.metadata.update((resID, ALL_ELEMENTS, colIndex), meta)
-
-        # for data in self.config.problem_metadata.query(())['inputs']['data']:
-        #     targets = data['targets']
-        #     for target in targets:
-        #         semantic_types = list(dataset.metadata.query(
-        #             (target['resID'], ALL_ELEMENTS, target['colIndex'])).get(
-        #             'semantic_types', []))
-
-        #         if 'https://metadata.datadrivendiscovery.org/types/Target' not in semantic_types:
-        #             semantic_types.append('https://metadata.datadrivendiscovery.org/types/Target')
-        #             dataset.metadata = dataset.metadata.update(
-        #                 (target['resID'], ALL_ELEMENTS, target['colIndex']),
-        #                 {'semantic_types': semantic_types})
-
-        #         if 'https://metadata.datadrivendiscovery.org/types/TrueTarget' not in semantic_types:
-        #             semantic_types.append('https://metadata.datadrivendiscovery.org/types/TrueTarget')
-        #             dataset.metadata = dataset.metadata.update(
-        #                 (target['resID'], ALL_ELEMENTS, target['colIndex']),
-        #                 {'semantic_types': semantic_types})
-        #     return dataset
-
     def dump_primitive(self, target_primitive, save_file_name) -> bool:
         """
             Function used to dump a (usually it should be fitted) primitive into D#MLOCALDIR for further use
@@ -1211,26 +1114,7 @@ class Controller:
         json_file = os.path.abspath(self.config.dataset_schema_files[0])
         all_dataset_uri = 'file://{}'.format(json_file)
         self.all_dataset = loader.load(dataset_uri=all_dataset_uri)
-
-        self._check_and_set_dataset_metadata()
-        # first apply denormalize on input dataset
-        from common_primitives.denormalize import Hyperparams as hyper_denormalize, DenormalizePrimitive
-        denormalize_hyperparams = hyper_denormalize.defaults()
-        denormalize_primitive = DenormalizePrimitive(hyperparams=denormalize_hyperparams)
-        self.all_dataset = denormalize_primitive.produce(inputs=self.all_dataset).value
-        self.extra_primitive.add("denormalize")
-        self.dump_primitive(denormalize_primitive, "denormalize")
-        datamart_search_results = None
-
-        if "data_augmentation" in self.config.problem.keys():
-            # try:
-            datamart_search_results = self.do_data_augmentation_rest_api(self.all_dataset)
-            # except Exception as e:
-                # datamart_search_results = None
-                # self._logger.error("Running data augmentation failed!!!")
-                # traceback.print_exc()
-        # load templates
-        self.load_templates(datamart_search_results)
+        self._dataset_preprocessing()
 
     def initialize_from_config_train_test(self, config: DsboxConfig) -> None:
         """
@@ -1305,29 +1189,36 @@ class Controller:
                 random_seed=random_seed)
         else:
             # Given problem to search
+            self._dataset_preprocessing()
 
-            self.fitted_pipeline = None
-            self._check_and_set_dataset_metadata()
+    def _dataset_preprocessing(self):
+        try:
+            task_keywords_set = set([x.name.lower() for x in self.config.problem['problem']['task_keywords']])
+        except:
+            task_keywords_set = set()
+        run_series_taskkeywords = {"graph", "video", "image", "audio"}
+        self.fitted_pipeline = None
+        self._check_and_set_dataset_metadata()
 
-            # first apply denormalize on input dataset if needed
-            not_run_denomormalize = {"graph", "audio"}
-            intersect_res = task_keywords_set.intersection(not_run_denomormalize)
-            if len(intersect_res) > 0:
-                self._logger.warning("Not run denormalize primitive for speical task keywords")
-            else:
-                from common_primitives.denormalize import Hyperparams as hyper_denormalize, DenormalizePrimitive
-                denormalize_hyperparams = hyper_denormalize.defaults()
-                denormalize_primitive = DenormalizePrimitive(hyperparams=denormalize_hyperparams)
-                self.all_dataset = denormalize_primitive.produce(inputs=self.all_dataset).value
-                self.extra_primitive.add("denormalize")
-                self.dump_primitive(denormalize_primitive, "denormalize")
+        # first apply denormalize on input dataset if needed
+        not_run_denomormalize = {"graph", "audio"}
+        intersect_res = task_keywords_set.intersection(not_run_denomormalize)
+        if len(intersect_res) > 0:
+            self._logger.warning("Not run denormalize primitive for speical task keywords")
+        else:
+            from common_primitives.denormalize import Hyperparams as hyper_denormalize, DenormalizePrimitive
+            denormalize_hyperparams = hyper_denormalize.defaults()
+            denormalize_primitive = DenormalizePrimitive(hyperparams=denormalize_hyperparams)
+            self.all_dataset = denormalize_primitive.produce(inputs=self.all_dataset).value
+            self.extra_primitive.add("denormalize")
+            self.dump_primitive(denormalize_primitive, "denormalize")
+        # run augment if needed
+        datamart_search_results = None
+        if "data_augmentation" in self.config.problem.keys():
+            datamart_search_results = self.do_data_augmentation_rest_api(self.all_dataset)
 
-            datamart_search_results = None
-            if "data_augmentation" in self.config.problem.keys():
-                datamart_search_results = self.do_data_augmentation_rest_api(self.all_dataset)
-
-            # load templates
-            self.load_templates(datamart_search_results)
+        # load templates
+        self.load_templates(datamart_search_results)
 
     def fit_pipeline(self):
         """
