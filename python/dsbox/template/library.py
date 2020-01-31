@@ -137,6 +137,8 @@ class TemplateLibrary:
             "ARIMA_Template": ARIMATemplate,
             "TimeSeriesForcastingTestingTemplate": TimeSeriesForcastingTestingTemplate,
             "DefaultObjectDetectionTemplate": DefaultObjectDetectionTemplate,
+            "DefaultObjectDetectionTemplateFittedWeight": DefaultObjectDetectionTemplateFittedWeight,
+            "DefaultObjectDetectionTemplateQuicker": DefaultObjectDetectionTemplateFittedWeight,
             "JPLObjectDetectionTemplate":JPLObjectDetectionTemplate,
             "DefaultVideoClassificationTemplate": DefaultVideoClassificationTemplate,
 
@@ -284,6 +286,8 @@ class TemplateLibrary:
         # Image related
         self.templates.append(DefaultImageProcessingRegressionTemplate)
         self.templates.append(JPLObjectDetectionTemplate)
+        self.templates.append(DefaultObjectDetectionTemplateQuicker)
+        self.templates.append(DefaultObjectDetectionTemplateFittedWeight)
         self.templates.append(DefaultObjectDetectionTemplate)
         self.templates.append(DefaultVideoClassificationTemplate)
         self.templates.append(DefaultImageProcessingClassificationTemplate)
@@ -2431,6 +2435,13 @@ class DefaultObjectDetectionTemplate(DSBoxTemplate):
                         {
                             "primitive": "d3m.primitives.feature_extraction.yolo.DSBOX",
                             "hyperparameters": {
+                                "lr_init": [(0.0005)],
+                                "epochs": [100, 200],
+                                "train_batch_size": [4, 8],
+                                "use_fitted_weight": [(False)],
+                                "confidences_threshold": [(0.2)],
+                                "nms_threshold": [(0.2)]
+
                             }
                         }
                     ],
@@ -2438,6 +2449,142 @@ class DefaultObjectDetectionTemplate(DSBoxTemplate):
                 },
             ]
         }
+
+class DefaultObjectDetectionTemplateQuicker(DSBoxTemplate):
+    def __init__(self):
+        DSBoxTemplate.__init__(self)
+        self.template = {
+            "name": "DefaultObjectDetectionTemplateQuicker",
+            "taskType": TaskKeyword.OBJECT_DETECTION.name,
+            "taskSubtype": "NONE",
+            "inputType": {"table", "image"},  # See SEMANTIC_TYPES.keys() for range of values
+            "output": "model_step",  # Name of the final step generating the prediction
+            "target": "extract_target_step",  # Name of the step generating the ground truth
+            "steps": [
+                {
+                    "name": "to_dataframe_step",#step 1
+                    "primitives": ["d3m.primitives.data_transformation.dataset_to_dataframe.Common"],
+                    "inputs": ["template_input"]
+                },
+                {
+                    "name": "common_profiler_step",
+                    "primitives": ["d3m.primitives.schema_discovery.profiler.Common"],
+                    "inputs": ["to_dataframe_step"]
+                },
+                # read X value
+                {
+                    "name": "extract_file_step",#step 2
+                    "primitives": [{
+                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.Common",
+                        "hyperparameters":
+                            {
+                                'semantic_types': (
+                                    'https://metadata.datadrivendiscovery.org/types/PrimaryMultiKey',
+                                    'https://metadata.datadrivendiscovery.org/types/FileName',),
+                                'use_columns': (),
+                                'exclude_columns': ()
+                            }
+                    }],
+                    "inputs": ["common_profiler_step"]
+                },
+                {
+                    "name": "extract_target_step",# step 3
+                    "primitives": [{
+                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.Common",
+                        "hyperparameters":
+                            {
+                                'semantic_types': (
+                                    'https://metadata.datadrivendiscovery.org/types/TrueTarget',),
+                                'use_columns': (),
+                                'exclude_columns': ()
+                            }
+                    }],
+                    "inputs": ["to_dataframe_step"]
+                },
+                {
+                    "name": "model_step", # step 4
+                    "primitives": [
+                        {
+                            "primitive": "d3m.primitives.feature_extraction.yolo.DSBOX",
+                            "hyperparameters": {
+                                "lr_init": [(0.0001)],
+                                "epochs": [(30), (50)],
+                                "use_fitted_weight": [(False)],
+                            }
+                        }
+                    ],
+                    "inputs": ["extract_file_step", "extract_target_step"]
+                },
+            ]
+        }
+
+
+class DefaultObjectDetectionTemplateFittedWeight(DSBoxTemplate):
+    def __init__(self):
+        DSBoxTemplate.__init__(self)
+        self.template = {
+            "name": "DefaultObjectDetectionTemplateFittedWeight",
+            "taskType": TaskKeyword.OBJECT_DETECTION.name,
+            "taskSubtype": "NONE",
+            "inputType": {"table", "image"},  # See SEMANTIC_TYPES.keys() for range of values
+            "output": "model_step",  # Name of the final step generating the prediction
+            "target": "extract_target_step",  # Name of the step generating the ground truth
+            "steps": [
+                {
+                    "name": "to_dataframe_step",#step 1
+                    "primitives": ["d3m.primitives.data_transformation.dataset_to_dataframe.Common"],
+                    "inputs": ["template_input"]
+                },
+                {
+                    "name": "common_profiler_step",
+                    "primitives": ["d3m.primitives.schema_discovery.profiler.Common"],
+                    "inputs": ["to_dataframe_step"]
+                },
+                # read X value
+                {
+                    "name": "extract_file_step",#step 2
+                    "primitives": [{
+                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.Common",
+                        "hyperparameters":
+                            {
+                                'semantic_types': (
+                                    'https://metadata.datadrivendiscovery.org/types/PrimaryMultiKey',
+                                    'https://metadata.datadrivendiscovery.org/types/FileName',),
+                                'use_columns': (),
+                                'exclude_columns': ()
+                            }
+                    }],
+                    "inputs": ["common_profiler_step"]
+                },
+                {
+                    "name": "extract_target_step",# step 3
+                    "primitives": [{
+                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.Common",
+                        "hyperparameters":
+                            {
+                                'semantic_types': (
+                                    'https://metadata.datadrivendiscovery.org/types/TrueTarget',),
+                                'use_columns': (),
+                                'exclude_columns': ()
+                            }
+                    }],
+                    "inputs": ["to_dataframe_step"]
+                },
+                {
+                    "name": "model_step", # step 4
+                    "primitives": [
+                        {
+                            "primitive": "d3m.primitives.feature_extraction.yolo.DSBOX",
+                            "hyperparameters": {
+                                "use_fitted_weight": [(True)],
+                            }
+                        }
+                    ],
+                    "inputs": ["extract_file_step", "extract_target_step"]
+                },
+            ]
+        }
+
 
 class JPLObjectDetectionTemplate(DSBoxTemplate):
     def __init__(self):
@@ -2577,7 +2724,7 @@ class DefaultVideoClassificationTemplate(DSBoxTemplate):
                             {
                                 "primitive": "d3m.primitives.feature_extraction.inceptionV3_image_feature.DSBOX",
                                 "hyperparameters": {
-                                    "use_limitation":[(True), (False)],
+                                    "use_limitation":[(True)],
                                 }
                             }
 
@@ -2590,8 +2737,8 @@ class DefaultVideoClassificationTemplate(DSBoxTemplate):
                         {
                             "primitive": "d3m.primitives.classification.lstm.DSBOX",
                             "hyperparameters": {
-                                "LSTM_units":[1024, 2048],
-                                "epochs":[100, 1000, 2000],
+                                "LSTM_units":[2048],
+                                "epochs":[100, 500, 1000],
                             }
                         }
                     ],
