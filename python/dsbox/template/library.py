@@ -2967,7 +2967,9 @@ class DefaultImageProcessingRegressionTemplate(DSBoxTemplate):
                     "primitives": [{
                         "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.Common",
                         "hyperparameters":
-                            {'semantic_types': ('https://metadata.datadrivendiscovery.org/types/TrueTarget',),
+                            {'semantic_types': (
+                                'https://metadata.datadrivendiscovery.org/types/PrimaryKey',
+                                'https://metadata.datadrivendiscovery.org/types/TrueTarget',),
                              'use_columns': (),
                              'exclude_columns': ()
                              }
@@ -3072,7 +3074,9 @@ class DefaultImageProcessingClassificationTemplate(DSBoxTemplate):
                     "primitives": [{
                         "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.Common",
                         "hyperparameters":
-                            {'semantic_types': ('https://metadata.datadrivendiscovery.org/types/TrueTarget',),
+                            {'semantic_types': (
+                                'https://metadata.datadrivendiscovery.org/types/PrimaryKey',
+                                'https://metadata.datadrivendiscovery.org/types/TrueTarget',),
                              'use_columns': (),
                              'exclude_columns': ()
                              }
