@@ -317,7 +317,7 @@ class TemplateLibrary:
         self.templates.append(SRIVertexNominationTemplate)
 
         # audio templates
-        self.templates.append(BBNAudioClassificationTemplate)
+        # self.templates.append(BBNAudioClassificationTemplate) # no more BBN primitives this time
         self.templates.append(DistilAudioClassificationTemplate)
 
         # graph matching templates
@@ -2383,8 +2383,8 @@ class DefaultObjectDetectionTemplate(DSBoxTemplate):
         DSBoxTemplate.__init__(self)
         self.template = {
             "name": "DefaultObjectDetectionTemplate",
-            "taskType": TaskKeyword.OBJECT_DETECTION.name,
-            "taskSubtype": "NONE",
+            "taskType": {TaskKeyword.OBJECT_DETECTION.name},
+            "taskSubtype": {TaskKeyword.OBJECT_DETECTION.name},
             "inputType": {"table", "image"},  # See SEMANTIC_TYPES.keys() for range of values
             "output": "model_step",  # Name of the final step generating the prediction
             "target": "extract_target_step",  # Name of the step generating the ground truth
@@ -2455,9 +2455,9 @@ class DefaultObjectDetectionTemplateQuicker(DSBoxTemplate):
         DSBoxTemplate.__init__(self)
         self.template = {
             "name": "DefaultObjectDetectionTemplateQuicker",
-            "taskType": TaskKeyword.OBJECT_DETECTION.name,
-            "taskSubtype": "NONE",
-            "inputType": {"table", "image"},  # See SEMANTIC_TYPES.keys() for range of values
+            "taskType": {TaskKeyword.OBJECT_DETECTION.name},
+            "taskSubtype": {TaskKeyword.OBJECT_DETECTION.name},
+            "inputType": {"image"},  # See SEMANTIC_TYPES.keys() for range of values
             "output": "model_step",  # Name of the final step generating the prediction
             "target": "extract_target_step",  # Name of the step generating the ground truth
             "steps": [
@@ -2524,8 +2524,8 @@ class DefaultObjectDetectionTemplateFittedWeight(DSBoxTemplate):
         DSBoxTemplate.__init__(self)
         self.template = {
             "name": "DefaultObjectDetectionTemplateFittedWeight",
-            "taskType": TaskKeyword.OBJECT_DETECTION.name,
-            "taskSubtype": "NONE",
+            "taskType": {TaskKeyword.OBJECT_DETECTION.name},
+            "taskSubtype": {TaskKeyword.OBJECT_DETECTION.name},
             "inputType": {"table", "image"},  # See SEMANTIC_TYPES.keys() for range of values
             "output": "model_step",  # Name of the final step generating the prediction
             "target": "extract_target_step",  # Name of the step generating the ground truth
@@ -2591,8 +2591,8 @@ class JPLObjectDetectionTemplate(DSBoxTemplate):
         DSBoxTemplate.__init__(self)
         self.template = {
             "name": "JPL_object_detection_template",
-            "taskType": TaskKeyword.OBJECT_DETECTION.name,
-            "taskSubtype": "NONE",
+            "taskType": {TaskKeyword.OBJECT_DETECTION.name},
+            "taskSubtype": {TaskKeyword.OBJECT_DETECTION.name},
             "inputType": {"table", "image"},  # See SEMANTIC_TYPES.keys() for range of values
             "output": "model_step",  # Name of the final step generating the prediction
             "target": "extract_target_step",  # Name of the step generating the ground truth
@@ -3259,6 +3259,12 @@ class DefaultImageProcessingClassificationTemplate(DSBoxTemplate):
                             "hyperparameters": {
                                 'generate_metadata': [True]
                             }
+                        },
+                        {
+                            "primitive": "d3m.primitives.feature_extraction.vgg16_image_feature.DSBOX",
+                            "hyperparameters": {
+                                'generate_metadata': [True]
+                            }
                         }
                     ],
                     "inputs": ["dataframe_to_tensor"]
@@ -3875,7 +3881,7 @@ class DistilAudioClassificationTemplate(DSBoxTemplate):
             "steps": [
                 {
                     "name": "dataset_loader_step",
-                    "primitives": ["d3m.primitives.data_preprocessing.audio_loader.DistilAudioDatasetLoader"],
+                    "primitives": ["d3m.primitives.data_preprocessing.audio_reader.DistilAudioDatasetLoader"],
                     "inputs": ["template_input"]
                 },
                 {
@@ -6223,7 +6229,14 @@ class ImageProcessingClassificationTemplate2(DSBoxTemplate):
                             "hyperparameters": {
                                 'generate_metadata': [True]
                             }
+                        },
+                        {
+                            "primitive": "d3m.primitives.feature_extraction.vgg16_image_feature.DSBOX",
+                            "hyperparameters": {
+                                'generate_metadata': [True]
+                            }
                         }
+
                     ],
                     "inputs": ["dataframe_to_tensor"]
                 },
