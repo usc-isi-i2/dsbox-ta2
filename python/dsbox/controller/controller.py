@@ -793,9 +793,9 @@ class Controller:
         search_unit = datamart_unit.search_with_data(query=query_search,
                                                      supplied_data=self.all_dataset,
                                                      run_wikifier=True,
-                                                     consider_wikifier_columns_only=True,
+                                                     consider_wikifier_columns_only=False,
                                                      # if augment with time is set to true, consider time will be useless
-                                                     augment_with_time=True,
+                                                     augment_with_time=False,
                                                      # consider_time=False,
                                                      )
         all_results1 = search_unit.get_next_page()
