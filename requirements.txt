@@ -1,4 +1,4 @@
-d3m==2019.11.10
+d3m==2020.1.9
 frozendict>=1.2
 grpcio
 grpcio-tools
