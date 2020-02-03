@@ -42,7 +42,7 @@ def have_intersection(lst1, lst2):
     if isinstance(lst1, str):
         lst1 = [lst1]
     if isinstance(lst2, str):
-        lst2 = [lst2] 
+        lst2 = [lst2]
     return list(set(lst1) & set(lst2)) != []
 
 class TemplateLibrary:
@@ -175,7 +175,7 @@ class TemplateLibrary:
         if type(subtype) is list:
             subtype = [x.name for x in subtype]
         else:
-            subtype = [subtype.name]  
+            subtype = [subtype.name]
 
         _logger.debug(f'Finding templates for Task={str(task)} and subtype={str(subtype)} resource={taskSourceType} special={specialized_problem}')
         results: typing.List[DSBoxTemplate] = []
@@ -305,6 +305,7 @@ class TemplateLibrary:
         self.templates.append(DistilacledProblemTemplate)
         self.templates.append(CMUacledProblemTemplate)
         self.templates.append(DefaultTimeseriesCollectionTemplate)
+        self.templates.append(TimeseriesLstmFcnTemplate)
         self.templates.append(TimeSeriesForcastingTestingTemplate)
         self.templates.append(ARIMATemplate)
         self.templates.append(DefaultTimeseriesRegressionTemplate)
@@ -313,7 +314,7 @@ class TemplateLibrary:
 
 
         self.templates.append(SRICommunityDetectionTemplate)
-        
+
         self.templates.append(SRIVertexNominationTemplate)
 
         # audio templates
@@ -325,7 +326,7 @@ class TemplateLibrary:
         self.templates.append(JHUGraphMatchingTemplate)
         self.templates.append(DistilGraphMatchingTemplate)
 
-        # link prediction templates 
+        # link prediction templates
         self.templates.append(DistilLinkPredictionTemplate)
 
         self.templates.append(SRICollaborativeFilteringTemplate)
@@ -336,7 +337,7 @@ class TemplateLibrary:
         self.templates.append(MichiganVideoClassificationTemplate)
 
         self.templates.append(JHUVertexNominationTemplate)
-        
+
 
         self.templates.append(CornellMatrixFactorization)
         self.templates.append(SRIVertexClassificationTemplate)
@@ -2867,6 +2868,26 @@ class DefaultTimeseriesCollectionTemplate(DSBoxTemplate):
         }
 
 
+class TimeseriesLstmFcnTemplate(DSBoxTemplate):
+    def __init__(self):
+        DSBoxTemplate.__init__(self)
+        self.template = {
+            "name": "TimeseriesLstmFcnTemplate",
+            "taskType": TaskKeyword.CLASSIFICATION.name,
+            "taskSubtype": {TaskKeyword.BINARY.name, TaskKeyword.MULTICLASS.name},
+            "inputType": {"timeseries", "table"},  # See SEMANTIC_TYPES.keys() for range of values
+            "output": "lstm_fcn_step",  # Name of the final step generating the prediction
+            "target": "na",  # Name of the step generating the ground truth
+            "steps": [
+                {
+                    "name": "lstm_fcn_step",
+                    "primitives": ["d3m.primitives.time_series_classification.convolutional_neural_net.LSTM_FCN"],
+                    "inputs": ["template_input"]
+                }
+            ]
+        }
+
+
 class DefaultTimeseriesRegressionTemplate(DSBoxTemplate):
     def __init__(self):
         DSBoxTemplate.__init__(self)
@@ -3522,7 +3543,7 @@ class DistilGraphMatchingTemplate(DSBoxTemplate):
                             "primitive": "d3m.primitives.graph_matching.seeded_graph_matching.DistilSeededGraphMatcher",
                             "hyperparameters": {
                                 "metric": [("accuracy"),]
-                            } 
+                            }
                         }
                     ],
                     "inputs":["parse_step", "parse_step_produce_target"]
@@ -3554,7 +3575,7 @@ class DistilLinkPredictionTemplate(DSBoxTemplate):
                             "primitive": "d3m.primitives.link_prediction.link_prediction.DistilLinkPrediction",
                             "hyperparameters": {
                                 "metric": [("accuracy"),]
-                            } 
+                            }
                         }
                     ],
                     "inputs":["parse_step", "parse_step_produce_target"]
@@ -3890,7 +3911,7 @@ class DistilAudioClassificationTemplate(DSBoxTemplate):
                         {
                             "primitive": "d3m.primitives.data_transformation.column_parser.Common",
                             "hyperparameters": {
-                                "parse_semantic_types": (            
+                                "parse_semantic_types": (
                                     "http://schema.org/Boolean",
                                     "http://schema.org/Integer",
                                     "http://schema.org/Float",
