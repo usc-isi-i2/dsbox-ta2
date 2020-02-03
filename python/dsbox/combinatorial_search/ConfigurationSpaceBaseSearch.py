@@ -458,7 +458,7 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
         else:
             # update v2019.3.17, running k-fold corss validation on level_1 split
             if self.quick_mode:
-                _logger.info("[INFO] Now in quick mode, will skip training with train_dataset1")
+                _logger.info("Now in quick mode, will skip training with train_dataset1")
                 # if in quick mode, we did not fit the model with dataset_train1 again
                 # just generate the predictions on dataset_test1 directly and get the rank
                 fitted_pipeline2 = fitted_pipeline

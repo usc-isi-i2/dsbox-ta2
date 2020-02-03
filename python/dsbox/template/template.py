@@ -1,5 +1,6 @@
 import copy
 import typing
+import logging
 
 from itertools import product
 from pprint import pprint
@@ -11,7 +12,7 @@ from d3m.metadata.pipeline import Pipeline, PrimitiveStep
 from .configuration_space import SimpleConfigurationSpace, ConfigurationPoint
 
 DISTIL_SPEICAL_PRIMITIVES = ("d3m.primitives.data_transformation.load_single_graph.DistilSingleGraphLoader".lower(), "d3m.primitives.data_transformation.load_single_graph.DistilSingleGraphLoader".lower())
-
+logger = logging.getLogger(__name__)
 
 class HyperparamDirective(utils.Enum):
     """
@@ -192,10 +193,9 @@ class DSBoxTemplate():
                     continue
                 # Check if the input name is valid and available in template
                 if in_arg not in binding:
-                    print("[ERROR] step {} input {} is not available!".format(step_num, in_arg))
-                    print("binding: ")
-                    pprint(binding)
-                    return 1
+                    logger.error(str(binding))
+                    logger.error("step {} input {} is not available!".format(str(step_num), str(in_arg)))
+                    raise ValueError("step {} input {} is not available!".format(str(step_num), str(in_arg)))
 
                 # get information of the producer of the input
                 out_primitive_value = \
@@ -439,8 +439,8 @@ class DSBoxTemplate():
                         value_step += self.description_to_configuration(prim)
                 else:
                     # other data format, not supported, raise error
-                    print("Error: Wrong format of the description: "
-                          "Unsupported data format found : ", type(description))
+                    logger.error("Wrong format of the description: \n" + 
+                        "Unsupported data format found : " + str(type(description)))
 
                 values += value_step
 
@@ -457,7 +457,7 @@ class DSBoxTemplate():
         # it maybe a primitive with hyperparameters
 
         if "primitive" not in description:
-            print("Error: Wrong format of the configuration space data: "
+            logger.error("Wrong format of the configuration space data: \n" + 
                   "No primitive name found!")
             return value
 
@@ -559,8 +559,8 @@ class DSBoxTemplate_Dragonfly(DSBoxTemplate):
                     drgnfly_config['domain'][step_id] = added_prims
                 else:
                     # other data format, not supported, raise error
-                    print("Error: Wrong format of the description: "
-                          "Unsupported data format found : ", type())
+                    logger.error("Wrong format of the description: \n" + 
+                          "Unsupported data format found : ", str(type(step_prim_desc)))
                     assert False
 
         return drgnfly_config

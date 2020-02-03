@@ -3888,7 +3888,7 @@ class DistilAudioClassificationTemplate(DSBoxTemplate):
                     "name": "column_parser_step",
                     "primitives": [
                         {
-                            "primitive": "d3m.primitives.data_transformation.column_parser.DataFrameCommon",
+                            "primitive": "d3m.primitives.data_transformation.column_parser.Common",
                             "hyperparameters": {
                                 "parse_semantic_types": (            
                                     "http://schema.org/Boolean",

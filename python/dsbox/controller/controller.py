@@ -779,13 +779,13 @@ class Controller:
         datamart_unit = rest.RESTDatamart(connection_url=system_url)
         augment_res = copy.copy(self.all_dataset)
         candidate_aug_res = []
-        # meta_to_str = self.run_wikifier(augment_res)
-        meta_to_str = ""
+        meta_to_str = self.run_wikifier(augment_res)
+        # meta_to_str = ""
 
         try:
             keywords_from_data = self.config.problem["data_augmentation"][0]["keywords"]
         except:
-            keywords_from_data = ["flood", "duration"]
+            keywords_from_data = []
             # keywords_from_data = ["year", "flood", "duration", "month", "precipitation", "height", "typhoid", "fever", "Relapsing"]
 
         query_search = datamart.DatamartQuery(keywords=keywords_from_data + [meta_to_str], variables=None)
@@ -799,7 +799,7 @@ class Controller:
                                                      # consider_time=False,
                                                      )
         all_results1 = search_unit.get_next_page()
-        candidate_aug_res.extend(all_results1[:2])
+        # candidate_aug_res.extend(all_results1[:2])
 
         # 5. 2, 5, 20 -year flood flood duration in a month
         # 6. precipitation height
@@ -857,20 +857,20 @@ class Controller:
 
         augment_res = copy.copy(self.all_dataset)
 
-        """
-        augment one by one way
+        # augment one by one way
         for i, search_res in enumerate(search_result_list):
             p = multiprocessing.Process(target=augment_test_worker, args=(i, augment_dict, search_res, self.all_dataset))
             jobs.append(p)
             p.start()
-        """
 
-        for i, search_res in enumerate(search_result_list):
-            try:
-                augment_res = augment_test_worker(i, augment_dict, search_res, augment_res)
-                candidate_aug_res.append(search_res)
-            except:
-                pass
+        """
+        # for i, search_res in enumerate(search_result_list):
+        #     try:
+        #         augment_res = augment_test_worker(i, augment_dict, search_res, augment_res)
+        #         candidate_aug_res.append(search_res)
+        #     except:
+        #         pass
+
 
         keywords_from_data = ["Percent", "share" ,"of", "households", "charcoal", "electricity", "burning", "burying", "drinking", "water", "unprotected", "spring", "disposal"]
 
@@ -940,7 +940,6 @@ class Controller:
         rest.pretty_print_search_results(filterd_results)
 
         return filterd_results
-        """
 
 
     def do_data_augmentation(self, input_all_dataset: Dataset) -> Dataset:
