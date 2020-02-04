@@ -6203,7 +6203,7 @@ class ISI_SDNE_Clf(DSBoxTemplate):
                                 'exclude_columns': ()  #[[1]]
                             }
                     }],
-                    "inputs": ["common_profiler_step"]  #_learning"]
+                    "inputs": ["common_profiler_step"]
                     },
                     {
                     "name": "embedding_step",
@@ -6216,7 +6216,7 @@ class ISI_SDNE_Clf(DSBoxTemplate):
                         "alpha":[0.0000001, 0.000001, 0.00001, 0.0001, 0.001, 0.01, .1],
                         "lr":[0.0001, 0.0005, 0.001]
                     },
-                    "inputs": ["common_profiler_step"] #["denormalize_step"]
+                    "inputs": ["denormalize_step"]
                 },
                 {
                 "name": "to_numeric_step",
@@ -6301,16 +6301,15 @@ class ISI_GCN(DSBoxTemplate):
                     "inputs": ["common_profiler_step"]  #_learning"]
                 },
                 {
-                    #"name": "model_step", #
                     "name": "embedding_step",
                     "primitives": [
                         {
                             "primitive": "d3m.primitives.feature_construction.gcn_mixhop.DSBOX"
                         }
                     ],
-                    "inputs": ["extract_graph_tables", "extract_target_step"]
+                    "inputs": ["readgraph_step", "extract_target_step"]
                 },
-                *TemplateSteps.classifier_model(feature_name="to_numeric_step",
+                *TemplateSteps.classifier_model(feature_name="embedding_step",
                                                 target_name='extract_target_step')
             ]
         }
