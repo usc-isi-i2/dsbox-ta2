@@ -6183,11 +6183,16 @@ class ISI_SDNE_Clf(DSBoxTemplate):
                     "inputs": ["template_input"]
                 },
                 {
-                    "name": "to_learning_dataframe",
+                    "name": "to_dataframe_step",
                     "primitives": ["d3m.primitives.data_transformation.dataset_to_dataframe.Common"],
                     "inputs": ["denormalize_step"]
                 },
-                              {
+                {
+                    "name": "common_profiler_step",
+                    "primitives": ["d3m.primitives.schema_discovery.profiler.Common"],
+                    "inputs": ["to_dataframe_step"]
+                },
+                {
                     "name": "extract_target_step",
                     "primitives": [{
                         "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.Common",
@@ -6198,7 +6203,7 @@ class ISI_SDNE_Clf(DSBoxTemplate):
                                 'exclude_columns': ()  #[[1]]
                             }
                     }],
-                    "inputs": ["to_learning_dataframe"]  #_learning"]
+                    "inputs": ["common_profiler_step"]  #_learning"]
                     },
                     {
                     "name": "embedding_step",
@@ -6211,7 +6216,7 @@ class ISI_SDNE_Clf(DSBoxTemplate):
                         "alpha":[0.0000001, 0.000001, 0.00001, 0.0001, 0.001, 0.01, .1],
                         "lr":[0.0001, 0.0005, 0.001]
                     },
-                    "inputs": ["template_input"] #["denormalize_step"]
+                    "inputs": ["common_profiler_step"] #["denormalize_step"]
                 },
                 {
                 "name": "to_numeric_step",
@@ -6273,9 +6278,14 @@ class ISI_GCN(DSBoxTemplate):
                     "inputs": ["template_input"]
                 },
                 {
-                    "name": "to_learning_dataframe",
+                    "name": "to_dataframe_step",
                     "primitives": ["d3m.primitives.data_transformation.dataset_to_dataframe.Common"],
                     "inputs": ["readgraph_step"]
+                },
+                {
+                    "name": "common_profiler_step",
+                    "primitives": ["d3m.primitives.schema_discovery.profiler.Common"],
+                    "inputs": ["to_dataframe_step"]
                 },
                 {
                     "name": "extract_target_step",
@@ -6288,7 +6298,7 @@ class ISI_GCN(DSBoxTemplate):
                             'exclude_columns': ()
                         }
                     }],
-                    "inputs": ["to_learning_dataframe"]  #_learning"]
+                    "inputs": ["common_profiler_step"]  #_learning"]
                 },
                 {
                     #"name": "model_step", #

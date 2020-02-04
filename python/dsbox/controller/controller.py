@@ -842,6 +842,7 @@ class Controller:
                         res_dict[augment_num] = True
                         self._logger.info("Agument No.{} success".format(augment_num))
             except:
+                augment_res = prev_augment_res
                 self._logger.info("Agument No.{} failed with error".format(augment_num))
                 res_dict[augment_num] = False
             return augment_res
@@ -1191,6 +1192,11 @@ class Controller:
             self._dataset_preprocessing()
 
     def _dataset_preprocessing(self):
+        """
+            do some preparations for some special type problems
+            1. run in serial mode, if in `run_series_taskkeywords`
+            2. not run denormalize primitive, if in `not_run_denomormalize`
+        """
         try:
             task_keywords_set = set([x.name.lower() for x in self.config.problem['problem']['task_keywords']])
         except:
