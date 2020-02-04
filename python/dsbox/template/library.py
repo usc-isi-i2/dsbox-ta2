@@ -248,7 +248,6 @@ class TemplateLibrary:
         # self.templates.append(HorizontalTemplate)
         # self.templates.append(DataAugmentRegressionTemplate)
         # default tabular templates, encompassing many of the templates below
-        """
         self.templates.append(CMUSemisupervisedClassificationTemplate)
         self.templates.append(DefaultSemisupervisedClassificationTemplate)
         self.templates.append(DefaultClassificationTemplate)
@@ -356,13 +355,12 @@ class TemplateLibrary:
 
         # Multi-label problems
         self.templates.append(MultiLabelTemplate),
-
+        
         # dsbox all in one templates
         # move dsboxClassificationTemplate to last execution because sometimes this template have bugs
         # self.templates.append(DistilPreprocessingTemplate)
         self.templates.append(dsboxClassificationTemplate)
         self.templates.append(dsboxRegressionTemplate)
-        """
         self._validate_templates(self.templates)
 
     def _load_single_inline_templates(self, template_name):
