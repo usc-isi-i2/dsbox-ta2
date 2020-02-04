@@ -248,6 +248,7 @@ class TemplateLibrary:
         # self.templates.append(HorizontalTemplate)
         # self.templates.append(DataAugmentRegressionTemplate)
         # default tabular templates, encompassing many of the templates below
+        """
         self.templates.append(CMUSemisupervisedClassificationTemplate)
         self.templates.append(DefaultSemisupervisedClassificationTemplate)
         self.templates.append(DefaultClassificationTemplate)
@@ -304,7 +305,9 @@ class TemplateLibrary:
         self.templates.append(DistilacledProblemTemplate)
         self.templates.append(CMUacledProblemTemplate)
         self.templates.append(DefaultTimeseriesCollectionTemplate)
+        """
         self.templates.append(TimeseriesLstmFcnTemplate)
+        """
         self.templates.append(TimeSeriesForcastingTestingTemplate)
         self.templates.append(ARIMATemplate)
         self.templates.append(DefaultTimeseriesRegressionTemplate)
@@ -359,6 +362,7 @@ class TemplateLibrary:
         # self.templates.append(DistilPreprocessingTemplate)
         self.templates.append(dsboxClassificationTemplate)
         self.templates.append(dsboxRegressionTemplate)
+        """
         self._validate_templates(self.templates)
 
     def _load_single_inline_templates(self, template_name):
