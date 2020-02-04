@@ -739,4 +739,7 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
         template_info['exception_message'] = exception.getvalue()
 
         with open(os.path.join(failed_dir, stem + '.failure.json'), 'w') as out:
-            json.dump(template_info, out)
+            temp = json.dumps(template_info)
+            temp = temp.replace("\n", "\\n").split("\\n")
+            for each_line in temp:
+                out.writelines(each_line)

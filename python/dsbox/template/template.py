@@ -197,45 +197,45 @@ class DSBoxTemplate():
                     logger.error("step {} input {} is not available!".format(str(step_num), str(in_arg)))
                     raise ValueError("step {} input {} is not available!".format(str(step_num), str(in_arg)))
 
+                # updated v2020.2.5 not check this anymore because of hard code
                 # get information of the producer of the input
-                out_primitive_value = \
-                    d3m_index.get_primitive(binding[in_arg]["primitive"]).metadata.query()[
-                        "primitive_code"]["class_type_arguments"]["Outputs"]
-                if not self.iocompare(in_primitive_value,
-                                      out_primitive_value):
-                    check_key = (str(out_primitive_value),
-                                 str(in_primitive_value))
-                    print("[INFO] Different types!")
-                    try:
-                        # inter_name = "{}_{}_{}".format(name,in_arg,solution)
-                        solution = self.addstep_mapper[check_key]
-                        inter_name = "{}_{}_{}".format(name, in_arg, solution)
-                        intermediate_step = {
-                            "primitive": solution,
-                            "hyperparameters": {},
-                            "inputs": [in_arg]
-                        }
-                        # binding[inter_name] = intermediate_step
-                        # binding[name]['inputs'][0] = inter_name
-                        # checked_binding[inter_name] = intermediate_step
-                        pos = binding[name]["inputs"].index(in_arg)
-                        # checked_binding[name]["inputs"][pos] = inter_name
-                        checked_binding[inter_name] = intermediate_step
-                        fill_in[pos] = in_arg
-                        sequence.append(inter_name)
-                        print("[INFO] ", solution, "added to step",
-                              name)
-                    except:
-                        print("Warning!", name,
-                              "'s primitive",
-                              # Fixme:
-                              # conf_step[-1]["primitive"],
-                              "'s inputs does not match",
-                              binding[in_arg][-1]["primitive"],
-                              "and there is no converter found")
+                # out_primitive_value = \
+                #     d3m_index.get_primitive(binding[in_arg]["primitive"]).metadata.query()[
+                #         "primitive_code"]["class_type_arguments"]["Outputs"]
+                # if not self.iocompare(in_primitive_value,
+                #                       out_primitive_value):
+                #     check_key = (str(out_primitive_value),
+                #                  str(in_primitive_value))
+                #     print("[INFO] Different types!")
+                #     try:
+                #         # inter_name = "{}_{}_{}".format(name,in_arg,solution)
+                #         solution = self.addstep_mapper[check_key]
+                #         inter_name = "{}_{}_{}".format(name, in_arg, solution)
+                #         intermediate_step = {
+                #             "primitive": solution,
+                #             "hyperparameters": {},
+                #             "inputs": [in_arg]
+                #         }
+                #         # binding[inter_name] = intermediate_step
+                #         # binding[name]['inputs'][0] = inter_name
+                #         # checked_binding[inter_name] = intermediate_step
+                #         pos = binding[name]["inputs"].index(in_arg)
+                #         # checked_binding[name]["inputs"][pos] = inter_name
+                #         checked_binding[inter_name] = intermediate_step
+                #         fill_in[pos] = in_arg
+                #         sequence.append(inter_name)
+                #         print("[INFO] ", solution, "added to step",
+                #               name)
+                #     except:
+                #         print("Warning!", name,
+                #               "'s primitive",
+                #               # Fixme:
+                #               # conf_step[-1]["primitive"],
+                #               "'s inputs does not match",
+                #               binding[in_arg][-1]["primitive"],
+                #               "and there is no converter found")
 
             # temporary fix for CMU clustering tempalte (with special input called "reference")
-
             mystep = {
                 "primitive": binding[name]["primitive"],
                 "hyperparameters": binding[name]["hyperparameters"],

@@ -1206,7 +1206,7 @@ class Controller:
         self._check_and_set_dataset_metadata()
 
         # first apply denormalize on input dataset if needed
-        not_run_denomormalize = {"graph", "audio"}
+        not_run_denomormalize = {"graph", "audio", "timeseries"}
         intersect_res = task_keywords_set.intersection(not_run_denomormalize)
         if len(intersect_res) > 0:
             self._logger.warning("Not run denormalize primitive for speical task keywords")

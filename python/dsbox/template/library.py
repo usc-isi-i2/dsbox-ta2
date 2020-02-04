@@ -6207,15 +6207,15 @@ class ISI_SDNE_Clf(DSBoxTemplate):
                     },
                     {
                     "name": "embedding_step",
-                    "primitives": [
-                        "d3m.primitives.feature_construction.sdne.DSBOX"
-                    ],
-                    "hyperparameters": {
-                        "epochs": [20, 50, 100, 200, 499],
-                        "beta":[1, 2, 4, 8, 16, 32, 64],
-                        "alpha":[0.0000001, 0.000001, 0.00001, 0.0001, 0.001, 0.01, .1],
-                        "lr":[0.0001, 0.0005, 0.001]
-                    },
+                    "primitives": [{
+                        "primitive": "d3m.primitives.feature_construction.sdne.DSBOX",
+                        "hyperparameters": {
+                            "epochs": [20, 50, 100, 200, 499],
+                            "beta":[1, 2, 4, 8, 16, 32, 64],
+                            "alpha":[0.0000001, 0.000001, 0.00001, 0.0001, 0.001, 0.01, .1],
+                            "lr":[0.0001, 0.0005, 0.001]
+                        }
+                    }],
                     "inputs": ["denormalize_step"]
                 },
                 {
