@@ -4030,7 +4030,7 @@ class DistilAudioClassificationTemplate(DSBoxTemplate):
                             }
                         }
                     ]
-                }
+                },
                 {
                     "name": "dataset_loader_step",
                     "primitives": ["d3m.primitives.data_preprocessing.audio_reader.DistilAudioDatasetLoader"],
