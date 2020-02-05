@@ -4033,12 +4033,13 @@ class DistilAudioClassificationTemplate(DSBoxTemplate):
                                 "sample_size": [0.75]
                             }
                         }
-                    ]
+                    ],
+                    "inputs" : ["template_input"]
                 },
                 {
                     "name": "dataset_loader_step",
                     "primitives": ["d3m.primitives.data_preprocessing.audio_reader.DistilAudioDatasetLoader"],
-                    "inputs": ["template_input"]
+                    "inputs": ["sampler_step"]
                 },
                 {
                     "name": "column_parser_step",
@@ -4046,11 +4047,12 @@ class DistilAudioClassificationTemplate(DSBoxTemplate):
                         {
                             "primitive": "d3m.primitives.data_transformation.column_parser.Common",
                             "hyperparameters": {
-                                "parse_semantic_types": (
+                                "parse_semantic_types": [(
                                     "http://schema.org/Boolean",
                                     "http://schema.org/Integer",
                                     "http://schema.org/Float",
-                                    "https://metadata.datadrivendiscovery.org/types/FloatVector"),
+                                    "https://metadata.datadrivendiscovery.org/types/FloatVector")
+                                ],
                             }
 
                         }],
