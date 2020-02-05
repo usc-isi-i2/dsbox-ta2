@@ -4025,7 +4025,7 @@ class DistilAudioClassificationTemplate(DSBoxTemplate):
                     "primitives" :[
                         {
                             "primitive": "d3m.primitives.data_preprocessing.dataset_sample.Common",
-                            "hyperparameters" {
+                            "hyperparameters" :{
                                 "sample_size": [0.75]
                             }
                         }
