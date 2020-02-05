@@ -157,7 +157,7 @@ class Controller:
         3. _load_schema
         4. _log_init
         5. _log_search_results
-#         6. _process_pipeline_submission
+        6. _process_pipeline_submission
         7. _run_BanditDimSearch
         8. _run_ParallelBaseSearch
         9. _run_RandomDimSearch
@@ -345,40 +345,40 @@ class Controller:
         #     raise NotSupportedError(
         #         '[ERROR] Save training results Failed!')
 
-    # No needed. Dummy TA3 will call export solutions
-    # def _process_pipeline_submission(self) -> None:
-    #     limit = self.config.rank_solutions_limit
 
-    #     ranked_list = []
-    #     rank_dir = pathlib.Path(self.config.pipelines_ranked_dir)
-    #     temp_dir = pathlib.Path(self.config.pipelines_ranked_temp_dir)
+    def _process_pipeline_submission(self) -> None:
+        limit = self.config.rank_solutions_limit
 
-    #     # Signal subprocesses running fitted pipeline to stop writing to pipelines_ranked
-    #     # directory But, it does not seems to be working. Looks like the OS is flushing
-    #     # the files after the subprocesses complete.
-    #     (temp_dir / '.done').touch()
-    #     self._logger.info(f"Created done_file: {temp_dir / '.done'}")
+        ranked_list = []
+        rank_dir = pathlib.Path(self.config.pipelines_ranked_dir)
+        temp_dir = pathlib.Path(self.config.pipelines_ranked_temp_dir)
 
-    #     for rank_file in temp_dir.glob('*.rank'):
-    #         try:
-    #             rank = float(open(temp_dir / rank_file).read())
-    #             ranked_list.append((rank, rank_file))
-    #         except Exception:
-    #             self._logger.info(f"Cannot parse pipeline's rank file: {rank_file}")
+        # Signal subprocesses running fitted pipeline to stop writing to pipelines_ranked
+        # directory But, it does not seems to be working. Looks like the OS is flushing
+        # the files after the subprocesses complete.
+        (temp_dir / '.done').touch()
+        self._logger.info(f"Created done_file: {temp_dir / '.done'}")
 
-    #     if not ranked_list:
-    #         self._logger.warn('Warning no ranked pipelines!!!!')
+        for rank_file in temp_dir.glob('*.rank'):
+            try:
+                rank = float(open(temp_dir / rank_file).read())
+                ranked_list.append((rank, rank_file))
+            except Exception:
+                self._logger.info(f"Cannot parse pipeline's rank file: {rank_file}")
 
-    #     ranked_list = sorted(ranked_list, key=operator.itemgetter(0))
-    #     self._logger.info(f'Number of ranked pipelines generated: {len(ranked_list)}')
+        if not ranked_list:
+            self._logger.warn('Warning no ranked pipelines!!!!')
 
-    #     # Too many solutions. Remove pipelines with larger rank values
-    #     if len(ranked_list) > limit:
-    #         for (rank, rank_file) in ranked_list[:limit]:
-    #             self._logger.info(f"copy {temp_dir / rank_file} to {rank_dir}")
-    #             shutil.copy(temp_dir / rank_file, rank_dir)
-    #             self._logger.info(f"copy {temp_dir / rank_file}.with_suffix('.json') to {rank_dir}")
-    #             shutil.copy(temp_dir / rank_file.with_suffix('.json'), rank_dir)
+        ranked_list = sorted(ranked_list, key=operator.itemgetter(0))
+        self._logger.info(f'Number of ranked pipelines generated: {len(ranked_list)}')
+
+        # Too many solutions. Remove pipelines with larger rank values
+        if len(ranked_list) > limit:
+            for (rank, rank_file) in ranked_list[:limit]:
+                self._logger.info(f"copy {temp_dir / rank_file} to {rank_dir}")
+                shutil.copy(temp_dir / rank_file, rank_dir)
+                self._logger.info(f"copy {temp_dir / rank_file}.with_suffix('.json') to {rank_dir}")
+                shutil.copy(temp_dir / rank_file.with_suffix('.json'), rank_dir)
 
 
     # def _process_pipeline_submission_old(self) -> None:
@@ -1362,7 +1362,7 @@ class Controller:
         else:
             task_type = self.problem_info["task_type"]
             self._logger.info("split start!")
-            
+
             if "FORECASTING" in task_type:
                 from common_primitives.kfold_split_timeseries import Hyperparams as hyper_k_fold_timeseries, KFoldTimeSeriesSplitPrimitive
                 hyperparams_split = hyper_k_fold_timeseries.defaults()
@@ -1538,8 +1538,7 @@ class Controller:
         if os.getpid() == self.main_pid:
             self._logger.warning("write_training_results")
             self._did_we_post_process = True
-            # No longer needed. Dummy TA3 will call export solutions
-            # self._process_pipeline_submission()
+            self._process_pipeline_submission()
 
         return None
 
