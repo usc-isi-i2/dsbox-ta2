@@ -444,6 +444,7 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
             self.controller.fit_pipeline()
             self.controller.produce_pipeline()
         except:
+            logging.exception("fit_produce_pipeline")
             traceback.print_exc()
             response = GetSearchSolutionsResultsResponse(
                 progress=Progress(
@@ -615,6 +616,7 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
         try:
             fitted_pipeline.produce(inputs=[dataset])
         except:
+            logging.exception("GetProduceSolutionResults")
             traceback.print_exc()
             response = GetProduceSolutionResultsResponse(
                 progress=Progress(
@@ -721,6 +723,7 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
         try:
             old_fitted_pipeline = FittedPipeline.load(fitted_pipeline_id=fitted_pipeline_id, folder_loc=self.config.output_dir)
         except:
+            logging.exception("GetFitSolutionResults 1")
             traceback.print_exc()
             response = GetFitSolutionResultsResponse(
                 progress=Progress(
@@ -771,6 +774,7 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
                 fitted_pipeline.produce(inputs=[dataset])
                 fitted_pipeline.save(self.config.output_dir)
             except:
+                logging.exception("GetFitSolutionResults 2")
                 traceback.print_exc()
                 response = GetFitSolutionResultsResponse(
                     progress=Progress(

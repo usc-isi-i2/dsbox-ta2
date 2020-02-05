@@ -10,6 +10,7 @@ import typing
 import uuid
 
 from d3m.metadata.pipeline import Pipeline, Resolver, StepBase, PrimitiveStep, SubpipelineStep
+from d3m.metadata.problem import PerformanceMetric
 from d3m import exceptions
 from d3m import utils as d3m_utils
 
@@ -59,6 +60,7 @@ class FittedPipeline:
     subpipelines_subdir: str = 'subpipelines'
     pipeline_runs_subdir: str = 'pipeline_runs'
 
+    pipelines_ranked_subdir: str = 'pipelines_ranked'
     pipelines_ranked_temp_subdir: str = 'pipelines_ranked_temp'
 
     # DSBox dirs
@@ -357,13 +359,16 @@ class FittedPipeline:
 
         # Save ranked version
         done_file = os.path.join(folder_loc, self.pipelines_ranked_temp_subdir, '.done')
-        _logger.info(f'done_file: {done_file}')
+        # _logger.info(f'done_file: {done_file}')
         if os.path.exists(done_file):
             # Skip if controller is already submitting the pipelines
-            _logger.info('Skipping Write to pipelines_ranked_temp directory')
+            _logger.info('Skipping Write to pipelines_ranked directory')
         else:
-            self.save_schema_only(folder_loc, self.pipelines_ranked_temp_subdir)
-            self.save_rank(os.path.join(folder_loc, self.pipelines_ranked_temp_subdir))
+            self.save_schema_only(folder_loc, self.pipelines_ranked_subdir)
+            self.save_rank(os.path.join(folder_loc, self.pipelines_ranked_subdir))
+
+        self.save_schema_only(folder_loc, self.pipelines_ranked_temp_subdir)
+        self.save_rank(os.path.join(folder_loc, self.pipelines_ranked_temp_subdir))
 
         # DSBox
         self.save_pipeline_info(os.path.join(folder_loc, self.pipelines_info_subdir))
