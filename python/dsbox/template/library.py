@@ -3201,7 +3201,7 @@ class TA1VggImageProcessingRegressionTemplate(DSBoxTemplate):
                             "primitive": "d3m.primitives.feature_extraction.pca.SKlearn",
                             "hyperparameters": {
                                 'add_index_columns': [True],
-                                # 'use_semantic_types': [True]
+                                'use_semantic_types': [True]
                             }
                         }
                     ],
@@ -3300,7 +3300,7 @@ class DefaultImageProcessingRegressionTemplate(DSBoxTemplate):
                             "primitive": "d3m.primitives.feature_extraction.pca.SKlearn",
                             "hyperparameters": {
                                 'add_index_columns': [True],
-                                # 'use_semantic_types': [True]
+                                'use_semantic_types': [True]
                             }
                         }
                     ],
@@ -3418,7 +3418,7 @@ class DefaultImageProcessingClassificationTemplate(DSBoxTemplate):
                             "primitive": "d3m.primitives.feature_extraction.pca.SKlearn",
                             "hyperparameters": {
                                 'add_index_columns': [True],
-                                # 'use_semantic_types': [True]
+                                'use_semantic_types': [True]
                             }
                         }
                     ],
@@ -3437,6 +3437,10 @@ class DefaultImageProcessingClassificationTemplate(DSBoxTemplate):
                         },
                         {
                             "primitive": "d3m.primitives.classification.logistic_regression.SKlearn",
+                            "hyperparameters": {
+                                'add_index_columns': [True],
+                                'use_semantic_types':[True],
+                            }
                         }
                     ],
                     "inputs": ["PCA_step", "extract_target_step"]
@@ -6207,7 +6211,7 @@ class ImageProcessingClassificationTemplate2(DSBoxTemplate):
                             "primitive": "d3m.primitives.feature_extraction.pca.SKlearn",
                             "hyperparameters": {
                                 'add_index_columns': [True],
-                                # 'use_semantic_types': [True]
+                                'use_semantic_types': [True]
                             }
                         },
                         "d3m.primitives.data_preprocessing.do_nothing.DSBOX"
