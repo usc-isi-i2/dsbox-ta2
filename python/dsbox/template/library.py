@@ -2618,9 +2618,9 @@ class DistilObjectDetectionTemplate(DSBoxTemplate):
                         {
                             "primitive": "d3m.primitives.object_detection.retinanet",
                             "hyperparameters": {
-                                "batch_size": 4,
-                                "learning_rate": [(0.0001)],
-                                "n_epochs": [(30), (50), (100)],
+                                "batch_size": [4],
+                                "learning_rate": [0.0001],
+                                "n_epochs": [30, 50, 100],
                             }
                         }
                     ],
@@ -6225,7 +6225,7 @@ class ImageProcessingClassificationTemplate2(DSBoxTemplate):
                                 # 'min_samples_leaf': [1, 2, 4],
                                 # 'min_samples_split': [2, 5, 10],
                                 'n_more_estimators': [10, 50, 100, 1000],
-                                'n_estimators': [10, 50, 100, 1000]
+                                'n_estimators': [10, 50, 100, 1000],
                                 "n_jobs": [int(CURRENT_CPU_COUNT * 0.7)]
                             }
                         },
