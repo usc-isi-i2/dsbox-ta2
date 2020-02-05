@@ -1,6 +1,7 @@
 import copy
 import os
 import logging
+import pickle
 import psutil
 import time
 import threading
@@ -41,6 +42,42 @@ class WorkerQueueHandler(logging.handlers.QueueHandler):
     #     print('enqueue:', record)
     #     return super().enqueue(record)
 
+class QueueWrapper:
+    def __init__(self, name, queue):
+        self.name = name
+        self.queue = queue
+
+    def put(self, item, block=True, timeout=None):
+        if _logger.getEffectiveLevel() <= 10:
+            size = len(pickle.dumps(item))
+            if size > 10**7:
+                _logger.warning('Large message: %s queue: %d mb', self.name, size/10**6)
+        self.queue.put(item, block=block, timeout=timeout)
+
+    def put_nowait(self, item):
+        return self.queue.put(item, False)
+
+    def get(self, block=True, timeout=None):
+        return self.queue.get(block=block, timeout=timeout)
+
+    def get_nowaite(self):
+        return self.queue.get(False)
+
+    def qsize(self):
+        return self.queue.qsize()
+
+    def empty(self):
+        return self.queue.empty()
+
+    def full(self):
+        return self.queue.full()
+
+    def task_done(self):
+        self.queue.task_done()
+
+    def join(self):
+        self.queue.join()
+
 
 class DistributedJobManager:
     def __init__(self, proc_num: int = 4, timer_response=TimerResponse.STOP_WORKER_JOBS):
@@ -52,9 +89,9 @@ class DistributedJobManager:
 
         self.manager = Manager()
         # self.manager.start()
-        self.arguments_queue: Queue = self.manager.Queue()
-        self.result_queue: Queue = self.manager.Queue()
-        self.log_queue: Queue = self.manager.Queue()
+        self.arguments_queue: Queue = QueueWrapper('arguments',  self.manager.Queue())
+        self.result_queue: Queue = QueueWrapper('result', self.manager.Queue())
+        self.log_queue: Queue = QueueWrapper('log', self.manager.Queue())
 
         self.argument_lock = self.manager.Lock()
         self.result_lock = self.manager.Lock()
