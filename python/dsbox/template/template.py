@@ -11,7 +11,11 @@ from d3m.metadata import base as metadata_base
 from d3m.metadata.pipeline import Pipeline, PrimitiveStep
 from .configuration_space import SimpleConfigurationSpace, ConfigurationPoint
 
-DISTIL_SPEICAL_PRIMITIVES = ("d3m.primitives.data_transformation.load_single_graph.DistilSingleGraphLoader".lower(), "d3m.primitives.data_transformation.load_single_graph.DistilSingleGraphLoader".lower())
+DISTIL_SPEICAL_PRIMITIVES = (
+    "d3m.primitives.data_transformation.load_single_graph.DistilSingleGraphLoader".lower(), 
+    "d3m.primitives.data_transformation.load_single_graph.DistilSingleGraphLoader".lower(),
+    "d3m.primitives.data_preprocessing.audio_reader.DistilAudioDatasetLoader".lower()
+    )
 logger = logging.getLogger(__name__)
 
 class HyperparamDirective(utils.Enum):

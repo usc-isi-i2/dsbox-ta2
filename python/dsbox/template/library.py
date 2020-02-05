@@ -26,10 +26,14 @@ else:
     SEMANTIC_TYPES = D3M_ROLE_CONSTANTS_TO_SEMANTIC_TYPES.copy()
     SEMANTIC_TYPES.update(D3M_RESOURCE_TYPE_CONSTANTS_TO_SEMANTIC_TYPES)
     SEMANTIC_TYPES.update(D3M_COLUMN_TYPE_CONSTANTS_TO_SEMANTIC_TYPES)
+
+import multiprocessing
+CURRENT_CPU_COUNT = multiprocessing.cpu_count()
 """
 Attention!!!!!!
 For anyone who add new templates here:
-DO NOT ADD denomalize step from the original pipeline to here,
+DO NOT ADD denomalize step from the original pipeline to here, 
+(except problem related to graph, audio, time_series)
 we will do denormalize at initilaization step
 so everything passed from template_input is the Datasets already denormalized!
 Updated v2019.11.14:
@@ -139,7 +143,7 @@ class TemplateLibrary:
             "DefaultObjectDetectionTemplate": DefaultObjectDetectionTemplate,
             "DefaultObjectDetectionTemplateFittedWeight": DefaultObjectDetectionTemplateFittedWeight,
             "DefaultObjectDetectionTemplateQuicker": DefaultObjectDetectionTemplateFittedWeight,
-            "JPLObjectDetectionTemplate":JPLObjectDetectionTemplate,
+            "DistilObjectDetectionTemplate":DistilObjectDetectionTemplate,
             "DefaultVideoClassificationTemplate": DefaultVideoClassificationTemplate,
 
             # Specialized problems: privileged data
@@ -284,10 +288,10 @@ class TemplateLibrary:
 
         # Image related
         self.templates.append(DefaultImageProcessingRegressionTemplate)
-        self.templates.append(JPLObjectDetectionTemplate)
-        self.templates.append(DefaultObjectDetectionTemplateQuicker)
         self.templates.append(DefaultObjectDetectionTemplateFittedWeight)
+        self.templates.append(DefaultObjectDetectionTemplateQuicker)
         self.templates.append(DefaultObjectDetectionTemplate)
+        self.templates.append(DistilObjectDetectionTemplate)
         self.templates.append(DefaultVideoClassificationTemplate)
         self.templates.append(DefaultImageProcessingClassificationTemplate)
         self.templates.append(TA1VggImageProcessingRegressionTemplate)
@@ -355,7 +359,7 @@ class TemplateLibrary:
 
         # Multi-label problems
         self.templates.append(MultiLabelTemplate),
-        
+
         # dsbox all in one templates
         # move dsboxClassificationTemplate to last execution because sometimes this template have bugs
         # self.templates.append(DistilPreprocessingTemplate)
@@ -2587,14 +2591,14 @@ class DefaultObjectDetectionTemplateFittedWeight(DSBoxTemplate):
         }
 
 
-class JPLObjectDetectionTemplate(DSBoxTemplate):
+class DistilObjectDetectionTemplate(DSBoxTemplate):
     def __init__(self):
         DSBoxTemplate.__init__(self)
         self.template = {
-            "name": "JPL_object_detection_template",
+            "name": "DistilObjectDetectionTemplate",
             "taskType": {TaskKeyword.OBJECT_DETECTION.name},
             "taskSubtype": {TaskKeyword.OBJECT_DETECTION.name},
-            "inputType": {"table", "image"},  # See SEMANTIC_TYPES.keys() for range of values
+            "inputType": {"image"},  # See SEMANTIC_TYPES.keys() for range of values
             "output": "model_step",  # Name of the final step generating the prediction
             "target": "extract_target_step",  # Name of the step generating the ground truth
             "steps": [
@@ -2608,53 +2612,19 @@ class JPLObjectDetectionTemplate(DSBoxTemplate):
                     "primitives": ["d3m.primitives.schema_discovery.profiler.Common"],
                     "inputs": ["to_dataframe_step"]
                 },
-                # read X,Y value
-                {
-                    "name": "extrac_step",# step 2
-                    "primitives": [{
-                        "primitive": "d3m.primitives.data_transformation.column_parser.Common",
-                        "hyperparameters":
-                            {
-                                'parse_semantic_types': (
-                                    "http://schema.org/Boolean",
-                                  "http://schema.org/Integer",
-                                  "http://schema.org/Float",
-                                  "https://metadata.datadrivendiscovery.org/types/FloatVector",
-                                  "http://schema.org/DateTime"),
-                            }
-                    }],
-                    "inputs": ["common_profiler_step"]
-                },
-                {
-                    "name": "image_reader_step", # step 3
-                    "primitives": [
-                        {
-                            "primitive": "d3m.primitives.data_preprocessing.image_reader.Common",
-                            "hyperparameters": {
-                            }
-                        }
-                    ],
-                    "inputs": ["extrac_step"]
-                },
                 {
                     "name": "model_step", # step 4
                     "primitives": [
-                        # {
-                        #     "primitive": "d3m.primitives.object_detection.faster_rcnn.JPLPrimitives",
-                        #     "hyperparameters": {
-                        #         "use_gpu":[False, True],
-                        #         "classes":['person'],
-                        #         "confidence":[0.7, 0.8, 0.9],
-                        #     }
-                        # },
                         {
-                            "primitive": "d3m.primitives.object_detection.retina_net.JPLPrimitives",
+                            "primitive": "d3m.primitives.object_detection.retinanet",
                             "hyperparameters": {
-                                "batch_size": [3],
+                                "batch_size": 4,
+                                "learning_rate": [(0.0001)],
+                                "n_epochs": [(30), (50), (100)],
                             }
                         }
                     ],
-                    "inputs": ["image_reader_step", "image_reader_step"]
+                    "inputs": ["extract_file_step", "extract_target_step"]
                 },
             ]
         }
@@ -3345,7 +3315,11 @@ class DefaultImageProcessingRegressionTemplate(DSBoxTemplate):
                             "hyperparameters": {
                                 'add_index_columns': [True],
                                 'use_semantic_types':[True],
+                            },
+                            "primitive": "d3m.primitives.regression.ridge.SKlearn", 
+                            "hyperparameters": {
                             }
+
                         },
                         "d3m.primitives.regression.gradient_boosting.SKlearn"
                     ],
@@ -4047,6 +4021,17 @@ class DistilAudioClassificationTemplate(DSBoxTemplate):
             "target": "extract_target_step",  # Name of the step generating the ground truth
             "steps": [
                 {
+                    "name": "sampler_step",
+                    "primitives" :[
+                        {
+                            "primitive": "d3m.primitives.data_preprocessing.dataset_sample.Common",
+                            "hyperparameters" {
+                                "sample_size": [0.75]
+                            }
+                        }
+                    ]
+                }
+                {
                     "name": "dataset_loader_step",
                     "primitives": ["d3m.primitives.data_preprocessing.audio_reader.DistilAudioDatasetLoader"],
                     "inputs": ["template_input"]
@@ -4090,7 +4075,7 @@ class DistilAudioClassificationTemplate(DSBoxTemplate):
                         "hyperparameters":
                             {}
                     }],
-                    "inputs": ["column_parser_step"]
+                    "inputs": ["dataset_loader_step_produce_target"]
                 },
                 {
                     "name": "model_step",
@@ -6235,17 +6220,29 @@ class ImageProcessingClassificationTemplate2(DSBoxTemplate):
                         {
                             "primitive": "d3m.primitives.classification.xgboost_gbtree.Common",
                             "hyperparameters": {
+                                'learning_rate': [0.001, 0.1],
+                                'max_depth': [15, 30, None],
+                                # 'min_samples_leaf': [1, 2, 4],
+                                # 'min_samples_split': [2, 5, 10],
+                                'n_more_estimators': [10, 50, 100, 1000],
+                                'n_estimators': [10, 50, 100, 1000]
+                                "n_jobs": [int(CURRENT_CPU_COUNT * 0.7)]
                             }
                         },
                         {
                             "primitive": "d3m.primitives.classification.xgboost_dart.Common",
                             "hyperparameters": {
+                                "n_jobs": [int(CURRENT_CPU_COUNT * 0.7)]
                             }
                         },
                         {
                             "primitive": "d3m.primitives.classification.linear_discriminant_analysis.SKlearn",
                             "hyperparameters": {
                             }
+                        },
+                        {
+                            "primitive": "d3m.primitives.classification.passive_aggressive.SKlearn",
+                            "hyperparameters": {}
                         }
                     ],
                     "inputs": ["PCA_step", "extract_target_step"]
