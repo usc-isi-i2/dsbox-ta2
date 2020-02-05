@@ -359,7 +359,7 @@ class FittedPipeline:
 
         # Save ranked version
         done_file = os.path.join(folder_loc, self.pipelines_ranked_temp_subdir, '.done')
-        _logger.info(f'done_file: {done_file}')
+        # _logger.info(f'done_file: {done_file}')
         if os.path.exists(done_file):
             # Skip if controller is already submitting the pipelines
             _logger.info('Skipping Write to pipelines_ranked directory')

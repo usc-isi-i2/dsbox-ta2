@@ -359,9 +359,9 @@ class Controller:
         (temp_dir / '.done').touch()
         self._logger.info(f"Created done_file: {temp_dir / '.done'}")
 
-        for rank_file in temp_dir.glob('*.rank'):
+        for rank_file in rank_dir.glob('*.rank'):
             try:
-                rank = float(open(temp_dir / rank_file).read())
+                rank = float(open(rank_file).read())
                 ranked_list.append((rank, rank_file))
             except Exception:
                 self._logger.info(f"Cannot parse pipeline's rank file: {rank_file}")
@@ -374,11 +374,47 @@ class Controller:
 
         # Too many solutions. Remove pipelines with larger rank values
         if len(ranked_list) > limit:
-            for (rank, rank_file) in ranked_list[:limit]:
-                self._logger.info(f"copy {temp_dir / rank_file} to {rank_dir}")
-                shutil.copy(temp_dir / rank_file, rank_dir)
-                self._logger.info(f"copy {temp_dir / rank_file}.with_suffix('.json') to {rank_dir}")
-                shutil.copy(temp_dir / rank_file.with_suffix('.json'), rank_dir)
+            for i, (rank, rank_file) in enumerate(ranked_list):
+                if i < limit:
+                    self._logger.info(f"Keeping pipeline rank {rank} file {rank_file}")
+                else:
+                    self._logger.info(f"Removing pipeline rank {rank} file {rank_file}")
+                    os.remove(rank_file.with_suffix('.json'))
+                    os.remove(rank_file.with_suffix('.rank'))
+
+    # def _process_pipeline_submission(self) -> None:
+    #     limit = self.config.rank_solutions_limit
+
+    #     ranked_list = []
+    #     rank_dir = pathlib.Path(self.config.pipelines_ranked_dir)
+    #     temp_dir = pathlib.Path(self.config.pipelines_ranked_temp_dir)
+
+    #     # Signal subprocesses running fitted pipeline to stop writing to pipelines_ranked
+    #     # directory But, it does not seems to be working. Looks like the OS is flushing
+    #     # the files after the subprocesses complete.
+    #     (temp_dir / '.done').touch()
+    #     self._logger.info(f"Created done_file: {temp_dir / '.done'}")
+
+    #     for rank_file in temp_dir.glob('*.rank'):
+    #         try:
+    #             rank = float(open(temp_dir / rank_file).read())
+    #             ranked_list.append((rank, rank_file))
+    #         except Exception:
+    #             self._logger.info(f"Cannot parse pipeline's rank file: {rank_file}")
+
+    #     if not ranked_list:
+    #         self._logger.warn('Warning no ranked pipelines!!!!')
+
+    #     ranked_list = sorted(ranked_list, key=operator.itemgetter(0))
+    #     self._logger.info(f'Number of ranked pipelines generated: {len(ranked_list)}')
+
+    #     # Too many solutions. Remove pipelines with larger rank values
+    #     if len(ranked_list) > limit:
+    #         for (rank, rank_file) in ranked_list[:limit]:
+    #             self._logger.info(f"copy {temp_dir / rank_file} to {rank_dir}")
+    #             shutil.copy(temp_dir / rank_file, rank_dir)
+    #             self._logger.info(f"copy {temp_dir / rank_file}.with_suffix('.json') to {rank_dir}")
+    #             shutil.copy(temp_dir / rank_file.with_suffix('.json'), rank_dir)
 
 
     # def _process_pipeline_submission_old(self) -> None:
