@@ -70,6 +70,12 @@ class DefaultImageProcessingRegressionTemplate(DSBoxTemplate):
                             "hyperparameters": {
                                 'generate_metadata': [True]
                             }
+                        },
+                        {
+                            "primitive": "d3m.primitives.feature_extraction.vgg16_image_feature.DSBOX",
+                            "hyperparameters": {
+                                'generate_metadata': [True]
+                            }
                         }
                     ],
                     "inputs": ["dataframe_to_tensor"]
@@ -92,17 +98,24 @@ class DefaultImageProcessingRegressionTemplate(DSBoxTemplate):
                     "name": "regressor_step",
                     "primitives": [
                         {
-                            "primitive": "d3m.primitives.regression.random_forest.SKlearn",
+                            "primitive": "d3m.primitives.regression.ridge.SKlearn", 
                             "hyperparameters": {
                                 'add_index_columns': [True],
                                 'use_semantic_types':[True],
-                            },
-                            "primitive": "d3m.primitives.regression.ridge.SKlearn", 
-                            "hyperparameters": {
                             }
-
                         },
-                        "d3m.primitives.regression.gradient_boosting.SKlearn"
+                        {
+                            "primitive": "d3m.primitives.regression.gradient_boosting.SKlearn", 
+                            "hyperparameters": {
+                                    'max_depth': [2, 3, 4, 5],
+                                    'n_estimators': [100, 130, 165, 200],
+                                    'learning_rate': [0.1, 0.23, 0.34, 0.5],
+                                    'min_samples_split': [2, 3],
+                                    'min_samples_leaf': [1, 2],
+                                    'add_index_columns': [True],
+                                    'use_semantic_types':[True],
+                            }
+                        }
                     ],
                     "inputs": ["PCA_step", "extract_target_step"]
                 },

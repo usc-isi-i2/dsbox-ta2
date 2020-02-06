@@ -11,7 +11,7 @@ class DistilAudioClassificationTemplate(DSBoxTemplate):
             "name": "DistilAudioClassificationTemplate",
             "taskType": {TaskKeyword.CLASSIFICATION.name},
             "taskSubtype": {TaskKeyword.BINARY.name, TaskKeyword.MULTICLASS.name},
-            "inputType": "audio",
+            "inputType": {"audio"},
             "output": "construct_predictions_step",  # Name of the final step generating the prediction
             "target": "extract_target_step",  # Name of the step generating the ground truth
             "steps": [

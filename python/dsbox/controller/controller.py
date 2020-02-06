@@ -1253,6 +1253,7 @@ class Controller:
             self.all_dataset = denormalize_primitive.produce(inputs=self.all_dataset).value
             self.extra_primitive.add("denormalize")
             self.dump_primitive(denormalize_primitive, "denormalize")
+            self._logger.warning("input will be denormalized!")
         # run augment if needed
         datamart_search_results = None
         if "data_augmentation" in self.config.problem.keys():
