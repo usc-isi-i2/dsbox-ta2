@@ -33,6 +33,11 @@ class DistilAudioClassificationTemplate(DSBoxTemplate):
                     "inputs": ["sampler_step"]
                 },
                 {
+                    "name": "common_profiler_step",
+                    "primitives": ["d3m.primitives.schema_discovery.profiler.Common"],
+                    "inputs": ["dataset_loader_step"]
+                },
+                {
                     "name": "column_parser_step",
                     "primitives": [
                         {
@@ -47,7 +52,7 @@ class DistilAudioClassificationTemplate(DSBoxTemplate):
                             }
 
                         }],
-                    "inputs": ["dataset_loader_step"]
+                    "inputs": ["common_profiler_step"]
                 },
                 # read Y value
                 {

@@ -22,6 +22,10 @@ DO NOT ADD denomalize step from the original pipeline,
 we will do denormalize at initilaization step
 so everything passed from template_input is the Datasets already denormalized!
 
+updated v2020.2.5:
+now no need to add tepmlates here, you only need to put your templates in "dsbox/template/template_files/loaded", then, this template will be automatically loaded.
+If you don't want to load this template, move it to "/dsbox/template/template_files/not_loaded"
+
 Updated v2019.11.14:
 Now no more TaskType and TaskSubtype, but only TaskKeyword:
 Current (from d3m v2019.11.10), following keywords are supported
