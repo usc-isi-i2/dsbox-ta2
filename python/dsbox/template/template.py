@@ -11,11 +11,14 @@ from d3m.metadata import base as metadata_base
 from d3m.metadata.pipeline import Pipeline, PrimitiveStep
 from .configuration_space import SimpleConfigurationSpace, ConfigurationPoint
 
-DISTIL_SPEICAL_PRIMITIVES = (
+DISTIL_SPEICAL_PRIMITIVES_PRODUCE_TARGETS = (
     "d3m.primitives.data_transformation.load_single_graph.DistilSingleGraphLoader".lower(), 
     "d3m.primitives.data_transformation.load_single_graph.DistilSingleGraphLoader".lower(),
-    "d3m.primitives.data_preprocessing.audio_reader.DistilAudioDatasetLoader".lower()
     )
+DISTIL_SPEICAL_PRIMITIVES_PRODUCE_COLLECTION = (
+    "d3m.primitives.data_preprocessing.audio_reader.DistilAudioDatasetLoader".lower(),
+    )
+
 logger = logging.getLogger(__name__)
 
 class HyperparamDirective(utils.Enum):
@@ -190,7 +193,9 @@ class DSBoxTemplate():
 
                 # hack to distil primitives
                 if in_arg.endswith("_produce_target"):
-                    in_arg = in_arg[:-15]
+                    in_arg = in_arg.replace("_produce_target", "")
+                elif in_arg.endswith("_produce_collection"):
+                    in_arg = in_arg.replace("_produce_collection", "")
 
                 # if list, assume it's okay
                 if in_primitive_value is container.List and type(in_arg) is list:
@@ -200,44 +205,6 @@ class DSBoxTemplate():
                     logger.error(str(binding))
                     logger.error("step {} input {} is not available!".format(str(step_num), str(in_arg)))
                     raise ValueError("step {} input {} is not available!".format(str(step_num), str(in_arg)))
-
-                # updated v2020.2.5 not check this anymore because of hard code
-                # get information of the producer of the input
-                # out_primitive_value = \
-                #     d3m_index.get_primitive(binding[in_arg]["primitive"]).metadata.query()[
-                #         "primitive_code"]["class_type_arguments"]["Outputs"]
-                # if not self.iocompare(in_primitive_value,
-                #                       out_primitive_value):
-                #     check_key = (str(out_primitive_value),
-                #                  str(in_primitive_value))
-                #     print("[INFO] Different types!")
-                #     try:
-                #         # inter_name = "{}_{}_{}".format(name,in_arg,solution)
-                #         solution = self.addstep_mapper[check_key]
-                #         inter_name = "{}_{}_{}".format(name, in_arg, solution)
-                #         intermediate_step = {
-                #             "primitive": solution,
-                #             "hyperparameters": {},
-                #             "inputs": [in_arg]
-                #         }
-                #         # binding[inter_name] = intermediate_step
-                #         # binding[name]['inputs'][0] = inter_name
-                #         # checked_binding[inter_name] = intermediate_step
-                #         pos = binding[name]["inputs"].index(in_arg)
-                #         # checked_binding[name]["inputs"][pos] = inter_name
-                #         checked_binding[inter_name] = intermediate_step
-                #         fill_in[pos] = in_arg
-                #         sequence.append(inter_name)
-                #         print("[INFO] ", solution, "added to step",
-                #               name)
-                #     except:
-                #         print("Warning!", name,
-                #               "'s primitive",
-                #               # Fixme:
-                #               # conf_step[-1]["primitive"],
-                #               "'s inputs does not match",
-                #               binding[in_arg][-1]["primitive"],
-                #               "and there is no converter found")
 
             # temporary fix for CMU clustering tempalte (with special input called "reference")
             mystep = {
@@ -340,35 +307,6 @@ class DSBoxTemplate():
             else:
                 raise exceptions.InvalidArgumentValueError("Error, can't find the primitive : ",
                                                            primitive_name)
-            # no longer needed
-            # if primitive_name == "d3m.primitives.data_augmentation.datamart_augmentation.DSBOX":
-            #     hyper = binding[step]["hyperparameters"]
-            #     primitive_step.add_argument("inputs1",metadata_base.ArgumentType.CONTAINER,"steps.0.produce")
-            #     primitive_step.add_argument("inputs2",metadata_base.ArgumentType.CONTAINER, templateinput)
-            #     for hyperName in hyper.keys():
-            #         primitive_step.add_hyperparameter(
-            #             # argument_type should be fixed type not the type of the data!!
-            #             name=hyperName, argument_type=self.argmentsmapper["value"],
-            #             data=hyper[hyperName])
-            #     # pre v2019.1.21
-            #     pipeline.add_step(primitive_step)
-            #     primitive_step.add_output("produce")
-            #     outputs[step] = f'steps.{primitive_step.index}.produce'
-            #     continue
-
-            # if primitive_name == "d3m.primitives.data_augmentation.datamart_query.DSBOX":
-            #     primitive_step.add_argument("inputs",metadata_base.ArgumentType.CONTAINER, templateinput)
-            #     hyper = binding[step]["hyperparameters"]
-            #     for hyperName in hyper.keys():
-            #         primitive_step.add_hyperparameter(
-            #             # argument_type should be fixed type not the type of the data!!
-            #             name=hyperName, argument_type=self.argmentsmapper["value"],
-            #             data=hyper[hyperName])
-            #     # pre v2019.1.21
-            #     pipeline.add_step(primitive_step)
-            #     primitive_step.add_output("produce")
-            #     outputs[step] = f'steps.{primitive_step.index}.produce'
-            #     continue
 
 
             if binding[step]["hyperparameters"] != {}:
@@ -404,9 +342,12 @@ class DSBoxTemplate():
                 d3m.primitive_interfaces.base.CallResult[d3m.container.list.List]
             should figure out some possible way to get the details
             """
-            if primitive_name.lower() in DISTIL_SPEICAL_PRIMITIVES:
+            if primitive_name.lower() in DISTIL_SPEICAL_PRIMITIVES_PRODUCE_TARGETS:
                 primitive_step.add_output("produce_target")
                 outputs[step + "_produce_target"] = f'steps.{primitive_step.index}.produce_target'
+            elif primitive_name.lower() in DISTIL_SPEICAL_PRIMITIVES_PRODUCE_COLLECTION:
+                primitive_step.add_output("produce_collection")
+                outputs[step + "_produce_collection"] = f'steps.{primitive_step.index}.produce_collection'
 
             outputs[step] = f'steps.{primitive_step.index}.produce'
         # END FOR
