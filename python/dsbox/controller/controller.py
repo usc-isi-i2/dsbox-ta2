@@ -235,7 +235,10 @@ class Controller:
             # TA3 init
             # self.problem: typing.Dict = config['problem_parsed']
             # self.problem_doc_metadata = Metadata(config['problem_json'])
-            pass
+            self._logger.info("Received datasetDoc.json is:")
+            self._logger.info(str(self.config.dataset_docs))
+            self._logger.info("Received problemDoc.json is:")
+            self._logger.info(str(self.config.problem))
         else:
             # TA2 init
             # self.problem = parse_problem_description(config['problem_schema'])
@@ -878,6 +881,7 @@ class Controller:
                         res_dict[augment_num] = True
                         self._logger.info("Agument No.{} success".format(augment_num))
             except:
+                augment_res = prev_augment_res
                 self._logger.info("Agument No.{} failed with error".format(augment_num))
                 res_dict[augment_num] = False
             return augment_res
@@ -1176,20 +1180,6 @@ class Controller:
         self.config = config
         self._load_schema(is_ta3=True)
         self._log_init()
-
-        # updated v2020.1.23: some special datasets need gpu resources, which should not run in parallel mode
-        try:
-            task_keywords_set = set([x.name.lower() for x in self.config.problem['problem']['task_keywords']])
-        except:
-            task_keywords_set = set()
-        run_series_taskkeywords = {"graph", "video", "image", "audio"}
-        intersect_res = task_keywords_set.intersection(run_series_taskkeywords)
-        if len(intersect_res) > 0:
-            self._logger.warning("Change to serial mode for special task keywords {}".format(str(intersect_res)))
-            self.config.search_method = "serial"
-        # END change for v2020.1.23
-
-        self._logger.info("Current running on {} mode".format(self.config.search_method))
         # Dataset
         loader = D3MDatasetLoader()
 
@@ -1227,6 +1217,11 @@ class Controller:
             self._dataset_preprocessing()
 
     def _dataset_preprocessing(self):
+        """
+            do some preparations for some special type problems
+            1. run in serial mode, if in `run_series_taskkeywords`
+            2. not run denormalize primitive, if in `not_run_denomormalize`
+        """
         try:
             task_keywords_set = set([x.name.lower() for x in self.config.problem['problem']['task_keywords']])
         except:
@@ -1236,7 +1231,7 @@ class Controller:
         self._check_and_set_dataset_metadata()
 
         # first apply denormalize on input dataset if needed
-        not_run_denomormalize = {"graph", "audio"}
+        not_run_denomormalize = {"graph", "audio", "time_series"}
         intersect_res = task_keywords_set.intersection(not_run_denomormalize)
         if len(intersect_res) > 0:
             self._logger.warning("Not run denormalize primitive for speical task keywords")
@@ -1247,6 +1242,7 @@ class Controller:
             self.all_dataset = denormalize_primitive.produce(inputs=self.all_dataset).value
             self.extra_primitive.add("denormalize")
             self.dump_primitive(denormalize_primitive, "denormalize")
+            self._logger.warning("input will be denormalized!")
         # run augment if needed
         datamart_search_results = None
         if "data_augmentation" in self.config.problem.keys():
