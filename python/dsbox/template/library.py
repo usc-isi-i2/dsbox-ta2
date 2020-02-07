@@ -85,7 +85,9 @@ class TemplateLibrary:
         not_add_mean_base_line_task_types = [TaskKeyword.TIME_SERIES.name, TaskKeyword.SEMISUPERVISED.name]
         if not have_intersection(task, not_add_mean_base_line_task_types):
             results.append(SKDummyTemplate())  # put the meanbaseline here so whatever dataset will have a result
-        _logger.info("Will add SK Dummy template.")
+            _logger.info("Will add SK Dummy template.")
+        else:
+            _logger.info("No add SK Dummy template for timeseries/semisupervise tasks")
 
         for template_class in self.templates:
             template = template_class()
