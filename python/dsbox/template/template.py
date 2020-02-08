@@ -201,38 +201,38 @@ class DSBoxTemplate():
                 out_primitive_value = \
                     d3m_index.get_primitive(binding[in_arg]["primitive"]).metadata.query()[
                         "primitive_code"]["class_type_arguments"]["Outputs"]
-                if not self.iocompare(in_primitive_value,
-                                      out_primitive_value):
-                    check_key = (str(out_primitive_value),
-                                 str(in_primitive_value))
-                    print("[INFO] Different types!")
-                    try:
-                        # inter_name = "{}_{}_{}".format(name,in_arg,solution)
-                        solution = self.addstep_mapper[check_key]
-                        inter_name = "{}_{}_{}".format(name, in_arg, solution)
-                        intermediate_step = {
-                            "primitive": solution,
-                            "hyperparameters": {},
-                            "inputs": [in_arg]
-                        }
-                        # binding[inter_name] = intermediate_step
-                        # binding[name]['inputs'][0] = inter_name
-                        # checked_binding[inter_name] = intermediate_step
-                        pos = binding[name]["inputs"].index(in_arg)
-                        # checked_binding[name]["inputs"][pos] = inter_name
-                        checked_binding[inter_name] = intermediate_step
-                        fill_in[pos] = in_arg
-                        sequence.append(inter_name)
-                        print("[INFO] ", solution, "added to step",
-                              name)
-                    except:
-                        print("Warning!", name,
-                              "'s primitive",
-                              # Fixme:
-                              # conf_step[-1]["primitive"],
-                              "'s inputs does not match",
-                              binding[in_arg][-1]["primitive"],
-                              "and there is no converter found")
+                # if not self.iocompare(in_primitive_value,
+                #                       out_primitive_value):
+                #     check_key = (str(out_primitive_value),
+                #                  str(in_primitive_value))
+                #     print("[INFO] Different types!")
+                #     try:
+                #         # inter_name = "{}_{}_{}".format(name,in_arg,solution)
+                #         solution = self.addstep_mapper[check_key]
+                #         inter_name = "{}_{}_{}".format(name, in_arg, solution)
+                #         intermediate_step = {
+                #             "primitive": solution,
+                #             "hyperparameters": {},
+                #             "inputs": [in_arg]
+                #         }
+                #         # binding[inter_name] = intermediate_step
+                #         # binding[name]['inputs'][0] = inter_name
+                #         # checked_binding[inter_name] = intermediate_step
+                #         pos = binding[name]["inputs"].index(in_arg)
+                #         # checked_binding[name]["inputs"][pos] = inter_name
+                #         checked_binding[inter_name] = intermediate_step
+                #         fill_in[pos] = in_arg
+                #         sequence.append(inter_name)
+                #         print("[INFO] ", solution, "added to step",
+                #               name)
+                #     except:
+                #         print("Warning!", name,
+                #               "'s primitive",
+                #               # Fixme:
+                #               # conf_step[-1]["primitive"],
+                #               "'s inputs does not match",
+                #               binding[in_arg][-1]["primitive"],
+                #               "and there is no converter found")
 
             # temporary fix for CMU clustering tempalte (with special input called "reference")
 
@@ -395,7 +395,7 @@ class DSBoxTemplate():
             primitive_step.add_output("produce")
             # hack here for distil primitives cause they have some speicial step naming
             """
-            TODO: is there any better to do this? 
+            TODO: is there any better to do this?
             the query information from metadata only shows the output is a:
                 d3m.primitive_interfaces.base.CallResult[d3m.container.list.List]
             should figure out some possible way to get the details
@@ -439,7 +439,7 @@ class DSBoxTemplate():
                         value_step += self.description_to_configuration(prim)
                 else:
                     # other data format, not supported, raise error
-                    logger.error("Wrong format of the description: \n" + 
+                    logger.error("Wrong format of the description: \n" +
                         "Unsupported data format found : " + str(type(description)))
 
                 values += value_step
@@ -457,7 +457,7 @@ class DSBoxTemplate():
         # it maybe a primitive with hyperparameters
 
         if "primitive" not in description:
-            logger.error("Wrong format of the configuration space data: \n" + 
+            logger.error("Wrong format of the configuration space data: \n" +
                   "No primitive name found!")
             return value
 
@@ -559,7 +559,7 @@ class DSBoxTemplate_Dragonfly(DSBoxTemplate):
                     drgnfly_config['domain'][step_id] = added_prims
                 else:
                     # other data format, not supported, raise error
-                    logger.error("Wrong format of the description: \n" + 
+                    logger.error("Wrong format of the description: \n" +
                           "Unsupported data format found : ", str(type(step_prim_desc)))
                     assert False
 

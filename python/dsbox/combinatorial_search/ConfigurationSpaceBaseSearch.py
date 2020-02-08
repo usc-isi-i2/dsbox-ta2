@@ -161,7 +161,7 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
         self.test_dataset2 = load_pickled_dataset("test_dataset2")
         self.all_dataset = load_pickled_dataset("all_dataset")
         self.ensemble_tuning_dataset = load_pickled_dataset("ensemble_tuning_dataset")
-        
+
         if self.ensemble_tuning_dataset:
             self.do_ensemble_tuning = True
         else:
@@ -572,6 +572,7 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
                 'id': fitted_pipeline_final.pipeline.id,
                 'fid': fitted_pipeline_final.id,
                 'fitted_pipeline': fitted_pipeline_final,
+                'rank': fitted_pipeline_final.metric['rank'],
                 'training_metrics': training_metrics,
                 'cross_validation_metrics': cv,
                 'test_metrics': test_metrics2,

@@ -46,7 +46,9 @@ def to_dict(row):
     return result
 
 def add_score(score_dir, info_dir):
+    print(score_dir)
     for score_csv in score_dir.glob('*.csv'):
+        print(score_csv)
         score_df = pd.read_csv(score_csv)
         score = [to_dict(score_df.iloc[i, :]) for i in range(score_df.shape[0])]
         info_file = info_dir / Path(score_csv.stem).with_suffix('.json')
