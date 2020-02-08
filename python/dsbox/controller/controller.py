@@ -1174,7 +1174,7 @@ class Controller:
         self._load_schema(is_ta3=True)
         self._log_init()
 
-        self._logger('config = %s', self.config)
+        self._logger.info('config = %s', self.config)
 
         # updated v2020.1.23: some special datasets need gpu resources, which should not run in parallel mode
         try:
