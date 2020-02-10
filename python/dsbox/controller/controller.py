@@ -1639,28 +1639,32 @@ class Controller:
         return Status.OK
 
     def generate_dataset_splits(self):
-
+        """
+            function that used to do dataset splits for further using
+            it will sample the input dataset to a smaller size if input dataset size is too big
+        """
         self.all_dataset = self.remove_empty_targets(self.all_dataset)
         from dsbox.datapreprocessing.cleaner.splitter import Splitter, SplitterHyperparameter
-
-        hyper_sampler = SplitterHyperparameter.defaults()
-        # for test purpose here
-        hyper_sampler = hyper_sampler.replace({"threshold_column_length":2000, "further_reduce_threshold_column_length":2000})
-        sampler = Splitter(hyperparams=hyper_sampler)
-        sampler.set_training_data(inputs=self.all_dataset)
-        sampler.fit()
-        train_split = sampler.produce(inputs=self.all_dataset)
-
-        _, original_df = d3m_utils.get_tabular_resource(dataset=self.all_dataset, resource_id=None)
-        _, split_df = d3m_utils.get_tabular_resource(dataset=train_split.value, resource_id=None)
-        if original_df.shape != split_df.shape:
-            self.extra_primitive.add("splitter")
-            self.all_dataset = train_split.value
-            # pickle this fitted sampler for furture use in pipelines
-            self.dump_primitive(sampler, "splitter")
-
         # updated v2020.1.15, check whether need to split or not first and remember
         self._check_can_split_or_not()
+
+        if not self.cannot_split:
+            hyper_sampler = SplitterHyperparameter.defaults()
+            # for test purpose here
+            hyper_sampler = hyper_sampler.replace({"threshold_column_length":2000, "further_reduce_threshold_column_length":2000})
+            sampler = Splitter(hyperparams=hyper_sampler)
+            sampler.set_training_data(inputs=self.all_dataset)
+            sampler.fit()
+            train_split = sampler.produce(inputs=self.all_dataset)
+
+            _, original_df = d3m_utils.get_tabular_resource(dataset=self.all_dataset, resource_id=None)
+            _, split_df = d3m_utils.get_tabular_resource(dataset=train_split.value, resource_id=None)
+            if original_df.shape != split_df.shape:
+                self.extra_primitive.add("splitter")
+                self.all_dataset = train_split.value
+                # pickle this fitted sampler for furture use in pipelines
+                self.dump_primitive(sampler, "splitter")
+
         # if we need to do ensemble tune, we split one extra time
         if self.do_ensemble_tune or self.do_horizontal_tune:
             self.train_dataset1, self.ensemble_dataset = self.split_dataset(dataset=self.all_dataset, test_size=0.1)
