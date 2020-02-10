@@ -276,7 +276,7 @@ class DsboxConfig:
         self.dataset_schema_files = [self._all_datasets[id] for id in dataset_ids]
 
         for dataset_doc in self.dataset_schema_files:
-            with open(dataset_doc, 'r') as dataset_description_file:
+            with open(dataset_doc, encoding='utf-8') as dataset_description_file:
                 self.dataset_docs.append(json.load(dataset_description_file))
 
         self._logger.info(self.dataset_docs)
