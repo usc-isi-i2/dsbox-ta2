@@ -6,7 +6,7 @@ import typing
 import numpy as np  # type: ignore 
 
 # may not work because of different hyperparamters for "encoder/decoder step"
-class CornellMatrixFactorization(DSBoxTemplate):
+class CornellVertexClassification(DSBoxTemplate):
     def __init__(self):
         DSBoxTemplate.__init__(self)
         self.template = {

@@ -4,7 +4,7 @@ from dsbox.template.template_steps import TemplateSteps
 from dsbox.schema import SpecializedProblem 
 import typing 
 import numpy as np  # type: ignore 
-class DistilGraphMatchingTemplate(DSBoxTemplate):
+class DistilCommunityDetection(DSBoxTemplate):
     def __init__(self):
         DSBoxTemplate.__init__(self)
         self.template = {
