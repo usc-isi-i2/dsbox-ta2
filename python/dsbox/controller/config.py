@@ -425,7 +425,7 @@ def find_dataset_docs(datasets_dir, _logger=None):
             dataset_path = os.path.join(dirpath, 'datasetDoc.json')
 
             try:
-                with open(dataset_path, 'r') as dataset_file:
+                with open(dataset_path, encoding='utf-8') as dataset_file:
                     dataset_doc = json.load(dataset_file)
 
                 dataset_id = dataset_doc['about']['datasetID']
