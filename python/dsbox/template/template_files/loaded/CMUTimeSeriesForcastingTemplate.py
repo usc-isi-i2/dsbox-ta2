@@ -1,0 +1,121 @@
+from dsbox.template.template import DSBoxTemplate 
+from d3m.metadata.problem import TaskKeyword 
+from dsbox.template.template_steps import TemplateSteps 
+from dsbox.schema import SpecializedProblem 
+import typing 
+import numpy as np  # type: ignore 
+from sklearn_wrap.SKExtraTreesClassifier import Hyperparams as hyper_extra_tree, SKExtraTreesClassifier
+from sklearn_wrap.SKRandomForestClassifier import Hyperparams as hyper_random_forest, SKRandomForestClassifier
+from sklearn_wrap.SKGradientBoostingClassifier import Hyperparams as hyper_grandient_boost, SKGradientBoostingClassifier
+from sklearn_wrap.SKAdaBoostClassifier import SKAdaBoostClassifier
+from sklearn_wrap.SKBaggingClassifier import SKBaggingClassifier
+
+class CMUTimeSeriesForcastingTemplate(DSBoxTemplate):
+    def __init__(self):
+        DSBoxTemplate.__init__(self)
+        self.template = {
+            "name": "CMU_TimeSeries_Forcasting_emplate",
+            "taskType": TaskKeyword.TIME_SERIES.name,
+            "taskSubtype": {"FORECASTING"},
+            "inputType": {"table"},  # See SEMANTIC_TYPES.keys() for range of values
+            "output": "model_step",  # Name of the final step generating the prediction
+            "target": "extract_target_step",  # Name of the step generating the ground truth
+            "steps": [
+                {
+                    "name": "to_dataframe_step",
+                    "primitives": ["d3m.primitives.data_transformation.dataset_to_dataframe.Common"],
+                    "inputs": ["template_input"]
+                },
+                {
+                    "name": "common_profiler_step",
+                    "primitives": ["d3m.primitives.schema_discovery.profiler.Common"],
+                    "inputs": ["to_dataframe_step"]
+                },
+                {
+                    "name": "column_parser_step",
+                    "primitives": ["d3m.primitives.data_transformation.column_parser.Common"],
+                    "inputs": ["common_profiler_step"]
+                },
+                {
+                    "name": "extract_attribute_step",
+                    "primitives": [{
+                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.Common",
+                        "hyperparameters":
+                            {
+                            }
+                    }],
+                    "inputs": ["column_parser_step"]
+                },
+                {
+                    "name": "imputer_step",
+                    "primitives": [{
+                        "primitive": "d3m.primitives.data_cleaning.imputer.SKlearn",
+                        "hyperparameters":
+                            {
+                                "use_semantic_types": [True],
+                                "return_result": ["replace"],
+                                "strategy":["median"]
+                            }
+                    }],
+                    "inputs": ["extract_attribute_step"]
+                },
+                {
+                    "name": "encoder_step",
+                    "primitives": [{
+                        "primitive": "d3m.primitives.data_transformation.one_hot_encoder.SKlearn",
+                        "hyperparameters":
+                            {
+                                "use_semantic_types": [True],
+                                "return_result": ["replace"],
+                                "handle_unknown":["ignore"],
+                                "use_columns":(0,),
+                            }
+                    }],
+                    "inputs": ["imputer_step"]
+                },
+                {
+                    "name": "scaler_step",
+                    "primitives": [{
+                        "primitive": "d3m.primitives.data_preprocessing.robust_scaler.SKlearn",
+                        "hyperparameters":
+                            {
+                                "return_result": ["replace"],
+                            }
+                    }],
+                    "inputs": ["encoder_step"]
+                },
+                # read Y value
+                {
+                    "name": "extract_target_step",
+                    "primitives": [{
+                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.Common",
+                        "hyperparameters":
+                            {'semantic_types': ('https://metadata.datadrivendiscovery.org/types/TrueTarget',),
+                             'use_columns': (),
+                             'exclude_columns': ()
+                             }
+                    }],
+                    "inputs": ["column_parser_step"]
+                },
+                {
+                    "name": "model_step",
+                    "primitives": [
+                        {
+                            "primitive": "d3m.primitives.regression.extra_trees.SKlearn",
+                            "hyperparameters": {
+                                'add_index_columns': [True],
+                                'use_semantic_types':[True],
+                                'n_estimators': [10, 80, 100, 120, 150],
+                            }
+                        }
+                    ],
+                    "inputs": ["scaler_step", "extract_target_step"]
+                },
+                {
+                    "name":"predict_step",
+                    "primitives":["d3m.primitives.data_transformation.construct_predictions.Common"],
+                    "inputs":["model_step", "column_parser_step"]
+                }
+            ]
+        }
+
