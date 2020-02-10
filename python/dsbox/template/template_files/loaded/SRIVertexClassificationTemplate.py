@@ -11,7 +11,6 @@ class SRIVertexClassificationTemplate(DSBoxTemplate):
             "name": "SRI_vertex_classification_template",
             "taskType": {TaskKeyword.VERTEX_CLASSIFICATION.name, TaskKeyword.COMMUNITY_DETECTION.name, TaskKeyword.LINK_PREDICTION.name}, #TaskKeyword.COLLABORATIVE_FILTERING.name,
             "taskSubtype": {"NONE", TaskKeyword.NONOVERLAPPING.name, TaskKeyword.OVERLAPPING.name, TaskKeyword.MULTICLASS.name, TaskKeyword.BINARY.name, TaskKeyword.MULTILABEL.name, TaskKeyword.MULTIVARIATE.name, TaskKeyword.UNIVARIATE.name},
-            #"taskSubtype": "NONE",
             #"inputType": "table",
             "inputType": {"edgeList", "graph", "table"},
             "output": "prediction_step",
@@ -29,7 +28,7 @@ class SRIVertexClassificationTemplate(DSBoxTemplate):
                 {
                     "name": "common_profiler_step",
                     "primitives": ["d3m.primitives.schema_discovery.profiler.Common"],
-                    "inputs": ["text_reader_step"]
+                    "inputs": ["to_dataframe_step"]
                 },
                 {
                     "name": "parser_step",

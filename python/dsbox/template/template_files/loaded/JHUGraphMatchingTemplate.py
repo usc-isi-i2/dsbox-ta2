@@ -10,7 +10,7 @@ class JHUGraphMatchingTemplate(DSBoxTemplate):
         self.template = {
             "name": "JHU_Graph_Matching_Template",
             "taskType": TaskKeyword.GRAPH_MATCHING.name,
-            "taskSubtype": {"NONE", TaskKeyword.NONOVERLAPPING.name, TaskKeyword.OVERLAPPING.name, TaskKeyword.MULTICLASS.name, TaskKeyword.BINARY.name, TaskKeyword.MULTILABEL.name, TaskKeyword.MULTIVARIATE.name, TaskKeyword.UNIVARIATE.name},
+            "taskSubtype": {TaskKeyword.GRAPH_MATCHING.name},
             "inputType": {"edgeList", "graph"},
             "output": "model_step",
             "steps": [
@@ -21,8 +21,3 @@ class JHUGraphMatchingTemplate(DSBoxTemplate):
                 }
             ]
         }
-################################################################################################################
-#####################################   AudioClassificationTemplate   ##########################################
-################################################################################################################
-
-
