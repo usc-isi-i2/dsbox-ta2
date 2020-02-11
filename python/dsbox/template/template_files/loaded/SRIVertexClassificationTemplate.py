@@ -9,8 +9,8 @@ class SRIVertexClassificationTemplate(DSBoxTemplate):
         DSBoxTemplate.__init__(self)
         self.template = {
             "name": "SRI_vertex_classification_template",
-            "taskType": {TaskKeyword.VERTEX_CLASSIFICATION.name, TaskKeyword.COMMUNITY_DETECTION.name, TaskKeyword.LINK_PREDICTION.name}, #TaskKeyword.COLLABORATIVE_FILTERING.name,
-            "taskSubtype": {"NONE", TaskKeyword.NONOVERLAPPING.name, TaskKeyword.OVERLAPPING.name, TaskKeyword.MULTICLASS.name, TaskKeyword.BINARY.name, TaskKeyword.MULTILABEL.name, TaskKeyword.MULTIVARIATE.name, TaskKeyword.UNIVARIATE.name},
+            "taskType": {TaskKeyword.VERTEX_CLASSIFICATION.name, TaskKeyword.COMMUNITY_DETECTION.name, TaskKeyword.LINK_PREDICTION.name, TaskKeyword.TIME_SERIES.name},
+            "taskSubtype": {"NONE", TaskKeyword.NONOVERLAPPING.name, TaskKeyword.OVERLAPPING.name, TaskKeyword.MULTICLASS.name, TaskKeyword.BINARY.name, TaskKeyword.MULTILABEL.name, TaskKeyword.MULTIVARIATE.name, TaskKeyword.UNIVARIATE.name, TaskKeyword.TIME_SERIES.name},
             #"inputType": "table",
             "inputType": {"edgeList", "graph", "table"},
             "output": "prediction_step",
@@ -21,9 +21,14 @@ class SRIVertexClassificationTemplate(DSBoxTemplate):
                     "inputs": ["template_input"]
                 },
                 {
+                    "name": "denormalize_step",
+                    "primitives": ["d3m.primitives.data_transformation.denormalize.Common"],
+                    "inputs": ["text_reader_step"]
+                },
+                {
                     "name": "to_dataframe_step",
                     "primitives": ["d3m.primitives.data_transformation.dataset_to_dataframe.Common"],
-                    "inputs": ["text_reader_step"]
+                    "inputs": ["denormalize_step"]
                 },
                 {
                     "name": "common_profiler_step",
@@ -74,6 +79,16 @@ class SRIVertexClassificationTemplate(DSBoxTemplate):
                     "inputs": ["extract_attribute_step"]
                 },
                 {
+                    "name": "select_step",
+                    "primitives": [{
+                        "primitive": "d3m.primitives.feature_selection.select_percentile.SKlearn",
+                        "hyperparameters":
+                        {
+                        }
+                    }],
+                    "inputs": ["data_conditioner_step"]
+                },
+                {
                     "name": "model_step",
                     "primitives": [
                         {
@@ -89,8 +104,11 @@ class SRIVertexClassificationTemplate(DSBoxTemplate):
                                 'add_index_columns': [False],
                                 'error_on_no_input':[True],
                             }
+                        }, 
+                        {
+                            "primitive": "d3m.primitives.regression.gradient_boosting.SKlearn",
                         }],
-                    "inputs": ["data_conditioner_step", "extract_target_step"]
+                    "inputs": ["select_step", "extract_target_step"]
                 },
                 {
                     "name": "prediction_step",

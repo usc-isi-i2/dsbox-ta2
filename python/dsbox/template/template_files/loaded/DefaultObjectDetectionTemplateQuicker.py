@@ -61,8 +61,8 @@ class DefaultObjectDetectionTemplateQuicker(DSBoxTemplate):
                         {
                             "primitive": "d3m.primitives.feature_extraction.yolo.DSBOX",
                             "hyperparameters": {
-                                "lr_init": [(0.0001)],
-                                "epochs": [(30), (50)],
+                                "lr_init": [(0.0005)],
+                                "epochs": [(100)],
                                 "use_fitted_weight": [(False)],
                             }
                         }
