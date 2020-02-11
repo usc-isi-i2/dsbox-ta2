@@ -129,11 +129,11 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
             2: super quick mode: run with 1 times of fit and 1 time of score
         """
         go_super_quick_task_keywords = ["image", "audio", "video"]
-        # go_quick_inputType = ["image", "audio", "video"]
+        go_quick_inputType = ["image", "audio", "video"]
         for each_type in self.template.template['inputType']:
             if each_type in go_super_quick_task_keywords:
                 return 2
-            if each_type in go_quick_inputType:
+            elif each_type in go_quick_inputType:
                 return 1
         return 0
 
@@ -560,7 +560,7 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
                 fitted_pipeline_final = fitted_pipeline2
             else:
                 fitted_pipeline_final.fit(cache=cache, inputs=[self.all_dataset], save_loc=self.output_directory)
-                
+
             if self.ensemble_tuning_dataset:
                 fitted_pipeline_final.produce(inputs=[self.ensemble_tuning_dataset], save_loc=self.output_directory)
                 ensemble_tuning_result = fitted_pipeline_final.get_produce_step_output(self.template.get_output_step_number())
