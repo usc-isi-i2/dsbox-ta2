@@ -9,9 +9,9 @@ class DistilCommunityDetection(DSBoxTemplate):
         DSBoxTemplate.__init__(self)
         self.template = {
             "name": "Distil_Community_Detection_Template",
-            "taskType": {TaskKeyword.COMMUNITY_DETECTION.name, TaskKeyword.GRAPH.name, TaskKeyword.NONOVERLAPPING.name},
+            "taskType": {TaskKeyword.COMMUNITY_DETECTION.name},
             # for some special condition, the taskSubtype can be "NONE" which indicate no taskSubtype given
-            "taskSubtype":  {"NONE", TaskKeyword.COMMUNITY_DETECTION.name, TaskKeyword.GRAPH.name, TaskKeyword.NONOVERLAPPING.name},
+            "taskSubtype":  {"NONE", TaskKeyword.COMMUNITY_DETECTION.name},
             "inputType": {"graph"},
             "output": "predict_step",
             "steps": [

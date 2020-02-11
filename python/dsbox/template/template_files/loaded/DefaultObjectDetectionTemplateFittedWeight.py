@@ -62,6 +62,7 @@ class DefaultObjectDetectionTemplateFittedWeight(DSBoxTemplate):
                             "primitive": "d3m.primitives.feature_extraction.yolo.DSBOX",
                             "hyperparameters": {
                                 "use_fitted_weight": [(True)],
+                                # "confidences_threshold": [0.5, 0.7, 0.8, 0.9]
                             }
                         }
                     ],

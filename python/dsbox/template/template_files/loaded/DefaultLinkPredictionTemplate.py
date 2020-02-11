@@ -12,9 +12,9 @@ class DefaultLinkPredictionTemplate(DSBoxTemplate):
         DSBoxTemplate.__init__(self)
         self.template = {
             "name": "Default_LinkPrediction_Template",
-            "taskType": {TaskKeyword.GRAPH_MATCHING.name, TaskKeyword.GRAPH.name, TaskKeyword.LINK_PREDICTION.name},
+            "taskType": {TaskKeyword.LINK_PREDICTION.name},
             # for some special condition, the taskSubtype can be "NONE" which indicate no taskSubtype given
-            "taskSubtype":  {"NONE", TaskKeyword.GRAPH_MATCHING.name, TaskKeyword.GRAPH.name, TaskKeyword.LINK_PREDICTION.name},
+            "taskSubtype":  {TaskKeyword.LINK_PREDICTION.name},
             "inputType": {"graph"},
             "output": "model_step",
             "steps": [

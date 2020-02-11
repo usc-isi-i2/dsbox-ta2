@@ -5,115 +5,30 @@ from dsbox.schema import SpecializedProblem
 import typing 
 import numpy as np  # type: ignore 
 class SRIVertexClassificationTemplate(DSBoxTemplate):
+    # not used for DS01876
     def __init__(self):
         DSBoxTemplate.__init__(self)
         self.template = {
-            "name": "SRI_vertex_classification_template",
-            "taskType": {TaskKeyword.VERTEX_CLASSIFICATION.name, TaskKeyword.COMMUNITY_DETECTION.name, TaskKeyword.LINK_PREDICTION.name, TaskKeyword.TIME_SERIES.name},
-            "taskSubtype": {"NONE", TaskKeyword.NONOVERLAPPING.name, TaskKeyword.OVERLAPPING.name, TaskKeyword.MULTICLASS.name, TaskKeyword.BINARY.name, TaskKeyword.MULTILABEL.name, TaskKeyword.MULTIVARIATE.name, TaskKeyword.UNIVARIATE.name, TaskKeyword.TIME_SERIES.name},
-            #"inputType": "table",
-            "inputType": {"edgeList", "graph", "table"},
-            "output": "prediction_step",
+            "name": "SRI_Vertex_classification_Template",
+            "taskType": {TaskKeyword.VERTEX_CLASSIFICATION.name},
+            "taskSubtype":  {TaskKeyword.VERTEX_CLASSIFICATION.name},
+            #"taskType": TaskKeyword.VERTEX_NOMINATION.name,
+            #"taskSubtype": "NONE",
+            "inputType": {"graph", "edgeList", "table"},
+            "output": "model_step",
             "steps": [
                 {
-                    "name": "text_reader_step",
-                    "primitives": ["d3m.primitives.data_preprocessing.dataset_text_reader.DatasetTextReader"],
+                    "name": "parse_step",
+                    "primitives": ["d3m.primitives.data_transformation.vertex_classification_parser.VertexClassificationParser"],
                     "inputs": ["template_input"]
-                },
-                {
-                    "name": "denormalize_step",
-                    "primitives": ["d3m.primitives.data_transformation.denormalize.Common"],
-                    "inputs": ["text_reader_step"]
-                },
-                {
-                    "name": "to_dataframe_step",
-                    "primitives": ["d3m.primitives.data_transformation.dataset_to_dataframe.Common"],
-                    "inputs": ["denormalize_step"]
-                },
-                {
-                    "name": "common_profiler_step",
-                    "primitives": ["d3m.primitives.schema_discovery.profiler.Common"],
-                    "inputs": ["to_dataframe_step"]
-                },
-                {
-                    "name": "parser_step",
-                    "primitives": ["d3m.primitives.data_transformation.column_parser.Common"],
-                    "inputs": ["common_profiler_step"]
-                },
-                {
-                    "name": "extract_target_step",
-                    "primitives": [{
-                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.Common",
-                        "hyperparameters":
-                        {
-                            'semantic_types': ('https://metadata.datadrivendiscovery.org/types/TrueTarget',),
-                            'use_columns': (),
-                            'exclude_columns': ()
-                        }
-                    }],
-                    "inputs": ["parser_step"]
-                },
-                {
-                    "name": "extract_attribute_step",
-                    "primitives": [{
-                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.Common",
-                        "hyperparameters":
-                        {
-                            'semantic_types': ('https://metadata.datadrivendiscovery.org/types/Attribute',),
-                            'use_columns': (),
-                            'exclude_columns': ()
-                        }
-                    }],
-                    "inputs": ["parser_step"]
-                },
-                {
-                    "name": "data_conditioner_step",
-                    "primitives": [{
-                        "primitive": "d3m.primitives.data_transformation.conditioner.Conditioner",
-                        "hyperparameters":
-                        {
-                            "ensure_numeric":[True, False],
-                            "maximum_expansion": [30]
-                        }
-                    }],
-                    "inputs": ["extract_attribute_step"]
-                },
-                {
-                    "name": "select_step",
-                    "primitives": [{
-                        "primitive": "d3m.primitives.feature_selection.select_percentile.SKlearn",
-                        "hyperparameters":
-                        {
-                        }
-                    }],
-                    "inputs": ["data_conditioner_step"]
+
                 },
                 {
                     "name": "model_step",
-                    "primitives": [
-                        {
-                            "primitive":
-                            "d3m.primitives.classification.bernoulli_naive_bayes.SKlearn",
-                            "hyperparameters":
-                            {
-                                'alpha': [0.01, 0.1, 1.0],
-                                'binarize': [0.0],
-                                'fit_prior': [False],
-                                'return_result': ["new"],
-                                'use_semantic_types': [False],
-                                'add_index_columns': [False],
-                                'error_on_no_input':[True],
-                            }
-                        }, 
-                        {
-                            "primitive": "d3m.primitives.regression.gradient_boosting.SKlearn",
-                        }],
-                    "inputs": ["select_step", "extract_target_step"]
-                },
-                {
-                    "name": "prediction_step",
-                    "primitives": ["d3m.primitives.data_transformation.construct_predictions.Common"],
-                    "inputs": ["model_step", "to_dataframe_step"]
+                    "primitives": ["d3m.primitives.classification.vertex_nomination.VertexClassification"],
+                    #"primitives": ["d3m.primitives.classification.community_detection.CommunityDetection"],
+                    "inputs": ["parse_step"]
+
                 }
             ]
         }

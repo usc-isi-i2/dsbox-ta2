@@ -9,9 +9,9 @@ class JHUGraphTemplate(DSBoxTemplate):
         DSBoxTemplate.__init__(self)
         self.template = {
             "name": "JHU_ALL_IN_ONE_Graph_Template",
-            "taskType": {TaskKeyword.COMMUNITY_DETECTION.name, TaskKeyword.GRAPH_MATCHING.name, TaskKeyword.LINK_PREDICTION.name, TaskKeyword.VERTEX_NOMINATION.name, TaskKeyword.VERTEX_CLASSIFICATION.name, TaskKeyword.MULTICLASS.name, TaskKeyword.GRAPH.name},
+            "taskType": {TaskKeyword.LINK_PREDICTION.name, TaskKeyword.VERTEX_NOMINATION.name, TaskKeyword.VERTEX_CLASSIFICATION.name, TaskKeyword.MULTICLASS.name, TaskKeyword.GRAPH.name},
             # for some special condition, the taskSubtype can be "NONE" which indicate no taskSubtype given
-            "taskSubtype":  {TaskKeyword.COMMUNITY_DETECTION.name, TaskKeyword.GRAPH_MATCHING.name, TaskKeyword.LINK_PREDICTION.name, TaskKeyword.VERTEX_NOMINATION.name, TaskKeyword.VERTEX_CLASSIFICATION.name, TaskKeyword.MULTICLASS.name, TaskKeyword.GRAPH.name},
+            "taskSubtype":  {TaskKeyword.LINK_PREDICTION.name, TaskKeyword.VERTEX_NOMINATION.name, TaskKeyword.VERTEX_CLASSIFICATION.name, TaskKeyword.MULTICLASS.name, TaskKeyword.GRAPH.name},
             "inputType": {"graph"},
             "output": "model_step",
             "steps": [

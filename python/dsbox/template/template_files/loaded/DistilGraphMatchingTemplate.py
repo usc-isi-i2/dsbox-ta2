@@ -9,9 +9,9 @@ class DistilGraphMatchingTemplate(DSBoxTemplate):
         DSBoxTemplate.__init__(self)
         self.template = {
             "name": "Distil_GraphMatching_Template",
-            "taskType": {TaskKeyword.GRAPH_MATCHING.name, TaskKeyword.GRAPH.name},
+            "taskType": {TaskKeyword.GRAPH_MATCHING.name},
             # for some special condition, the taskSubtype can be "NONE" which indicate no taskSubtype given
-            "taskSubtype":  {"NONE", TaskKeyword.GRAPH_MATCHING.name, TaskKeyword.GRAPH.name},
+            "taskSubtype":  {TaskKeyword.GRAPH_MATCHING.name},
             "inputType": {"graph"},
             "output": "predict_step",
             "steps": [

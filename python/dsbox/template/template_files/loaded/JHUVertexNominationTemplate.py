@@ -9,8 +9,8 @@ class JHUVertexNominationTemplate(DSBoxTemplate):
         DSBoxTemplate.__init__(self)
         self.template = {
             "name": "JHU_Vertex_Nomination_Template",
-            "taskType": TaskKeyword.VERTEX_CLASSIFICATION.name,
-            "taskSubtype": "NONE",
+            "taskType": {TaskKeyword.VERTEX_CLASSIFICATION.name},
+            "taskSubtype": {TaskKeyword.VERTEX_CLASSIFICATION.name},
             "inputType": {"edgeList", "graph"},
             "output": "model_step",
             "steps": [
