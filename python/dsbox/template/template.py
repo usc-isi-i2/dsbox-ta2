@@ -12,7 +12,7 @@ from d3m.metadata.pipeline import Pipeline, PrimitiveStep
 from .configuration_space import SimpleConfigurationSpace, ConfigurationPoint
 
 DISTIL_SPEICAL_PRIMITIVES_PRODUCE_TARGETS = (
-    "d3m.primitives.data_transformation.load_single_graph.DistilSingleGraphLoader".lower(), 
+    "d3m.primitives.data_transformation.load_single_graph.DistilSingleGraphLoader".lower(),
     "d3m.primitives.data_transformation.load_single_graph.DistilSingleGraphLoader".lower(),
     )
 DISTIL_SPEICAL_PRIMITIVES_PRODUCE_COLLECTION = (
@@ -337,7 +337,7 @@ class DSBoxTemplate():
             primitive_step.add_output("produce")
             # hack here for distil primitives cause they have some speicial step naming
             """
-            TODO: is there any better to do this? 
+            TODO: is there any better to do this?
             the query information from metadata only shows the output is a:
                 d3m.primitive_interfaces.base.CallResult[d3m.container.list.List]
             should figure out some possible way to get the details
@@ -384,7 +384,7 @@ class DSBoxTemplate():
                         value_step += self.description_to_configuration(prim)
                 else:
                     # other data format, not supported, raise error
-                    logger.error("Wrong format of the description: \n" + 
+                    logger.error("Wrong format of the description: \n" +
                         "Unsupported data format found : " + str(type(description)))
 
                 values += value_step
@@ -402,7 +402,7 @@ class DSBoxTemplate():
         # it maybe a primitive with hyperparameters
 
         if "primitive" not in description:
-            logger.error("Wrong format of the configuration space data: \n" + 
+            logger.error("Wrong format of the configuration space data: \n" +
                   "No primitive name found!")
             return value
 
@@ -504,7 +504,7 @@ class DSBoxTemplate_Dragonfly(DSBoxTemplate):
                     drgnfly_config['domain'][step_id] = added_prims
                 else:
                     # other data format, not supported, raise error
-                    logger.error("Wrong format of the description: \n" + 
+                    logger.error("Wrong format of the description: \n" +
                           "Unsupported data format found : ", str(type(step_prim_desc)))
                     assert False
 

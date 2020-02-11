@@ -148,6 +148,10 @@ class TemplateSpaceParallelBaseSearch(TemplateSpaceBaseSearch[T]):
                 if wait_seconds > 15:
                     (kwargs_bundle, report) = self.job_manager.pop_job(block=True, timeout=wait_seconds)
                     _logger.info(f"Got Result kwargs={kwargs_bundle}")
+                    if report:
+                        _logger.info(f"Got Result report id={report['id']}")
+                    else:
+                        _logger.info(f"Got Result: report is None")
 
                     self._add_report_to_history(kwargs_bundle, report)
 
@@ -157,7 +161,17 @@ class TemplateSpaceParallelBaseSearch(TemplateSpaceBaseSearch[T]):
             if wait_seconds > 15:
                 _logger.info("No more pending job")
             else:
-                _logger.info("Timing out. Cannot wait for pending job.")
+                _logger.info(f"Time remaining is less than 15 seconds ({wait_seconds}). Empyting Result queue...")
+                count = 0
+                try:
+                    while True:
+                        (kwargs_bundle, report) = self.job_manager.pop_job(block=False)
+                        self._add_report_to_history(kwargs_bundle, report)
+                        count += 1
+                except queue.Empty:
+                    pass
+                remaining_seconds = self.start_time + self.timeout_sec - time.perf_counter()
+                _logger.info(f"Found {count} results when empyting queue. Time remaining {remaining_seconds}")
         except queue.Empty:
             _logger.info("Timed out waiting for pending job")
 
@@ -273,6 +287,12 @@ class TemplateSpaceParallelBaseSearch(TemplateSpaceBaseSearch[T]):
 
         # wait for the results
         (kwargs_bundle, report) = self.job_manager.pop_job(block=True)
+        _logger.info(f"Got Result kwargs={kwargs_bundle}")
+        if report:
+            _logger.info(f"Got Result report id={report['id']}")
+        else:
+            _logger.info(f"Got Result: report is None")
+
         check_candidate = kwargs_bundle['kwargs']['args'][0]
 
         if check_candidate != candidate:

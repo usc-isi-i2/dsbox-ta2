@@ -89,6 +89,12 @@ class ExecutionHistory:
         """
         # TA3 save all reports
         if report and 'id' in report:
+            if report['id'] in self.all_reports:
+                _logger.error('Duplicate report id: %s', report['id'])
+            if 'rank' in report:
+                _logger.info(f"  id={report['id']} fid={report['fid']} rank={report['rank']}")
+            else:
+                _logger.info(f"  id={report['id']} fid={report['fid']} rank=MISSING")
             self.all_reports[report['id']] = report
             self.queue.put(report)
 

@@ -60,7 +60,7 @@ class FittedPipeline:
     subpipelines_subdir: str = 'subpipelines'
     pipeline_runs_subdir: str = 'pipeline_runs'
 
-    pipelines_ranked_subdir: str = 'pipelines_ranked'
+    # pipelines_ranked_subdir: str = 'pipelines_ranked'
     pipelines_ranked_temp_subdir: str = 'pipelines_ranked_temp'
 
     # DSBox dirs
@@ -127,6 +127,7 @@ class FittedPipeline:
             Set the metric type for this fitted pipeline
         """
         self.metric = metric
+        self.set_rank()
 
     def get_primitive_augment(self, primitive_name: str, input_names: typing.List[str]) -> typing.Dict:
         """
@@ -364,11 +365,8 @@ class FittedPipeline:
             # Skip if controller is already submitting the pipelines
             _logger.info('Skipping Write to pipelines_ranked directory')
         else:
-            self.save_schema_only(folder_loc, self.pipelines_ranked_subdir)
-            self.save_rank(os.path.join(folder_loc, self.pipelines_ranked_subdir))
-
-        self.save_schema_only(folder_loc, self.pipelines_ranked_temp_subdir)
-        self.save_rank(os.path.join(folder_loc, self.pipelines_ranked_temp_subdir))
+            self.save_schema_only(folder_loc, self.pipelines_ranked_temp_subdir)
+            self.save_rank(os.path.join(folder_loc, self.pipelines_ranked_temp_subdir))
 
         # DSBox
         self.save_pipeline_info(os.path.join(folder_loc, self.pipelines_info_subdir))
@@ -385,8 +383,8 @@ class FittedPipeline:
                 _logger.warning("File exists! " + str(process_report_loc))
                 extra_number += 1
                 process_report_loc = os.path.join(folder_loc, "{}_{}_status_{}.json".format(phase, self.id, str(extra_number)))
-            with open(process_report_loc, "w") as f:
-                json.dump(report, f, separators=(',', ':'),indent=4)
+            with open(process_report_loc, "w") as fd:
+                json.dump(report, fd, separators=(',', ':'), indent=4)
 
     def save_pipeline_run(self, folder_loc: str) -> None:
         '''
@@ -419,7 +417,7 @@ class FittedPipeline:
                     json.dump(structure, out, indent=4)
 
 
-    def get_set_rank(self) -> float:
+    def set_rank(self) -> float:
         rank = sys.float_info.max
         if self.metric:
             metric: str = self.metric['metric']
@@ -443,12 +441,21 @@ class FittedPipeline:
             _logger.error("Metric type of the pipeline is unknown, unable to calculate the rank of the pipeline")
         return rank
 
+    def get_rank(self) -> float:
+        rank = sys.float_info.max
+        if self.metric:
+            if 'rank' in self.metric:
+                rank = self.metric['rank']
+            else:
+                rank = self.set_rank()
+        return rank
+
     def save_rank(self, folder_loc: str):
         """
         Generate <pipeline_id>.rank file
         """
         with open(os.path.join(folder_loc, self.pipeline.id + '.rank'), 'w') as f:
-            print(self.get_set_rank(), file=f)
+            print(self.set_rank(), file=f)
 
     def save_schema_only(self, folder_loc: str, pipeline_schema_subdir: str, *, subpipelines_subdir: str = None) -> None:
         '''
@@ -579,7 +586,7 @@ class FittedPipeline:
         if self.metric:
             metric: str = self.metric['metric']
             value: float = self.metric['value']
-            rank = self.get_set_rank()
+            rank = self.get_rank()
             structure['pipeline_rank'] = rank
             structure['metric'] = metric.unparse()
             structure['metric_value'] = value

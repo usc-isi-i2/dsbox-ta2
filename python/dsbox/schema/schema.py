@@ -20,13 +20,13 @@ def larger_is_better(metric_spec) -> bool:
     if isinstance(metric_spec, str):
         metric_name = metric_spec
         metric = PerformanceMetric.get_map()[metric_name]
-        print('Should not use "str" for metric')
-        traceback.print_stack()
+        # print('Should not use "str" for metric')
+        # traceback.print_stack()
     elif isinstance(metric_spec, dict):
         metric_name = metric_spec['metric']
         metric = PerformanceMetric.get_map()[metric_name]
-        print('Should not use "str" for metric (2)')
-        traceback.print_stack()
+        # print('Should not use "str" for metric (2)')
+        # traceback.print_stack()
     elif isinstance(metric_spec, PerformanceMetric):
         metric = metric_spec
     else:
