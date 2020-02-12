@@ -4,11 +4,11 @@ from dsbox.template.template_steps import TemplateSteps
 from dsbox.schema import SpecializedProblem 
 import typing 
 import numpy as np  # type: ignore 
-class TimeseriesLstmFcnTemplate(DSBoxTemplate):
+class DistilTimeSeriesClassificationTemplate(DSBoxTemplate):
     def __init__(self):
         DSBoxTemplate.__init__(self)
         self.template = {
-            "name": "TimeseriesLstmFcnTemplate",
+            "name": "Distil_TimeSeries_Classification_Template",
             "taskType": TaskKeyword.CLASSIFICATION.name,
             "taskSubtype": {TaskKeyword.BINARY.name, TaskKeyword.MULTICLASS.name},
             "inputType": {"timeseries", "table"},  # See SEMANTIC_TYPES.keys() for range of values

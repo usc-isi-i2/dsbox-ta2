@@ -358,8 +358,9 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
                     # test_ground_truth = None
                     test_prediction = None
                     test_metrics_each = copy.deepcopy(training_metrics_each)
+                    # updated v2020.2.11 try best value if no train data?
                     for each in test_metrics_each:
-                        each["value"] = each['metric'].worst_value()
+                        each["value"] = each['metric'].best_value()
 
                 training_metrics.append(training_metrics_each)
                 test_metrics.append(test_metrics_each)
@@ -544,21 +545,22 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
             #  object second time
             # So here we need to create a new FittedPipeline object to run second time's
             # runtime.fit()
-            fitted_pipeline_final = FittedPipeline(
-                pipeline=pipeline,
-                dataset_id=self.all_dataset.metadata.query(())['id'],
-                metric_descriptions=self.performance_metrics,
-                template=self.template, problem=self.problem, extra_primitive = self.extra_primitive, random_seed=self.random_seed)
-            # set the metric for calculating the rank
-            fitted_pipeline_final.set_metric(test_metrics2[0])
             # end uptdate v2019.3.17
 
             # finally, fit the model with all data and save it
             _logger.info("Training final pipeline with all dataset and saving the pipeline.")
             # not run fit when in super quick mode
             if self.quick_mode == 2:
+                _logger.info("In super quick mode, skip train final pipeline.")
                 fitted_pipeline_final = fitted_pipeline2
             else:
+                fitted_pipeline_final = FittedPipeline(
+                    pipeline=pipeline,
+                    dataset_id=self.all_dataset.metadata.query(())['id'],
+                    metric_descriptions=self.performance_metrics,
+                    template=self.template, problem=self.problem, extra_primitive = self.extra_primitive, random_seed=self.random_seed)
+                # set the metric for calculating the rank
+                fitted_pipeline_final.set_metric(test_metrics2[0])
                 fitted_pipeline_final.fit(cache=cache, inputs=[self.all_dataset], save_loc=self.output_directory)
 
             if self.ensemble_tuning_dataset:

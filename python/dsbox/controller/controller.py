@@ -668,17 +668,6 @@ class Controller:
             FittedPipeline.runtime_setting = self.config.get_runtime_setting()
 
         use_multiprocessing = True
-
-        # updated v2020.1.23: some special datasets need gpu resources, which should not run in parallel mode
-        try:
-            task_keywords_set = set([x.name.lower() for x in self.config.problem['problem']['task_keywords']])
-        except:
-            task_keywords_set = set()
-        run_series_taskkeywords = {"graph", "video", "image", "audio"}
-        intersect_res = task_keywords_set.intersection(run_series_taskkeywords)
-        if len(intersect_res) > 0:
-            self._logger.warning("Change to serial mode for special task keywords {}".format(str(intersect_res)))
-            self.config.search_method = "serial"
         # END change for v2020.1.23
 
         self._logger.info("Current running on {} mode".format(self.config.search_method))
@@ -1220,20 +1209,30 @@ class Controller:
         """
             do some preparations for some special type problems
             1. run in serial mode, if in `run_series_taskkeywords`
-            2. not run denormalize primitive, if in `not_run_denomormalize`
+            2. not run in serial mode, if in `not_run_series_taskkeywords`
+            3. not run denormalize primitive, if in `not_run_denomormalize`
         """
         try:
             task_keywords_set = set([x.name.lower() for x in self.config.problem['problem']['task_keywords']])
         except:
             task_keywords_set = set()
         run_series_taskkeywords = {"graph", "video", "image", "audio"}
+        not_run_series_taskkeywords = {"link_prediction"}
+        not_run_denomormalize = {"graph", "audio", "time_series"}
+
         self.fitted_pipeline = None
         self._check_and_set_dataset_metadata()
 
+        intersect_res1 = task_keywords_set.intersection(run_series_taskkeywords)
+        intersect_res2 = task_keywords_set.intersection(not_run_series_taskkeywords)
+        intersect_res3 = task_keywords_set.intersection(not_run_denomormalize)
+
+        if len(intersect_res1) > 0 and len(intersect_res2) == 0:
+            self._logger.warning("Change to serial mode for special task keywords {}".format(str(intersect_res1)))
+            self.config.search_method = "serial"
+
         # first apply denormalize on input dataset if needed
-        not_run_denomormalize = {"graph", "audio", "time_series"}
-        intersect_res = task_keywords_set.intersection(not_run_denomormalize)
-        if len(intersect_res) > 0:
+        if len(intersect_res3) > 0:
             self._logger.warning("Not run denormalize primitive for speical task keywords")
         else:
             from common_primitives.denormalize import Hyperparams as hyper_denormalize, DenormalizePrimitive

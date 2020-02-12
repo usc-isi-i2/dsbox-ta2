@@ -102,6 +102,8 @@ class DefaultImageProcessingRegressionTemplate(DSBoxTemplate):
                             "hyperparameters": {
                                 'add_index_columns': [True],
                                 'use_semantic_types':[True],
+                                "solver": ['auto', 'svd', 'cholesky', 'lsqr', 'sparse_cg', 'sag', 'saga'],
+                                'alpha': [0.5, 1, 2]
                             }
                         },
                         {
