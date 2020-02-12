@@ -10,7 +10,7 @@ from sklearn_wrap.SKGradientBoostingClassifier import Hyperparams as hyper_grand
 from sklearn_wrap.SKAdaBoostClassifier import SKAdaBoostClassifier
 from sklearn_wrap.SKBaggingClassifier import SKBaggingClassifier
 
-class CMUTimeSeriesForcastingTemplate(DSBoxTemplate):
+class NYUTimeSeriesForcastingTemplate(DSBoxTemplate):
     def __init__(self):
         DSBoxTemplate.__init__(self)
         self.template = {
