@@ -11,8 +11,8 @@ class SRIClassificationTemplate(DSBoxTemplate):
         DSBoxTemplate.__init__(self)
         self.template = {
             "name": "SRI_classification_template",
-            "taskSubtype": {TaskKeyword.BINARY.name, TaskKeyword.MULTICLASS.name},
-            "taskType": TaskKeyword.CLASSIFICATION.name,
+            "taskSubtype": {TaskKeyword.VERTEX_CLASSIFICATION.name},
+            "taskType": {TaskKeyword.VERTEX_CLASSIFICATION.name},
             # "taskType": {TaskKeyword.VERTEX_CLASSIFICATION.name, TaskKeyword.COMMUNITY_DETECTION.name, TaskKeyword.LINK_PREDICTION.name, TaskKeyword.TIME_SERIES.name},
             # "taskSubtype": {"NONE", TaskKeyword.NONOVERLAPPING.name, TaskKeyword.OVERLAPPING.name, TaskKeyword.MULTICLASS.name, TaskKeyword.BINARY.name, TaskKeyword.MULTILABEL.name, TaskKeyword.MULTIVARIATE.name, TaskKeyword.UNIVARIATE.name, TaskKeyword.TIME_SERIES.name},
             #"inputType": "table",
