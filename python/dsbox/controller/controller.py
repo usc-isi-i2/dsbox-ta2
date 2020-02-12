@@ -685,6 +685,8 @@ class Controller:
             use_multiprocessing = False
         elif self.config.search_method == 'parallel':
             self._search_method = TemplateSpaceParallelBaseSearch(num_proc=self.config.cpu)
+        elif self.config.search_method == 'weighted':
+            self._search_method = WeightedTemplateSpaceSearch()
         # elif self.config.search_method == 'bandit':
         #     self._search_method = BanditDimensionalSearch(num_proc=self.config.cpu)
         else:
