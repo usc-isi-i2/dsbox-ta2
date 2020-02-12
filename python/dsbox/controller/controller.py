@@ -1230,6 +1230,7 @@ class Controller:
         if len(intersect_res1) > 0 and len(intersect_res2) == 0:
             self._logger.warning("Change to serial mode for special task keywords {}".format(str(intersect_res1)))
             self.config.search_method = "serial"
+            self._search_method = TemplateSpaceBaseSearch()
 
         # first apply denormalize on input dataset if needed
         if len(intersect_res3) > 0:
