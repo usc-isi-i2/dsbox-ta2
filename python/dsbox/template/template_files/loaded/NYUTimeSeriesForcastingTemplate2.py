@@ -10,11 +10,11 @@ from sklearn_wrap.SKGradientBoostingClassifier import Hyperparams as hyper_grand
 from sklearn_wrap.SKAdaBoostClassifier import SKAdaBoostClassifier
 from sklearn_wrap.SKBaggingClassifier import SKBaggingClassifier
 
-class NYUTimeSeriesForcastingTemplate(DSBoxTemplate):
+class NYUTimeSeriesForcastingTemplate2(DSBoxTemplate):
     def __init__(self):
         DSBoxTemplate.__init__(self)
         self.template = {
-            "name": "NYU_TimeSeries_Forcasting_emplate",
+            "name": "NYU_TimeSeries_Forcasting_template2",
             "taskType": TaskKeyword.TIME_SERIES.name,
             "taskSubtype": {"FORECASTING"},
             "inputType": {"table"},  # See SEMANTIC_TYPES.keys() for range of values
@@ -66,6 +66,17 @@ class NYUTimeSeriesForcastingTemplate(DSBoxTemplate):
                     "inputs": ["extract_attribute_step"]
                 },
                 {
+                    "name": "clean_step",
+                    "primitives": [{
+                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.Common",
+                        "hyperparameters":
+                            {
+                                "semantic_types": [("http://schema.org/Integer","http://schema.org/Float",)]
+                            }
+                    }],
+                    "inputs": ["imputer_step"]
+                },
+                {
                     "name": "encoder_step",
                     "primitives": [{
                         "primitive": "d3m.primitives.data_transformation.one_hot_encoder.SKlearn",
@@ -100,25 +111,6 @@ class NYUTimeSeriesForcastingTemplate(DSBoxTemplate):
                     "inputs": ["column_parser_step"]
                 },
                 {
-                    "name": "scaler_step",
-                    "primitives": [{
-                        "primitive": "d3m.primitives.feature_selection.score_based_markov_blanket.RPI",
-                        "hyperparameters": {
-
-                        }
-                    },
-                    {
-                        "primitive": "d3m.primitives.feature_selection.simultaneous_markov_blanket.AutoRPI",
-                        "hyperparameters": {
-
-                        }
-                    },
-                    "d3m.primitives.data_preprocessing.do_nothing.DSBOX"
-                    ],
-                    "inputs": ["encoder_step", "extract_target_step"]
-                },
-
-                {
                     "name": "model_step",
                     "primitives": [
                         {
@@ -142,16 +134,9 @@ class NYUTimeSeriesForcastingTemplate(DSBoxTemplate):
                                 # 'add_index_columns': [True],
                                 # 'use_semantic_types':[True],
                             }
-                        },
-                        {
-                            "primitive": "d3m.primitives.regression.k_neighbors.SKlearn",
-                            "hyperparameters": {
-                                # 'add_index_columns': [True],
-                                # 'use_semantic_types':[True],
-                            }
                         }
                     ],
-                    "inputs": ["scaler_step", "extract_target_step"]
+                    "inputs": ["clean_step", "extract_target_step"]
                 },
                 {
                     "name":"predict_step",
