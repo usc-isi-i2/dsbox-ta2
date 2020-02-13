@@ -397,6 +397,7 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
                 'id': fitted_pipeline2.pipeline.id,
                 'fid': fitted_pipeline2.id,
                 'fitted_pipeline': fitted_pipeline2,
+                'rank': fitted_pipeline2.metric['rank'],
                 'training_metrics': training_metrics,
                 'cross_validation_metrics': cv,
                 'test_metrics': training_metrics,
