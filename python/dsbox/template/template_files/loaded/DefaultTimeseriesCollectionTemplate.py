@@ -79,6 +79,19 @@ class DefaultTimeseriesCollectionTemplate(DSBoxTemplate):
                     "inputs": ["timeseries_to_list_step"]
                 },
                 {
+                    "name": "scaler_step",
+                    "primitives": [
+                        {
+                            "primitive": "d3m.primitives.data_preprocessing.robust_scaler.SKlearn",
+                            "hyperparameters":{
+                                'return_result':["replace"],
+                            }
+                        },
+                    "d3m.primitives.data_preprocessing.do_nothing.DSBOX"
+                    ],
+                    "inputs": ["random_projection_step"]
+                },
+                {
                     "name": "random_forest_step",
                     "primitives": [
                         {
@@ -113,6 +126,21 @@ class DefaultTimeseriesCollectionTemplate(DSBoxTemplate):
                                 'n_estimators': [10, 50, 100],
                             }
                         },
+                        {
+                            "primitive": "d3m.primitives.classification.gradient_boosting.SKlearn",
+                            "hyperparameters":
+                            {
+                                'use_semantic_types': [True],
+                                'return_result': ['new'],
+                                'add_index_columns': [True],
+                                'max_depth': [2, 3, 5],
+                                'learning_rate': [0.1, 0.3, 0.5],
+                                'min_samples_split': [2, 3],
+                                'min_samples_leaf': [1, 2],
+                                'max_features': ['auto', 'sqrt', "7"],
+                                'n_estimators': [10, 50, 100, 150, 200],
+                            }
+                        },
                         "d3m.primitives.classification.bagging.SKlearn",
                         "d3m.primitives.classification.logistic_regression.SKlearn",
                         {
@@ -123,7 +151,7 @@ class DefaultTimeseriesCollectionTemplate(DSBoxTemplate):
                                 'return_result': ['new'],
                                 'add_index_columns': [True],
                                 'p': [1, 2],
-                                'n_neighbors': [1, 2,5],
+                                'n_neighbors': [1, 2, 5],
                                 'weights': ['uniform', 'distance'],
                             }
                         },
@@ -142,7 +170,7 @@ class DefaultTimeseriesCollectionTemplate(DSBoxTemplate):
                             }
                         }
                     ],
-                    "inputs": ["random_projection_step", "extract_target_step"]
+                    "inputs": ["scaler_step", "extract_target_step"]
                 },
             ]
         }

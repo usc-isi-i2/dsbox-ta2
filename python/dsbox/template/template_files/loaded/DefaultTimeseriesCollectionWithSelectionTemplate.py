@@ -79,6 +79,19 @@ class DefaultTimeseriesCollectionWithSelectionTemplate(DSBoxTemplate):
                     "inputs": ["timeseries_to_list_step"]
                 },
                 {
+                    "name": "scaler_step",
+                    "primitives": [
+                        {
+                            "primitive": "d3m.primitives.data_preprocessing.robust_scaler.SKlearn",
+                            "hyperparameters":{
+                                'return_result':["replace"],
+                            }
+                        },
+                    "d3m.primitives.data_preprocessing.do_nothing.DSBOX"
+                    ],
+                    "inputs": ["random_projection_step"]
+                },
+                {
                     "name": "feature_selection_step",
                     "primitives": [
                         {
@@ -97,7 +110,7 @@ class DefaultTimeseriesCollectionWithSelectionTemplate(DSBoxTemplate):
                             }
                         }
                     ],
-                    "inputs": ["random_projection_step", "extract_target_step"]
+                    "inputs": ["scaler_step", "extract_target_step"]
                 },
                 {
                     "name": "random_forest_step",
@@ -116,6 +129,21 @@ class DefaultTimeseriesCollectionWithSelectionTemplate(DSBoxTemplate):
                                 'min_samples_split': [2, 5, 10],
                                 'max_features': ['auto', 'sqrt'],
                                 'n_estimators': [10, 50, 100],
+                            }
+                        },
+                        {
+                            "primitive": "d3m.primitives.classification.gradient_boosting.SKlearn",
+                            "hyperparameters":
+                            {
+                                'use_semantic_types': [True],
+                                'return_result': ['new'],
+                                'add_index_columns': [True],
+                                'max_depth': [2, 3, 5],
+                                'learning_rate': [0.1, 0.3, 0.5],
+                                'min_samples_split': [2, 3],
+                                'min_samples_leaf': [1, 2],
+                                'max_features': ['auto', 'sqrt', "7"],
+                                'n_estimators': [10, 50, 100, 150, 200],
                             }
                         },
                         {
@@ -160,6 +188,21 @@ class DefaultTimeseriesCollectionWithSelectionTemplate(DSBoxTemplate):
                                 'dual': [True, False],
                                 "C": [1.0, 0.5],
                                 "loss": ['hinge', 'squared_hinge']
+                            }
+                        },
+                        {
+                            "primitive": "d3m.primitives.classification.svc.SKlearn",
+                            "hyperparameters":
+                            {
+                                'use_semantic_types': [True],
+                                'return_result': ['new'],
+                                'add_index_columns': [True],
+                                'tol': [0.0001, 0.001],
+                                "probability": [True, False],
+                                "shrinking": [True, False],
+                                "cache_size": [100.00, 200.00],
+                                'decision_function_shape': ["ovr"],
+                                "C": [1.0, 0.5, 2.0, 4.0, 8.0],
                             }
                         }
                     ],
