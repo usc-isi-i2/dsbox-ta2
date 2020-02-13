@@ -6,12 +6,12 @@ import typing
 import numpy as np  # type: ignore 
 
 # what does this template exactly used for ?????
-class SRIClassificationTemplate(DSBoxTemplate):
+class SRIClassificationTemplateWithSelection(DSBoxTemplate):
     def __init__(self):
         DSBoxTemplate.__init__(self)
         self.template = {
             "weight": 50,
-            "name": "SRI_classification_template",
+            "name": "SRI_classification_template_with_selection",
             "taskSubtype": {TaskKeyword.VERTEX_CLASSIFICATION.name},
             "taskType": {TaskKeyword.VERTEX_CLASSIFICATION.name},
             # "taskType": {TaskKeyword.VERTEX_CLASSIFICATION.name, TaskKeyword.COMMUNITY_DETECTION.name, TaskKeyword.LINK_PREDICTION.name, TaskKeyword.TIME_SERIES.name},
@@ -106,6 +106,29 @@ class SRIClassificationTemplate(DSBoxTemplate):
                     "inputs": ["extract_attribute_step2"]
                 },
                 {
+                    "name": "select_step",
+                    "primitives": [{
+                        "primitive": "d3m.primitives.feature_selection.select_percentile.SKlearn",
+                        "hyperparameters":
+                        {
+                            "score_func": ["f_classif"],
+                            "percentile": [30, 40, 50, 60, 68],
+                            "use_semantic_types": [False],
+                            "add_index_columns": [False],
+                            "error_on_no_input": [True],
+                            "return_semantic_type": ["https://metadata.datadrivendiscovery.org/types/PredictedTarget"]
+                        }
+                    },
+                    {
+                            "primitive": "d3m.primitives.feature_selection.variance_threshold.SKlearn",
+                            "hyperparameters":{
+                                'threshold':[0.0],
+                            }
+                        }
+                    ],
+                    "inputs": ["data_conditioner_step", "extract_target_step"]
+                },
+                {
                     "name": "model_step",
                     "primitives": [
                         {
@@ -128,7 +151,7 @@ class SRIClassificationTemplate(DSBoxTemplate):
                         {"primitive": "d3m.primitives.classification.random_forest.SKlearn"
                         }
                         ],
-                    "inputs": ["extract_attribute_step2", "extract_target_step"]
+                    "inputs": ["select_step", "extract_target_step"]
                 },
                 {
                     "name": "prediction_step",

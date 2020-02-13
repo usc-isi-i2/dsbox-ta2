@@ -91,7 +91,7 @@ class DefaultTimeseriesCollectionWithSelectionTemplate(DSBoxTemplate):
                             "primitive": "d3m.primitives.feature_selection.select_percentile.SKlearn",
                             "hyperparameters":{
                                 "score_func": ["f_classif"],
-                                "percentile": [24],
+                                "percentile": [24, 30, 40, 50, 60, 70],
                                 "use_semantic_types": [True],
                                 "error_on_no_input": [False]
                             }
