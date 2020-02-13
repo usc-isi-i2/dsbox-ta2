@@ -33,11 +33,11 @@ from dsbox.template.template import DSBoxTemplate
 # from dsbox.template.utils import calculate_score, graph_problem_conversion, SpecialMetric
 from dsbox.template.utils import score_prediction, graph_problem_conversion
 from datamart_isi.entries import AUGMENTED_COLUMN_SEMANTIC_TYPE, Q_NODE_SEMANTIC_TYPE
-T = typing.TypeVar("T")
+
 # python path of primitive, i.e. 'd3m.primitives.common_primitives.RandomForestClassifier'
 PythonPath = typing.NewType('PythonPath', str)
 
-PrimitiveDescription = typing.NewType('PrimitiveDescription', dict)
+# PrimitiveDescription = typing.NewType('PrimitiveDescription', dict)
 
 _logger = logging.getLogger(__name__)
 
@@ -47,7 +47,7 @@ class Mode(enum.IntEnum):
     TRAIN_TEST_MODE = 2
 
 
-class ConfigurationSpaceBaseSearch(typing.Generic[T]):
+class ConfigurationSpaceBaseSearch():
     """
     Search configuration space on dimension at a time.
 
@@ -55,7 +55,7 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
     ----------
     evaluate : Callable[[typing.Dict], float]
         Evaluate given point in configuration space
-    configuration_space: ConfigurationSpace[T]
+    configuration_space: ConfigurationSpace
         Definition of the configuration space
     minimize: bool
         If True, minimize the value returned by `evaluate` function
@@ -67,7 +67,7 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
     """
 
     def __init__(self, template: DSBoxTemplate,
-                 configuration_space: ConfigurationSpace[T],
+                 configuration_space: ConfigurationSpace,
                  problem: Problem, train_dataset1: Dataset,
                  train_dataset2: typing.List[Dataset], test_dataset1: Dataset,
                  test_dataset2: typing.List[Dataset], all_dataset: Dataset,
@@ -147,7 +147,7 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
     #
     #     """
     #     _logger.info("Dummy evaluation started")
-    #     configuration: ConfigurationPoint[PrimitiveDescription] = \
+    #     configuration: ConfigurationPoint = \
     #         self.configuration_space.get_first_assignment()
     #
     #     pipeline = self.template.to_pipeline(configuration)
@@ -171,7 +171,7 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
         else:
             self.do_ensemble_tuning = False
 
-        configuration: ConfigurationPoint[PrimitiveDescription] = dict(args[0])
+        configuration: ConfigurationPoint = dict(args[0])
         cache: PrimitivesCache = args[1]
         dump2disk = args[2] if len(args) == 3 else True
 

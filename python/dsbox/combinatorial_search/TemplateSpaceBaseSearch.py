@@ -5,7 +5,6 @@ import traceback
 import typing
 
 import d3m.metadata.problem as problem
-
 from d3m.container.dataset import Dataset
 from dsbox.combinatorial_search.ConfigurationSpaceBaseSearch import ConfigurationSpaceBaseSearch
 from dsbox.template.configuration_space import ConfigurationPoint
@@ -14,16 +13,10 @@ from dsbox.JobManager.cache import CacheManager
 from dsbox.template.template import DSBoxTemplate
 
 
-T = typing.TypeVar("T")
-# python path of primitive, i.e. 'd3m.primitives.common_primitives.RandomForestClassifier'
-PythonPath = typing.NewType('PythonPath', str)
-
-PrimitiveDescription = typing.NewType('PrimitiveDescription', dict)
-
 _logger = logging.getLogger(__name__)
 
 
-class TemplateSpaceBaseSearch(typing.Generic[T]):
+class TemplateSpaceBaseSearch():
     """
     Search the template space through the individual configuration spaces.
 
@@ -31,7 +24,7 @@ class TemplateSpaceBaseSearch(typing.Generic[T]):
     ----------
     template_list : List[DSBoxTemplate]
         Evaluate given point in configuration space
-    configuration_space_list: List[ConfigurationSpace[T]]
+    configuration_space_list: List[ConfigurationSpace]
         Definition of the configuration space
     confSpaceBaseSearch: List[ConfigurationSpaceBaseSearch]
         list of ConfigurationSpaceBaseSearch related to each template

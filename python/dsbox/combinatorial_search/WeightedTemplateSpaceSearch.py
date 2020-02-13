@@ -16,16 +16,10 @@ from dsbox.JobManager.cache import CacheManager
 from dsbox.template.template import DSBoxTemplate
 
 
-T = typing.TypeVar("T")
-# python path of primitive, i.e. 'd3m.primitives.common_primitives.RandomForestClassifier'
-PythonPath = typing.NewType('PythonPath', str)
-
-PrimitiveDescription = typing.NewType('PrimitiveDescription', dict)
-
 _logger = logging.getLogger(__name__)
 
 
-class WeightedTemplateSpaceSearch(typing.Generic[T]):
+class WeightedTemplateSpaceSearch():
     """
     Search the template space through the individual configuration spaces.
 
@@ -33,7 +27,7 @@ class WeightedTemplateSpaceSearch(typing.Generic[T]):
     ----------
     template_list : List[DSBoxTemplate]
         Evaluate given point in configuration space
-    configuration_space_list: List[ConfigurationSpace[T]]
+    configuration_space_list: List[ConfigurationSpace]
         Definition of the configuration space
     confSpaceBaseSearch: List[ConfigurationSpaceBaseSearch]
         list of ConfigurationSpaceBaseSearch related to each template
