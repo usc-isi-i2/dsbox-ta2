@@ -94,7 +94,7 @@ class ExecutionHistory:
             if 'rank' in report:
                 _logger.info(f"  id={report['id']} fid={report['fid']} rank={report['rank']}")
             else:
-                _logger.info(f"  id={report['id']} fid={report['fid']} rank=MISSING")
+                _logger.error(f"  id={report['id']} fid={report['fid']} rank=MISSING")
             self.all_reports[report['id']] = report
             self.queue.put(report)
 
@@ -122,7 +122,7 @@ class ExecutionHistory:
 
         # these fields will be updated only if the new report is better than the previous ones
         if ExecutionHistory._is_better(base=row, check=report, key_attribute=self.key_attribute):
-            print(f"updating history for: {hash(str(report['configuration']))}")
+            _logger.debug(f"updating history for: {hash(str(report['configuration']))}")
             for k in ['configuration', 'training_metrics', 'cross_validation_metrics',
                       'test_metrics']:
                 assert report[k] is None or \
@@ -247,8 +247,8 @@ class ExecutionHistory:
         # check if different metrics are inconsistent
         if len(set(comparison_results.values())) != 1:
             # FIXME a better policy for this part
-            _logger.warning("[WARN] cross_validation_metrics and test_metrics are not compatible")
-            print(("[WARN]" + " {}:{} " * len(comparison_results) + "are not compatible").format(
+            _logger.warning("Cross_validation_metrics and test_metrics are not compatible:")
+            _logger.warning((" {}:{} " * len(comparison_results) + "are not compatible").format(
                 *[item for m in base_comparison_metrics for item in [m, comparison_results[m]]]))
 
         # return operator.and_(comparison_results[0], comparison_results[1])
