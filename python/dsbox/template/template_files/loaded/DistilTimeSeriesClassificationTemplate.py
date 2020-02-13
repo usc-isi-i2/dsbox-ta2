@@ -80,7 +80,7 @@ class DistilTimeSeriesClassificationTemplate(DSBoxTemplate):
                             'primitive': 'd3m.primitives.time_series_classification.convolutional_neural_net.LSTM_FCN',
                             'hyperparameters': {
                                 'use_multiprocessing': [False],
-                                'attention_lstm': [True],
+                                'attention_lstm': [True, False],
                             },
                         },
                     ],
