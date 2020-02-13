@@ -8,6 +8,7 @@ class DefaultObjectDetectionTemplateFittedWeight(DSBoxTemplate):
     def __init__(self):
         DSBoxTemplate.__init__(self)
         self.template = {
+            "weight": 100,
             "name": "DefaultObjectDetectionTemplateFittedWeight",
             "taskType": {TaskKeyword.OBJECT_DETECTION.name},
             "taskSubtype": {TaskKeyword.OBJECT_DETECTION.name},

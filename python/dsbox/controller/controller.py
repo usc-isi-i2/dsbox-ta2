@@ -1241,7 +1241,7 @@ class Controller:
         except:
             task_keywords_set = set()
         run_series_taskkeywords = {"graph", "video", "image", "audio"}
-        not_run_series_taskkeywords = {"link_prediction", "community_detection"}
+        not_run_series_taskkeywords = {} # {"link_prediction", "community_detection"}
         not_run_denomormalize = {"graph", "audio", "time_series"}
 
         self.fitted_pipeline = None
@@ -1253,8 +1253,8 @@ class Controller:
 
         if len(intersect_res1) > 0 and len(intersect_res2) == 0:
             self._logger.warning("Change to serial mode for special task keywords {}".format(str(intersect_res1)))
-            self.config.search_method = "serial"
-            self._search_method = TemplateSpaceBaseSearch()
+            self.config.search_method = "weighted"
+            self._search_method = WeightedTemplateSpaceSearch()
 
         # first apply denormalize on input dataset if needed
         if len(intersect_res3) > 0:

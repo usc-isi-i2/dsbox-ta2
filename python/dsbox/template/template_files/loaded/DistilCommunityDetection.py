@@ -8,6 +8,7 @@ class DistilCommunityDetection(DSBoxTemplate):
     def __init__(self):
         DSBoxTemplate.__init__(self)
         self.template = {
+            "weight": 100,
             "name": "Distil_Community_Detection_Template",
             "taskType": {TaskKeyword.COMMUNITY_DETECTION.name},
             # for some special condition, the taskSubtype can be "NONE" which indicate no taskSubtype given

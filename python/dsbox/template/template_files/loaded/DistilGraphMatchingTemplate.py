@@ -8,6 +8,7 @@ class DistilGraphMatchingTemplate(DSBoxTemplate):
     def __init__(self):
         DSBoxTemplate.__init__(self)
         self.template = {
+            "weight": 100,
             "name": "Distil_GraphMatching_Template",
             "taskType": {TaskKeyword.GRAPH_MATCHING.name},
             # for some special condition, the taskSubtype can be "NONE" which indicate no taskSubtype given

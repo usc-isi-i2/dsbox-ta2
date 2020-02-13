@@ -4,11 +4,11 @@ from dsbox.template.template_steps import TemplateSteps
 from dsbox.schema import SpecializedProblem 
 import typing 
 import numpy as np  # type: ignore 
-class DefaultTimeseriesCollectionTemplate(DSBoxTemplate):
+class DefaultTimeseriesCollectionWithSelectionTemplate(DSBoxTemplate):
     def __init__(self):
         DSBoxTemplate.__init__(self)
         self.template = {
-            "name": "Default_timeseries_collection_template",
+            "name": "Default_Timeseries_Collection_With_Selection_Template",
             "taskType": TaskKeyword.CLASSIFICATION.name,
             "taskSubtype": {TaskKeyword.BINARY.name, TaskKeyword.MULTICLASS.name},
             "inputType": {"timeseries", "table"},  # See SEMANTIC_TYPES.keys() for range of values
@@ -79,6 +79,27 @@ class DefaultTimeseriesCollectionTemplate(DSBoxTemplate):
                     "inputs": ["timeseries_to_list_step"]
                 },
                 {
+                    "name": "feature_selection_step",
+                    "primitives": [
+                        {
+                            "primitive": "d3m.primitives.feature_selection.variance_threshold.SKlearn",
+                            "hyperparameters":{
+                                'threshold':[0.0],
+                            }
+                        },
+                        {
+                            "primitive": "d3m.primitives.feature_selection.select_percentile.SKlearn",
+                            "hyperparameters":{
+                                "score_func": ["f_classif"],
+                                "percentile": [24],
+                                "use_semantic_types": [True],
+                                "error_on_no_input": [False]
+                            }
+                        }
+                    ],
+                    "inputs": ["random_projection_step", "extract_target_step"]
+                },
+                {
                     "name": "random_forest_step",
                     "primitives": [
                         {
@@ -134,11 +155,11 @@ class DefaultTimeseriesCollectionTemplate(DSBoxTemplate):
                                 'use_semantic_types': [True],
                                 'return_result': ['new'],
                                 'add_index_columns': [True],
-                                'tol': [0.0001],
-                                'penalty': ["l2"],
-                                'dual': [False],
-                                "C": [1.0],
-                                "loss": ["squared_hinge"]
+                                'tol': [0.0001, 0.001],
+                                'penalty': ["l1", "l2"],
+                                'dual': [True, False],
+                                "C": [1.0, 0.5],
+                                "loss": ['hinge', 'squared_hinge']
                             }
                         }
                     ],

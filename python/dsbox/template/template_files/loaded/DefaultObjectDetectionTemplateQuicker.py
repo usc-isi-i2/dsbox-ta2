@@ -8,6 +8,7 @@ class DefaultObjectDetectionTemplateQuicker(DSBoxTemplate):
     def __init__(self):
         DSBoxTemplate.__init__(self)
         self.template = {
+            "weight": 30,
             "name": "DefaultObjectDetectionTemplateQuicker",
             "taskType": {TaskKeyword.OBJECT_DETECTION.name},
             "taskSubtype": {TaskKeyword.OBJECT_DETECTION.name},
