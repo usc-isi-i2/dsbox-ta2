@@ -1242,6 +1242,7 @@ class Controller:
             task_keywords_set = set()
         run_series_taskkeywords = {"video", "image", "audio"} #"graph"
         # not_run_series_taskkeywords = {"link_prediction"}
+        not_run_series_taskkeywords = {}
         not_run_denomormalize = {"graph", "audio", "time_series"}
 
         self.fitted_pipeline = None
