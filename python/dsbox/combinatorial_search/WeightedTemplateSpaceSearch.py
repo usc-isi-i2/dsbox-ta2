@@ -4,6 +4,8 @@ import time
 import traceback
 import typing
 
+from operator import itemgetter
+
 import d3m.metadata.problem as problem
 
 from d3m.container.dataset import Dataset
@@ -59,7 +61,7 @@ class WeightedTemplateSpaceSearch(typing.Generic[T]):
         # self.cacheManager.timeout_sec = timeout_sec
         self.template_list = template_list
 
-        self.weights = [template.weight if 'weight' in template else 1.0 for template self.template_list]
+        self.weights = [template.template['weight'] if 'weight' in template.template else 1.0 for template in self.template_list]
 
         self.configuration_space_list = list(
             map(lambda t: t.generate_configuration_space(), template_list))
@@ -100,26 +102,26 @@ class WeightedTemplateSpaceSearch(typing.Generic[T]):
     def _setup_exec_history(self, template_list: typing.List[DSBoxTemplate]):
         self.history = ExecutionHistory(template_list=template_list)
 
-    def _next_pipeline(self) -> ConfigurationPoint:
+    def _next_pipeline(self) -> typing.Tuple[ConfigurationPoint, ConfigurationSpaceBaseSearch]:
         sorted_by_weight = sorted(
-            zip(self.weights, self.templates, self.configuration_space_list, self.confSpaceBaseSearch),
+            zip(self.weights, self.template_list, self.configuration_space_list, self.confSpaceBaseSearch),
             key=itemgetter(0), reverse=True)
-        for template, conf_space, search in sorted_by_weight:
+        for weight, template, conf_space, search in sorted_by_weight:
             _logger.info(f'Search template {search.template}')
-            conf_point = search.configuration_space.get_default_assignmemnt()
-            if self._prepare_candidate_4_eval(candidate=conf_point):
+            candidate = search.configuration_space.get_default_assignment()
+            if self._prepare_candidate_4_eval(candidate=candidate):
                 _logger.info(f"Selecting Candidate: {hash(str(candidate))}")
-                yield candidate
+                yield candidate, search
             else:
-                _logger.warining(f"Skipping Candidate in first round: {hash(str(candidate))}")
+                _logger.warning(f"Skipping Candidate in first round: {hash(str(candidate))}")
                 continue
 
         while True:
-            search =  random.choices(self.confSpaceBaseSearch, self.weights)
-            conf_point = search.configuration_space.get_random_assignmemnt()
-            if self._prepare_candidate_4_eval(candidate=conf_point):
+            search = random.choices(self.confSpaceBaseSearch, self.weights)[0]
+            candidate = search.configuration_space.get_random_assignment()
+            if self._prepare_candidate_4_eval(candidate=candidate):
                 _logger.info(f"Selecting Candidate: {hash(str(candidate))}")
-                yield candidate
+                yield candidate, search
             else:
                 _logger.info(f"Skipping Cached Candidate: {hash(str(candidate))}")
                 continue
@@ -138,7 +140,7 @@ class WeightedTemplateSpaceSearch(typing.Generic[T]):
         """
 
         success_count = 0
-        for conf_point in self._next_pipeline():
+        for candidate, search in self._next_pipeline():
             if self._done(success_count, one_pipeline_only=one_pipeline_only):
                 break
             try:

@@ -15,6 +15,8 @@ import typing
 import copy
 import datamart
 
+from operator import itemgetter
+
 import pandas as pd  # type: ignore
 
 from d3m.base import utils as d3m_utils
@@ -32,6 +34,7 @@ from datamart_isi import rest
 from dsbox.combinatorial_search.ExecutionHistory import ExecutionHistory
 from dsbox.combinatorial_search.TemplateSpaceBaseSearch import TemplateSpaceBaseSearch
 from dsbox.combinatorial_search.TemplateSpaceParallelBaseSearch import TemplateSpaceParallelBaseSearch
+from dsbox.combinatorial_search.WeightedTemplateSpaceSearch import WeightedTemplateSpaceSearch
 from dsbox.JobManager.usage_monitor import UsageMonitor
 # from dsbox.combinatorial_search.BanditDimensionalSearch import BanditDimensionalSearch
 # from dsbox.combinatorial_search.MultiBanditSearch import MultiBanditSearch
@@ -506,6 +509,28 @@ class Controller:
     #             pass
 
     def _run_SerialBaseSearch(self, report_ensemble, *, one_pipeline_only=False):
+        self._search_method.initialize_problem(
+            template_list=self.template_list,
+            performance_metrics=self.config.problem['problem']['performance_metrics'],
+            problem=self.config.problem,
+            test_dataset1=self.test_dataset1,
+            train_dataset1=self.train_dataset1,
+            test_dataset2=self.test_dataset2,
+            train_dataset2=self.train_dataset2,
+            all_dataset=self.all_dataset,
+            ensemble_tuning_dataset=self.ensemble_dataset,
+            output_directory=self.config.output_dir,
+            start_time=self.config.start_time,
+            timeout_sec=self.config.timeout_search,
+            extra_primitive=self.extra_primitive,
+        )
+        # report = self._search_method.search(num_iter=50)
+        report = self._search_method.search(num_iter=self.config.serial_search_iterations, one_pipeline_only=one_pipeline_only)
+        if report_ensemble:
+            report_ensemble['report'] = report
+        self._log_search_results(report=report)
+
+    def _run_WeightedSearch(self, report_ensemble, *, one_pipeline_only=False):
         self._search_method.initialize_problem(
             template_list=self.template_list,
             performance_metrics=self.config.problem['problem']['performance_metrics'],
@@ -1595,6 +1620,8 @@ class Controller:
 
         if self.config.search_method == 'serial':
             self._run_SerialBaseSearch(self.report_ensemble, one_pipeline_only=one_pipeline_only)
+        if self.config.search_method == 'weighted':
+            self._run_WeightedSearch(self.report_ensemble, one_pipeline_only=one_pipeline_only)
         else:
             self._run_ParallelBaseSearch(self.report_ensemble)
 
