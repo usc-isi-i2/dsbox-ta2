@@ -13,7 +13,7 @@ from .configuration_space import SimpleConfigurationSpace, ConfigurationPoint
 
 DISTIL_SPEICAL_PRIMITIVES_PRODUCE_TARGETS = (
     "d3m.primitives.data_transformation.load_single_graph.DistilSingleGraphLoader".lower(),
-    "d3m.primitives.data_transformation.load_single_graph.DistilSingleGraphLoader".lower(),
+    "d3m.primitives.data_transformation.load_graphs.DistilGraphLoader".lower()
     )
 DISTIL_SPEICAL_PRIMITIVES_PRODUCE_COLLECTION = (
     "d3m.primitives.data_preprocessing.audio_reader.DistilAudioDatasetLoader".lower(),
