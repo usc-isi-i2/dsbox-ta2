@@ -242,7 +242,8 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
         else:
             self.config.pipeline = None
             self.problem = utils.decode_problem_description(request.problem)
-            pprint(self.problem)
+        pprint(self.problem)
+        self.log_msg(self.problem)
 
         # Although called uri, it's just a filepath to datasetDoc.json
         self.dataset_uris = [input.dataset_uri for input in request.inputs]
@@ -274,6 +275,7 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
 
         print('===config')
         print(self.config)
+        self.log_msg(self.config)
 
         request_id = self.generateId()
 
@@ -343,30 +345,34 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
             if len(candidates) > problem_config.rank_solutions_limit:
                 ranked_list = []
                 for solution in candidates.values():
-                    if 'test_metrics' in solution and solution['test_metrics'] is not None:
-                        rank = solution['test_metrics'][0]['rank']
+                    if ('test_metrics' in solution
+                            and solution['test_metrics'] is not None
+                            and 'rank' in solution
+                            and solution['rank'] is not None):
+                        rank = solution['rank']
                         ranked_list.append((rank, solution))
-                    else:
-                        ranked_list.append((sys.float_info.max, solution))
                 ranked_list = sorted(ranked_list, key=operator.itemgetter(0))
                 results = [item[1] for item in ranked_list]
+
+                for result in results:
+                    _logger.info(f"  id={result['id']} fid={result['fid']} rank={result['rank']}")
         except Exception:
             print("Unexpected error:", sys.exc_info()[0])
+            _logger.exception('GetSearchSolutionsResults')
 
         search_solutions_results = []
         problem = self.controller.get_problem()
-        for solution in results:
+        for solution in results[:problem_config.rank_solutions_limit]:
             # Use fitted pipeline id, 'fid'
             fitted_pipeline_id = solution['fid']
-            if 'test_metrics' in solution and solution['test_metrics'] is not None:
-                search_solutions_results.append(to_proto_search_solution_request(
-                    problem, fitted_pipeline_id, solution['test_metrics']))
+            search_solutions_results.append(to_proto_search_solution_request(
+                problem, fitted_pipeline_id, solution['test_metrics']))
 
         check(search_solutions_results)
 
         self._search_cache[request.search_id] = search_solutions_results
 
-        for solution in search_solutions_results:
+        for solution in search_solutions_results[:problem_config.rank_solutions_limit]:
             #! kyao
             self.log_msg(solution)
             yield solution

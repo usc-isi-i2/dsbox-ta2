@@ -254,6 +254,7 @@ class DsboxConfig:
         if self.problem_schema == '':
             return
         self.problem = Problem.load('file://' + os.path.abspath(self.problem_schema))
+        self._logger.info(self.problem)
         self._load_problem_rest()
 
     def _load_problem_rest(self) -> None:
@@ -261,7 +262,7 @@ class DsboxConfig:
         # self.task_keywords = self.problem['problem']['task_keywords']
         self.task_type = self.problem['problem']['task_keywords']
         self.task_subtype = self.problem['problem']['task_keywords']
-        
+
         dataset_ids = [obj['dataset_id'] for obj in self.problem['inputs']]
         if len(dataset_ids) > 1:
             self._logger.warning(f"ProblemDoc specifies more than one dataset id: {dataset_ids}")
@@ -275,8 +276,10 @@ class DsboxConfig:
         self.dataset_schema_files = [self._all_datasets[id] for id in dataset_ids]
 
         for dataset_doc in self.dataset_schema_files:
-            with open(dataset_doc, 'r') as dataset_description_file:
+            with open(dataset_doc, encoding='utf-8') as dataset_description_file:
                 self.dataset_docs.append(json.load(dataset_description_file))
+
+        self._logger.info(self.dataset_docs)
 
     def _define_create_output_dirs(self):
         '''
@@ -422,7 +425,7 @@ def find_dataset_docs(datasets_dir, _logger=None):
             dataset_path = os.path.join(dirpath, 'datasetDoc.json')
 
             try:
-                with open(dataset_path, 'r') as dataset_file:
+                with open(dataset_path, encoding='utf-8') as dataset_file:
                     dataset_doc = json.load(dataset_file)
 
                 dataset_id = dataset_doc['about']['datasetID']
