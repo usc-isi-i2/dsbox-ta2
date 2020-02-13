@@ -14,16 +14,13 @@ from dsbox.combinatorial_search.TemplateSpaceBaseSearch import TemplateSpaceBase
 from dsbox.template.configuration_space import ConfigurationPoint
 from dsbox.template.template import DSBoxTemplate
 
-T = typing.TypeVar("T")
 # python path of primitive, i.e. 'd3m.primitives.common_primitives.RandomForestClassifier'
 PythonPath = typing.NewType('PythonPath', str)
-
-PrimitiveDescription = typing.NewType('PrimitiveDescription', dict)
 
 _logger = logging.getLogger(__name__)
 
 
-class TemplateSpaceParallelBaseSearch(TemplateSpaceBaseSearch[T]):
+class TemplateSpaceParallelBaseSearch(TemplateSpaceBaseSearch):
     """
     Search the template space through random configuration spaces in parallel.
 
@@ -31,7 +28,7 @@ class TemplateSpaceParallelBaseSearch(TemplateSpaceBaseSearch[T]):
     ----------
     template_list : List[DSBoxTemplate]
         Evaluate given point in configuration space
-    configuration_space_list: List[ConfigurationSpace[T]]
+    configuration_space_list: List[ConfigurationSpace]
         Definition of the configuration space
     confSpaceBaseSearch: List[ConfigurationSpaceBaseSearch]
         list of ConfigurationSpaceBaseSearch related to each template
@@ -234,14 +231,14 @@ class TemplateSpaceParallelBaseSearch(TemplateSpaceBaseSearch[T]):
             time.sleep(0.1)
 
     def evaluate_blocking(self, base_search: ConfigurationSpaceBaseSearch,
-                          candidate: ConfigurationPoint[PrimitiveDescription]) -> typing.Dict:
+                          candidate: ConfigurationPoint) -> typing.Dict:
         """
         submits the candidate to the execution engine and blocks execution until the evaluation
         is done.
         Args:
             base_search: ConfigurationSpaceBaseSearch
                 the confSpaceBaseSearch that the candidate is from
-            candidate: ConfigurationPoint[PrimitiveDescription]
+            candidate: ConfigurationPoint
                 the candidate to be evaluated
 
         Returns:

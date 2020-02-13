@@ -15,7 +15,6 @@ from d3m.primitive_interfaces.base import PrimitiveBase
 from dsbox.combinatorial_search.search_utils import comparison_metrics
 from dsbox.template.configuration_space import ConfigurationPoint
 
-T = typing.TypeVar("T")
 _logger = logging.getLogger(__name__)
 
 
@@ -91,7 +90,7 @@ class CandidateCache:
     def __init__(self, manager):
         self.storage = manager.dict()
 
-    def lookup(self, candidate: ConfigurationPoint[T]) -> typing.Dict:
+    def lookup(self, candidate: ConfigurationPoint) -> typing.Dict:
 
         key = CandidateCache._get_hash(candidate)
         if key in self.storage:
@@ -100,7 +99,7 @@ class CandidateCache:
         else:
             return None
 
-    def push_None(self, candidate: ConfigurationPoint[T]) -> None:
+    def push_None(self, candidate: ConfigurationPoint) -> None:
         result = {
             "configuration": candidate,
             "status": CandidateCache.S_INVALID,
@@ -177,11 +176,11 @@ class CandidateCache:
                 assert False
                 update['status'] = CandidateCache.S_VALID
 
-    def is_hit(self, candidate: ConfigurationPoint[T]) -> bool:
+    def is_hit(self, candidate: ConfigurationPoint) -> bool:
         return CandidateCache._get_hash(candidate) in self.storage
 
     @staticmethod
-    def _get_hash(candidate: ConfigurationPoint[T]) -> int:
+    def _get_hash(candidate: ConfigurationPoint) -> int:
         return hash(str(candidate))
 
 

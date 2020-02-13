@@ -1,12 +1,13 @@
 import abc
 import pprint
+import random
 import typing
 
 from operator import itemgetter
-from random import choice
 
 import d3m.exceptions as exceptions
 
+from .template_hyperparams import Hyperparam
 
 DimensionName = typing.NewType('DimensionName', str)
 
@@ -136,7 +137,7 @@ class SimpleConfigurationSpace(ConfigurationSpace):
         """
         assignment: typing.Dict[DimensionName, typing.Any] = {}
         for dimension in self._dimension_ordering:
-            assignment[dimension] = choice(self.get_values(dimension))
+            assignment[dimension] = random.choice(self.get_values(dimension))
 
         return ConfigurationPoint(self, assignment)
 
@@ -158,13 +159,13 @@ class SimpleConfigurationSpace(ConfigurationSpace):
         return pprint.pformat(self._dimension_values)
 
 class PrimitiveHyperparams():
-    def __init__(self, primitive_name: str, hyperparams : typing.Dict[str, Hyperparam]):
+    def __init__(self, primitive_name: str, hyperparams: typing.Dict[str, Hyperparam]):
         self.primitive_name = primitive_name
         self.hyperparams = hyperparams
 
     def get_default_assignment(self) -> typing.Dict:
         hyperparams = {}
-        for name, function in self.hyperparams:
+        for name, function in self.hyperparams.items():
             hyperparams[name] = function.default()
         result = {
             "primitive": self.primitive_name,
@@ -174,7 +175,7 @@ class PrimitiveHyperparams():
 
     def get_random_assignment(self) -> typing.Dict:
         hyperparams = {}
-        for name, function in self.hyperparams:
+        for name, function in self.hyperparams.items():
             hyperparams[name] = function.sample()
         result = {
             "primitive": self.primitive_name,
@@ -206,15 +207,17 @@ class TemplateStepHyperparams():
         return random.choices(self.primitive_hyperaparms, self.primitive_weights)[0].get_random_assignment()
 
 class ImplicitConfigurationSpace(ConfigurationSpace):
-    def __init__(self, conf_space: typing[DimensionName, typing.List[PrimitiveHyperam]]):
+    def __init__(self, conf_space: typing.Dict[DimensionName, typing.List[PrimitiveHyperparams]]):
         self.conf_space = conf_space
 
     def get_default_assignment(self):
-        result = {domain_name: step_hyperparams.get_default_assignment()
-                  for (domain_name, step_hyperparams) in self.conf_space.items()}
+        result = {}
+        for (domain_name, step_hyperparams) in self.conf_space.items():
+            result[domain_name] = step_hyperparams[0].get_default_assignment()
         return result
 
     def get_random_assignment(self):
-        result = {domain_name: step_hyperparams.get_random_assignment()
-                  for (domain_name, step_hyperparams) in self.conf_space.items()}
+        result = {}
+        for (domain_name, step_hyperparams) in self.conf_space.items():
+            result[domain_name] = random.choices(step_hyperparams)[0].get_default_assignment()
         return result

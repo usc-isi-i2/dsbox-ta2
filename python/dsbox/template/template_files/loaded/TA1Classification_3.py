@@ -1,9 +1,9 @@
-from dsbox.template.template import DSBoxTemplate 
-from d3m.metadata.problem import TaskKeyword 
-from dsbox.template.template_steps import TemplateSteps 
-from dsbox.schema import SpecializedProblem 
-import typing 
-import numpy as np  # type: ignore 
+from dsbox.template.template import DSBoxTemplate
+from d3m.metadata.problem import TaskKeyword
+from dsbox.template.template_steps import TemplateSteps
+from dsbox.schema import SpecializedProblem
+import typing
+import numpy as np  # type: ignore
 class TA1Classification_3(DSBoxTemplate):
     def __init__(self):
         DSBoxTemplate.__init__(self)
@@ -107,4 +107,3 @@ class TA1Classification_3(DSBoxTemplate):
         }
 
     # @override
-
