@@ -340,7 +340,7 @@ class TA2Servicer(core_pb2_grpc.CoreServicer):
         self.search_solution_results[request.search_id] = candidates
         _logger.info('    Found {} solutions.'.format(len(candidates)))
 
-        results = candidates.values()
+        results = list(candidates.values())
         try:
             if len(candidates) > problem_config.rank_solutions_limit:
                 ranked_list = []

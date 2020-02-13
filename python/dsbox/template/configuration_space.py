@@ -19,35 +19,42 @@ class ConfigurationSpace(typing.Generic[T]):
         """
         Returns the dimension names of the configuration space
         """
-        pass
 
     @abc.abstractmethod
     def get_values(self, dimension: DimensionName) -> typing.List[T]:
         """
         Returns the values associated with a dimension
         """
-        pass
 
     @abc.abstractmethod
     def get_weight(self, dimension: DimensionName, value: T) -> float:
         """
         Returns the wieght associated with each dimension value
         """
-        pass
 
     @abc.abstractmethod
     def get_dimension_search_ordering(self) -> typing.List[DimensionName]:
         """
         Returns the dimension names in order of search preference
         """
-        pass
 
-    def get_point(self, values: typing.Dict[DimensionName, T]):
+    @abc.abstractmethod
+    def get_random_assignment(self) -> 'ConfigurationPoint':
+        """
+        Randomly assigns a value for each dimension
+        """
+
+    @abc.abstractmethod
+    def get_default_assignment(self) -> 'ConfigurationPoint':
+        """
+        Assigns default value for each dimension
+        """
+
+    def get_point(self, values: typing.Dict[DimensionName, T]) -> 'ConfigurationPoint':
         """
         Returns the point asscoiate with values.
         """
         return ConfigurationPoint(self, values)
-
 
 
 class ConfigurationPoint(typing.Dict[DimensionName, T]):
@@ -103,7 +110,7 @@ class SimpleConfigurationSpace(ConfigurationSpace[T]):
         # TODO: SimpleConfigurationSpace should manage and reuse ConfigurationPoints
         return ConfigurationPoint(self, values)
 
-    def get_first_assignment(self) -> typing.Dict[DimensionName, T]:
+    def get_first_assignment(self) -> ConfigurationPoint:
         '''
         Assign the first value for each dimension
         '''
@@ -114,7 +121,10 @@ class SimpleConfigurationSpace(ConfigurationSpace[T]):
             # print(dimension, self.get_values(dimension)[0])
         return ConfigurationPoint(self, assignment)
 
-    def get_random_assignment(self) -> typing.Dict[DimensionName, T]:
+    def get_default_assignment(self) -> ConfigurationPoint:
+        return self.get_first_assignment()
+
+    def get_random_assignment(self) -> ConfigurationPoint:
         """
         Randomly assigns a value for each dimension
         """
