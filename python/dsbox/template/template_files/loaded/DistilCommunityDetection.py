@@ -18,7 +18,7 @@ class DistilCommunityDetection(DSBoxTemplate):
             "steps": [
                 {
                     "name": "parse_step",
-                    "primitives": ["d3m.primitives.data_transformation.load_graphs.DistilGraphLoader"],
+                    "primitives": ["d3m.primitives.data_transformation.load_single_graph.DistilSingleGraphLoader"],
                     "inputs":['template_input']
                     },
                 {
