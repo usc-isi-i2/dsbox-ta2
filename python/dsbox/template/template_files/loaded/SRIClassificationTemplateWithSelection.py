@@ -117,7 +117,7 @@ class SRIClassificationTemplateWithSelection(DSBoxTemplate):
                             "use_semantic_types": [False],
                             "add_index_columns": [False],
                             "error_on_no_input": [True],
-                            "return_result": ["new"]
+                            "return_result": ["new"],
                             "return_semantic_type": ["https://metadata.datadrivendiscovery.org/types/PredictedTarget"]
                         }
                     },
