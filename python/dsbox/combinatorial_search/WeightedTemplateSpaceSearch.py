@@ -112,6 +112,7 @@ class WeightedTemplateSpaceSearch():
 
         while True:
             search = random.choices(self.confSpaceBaseSearch, self.weights)[0]
+            _logger.info(f'Search template {search.template}')
             candidate = search.configuration_space.get_random_assignment()
             if self._prepare_candidate_4_eval(candidate=candidate):
                 _logger.info(f"Selecting Candidate: {hash(str(candidate))}")
