@@ -99,7 +99,7 @@ class SRIClassificationTemplate(DSBoxTemplate):
                         "primitive": "d3m.primitives.data_transformation.conditioner.Conditioner",
                         "hyperparameters":
                         {
-                            "ensure_numeric":[True, False],
+                            "ensure_numeric":[True],
                             "maximum_expansion": [30]
                         }
                     }],
