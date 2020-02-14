@@ -77,7 +77,7 @@ class DistilVertexClassificationTemplate(DSBoxTemplate):
                             'use_semantic_types': [True],
                             'strategy': ["most_frequent"]
                         }
-                    }]
+                    }],
                     "inputs": ["extract_attribute_step"]
                 },
                 {
@@ -87,7 +87,7 @@ class DistilVertexClassificationTemplate(DSBoxTemplate):
                         "hyperparameters":
                         {
                         }
-                    }]
+                    }],
                     "inputs": ["imputer_step", "extract_target_step"]
                 },
                 {
@@ -97,7 +97,7 @@ class DistilVertexClassificationTemplate(DSBoxTemplate):
                         "hyperparameters":
                         {
                         }
-                    }]
+                    }],
                     "inputs": ["encoder_step1"]
                 },
                 {
@@ -107,7 +107,7 @@ class DistilVertexClassificationTemplate(DSBoxTemplate):
                         "hyperparameters":
                         {
                         }
-                    }]
+                    }],
                     "inputs": ["encoder_step2"]
                 },
                 {

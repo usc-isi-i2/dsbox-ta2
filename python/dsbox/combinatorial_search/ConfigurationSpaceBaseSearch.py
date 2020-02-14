@@ -554,6 +554,7 @@ class ConfigurationSpaceBaseSearch():
             if self.quick_mode == 2:
                 _logger.info("In super quick mode, skip train final pipeline.")
                 fitted_pipeline_final = fitted_pipeline2
+                fitted_pipeline_final.set_metric(test_metrics2[0])
             else:
                 fitted_pipeline_final = FittedPipeline(
                     pipeline=pipeline,
