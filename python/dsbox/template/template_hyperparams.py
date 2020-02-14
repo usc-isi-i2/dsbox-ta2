@@ -2,7 +2,9 @@ import abc
 import typing
 
 import numpy as np
+import numpy.random as random
 from numpy.random import RandomState
+
 
 T = typing.TypeVar('T')
 
@@ -48,7 +50,7 @@ class Choice(Hyperparam[T]):
         self._choices = items
 
     def sample(self, random_state: RandomState = None) -> T:
-        return random_state.choice(self._choices)
+        return random.choice(self._choices)
 
     def __repr__(self):
         return "Choice(%r, default=%r)" % (self._choices, self._default)
@@ -71,8 +73,8 @@ class LogRange(Hyperparam[float]):
         self._log_upper = np.log(upper)
         super().__init__(default)
 
-    def sample(self, random_state: RandomState) -> float:
-        return float(np.exp((self._log_upper - self._log_lower) * random_state.rand() + self._log_lower))
+    def sample(self, random_state: RandomState = None) -> float:
+        return float(np.exp((self._log_upper - self._log_lower) * random.rand() + self._log_lower))
 
     def __repr__(self):
         return "LogRange(%r, %r, default=%r)" % (self._lower, self._upper, self._default)
@@ -108,16 +110,16 @@ class Range(Hyperparam[T]):
         if self._type is int:
             if self._inclusive:
                 if self._upper:
-                    return RandomState.random_integer(self._lower, self._upper)
+                    return random.random_integers(self._lower, self._upper)
                 else:
-                    return RandomState.random_integer(self._lower)
+                    return random.random_integers(self._lower)
             else:
                 if self._upper:
-                    return RandomState.randint(self._lower, self._upper)
+                    return random.randint(self._lower, self._upper)
                 else:
-                    return RandomState.randint(self._lower)
+                    return random.randint(self._lower)
         else:
-            return (self._upper - self._lower) * random_state.rand() + self._lower
+            return (self._upper - self._lower) * random.rand() + self._lower
 
     def __repr__(self):
         return "Range(%r, %r, default=%r, inclusive=%r)" % (self._lower, self._upper, self._default, self._inclusive)
