@@ -98,7 +98,7 @@ class Range(Hyperparam[T]):
                 if self._type is int:
                     default = int((lower + upper) / 2)
                 else:
-                    default = (lower + upper) / 2
+                    default = float((lower + upper) / 2)
         else:
             assert type(lower) == type(default), "lower and default values must be of the same type: %r %r" % (lower, default)
         super().__init__(default)
@@ -110,16 +110,17 @@ class Range(Hyperparam[T]):
         if self._type is int:
             if self._inclusive:
                 if self._upper:
-                    return random.random_integers(self._lower, self._upper)
+                    value = random.random_integers(self._lower, self._upper)
                 else:
-                    return random.random_integers(self._lower)
+                    value = random.random_integers(self._lower)
             else:
                 if self._upper:
-                    return random.randint(self._lower, self._upper)
+                    value = random.randint(self._lower, self._upper)
                 else:
-                    return random.randint(self._lower)
+                    value = random.randint(self._lower)
+            return int(value)
         else:
-            return (self._upper - self._lower) * random.rand() + self._lower
+            return float((self._upper - self._lower) * random.rand() + self._lower)
 
     def __repr__(self):
         return "Range(%r, %r, default=%r, inclusive=%r)" % (self._lower, self._upper, self._default, self._inclusive)
