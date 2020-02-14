@@ -41,11 +41,6 @@ class SRIClassificationTemplateWithSelection(DSBoxTemplate):
                     "inputs": ["to_dataframe_step"]
                 },
                 {
-                    "name": "parser_step",
-                    "primitives": ["d3m.primitives.data_transformation.column_parser.Common"],
-                    "inputs": ["common_profiler_step"]
-                },
-                {
                     "name": "pre_extract_target_step",
                     "primitives": [{
                         "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.Common",
@@ -56,12 +51,17 @@ class SRIClassificationTemplateWithSelection(DSBoxTemplate):
                             'exclude_columns': ()
                         }
                     }],
-                    "inputs": ["parser_step"]
+                    "inputs": ["common_profiler_step"]
                 },
                 {
                     "name": "extract_target_step",
                     "primitives": ["d3m.primitives.data_transformation.simple_column_parser.DataFrameCommon"],
                     "inputs": ["pre_extract_target_step"]
+                },
+                {
+                    "name": "parser_step",
+                    "primitives": ["d3m.primitives.data_transformation.column_parser.Common"],
+                    "inputs": ["common_profiler_step"]
                 },
                 {
                     "name": "extract_attribute_step1",
@@ -74,8 +74,7 @@ class SRIClassificationTemplateWithSelection(DSBoxTemplate):
                                                 "https://metadata.datadrivendiscovery.org/types/UniqueKey",
                                                 "https://metadata.datadrivendiscovery.org/types/PrimaryMultiKey",
                                                 "https://metadata.datadrivendiscovery.org/types/SuggestedGroupingKey",)],
-                            'use_columns': (),
-                            'exclude_columns': ()
+                            "negate": [True]
                         }
                     }],
                     "inputs": ["parser_step"]
@@ -90,7 +89,9 @@ class SRIClassificationTemplateWithSelection(DSBoxTemplate):
                             'use_columns': (),
                             'exclude_columns': ()
                         }
-                    }],
+                    },
+                    "d3m.primitives.data_preprocessing.do_nothing.DSBOX"
+                    ],
                     "inputs": ["extract_attribute_step1"]
                 },
                 {
@@ -112,10 +113,11 @@ class SRIClassificationTemplateWithSelection(DSBoxTemplate):
                         "hyperparameters":
                         {
                             "score_func": ["f_classif"],
-                            "percentile": [30, 40, 50, 60, 68],
+                            "percentile": [60, 68],
                             "use_semantic_types": [False],
                             "add_index_columns": [False],
                             "error_on_no_input": [True],
+                            "return_result": ["new"]
                             "return_semantic_type": ["https://metadata.datadrivendiscovery.org/types/PredictedTarget"]
                         }
                     },
@@ -136,7 +138,7 @@ class SRIClassificationTemplateWithSelection(DSBoxTemplate):
                             "d3m.primitives.classification.bernoulli_naive_bayes.SKlearn",
                             "hyperparameters":
                             {
-                                'alpha': [0.01, 0.1, 1.0],
+                                'alpha': [0.1],
                                 'binarize': [0.0],
                                 'fit_prior': [False],
                                 'return_result': ["new"],
@@ -145,9 +147,6 @@ class SRIClassificationTemplateWithSelection(DSBoxTemplate):
                                 'error_on_no_input':[True],
                             }
                         }, 
-                        {
-                            "primitive": "d3m.primitives.regression.gradient_boosting.SKlearn",
-                        },
                         {"primitive": "d3m.primitives.classification.random_forest.SKlearn"
                         }
                         ],
