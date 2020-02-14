@@ -1,13 +1,18 @@
 import abc
+import logging
 import pprint
 import random
 import typing
 
 from operator import itemgetter
 
+from numpy.random import RandomState
+
 import d3m.exceptions as exceptions
 
 from .template_hyperparams import Hyperparam
+
+_logger = logging.getLogger(__name__)
 
 DimensionName = typing.NewType('DimensionName', str)
 
@@ -219,5 +224,8 @@ class ImplicitConfigurationSpace(ConfigurationSpace):
     def get_random_assignment(self):
         result = {}
         for (domain_name, step_hyperparams) in self.conf_space.items():
-            result[domain_name] = random.choices(step_hyperparams)[0].get_default_assignment()
+            result[domain_name] = random.choices(step_hyperparams)[0].get_random_assignment()
+        msg = pprint.pformat(result)
+        for line in msg.splitlines():
+            _logger.debug("  | %s" % line)
         return result
