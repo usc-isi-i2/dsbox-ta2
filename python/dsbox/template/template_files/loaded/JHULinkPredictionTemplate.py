@@ -12,7 +12,7 @@ class JHULinkPredictionTemplate(DSBoxTemplate):
             "taskType": {TaskKeyword.COMMUNITY_DETECTION.name, TaskKeyword.LINK_PREDICTION.name},
             # for some special condition, the taskSubtype can be "NONE" which indicate no taskSubtype given
             "taskSubtype":  {"NONE", TaskKeyword.COMMUNITY_DETECTION.name, TaskKeyword.LINK_PREDICTION.name},
-            "inputType": {"graph"},
+            "inputType":  {"edgeList", "graph"},
             "output": "model_step",
             "steps": [
                 {

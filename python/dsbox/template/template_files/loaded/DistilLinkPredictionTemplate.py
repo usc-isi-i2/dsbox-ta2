@@ -13,7 +13,7 @@ class DistilLinkPredictionTemplate(DSBoxTemplate):
             "taskType": {TaskKeyword.LINK_PREDICTION.name},
             # for some special condition, the taskSubtype can be "NONE" which indicate no taskSubtype given
             "taskSubtype":  {TaskKeyword.LINK_PREDICTION.name},
-            "inputType": {"graph"},
+            "inputType": {"edgeList", "graph"},
             "output": "predict_step",
             "steps": [
                 {
