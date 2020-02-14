@@ -1621,7 +1621,7 @@ class Controller:
 
         if self.config.search_method == 'serial':
             self._run_SerialBaseSearch(self.report_ensemble, one_pipeline_only=one_pipeline_only)
-        if self.config.search_method == 'weighted':
+        elif self.config.search_method == 'weighted':
             self._run_WeightedSearch(self.report_ensemble, one_pipeline_only=one_pipeline_only)
         else:
             self._run_ParallelBaseSearch(self.report_ensemble)
