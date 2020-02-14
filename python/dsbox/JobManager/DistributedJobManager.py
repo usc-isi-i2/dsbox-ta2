@@ -249,7 +249,7 @@ class DistributedJobManager:
                     # exit(1)
                 counter += 1
                 # print(f"[INFO] {current_process().name} > is Idle, done {counter} jobs")
-                _logger.info("is Idle, done {counter} jobs")
+                _logger.info(f"is Idle, done {counter} jobs")
             except BrokenPipeError:
                 error_count += 1
                 print(f"{current_process().name:17} > Broken Pipe. Error count={error_count}")

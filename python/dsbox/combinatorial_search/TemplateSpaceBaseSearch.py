@@ -159,12 +159,12 @@ class TemplateSpaceBaseSearch():
         template_name = kwargs_bundle['target_obj'].template.template['name']
         if report is not None:
             report['template_name'] = template_name
-            _logger.info(f"New report: id={report['id']}")
+            _logger.info(f"New report for {template_name}: id={report['id']}")
             _logger.debug(f"Report details: {report}")
             self.history.update(report, template_name=template_name)
             self.cacheManager.candidate_cache.push(report)
         else:
-            _logger.info(f"Search Failed on candidate {hash(str(candidate))}")
+            _logger.info(f"Search Failed for {template_name} on candidate {hash(str(candidate))}")
             # _logger.warning(traceback.format_exc())
             self.history.update_none(fail_report=None, template_name=template_name)
             self.cacheManager.candidate_cache.push_None(candidate=candidate)
