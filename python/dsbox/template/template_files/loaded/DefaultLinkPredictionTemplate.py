@@ -15,7 +15,7 @@ class DefaultLinkPredictionTemplate(DSBoxTemplate):
             "taskType": {TaskKeyword.LINK_PREDICTION.name},
             # for some special condition, the taskSubtype can be "NONE" which indicate no taskSubtype given
             "taskSubtype":  {TaskKeyword.LINK_PREDICTION.name},
-            "inputType": {"graph"},
+            "inputType": {"graph", "edgeList"},
             "output": "model_step",
             "steps": [
                 {
