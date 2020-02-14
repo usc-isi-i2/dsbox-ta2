@@ -98,7 +98,7 @@ class Controller:
 
         # hard coded unsplit dataset type
         # TODO: check whether "speech" type should be put into this list or not
-        self.data_type_cannot_split = ["graph", "edgeList", "audio"]
+        self.data_type_cannot_split = ["graph", "edgeList"]
         self.task_type_can_split = ["CLASSIFICATION", "REGRESSION", "SEMISUPERVISED_CLASSIFICATION", "SEMISUPERVISED_REGRESSION", "COLLABORATIVE_FILTERING", "OBJECT_DETECTION", "FORECASTING"]
         self.task_type_cannot_split = ["CLUSTERING", "LINK_PREDICTION", "VERTEX_CLASSIFICATION", "COMMUNITY_DETECTION", "GRAPH_MATCHING"]
 
