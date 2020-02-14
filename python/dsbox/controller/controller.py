@@ -35,6 +35,7 @@ from dsbox.combinatorial_search.ExecutionHistory import ExecutionHistory
 from dsbox.combinatorial_search.TemplateSpaceBaseSearch import TemplateSpaceBaseSearch
 from dsbox.combinatorial_search.TemplateSpaceParallelBaseSearch import TemplateSpaceParallelBaseSearch
 from dsbox.combinatorial_search.WeightedTemplateSpaceSearch import WeightedTemplateSpaceSearch
+from dsbox.combinatorial_search.WeightedTemplateSpaceParallelSearch import WeightedTemplateSpaceParallelSearch
 from dsbox.JobManager.usage_monitor import UsageMonitor
 # from dsbox.combinatorial_search.BanditDimensionalSearch import BanditDimensionalSearch
 # from dsbox.combinatorial_search.MultiBanditSearch import MultiBanditSearch
@@ -552,6 +553,32 @@ class Controller:
             report_ensemble['report'] = report
         self._log_search_results(report=report)
 
+    def _run_WeightedParallelSearch(self, report_ensemble):
+        self._search_method.initialize_problem(
+            template_list=self.template_list,
+            performance_metrics=self.config.problem['problem']['performance_metrics'],
+            problem=self.config.problem,
+            # updated v2019.11: now do not send these datasets, but will let subprocess to load instead
+            # to reduce the size of each pickled subprocess and prevent multiprocess queue out ot space
+            test_dataset1=None,#self.test_dataset1,
+            train_dataset1=None,#self.train_dataset1,
+            test_dataset2=None,#self.test_dataset2,
+            train_dataset2=None,#self.train_dataset2,
+            all_dataset=None,#self.all_dataset,
+            ensemble_tuning_dataset=None,#self.ensemble_dataset,
+            output_directory=self.config.output_dir,
+            start_time=self.config.start_time,
+            timeout_sec=self.config.timeout_search,
+            extra_primitive=self.extra_primitive,
+        )
+
+        report = self._search_method.search(num_iter=1000)
+        if report_ensemble:
+            report_ensemble['report'] = report
+        self._log_search_results(report=report)
+
+        self._search_method.job_manager.reset()
+
     def _run_ParallelBaseSearch(self, report_ensemble):
         self._search_method.initialize_problem(
             template_list=self.template_list,
@@ -712,6 +739,8 @@ class Controller:
             self._search_method = TemplateSpaceParallelBaseSearch(num_proc=self.config.cpu)
         elif self.config.search_method == 'weighted':
             self._search_method = WeightedTemplateSpaceSearch()
+        elif self.config.search_method == 'weighted_parallel':
+            self._search_method = WeightedTemplateSpaceParallelSearch(num_proc=self.config.cpu)
         # elif self.config.search_method == 'bandit':
         #     self._search_method = BanditDimensionalSearch(num_proc=self.config.cpu)
         else:
@@ -1622,6 +1651,8 @@ class Controller:
             self._run_SerialBaseSearch(self.report_ensemble, one_pipeline_only=one_pipeline_only)
         elif self.config.search_method == 'weighted':
             self._run_WeightedSearch(self.report_ensemble, one_pipeline_only=one_pipeline_only)
+        elif self.config.search_method == 'weighted_parallel':
+            self._run_WeightedParallelSearch(self.report_ensemble)
         else:
             self._run_ParallelBaseSearch(self.report_ensemble)
 
