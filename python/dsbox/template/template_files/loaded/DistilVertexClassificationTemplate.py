@@ -120,7 +120,6 @@ class DistilVertexClassificationTemplate(DSBoxTemplate):
                                 'n_jobs': [2],
                                 'return_result': ["new"],
                                 'add_index_columns': [True],
-                                'fit_prior': [False],
                                 'n_estimators': [80, 120],
                                 'learning_rate':[0.1, 0.5],
                                 'max_depth': [5, 10],

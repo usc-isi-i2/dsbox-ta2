@@ -5,7 +5,6 @@ from dsbox.schema import SpecializedProblem
 import typing 
 import numpy as np  # type: ignore 
 
-# what does this template exactly used for ?????
 class SRIClassificationTemplate(DSBoxTemplate):
     def __init__(self):
         DSBoxTemplate.__init__(self)
@@ -74,8 +73,7 @@ class SRIClassificationTemplate(DSBoxTemplate):
                                                 "https://metadata.datadrivendiscovery.org/types/UniqueKey",
                                                 "https://metadata.datadrivendiscovery.org/types/PrimaryMultiKey",
                                                 "https://metadata.datadrivendiscovery.org/types/SuggestedGroupingKey",)],
-                            'use_columns': (),
-                            'exclude_columns': ()
+                            'negate': [True]
                         }
                     }],
                     "inputs": ["parser_step"]
@@ -87,8 +85,6 @@ class SRIClassificationTemplate(DSBoxTemplate):
                         "hyperparameters":
                         {
                             'semantic_types': ('https://metadata.datadrivendiscovery.org/types/Attribute',),
-                            'use_columns': (),
-                            'exclude_columns': ()
                         }
                     }],
                     "inputs": ["extract_attribute_step1"]
@@ -109,10 +105,8 @@ class SRIClassificationTemplate(DSBoxTemplate):
                     "name": "model_step",
                     "primitives": [
                         {
-                            "primitive":
-                            "d3m.primitives.classification.bernoulli_naive_bayes.SKlearn",
-                            "hyperparameters":
-                            {
+                            "primitive": "d3m.primitives.classification.bernoulli_naive_bayes.SKlearn",
+                            "hyperparameters": {
                                 'alpha': [0.01, 0.1, 1.0],
                                 'binarize': [0.0],
                                 'fit_prior': [False],
@@ -124,6 +118,20 @@ class SRIClassificationTemplate(DSBoxTemplate):
                         }, 
                         {
                             "primitive": "d3m.primitives.regression.gradient_boosting.SKlearn",
+                            "hyperparameters": {
+                                'max_depth': [2, 3, 5, 8, 10],
+                                'n_estimators': [50, 75, 100],
+                                'learning_rate': [0.1, 0.3, 0.5],
+                                'min_samples_split': [2, 3, 6],
+                                'min_samples_leaf': [1, 2],
+                                'criterion': ["mse"],
+                                'n_estimators': [50, 100, 150],
+                                'fit_prior': [False],
+                                'return_result': ["new"],
+                                'use_semantic_types': [False],
+                                'add_index_columns': [False],
+                                'error_on_no_input':[True],
+                            }
                         },
                         {"primitive": "d3m.primitives.classification.random_forest.SKlearn"
                         }

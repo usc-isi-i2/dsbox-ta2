@@ -10,7 +10,7 @@ class SRIClassificationTemplateWithSelection(DSBoxTemplate):
     def __init__(self):
         DSBoxTemplate.__init__(self)
         self.template = {
-            "weight": 50,
+            "weight": 30,
             "name": "SRI_classification_template_with_selection",
             "taskSubtype": {TaskKeyword.VERTEX_CLASSIFICATION.name},
             "taskType": {TaskKeyword.VERTEX_CLASSIFICATION.name},
