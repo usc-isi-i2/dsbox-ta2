@@ -63,23 +63,7 @@ class SRIClassificationTemplate(DSBoxTemplate):
                     "inputs": ["pre_extract_target_step"]
                 },
                 {
-                    "name": "extract_attribute_step1",
-                    "primitives": [{
-                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.Common",
-                        "hyperparameters":
-                        {
-                            'semantic_types': [("https://metadata.datadrivendiscovery.org/types/PrimaryKey",
-                                                "https://metadata.datadrivendiscovery.org/types/GroupingKey",
-                                                "https://metadata.datadrivendiscovery.org/types/UniqueKey",
-                                                "https://metadata.datadrivendiscovery.org/types/PrimaryMultiKey",
-                                                "https://metadata.datadrivendiscovery.org/types/SuggestedGroupingKey",)],
-                            'negate': [True]
-                        }
-                    }],
-                    "inputs": ["parser_step"]
-                },
-                {
-                    "name": "extract_attribute_step2",
+                    "name": "extract_attribute_step",
                     "primitives": [{
                         "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.Common",
                         "hyperparameters":
@@ -87,7 +71,7 @@ class SRIClassificationTemplate(DSBoxTemplate):
                             'semantic_types': ('https://metadata.datadrivendiscovery.org/types/Attribute',),
                         }
                     }],
-                    "inputs": ["extract_attribute_step1"]
+                    "inputs": ["parser_step"]
                 },
                 {
                     "name": "data_conditioner_step",
@@ -99,7 +83,7 @@ class SRIClassificationTemplate(DSBoxTemplate):
                             "maximum_expansion": [30]
                         }
                     }],
-                    "inputs": ["extract_attribute_step2"]
+                    "inputs": ["extract_attribute_step"]
                 },
                 {
                     "name": "model_step",
@@ -107,7 +91,7 @@ class SRIClassificationTemplate(DSBoxTemplate):
                         {
                             "primitive": "d3m.primitives.classification.bernoulli_naive_bayes.SKlearn",
                             "hyperparameters": {
-                                'alpha': [0.01, 0.1, 1.0],
+                                'alpha': [0.1, 1.0],
                                 'binarize': [0.0],
                                 'fit_prior': [False],
                                 'return_result': ["new"],
@@ -119,13 +103,12 @@ class SRIClassificationTemplate(DSBoxTemplate):
                         {
                             "primitive": "d3m.primitives.regression.gradient_boosting.SKlearn",
                             "hyperparameters": {
-                                'max_depth': [2, 3, 5, 8, 10],
-                                'n_estimators': [50, 75, 100],
-                                'learning_rate': [0.1, 0.3, 0.5],
+                                'max_depth': [5, 8],
+                                'learning_rate': [0.3, 0.5],
                                 'min_samples_split': [2, 3, 6],
                                 'min_samples_leaf': [1, 2],
                                 'criterion': ["mse"],
-                                'n_estimators': [50, 100, 150],
+                                'n_estimators': [100, 150],
                                 'fit_prior': [False],
                                 'return_result': ["new"],
                                 'use_semantic_types': [False],

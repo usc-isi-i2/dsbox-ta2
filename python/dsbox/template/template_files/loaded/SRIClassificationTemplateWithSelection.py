@@ -64,23 +64,7 @@ class SRIClassificationTemplateWithSelection(DSBoxTemplate):
                     "inputs": ["common_profiler_step"]
                 },
                 {
-                    "name": "extract_attribute_step1",
-                    "primitives": [{
-                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.Common",
-                        "hyperparameters":
-                        {
-                            'semantic_types': [("https://metadata.datadrivendiscovery.org/types/PrimaryKey",
-                                                "https://metadata.datadrivendiscovery.org/types/GroupingKey",
-                                                "https://metadata.datadrivendiscovery.org/types/UniqueKey",
-                                                "https://metadata.datadrivendiscovery.org/types/PrimaryMultiKey",
-                                                "https://metadata.datadrivendiscovery.org/types/SuggestedGroupingKey",)],
-                            "negate": [True]
-                        }
-                    }],
-                    "inputs": ["parser_step"]
-                },
-                {
-                    "name": "extract_attribute_step2",
+                    "name": "extract_attribute_step",
                     "primitives": [{
                         "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.Common",
                         "hyperparameters":
@@ -90,9 +74,8 @@ class SRIClassificationTemplateWithSelection(DSBoxTemplate):
                             'exclude_columns': ()
                         }
                     },
-                    "d3m.primitives.data_preprocessing.do_nothing.DSBOX"
                     ],
-                    "inputs": ["extract_attribute_step1"]
+                    "inputs": ["parser_step"]
                 },
                 {
                     "name": "data_conditioner_step",
@@ -104,7 +87,7 @@ class SRIClassificationTemplateWithSelection(DSBoxTemplate):
                             "maximum_expansion": [30]
                         }
                     }],
-                    "inputs": ["extract_attribute_step2"]
+                    "inputs": ["extract_attribute_step"]
                 },
                 {
                     "name": "select_step",
