@@ -5,15 +5,18 @@ import logging
 from itertools import product
 from pprint import pprint
 
+import numpy as np
 
 from d3m import container, exceptions, utils, index as d3m_index
 from d3m.metadata import base as metadata_base
 from d3m.metadata.pipeline import Pipeline, PrimitiveStep
-from .configuration_space import SimpleConfigurationSpace, ConfigurationPoint
+
+from .configuration_space import SimpleConfigurationSpace, ConfigurationPoint, ImplicitConfigurationSpace, PrimitiveHyperparams
+from .template_hyperparams import Hyperparam, Const, Choice, Range, LogRange
 
 DISTIL_SPEICAL_PRIMITIVES_PRODUCE_TARGETS = (
     "d3m.primitives.data_transformation.load_single_graph.DistilSingleGraphLoader".lower(),
-    "d3m.primitives.data_transformation.load_single_graph.DistilSingleGraphLoader".lower(),
+    "d3m.primitives.data_transformation.load_graphs.DistilGraphLoader".lower()
     )
 DISTIL_SPEICAL_PRIMITIVES_PRODUCE_COLLECTION = (
     "d3m.primitives.data_preprocessing.audio_reader.DistilAudioDatasetLoader".lower(),
@@ -27,8 +30,6 @@ class HyperparamDirective(utils.Enum):
     """
     DEFAULT = 1
     RANDOM = 2
-
-
 
 class DSBoxTemplate():
     def __init__(self):
@@ -106,8 +107,8 @@ class DSBoxTemplate():
         if 'hyperparameters' in primitive_desc:
             hyper: dict = primitive_desc['hyperparameters']
             for key, value in hyper.items():
-                if not (isinstance(value, list) or isinstance(value, tuple)):
-                    raise ValueError(f'Template {self.template["name"]} step {step["name"]}({i}) key ({key}) values must a list or a tuple')
+                if not isinstance(value, (list, tuple, Hyperparam)):
+                    raise ValueError(f'Template {self.template["name"]} step {step["name"]}({i}) key ({key}) values must a list or a tuple or a Hyperaparam')
 
 
     def to_pipeline(self, configuration_point: ConfigurationPoint) -> Pipeline:
@@ -359,7 +360,7 @@ class DSBoxTemplate():
 
         return pipeline
 
-    def generate_configuration_space(self) -> SimpleConfigurationSpace:
+    def generate_configuration_space(self) -> ImplicitConfigurationSpace:
         steps = self.template["steps"]
         conf_space = {}
         for each_step in steps:
@@ -368,35 +369,71 @@ class DSBoxTemplate():
 
             # description: typing.Dict
             for description in each_step["primitives"]:
-                value_step = []
                 # primitive with no hyperparameters
                 if isinstance(description, str):
-                    value_step.append({
-                        "primitive": description,
-                        "hyperparameters": {}
-                    })
+                    values.append(self.description_to_primitive_hyperparams(description))
                 # one primitive with hyperparameters
                 elif isinstance(description, dict):
-                    value_step += self.description_to_configuration(description)
+                    values.append(self.description_to_primitive_hyperparams(description))
                 # list of primitives
                 elif isinstance(description, list):
                     for prim in description:
-                        value_step += self.description_to_configuration(prim)
+                        values.append(self.description_to_primitive_hyperparams(prim))
                 else:
                     # other data format, not supported, raise error
                     logger.error("Wrong format of the description: \n" +
-                        "Unsupported data format found : " + str(type(description)))
+                                 "Unsupported data format found : %s", type(description))
 
-                values += value_step
+            conf_space[name] = values
+        return ImplicitConfigurationSpace(conf_space)
 
-            # END FOR
-            if len(values) > 0:
-                conf_space[name] = values
-        # END FOR
-        return SimpleConfigurationSpace(conf_space)
+    def description_to_primitive_hyperparams(self, description: typing.Union[str, typing.Dict]):
+        logger.debug('Description: %s', description)
+        if isinstance(description, str):
+            return PrimitiveHyperparams(description, {})
+
+        if "primitive" not in description:
+            raise ValueError(f"Template {self}: has wrong format of the configuration space data: "
+                             f"No primitive name found: {description}")
+
+        if "hyperparameters" not in description:
+            description["hyperparameters"] = {}
+
+        hyperDict = {}
+        for hyperparam_name, hyperparam_desc in description["hyperparameters"].items():
+            if isinstance(hyperparam_desc, Hyperparam):
+                hyperDict[hyperparam_name] = hyperparam_desc
+                continue
+            if isinstance(hyperparam_desc, tuple):
+                hyperDict[hyperparam_name] = Const(hyperparam_desc)
+                continue
+            if len(hyperparam_desc) == 1:
+                hyperDict[hyperparam_name] = Const(hyperparam_desc[0])
+                continue
+            types = {type(x) for x in hyperparam_desc}
+            if len(types) > 1:
+                hyperDict[hyperparam_name] = Choice(hyperparam_desc)
+                continue
+            a_type = types.pop()
+            if a_type == int:
+                hyperDict[hyperparam_name] = Range(min(hyperparam_desc), max(hyperparam_desc))
+                continue
+            if a_type == float:
+                logs = [np.log10(x) for x in hyperparam_desc]
+                diff_log = np.ediff1d(logs)
+                if np.allclose(diff_log, [diff_log[0]] * diff_log.shape[0]):
+                    hyperDict[hyperparam_name] = LogRange(min(hyperparam_desc), max(hyperparam_desc))
+                else:
+                    hyperDict[hyperparam_name] = Range(min(hyperparam_desc), max(hyperparam_desc))
+            else:
+                hyperDict[hyperparam_name] = Choice(hyperparam_desc)
+        if logger.getEffectiveLevel() <= 10:
+            for hyperparam_name in hyperDict:
+                logger.debug(f"{self}: Using hyperDict['{hyperparam_name}'] = {hyperDict[hyperparam_name]}")
+        return PrimitiveHyperparams(description["primitive"], hyperDict)
 
 
-    def description_to_configuration(self, description):
+    def description_to_simple_configuration(self, description):
         value = []
         # if the desciption is an dictionary:
         # it maybe a primitive with hyperparameters
@@ -404,15 +441,6 @@ class DSBoxTemplate():
         if "primitive" not in description:
             logger.error("Wrong format of the configuration space data: \n" +
                   "No primitive name found!")
-            return value
-
-        # 2019.3.25 update: Because the query of datamart is different,
-        #                   We use dict as a hyperparameter, we have to do some special change here
-        if description["primitive"] == "d3m.primitives.data_augmentation.datamart_query.DSBOX":
-            value.append({
-                    "primitive": description["primitive"],
-                    "hyperparameters": description["hyperparameters"],
-                })
             return value
 
         if "hyperparameters" not in description:
@@ -438,6 +466,86 @@ class DSBoxTemplate():
                 "hyperparameters": hyper,
             })
         return value
+
+    def generate_simple_configuration_space(self) -> SimpleConfigurationSpace:
+        steps = self.template["steps"]
+        conf_space = {}
+        for each_step in steps:
+            name = each_step["name"]
+            values: list = []
+
+            # description: typing.Dict
+            for description in each_step["primitives"]:
+                value_step = []
+                # primitive with no hyperparameters
+                if isinstance(description, str):
+                    value_step.append({
+                        "primitive": description,
+                        "hyperparameters": {}
+                    })
+                # one primitive with hyperparameters
+                elif isinstance(description, dict):
+                    value_step += self.description_to_simple_configuration(description)
+                # list of primitives
+                elif isinstance(description, list):
+                    for prim in description:
+                        value_step += self.description_to_simple_configuration(prim)
+                else:
+                    # other data format, not supported, raise error
+                    logger.error("Wrong format of the description: \n" +
+                        "Unsupported data format found : " + str(type(description)))
+
+                values += value_step
+
+            # END FOR
+            if len(values) > 0:
+                conf_space[name] = values
+        # END FOR
+        return SimpleConfigurationSpace(conf_space)
+
+
+    # def description_to_simple_configuration(self, description):
+    #     value = []
+    #     # if the desciption is an dictionary:
+    #     # it maybe a primitive with hyperparameters
+
+    #     if "primitive" not in description:
+    #         logger.error("Wrong format of the configuration space data: \n" +
+    #               "No primitive name found!")
+    #         return value
+
+    #     # 2019.3.25 update: Because the query of datamart is different,
+    #     #                   We use dict as a hyperparameter, we have to do some special change here
+    #     if description["primitive"] == "d3m.primitives.data_augmentation.datamart_query.DSBOX":
+    #         value.append({
+    #                 "primitive": description["primitive"],
+    #                 "hyperparameters": description["hyperparameters"],
+    #             })
+    #         return value
+
+    #     if "hyperparameters" not in description:
+    #         description["hyperparameters"] = {}
+
+    #     # go through the hypers and if anyone has empty value just remove it
+    #     hyperDict = dict(filter(lambda kv: len(kv[1]) > 0,
+    #                             description["hyperparameters"].items()))
+
+    #     # go through the hyper values for single tuples and convert them
+    #     # to a list with single tuple element
+    #     hyperDict = dict(map(
+    #         lambda kv:
+    #         (kv[0], [kv[1]]) if isinstance(kv[1], tuple) else (kv[0], kv[1]),
+    #         hyperDict.items()
+    #     ))
+
+    #     # iterate through all combinations of the hyperparameters and add
+    #     # each as a separate configuration point to the space
+    #     for hyper in _product_dict(hyperDict):
+    #         value.append({
+    #             "primitive": description["primitive"],
+    #             "hyperparameters": hyper,
+    #         })
+    #     return value
 
     def get_target_step_number(self):
         # self.template[0].template['output']

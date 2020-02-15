@@ -1,9 +1,12 @@
 import logging
+import random
 import queue
 import time
 import threading
 import traceback
 import typing
+
+from operator import itemgetter
 
 from d3m.metadata.problem import Problem
 
@@ -20,7 +23,7 @@ PythonPath = typing.NewType('PythonPath', str)
 _logger = logging.getLogger(__name__)
 
 
-class TemplateSpaceParallelBaseSearch(TemplateSpaceBaseSearch):
+class WeightedTemplateSpaceParallelSearch(TemplateSpaceBaseSearch):
     """
     Search the template space through random configuration spaces in parallel.
 
@@ -46,7 +49,7 @@ class TemplateSpaceParallelBaseSearch(TemplateSpaceBaseSearch):
         self.timeout_sec = None
         self.jobs_completed = 0
         self.jobs_pushed = 0
-
+        self.weights = []
 
     def initialize_problem(self, template_list: typing.List[DSBoxTemplate],
                            performance_metrics: typing.List[typing.Dict],
@@ -70,6 +73,8 @@ class TemplateSpaceParallelBaseSearch(TemplateSpaceBaseSearch):
             output_directory=output_directory,
             start_time=start_time, timeout_sec=timeout_sec
         )
+
+        self.weights = [template.template['weight'] if 'weight' in template.template else 1.0 for template in self.template_list]
 
         # setup the execution history to store the results of each template separately
         # self.setup_exec_history(template_list=self.template_list)
@@ -172,6 +177,31 @@ class TemplateSpaceParallelBaseSearch(TemplateSpaceBaseSearch):
         except queue.Empty:
             _logger.info("Timed out waiting for pending job")
 
+    def _next_pipeline(self) -> typing.Tuple[ConfigurationPoint, ConfigurationSpaceBaseSearch]:
+        sorted_by_weight = sorted(
+            zip(self.weights, self.template_list, self.configuration_space_list, self.confSpaceBaseSearch),
+            key=itemgetter(0), reverse=True)
+        for weight, template, conf_space, search in sorted_by_weight:
+            _logger.info(f'Search template {search.template}')
+            candidate = search.configuration_space.get_default_assignment()
+            if self._prepare_candidate_4_eval(candidate=candidate):
+                _logger.info(f"Selecting Candidate: {hash(str(candidate))}")
+                yield candidate, search
+            else:
+                _logger.warning(f"Skipping Candidate in first round: {hash(str(candidate))}")
+                continue
+
+        while True:
+            search = random.choices(self.confSpaceBaseSearch, self.weights)[0]
+            _logger.info(f'Search template {search.template}')
+            candidate = search.configuration_space.get_random_assignment()
+            if self._prepare_candidate_4_eval(candidate=candidate):
+                _logger.info(f"Selecting Candidate: {hash(str(candidate))}")
+                yield candidate, search
+            else:
+                _logger.info(f"Skipping Cached Candidate: {hash(str(candidate))}")
+                continue
+
     def _push_random_candidates(self, num_iter: int):
         """
         randomly samples 'num_iter' unique pipelines from a random configuration space and pushes
@@ -183,31 +213,10 @@ class TemplateSpaceParallelBaseSearch(TemplateSpaceBaseSearch):
 
         """
         _logger.info('Start pushing canditates')
-        for count, search in enumerate(self._select_next_template(num_iter=num_iter)):
-            wait_seconds = self.start_time + self.timeout_sec - time.perf_counter()
-            if wait_seconds > 15:
-                self._random_pipeline_evaluation_push(search=search, num_iter=1)
-                _logger.info(f'Pushed canditate {count}')
-            else:
-                _logger.warning('Timed out before pushing all the candiates')
-                break
-        _logger.info('Done  pushing canditates')
-
-    def _random_pipeline_evaluation_push(self, search: ConfigurationSpaceBaseSearch,
-                                         num_iter: int = 1) -> None:
-        """
-        randomly samples 'num_iter' unique pipelines from an specified configuration space and
-        pushes them to jobManager for evaluation.
-        Args:
-            search: the selected configuration space (template)
-            num_iter: number of pipelines to sample
-
-        Returns:
-
-        """
-        for candidate in self._sample_random_pipeline(search=search, num_iter=num_iter):
-
+        for candidate, search in self._next_pipeline():
             try:
+
+                # Don't push too many jobs at once
                 while True:
                     wait_seconds = self.start_time + self.timeout_sec - time.perf_counter()
                     long_queue: bool = self.jobs_pushed - self.jobs_completed > 2 * self.num_proc
@@ -215,20 +224,24 @@ class TemplateSpaceParallelBaseSearch(TemplateSpaceBaseSearch):
                         time.sleep(1)
                     else:
                         break
+
                 if wait_seconds > 15:
                     # push the candidate to the job manager
                     self.job_manager.push_job(
                         kwargs_bundle=self._prepare_job_posting(candidate=candidate,
                                                                 search=search))
                     self.jobs_pushed += 1
+                    _logger.info(f'Pushed canditate {self.jobs_pushed}')
                 else:
                     _logger.warning('Timed out before pushing all the candiates')
                     break
+
             except:
                 traceback.print_exc()
                 _logger.error(traceback.format_exc())
 
             time.sleep(0.1)
+        _logger.info('Done  pushing canditates')
 
     def evaluate_blocking(self, base_search: ConfigurationSpaceBaseSearch,
                           candidate: ConfigurationPoint) -> typing.Dict:

@@ -48,11 +48,14 @@ class ISI_GCN(DSBoxTemplate):
                 },
                 {
                     "name": "embedding_step",
-                    "primitives": [
+                    "primitives": [{
+                        "primitive": "d3m.primitives.feature_construction.gcn_mixhop.DSBOX",
+                        "hyperparameters":
                         {
-                            "primitive": "d3m.primitives.feature_construction.gcn_mixhop.DSBOX"
+                            'epochs': [100, 200, 300],
+                            'adjacency_order':[3]
                         }
-                    ],
+                    }],
                     "inputs": ["readgraph_step", "extract_target_step"]
                 },
                 *TemplateSteps.classifier_model(feature_name="embedding_step",

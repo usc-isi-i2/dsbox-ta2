@@ -9,8 +9,8 @@ class JHUVertexNominationTemplate(DSBoxTemplate):
         DSBoxTemplate.__init__(self)
         self.template = {
             "name": "JHU_Vertex_Nomination_Template",
-            "taskType": TaskKeyword.VERTEX_CLASSIFICATION.name,
-            "taskSubtype": "NONE",
+            "taskType": {TaskKeyword.VERTEX_CLASSIFICATION.name},
+            "taskSubtype": {TaskKeyword.VERTEX_CLASSIFICATION.name},
             "inputType": {"edgeList", "graph"},
             "output": "model_step",
             "steps": [
@@ -29,19 +29,32 @@ class JHUVertexNominationTemplate(DSBoxTemplate):
                     "inputs": ["readgraph_step1"]
                 },
                 {
-                    "name": "embedding_step",
-                    "primitives": [
-                        "d3m.primitives.data_transformation.laplacian_spectral_embedding.JHU"
+                    "name": "readgraph_step3",
+                    "primitives": [{
+                        "primitive": "d3m.primitives.data_transformation.adjacency_spectral_embedding.JHU",
+                        "hyperparameters":
+                        {
+                            'max_dimension': [2, 3, 4, 5],
+                            'use_attributes': [True],
+                        }
+                    },
+                    {
+                        "primitive": "d3m.primitives.data_transformation.laplacian_spectral_embedding.JHU",
+                        "hyperparameters":
+                        {
+                            'max_dimension': [5],
+                            'use_attributes': [True],
+                        }
+                    }
                     ],
                     "inputs": ["readgraph_step2"]
-
                 },
                 {
                     "name": "model_step",
                     "primitives": [
                         "d3m.primitives.classification.gaussian_classification.JHU"
                     ],
-                    "inputs": ["embedding_step"]
+                    "inputs": ["readgraph_step3"]
                 }
             ]
         }

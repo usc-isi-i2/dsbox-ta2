@@ -9,10 +9,10 @@ class JHULinkPredictionTemplate(DSBoxTemplate):
         DSBoxTemplate.__init__(self)
         self.template = {
             "name": "JHU_Link_Prediction_Template",
-            "taskType": {TaskKeyword.GRAPH_MATCHING.name, TaskKeyword.GRAPH.name, TaskKeyword.LINK_PREDICTION.name},
+            "taskType": {TaskKeyword.COMMUNITY_DETECTION.name, TaskKeyword.LINK_PREDICTION.name},
             # for some special condition, the taskSubtype can be "NONE" which indicate no taskSubtype given
-            "taskSubtype":  {"NONE", TaskKeyword.GRAPH_MATCHING.name, TaskKeyword.GRAPH.name, TaskKeyword.LINK_PREDICTION.name},
-            "inputType": {"graph"},
+            "taskSubtype":  {"NONE", TaskKeyword.COMMUNITY_DETECTION.name, TaskKeyword.LINK_PREDICTION.name},
+            "inputType":  {"edgeList", "graph"},
             "output": "model_step",
             "steps": [
                 {
@@ -25,16 +25,23 @@ class JHULinkPredictionTemplate(DSBoxTemplate):
                 {
                     "name": "embedding_step",
                     "primitives": [
-                        "d3m.primitives.data_transformation.laplacian_spectral_embedding.JHU", 
+                        {
+                            "primitive":"d3m.primitives.data_transformation.laplacian_spectral_embedding.JHU",
+                            "hyperparameters": {
+                                # "max_dimension": [5],
+                                # "use_attributes": [True]
+                            }
+                        },
                         {
                             "primitive": "d3m.primitives.data_transformation.adjacency_spectral_embedding.JHU",
                             "hyperparameters": {
-                                "max_dimension": [5],
-                                "use_attributes": [True]
+                                "which_elbow":[1],
+                                "max_dimension": [2, 5],
+                                "use_attributes": [True, False]
                             }
                         }
                     ],
-                    "inputs": ["readgraph_step2"]
+                    "inputs": ["readgraph_step1"]
 
                 },
                 {

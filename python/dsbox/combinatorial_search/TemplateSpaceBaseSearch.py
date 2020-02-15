@@ -4,8 +4,9 @@ import time
 import traceback
 import typing
 
-import d3m.metadata.problem as problem
+from threading import Thread
 
+import d3m.metadata.problem as problem
 from d3m.container.dataset import Dataset
 from dsbox.combinatorial_search.ConfigurationSpaceBaseSearch import ConfigurationSpaceBaseSearch
 from dsbox.template.configuration_space import ConfigurationPoint
@@ -14,16 +15,10 @@ from dsbox.JobManager.cache import CacheManager
 from dsbox.template.template import DSBoxTemplate
 
 
-T = typing.TypeVar("T")
-# python path of primitive, i.e. 'd3m.primitives.common_primitives.RandomForestClassifier'
-PythonPath = typing.NewType('PythonPath', str)
-
-PrimitiveDescription = typing.NewType('PrimitiveDescription', dict)
-
 _logger = logging.getLogger(__name__)
 
 
-class TemplateSpaceBaseSearch(typing.Generic[T]):
+class TemplateSpaceBaseSearch():
     """
     Search the template space through the individual configuration spaces.
 
@@ -31,7 +26,7 @@ class TemplateSpaceBaseSearch(typing.Generic[T]):
     ----------
     template_list : List[DSBoxTemplate]
         Evaluate given point in configuration space
-    configuration_space_list: List[ConfigurationSpace[T]]
+    configuration_space_list: List[ConfigurationSpace]
         Definition of the configuration space
     confSpaceBaseSearch: List[ConfigurationSpaceBaseSearch]
         list of ConfigurationSpaceBaseSearch related to each template
@@ -110,6 +105,24 @@ class TemplateSpaceBaseSearch(typing.Generic[T]):
 
         """
 
+        search_thread = Thread(target=self._search, args=(num_iter, one_pipeline_only))
+        search_thread.start()
+
+        timeout = (self.start_time + self.timeout_sec) - (time.perf_counter() + 15)
+        _logger.info('Joining search thread in %i minutes', timeout/60)
+        search_thread.join(timeout=timeout)
+        _logger.info('Done searching')
+
+        self.cacheManager.cleanup()
+        self.history.done()
+
+        return self.history.get_best_history()
+
+    def _search(self, num_iter, one_pipeline_only):
+        """
+        The actual search method.
+        """
+
         success_count = 0
         search: ConfigurationSpaceBaseSearch
         for search in self._select_next_template(num_iter=num_iter):
@@ -138,11 +151,6 @@ class TemplateSpaceBaseSearch(typing.Generic[T]):
                 self._add_report_to_history(kwargs_bundle=kwargs_bundle,
                                             report=report)
 
-        self.cacheManager.cleanup()
-        self.history.done()
-
-        return self.history.get_best_history()
-
     def _done(self, success_count, *, one_pipeline_only=False):
         if one_pipeline_only and success_count >= 1:
             _logger.info('Found one pipeline')
@@ -166,12 +174,12 @@ class TemplateSpaceBaseSearch(typing.Generic[T]):
         template_name = kwargs_bundle['target_obj'].template.template['name']
         if report is not None:
             report['template_name'] = template_name
-            _logger.info(f"New report: id={report['id']}")
+            _logger.info(f"New report for {template_name}: id={report['id']}")
             _logger.debug(f"Report details: {report}")
             self.history.update(report, template_name=template_name)
             self.cacheManager.candidate_cache.push(report)
         else:
-            _logger.info(f"Search Failed on candidate {hash(str(candidate))}")
+            _logger.info(f"Search Failed for {template_name} on candidate {hash(str(candidate))}")
             # _logger.warning(traceback.format_exc())
             self.history.update_none(fail_report=None, template_name=template_name)
             self.cacheManager.candidate_cache.push_None(candidate=candidate)

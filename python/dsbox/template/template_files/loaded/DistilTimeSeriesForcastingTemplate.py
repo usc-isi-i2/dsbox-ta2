@@ -4,15 +4,15 @@ from dsbox.template.template_steps import TemplateSteps
 from dsbox.schema import SpecializedProblem 
 import typing 
 import numpy as np  # type: ignore 
-class DefaultTimeseriesRegressionTemplate(DSBoxTemplate):
+class DistilTimeSeriesForcastingTemplate(DSBoxTemplate):
     def __init__(self):
         DSBoxTemplate.__init__(self)
         self.template = {
-            "name": "DefaultTimeseriesRegressionTemplate",
-            "taskSubtype": {TaskKeyword.UNIVARIATE.name, TaskKeyword.MULTIVARIATE.name},
-            "taskType": {TaskKeyword.REGRESSION.name},
-            "inputType": {"timeseries", "table"},  # See SEMANTIC_TYPES.keys() for range of values
-            "output": "random_forest_step",  # Name of the final step generating the prediction
+            "name": "Distil_TimeSeries_Forcasting_Template",
+            "taskType": TaskKeyword.TIME_SERIES.name,
+            "taskSubtype": {"FORECASTING"},
+            "inputType": {"table"},  # See SEMANTIC_TYPES.keys() for range of values
+            "output": "model_step",  # Name of the final step generating the prediction
             "target": "extract_target_step",  # Name of the step generating the ground truth
             "steps": [
                 {
@@ -70,46 +70,45 @@ class DefaultTimeseriesRegressionTemplate(DSBoxTemplate):
                     "inputs": ["common_profiler_step"]
                 },
                 {
-                    "name": "timeseries_to_list_step",
-                    "primitives": ["d3m.primitives.data_preprocessing.time_series_to_list.DSBOX"],
+                    "name": "imputer_step",
+                    "primitives": [{
+                        "primitive": "d3m.primitives.data_cleaning.imputer.SKlearn",
+                        "hyperparameters":
+                            {
+                                'return_result': ['new'],
+                                'use_semantic_types': [True],
+                            }
+                    }],
                     "inputs": ["extract_attribute_step"]
                 },
-
                 {
-                    "name": "random_projection_step",
-                    "primitives": [
-                        {
-                            "primitive": "d3m.primitives.feature_extraction.random_projection_timeseries_featurization.DSBOX",
-                            "hyperparameters":{
-                                'generate_metadata':[True],
-                            }
-                        }
-                    ],
-                    "inputs": ["timeseries_to_list_step"]
+                    "name": "timeseries_to_list_step",
+                    "primitives": ["d3m.primitives.data_transformation.grouping_field_compose.Common"],
+                    "inputs": ["imputer_step"]
                 },
                 {
-                    "name": "to_numeric_step",
-                    "primitives": ["d3m.primitives.data_transformation.to_numeric.DSBOX"],
-                    "inputs":["extract_target_step"],
-                },
-                {
-                    "name": "random_forest_step",
+                    "name": "model_step",
                     "primitives": [
                         {
-                            "primitive": "d3m.primitives.regression.random_forest.SKlearn",
+                            "primitive": "d3m.primitives.time_series_forecasting.lstm.DeepAR",
                             "hyperparameters": {
-                                'add_index_columns': [True],
-                                'use_semantic_types':[True],
+                                'count_data': [True],
                             }
                         }
                     ],
-                    "inputs": ["random_projection_step", "to_numeric_step"]
+                    "inputs": ["timeseries_to_list_step", "extract_target_step"]
+                },
+                {
+                    "name": "construct_prediction_step",
+                    "primitives": [
+                        {
+                            "primitive": "d3m.primitives.data_transformation.construct_predictions.Common",
+                            "hyperparameters": {
+                            }
+                        }
+                    ],
+                    "inputs": ["model_step", "common_profiler_step"]
                 },
             ]
         }
-
-'''
-This template never working because templates "input", "outputs" schema
-'''
-
 

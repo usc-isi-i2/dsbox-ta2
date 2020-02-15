@@ -35,6 +35,7 @@ from dsbox.combinatorial_search.ExecutionHistory import ExecutionHistory
 from dsbox.combinatorial_search.TemplateSpaceBaseSearch import TemplateSpaceBaseSearch
 from dsbox.combinatorial_search.TemplateSpaceParallelBaseSearch import TemplateSpaceParallelBaseSearch
 from dsbox.combinatorial_search.WeightedTemplateSpaceSearch import WeightedTemplateSpaceSearch
+from dsbox.combinatorial_search.WeightedTemplateSpaceParallelSearch import WeightedTemplateSpaceParallelSearch
 from dsbox.JobManager.usage_monitor import UsageMonitor
 # from dsbox.combinatorial_search.BanditDimensionalSearch import BanditDimensionalSearch
 # from dsbox.combinatorial_search.MultiBanditSearch import MultiBanditSearch
@@ -98,7 +99,7 @@ class Controller:
 
         # hard coded unsplit dataset type
         # TODO: check whether "speech" type should be put into this list or not
-        self.data_type_cannot_split = ["graph", "edgeList", "audio"]
+        self.data_type_cannot_split = ["graph", "edgeList"]
         self.task_type_can_split = ["CLASSIFICATION", "REGRESSION", "SEMISUPERVISED_CLASSIFICATION", "SEMISUPERVISED_REGRESSION", "COLLABORATIVE_FILTERING", "OBJECT_DETECTION", "FORECASTING"]
         self.task_type_cannot_split = ["CLUSTERING", "LINK_PREDICTION", "VERTEX_CLASSIFICATION", "COMMUNITY_DETECTION", "GRAPH_MATCHING"]
 
@@ -552,6 +553,32 @@ class Controller:
             report_ensemble['report'] = report
         self._log_search_results(report=report)
 
+    def _run_WeightedParallelSearch(self, report_ensemble):
+        self._search_method.initialize_problem(
+            template_list=self.template_list,
+            performance_metrics=self.config.problem['problem']['performance_metrics'],
+            problem=self.config.problem,
+            # updated v2019.11: now do not send these datasets, but will let subprocess to load instead
+            # to reduce the size of each pickled subprocess and prevent multiprocess queue out ot space
+            test_dataset1=None,#self.test_dataset1,
+            train_dataset1=None,#self.train_dataset1,
+            test_dataset2=None,#self.test_dataset2,
+            train_dataset2=None,#self.train_dataset2,
+            all_dataset=None,#self.all_dataset,
+            ensemble_tuning_dataset=None,#self.ensemble_dataset,
+            output_directory=self.config.output_dir,
+            start_time=self.config.start_time,
+            timeout_sec=self.config.timeout_search,
+            extra_primitive=self.extra_primitive,
+        )
+
+        report = self._search_method.search(num_iter=1000)
+        if report_ensemble:
+            report_ensemble['report'] = report
+        self._log_search_results(report=report)
+
+        self._search_method.job_manager.reset()
+
     def _run_ParallelBaseSearch(self, report_ensemble):
         self._search_method.initialize_problem(
             template_list=self.template_list,
@@ -690,17 +717,6 @@ class Controller:
             FittedPipeline.runtime_setting = self.config.get_runtime_setting()
 
         use_multiprocessing = True
-
-        # updated v2020.1.23: some special datasets need gpu resources, which should not run in parallel mode
-        try:
-            task_keywords_set = set([x.name.lower() for x in self.config.problem['problem']['task_keywords']])
-        except:
-            task_keywords_set = set()
-        run_series_taskkeywords = {"graph", "video", "image", "audio"}
-        intersect_res = task_keywords_set.intersection(run_series_taskkeywords)
-        if len(intersect_res) > 0:
-            self._logger.warning("Change to serial mode for special task keywords {}".format(str(intersect_res)))
-            self.config.search_method = "serial"
         # END change for v2020.1.23
 
         self._logger.info("Current running on {} mode".format(self.config.search_method))
@@ -712,6 +728,8 @@ class Controller:
             self._search_method = TemplateSpaceParallelBaseSearch(num_proc=self.config.cpu)
         elif self.config.search_method == 'weighted':
             self._search_method = WeightedTemplateSpaceSearch()
+        elif self.config.search_method == 'weighted_parallel':
+            self._search_method = WeightedTemplateSpaceParallelSearch(num_proc=self.config.cpu)
         # elif self.config.search_method == 'bandit':
         #     self._search_method = BanditDimensionalSearch(num_proc=self.config.cpu)
         else:
@@ -1244,20 +1262,32 @@ class Controller:
         """
             do some preparations for some special type problems
             1. run in serial mode, if in `run_series_taskkeywords`
-            2. not run denormalize primitive, if in `not_run_denomormalize`
+            2. not run in serial mode, if in `not_run_series_taskkeywords`
+            3. not run denormalize primitive, if in `not_run_denomormalize`
         """
         try:
             task_keywords_set = set([x.name.lower() for x in self.config.problem['problem']['task_keywords']])
         except:
             task_keywords_set = set()
-        run_series_taskkeywords = {"graph", "video", "image", "audio"}
+        run_series_taskkeywords = {"video", "image", "audio"} #"graph"
+        # not_run_series_taskkeywords = {"link_prediction"}
+        not_run_series_taskkeywords = {}
+        not_run_denomormalize = {"graph", "audio", "time_series"}
+
         self.fitted_pipeline = None
         self._check_and_set_dataset_metadata()
 
+        intersect_res1 = task_keywords_set.intersection(run_series_taskkeywords)
+        intersect_res2 = task_keywords_set.intersection(not_run_series_taskkeywords)
+        intersect_res3 = task_keywords_set.intersection(not_run_denomormalize)
+
+        if len(intersect_res1) > 0 and len(intersect_res2) == 0:
+            self._logger.warning("Change to serial mode for special task keywords {}".format(str(intersect_res1)))
+            self.config.search_method = "weighted"
+            self._search_method = WeightedTemplateSpaceSearch()
+
         # first apply denormalize on input dataset if needed
-        not_run_denomormalize = {"graph", "audio", "time_series"}
-        intersect_res = task_keywords_set.intersection(not_run_denomormalize)
-        if len(intersect_res) > 0:
+        if len(intersect_res3) > 0:
             self._logger.warning("Not run denormalize primitive for speical task keywords")
         else:
             from common_primitives.denormalize import Hyperparams as hyper_denormalize, DenormalizePrimitive
@@ -1622,6 +1652,8 @@ class Controller:
             self._run_SerialBaseSearch(self.report_ensemble, one_pipeline_only=one_pipeline_only)
         elif self.config.search_method == 'weighted':
             self._run_WeightedSearch(self.report_ensemble, one_pipeline_only=one_pipeline_only)
+        elif self.config.search_method == 'weighted_parallel':
+            self._run_WeightedParallelSearch(self.report_ensemble)
         else:
             self._run_ParallelBaseSearch(self.report_ensemble)
 
@@ -1665,28 +1697,32 @@ class Controller:
         return Status.OK
 
     def generate_dataset_splits(self):
-
+        """
+            function that used to do dataset splits for further using
+            it will sample the input dataset to a smaller size if input dataset size is too big
+        """
         self.all_dataset = self.remove_empty_targets(self.all_dataset)
         from dsbox.datapreprocessing.cleaner.splitter import Splitter, SplitterHyperparameter
-
-        hyper_sampler = SplitterHyperparameter.defaults()
-        # for test purpose here
-        hyper_sampler = hyper_sampler.replace({"threshold_column_length":2000, "further_reduce_threshold_column_length":2000})
-        sampler = Splitter(hyperparams=hyper_sampler)
-        sampler.set_training_data(inputs=self.all_dataset)
-        sampler.fit()
-        train_split = sampler.produce(inputs=self.all_dataset)
-
-        _, original_df = d3m_utils.get_tabular_resource(dataset=self.all_dataset, resource_id=None)
-        _, split_df = d3m_utils.get_tabular_resource(dataset=train_split.value, resource_id=None)
-        if original_df.shape != split_df.shape:
-            self.extra_primitive.add("splitter")
-            self.all_dataset = train_split.value
-            # pickle this fitted sampler for furture use in pipelines
-            self.dump_primitive(sampler, "splitter")
-
         # updated v2020.1.15, check whether need to split or not first and remember
         self._check_can_split_or_not()
+
+        if not self.cannot_split:
+            hyper_sampler = SplitterHyperparameter.defaults()
+            # for test purpose here
+            hyper_sampler = hyper_sampler.replace({"threshold_column_length":2000, "further_reduce_threshold_column_length":2000})
+            sampler = Splitter(hyperparams=hyper_sampler)
+            sampler.set_training_data(inputs=self.all_dataset)
+            sampler.fit()
+            train_split = sampler.produce(inputs=self.all_dataset)
+
+            _, original_df = d3m_utils.get_tabular_resource(dataset=self.all_dataset, resource_id=None)
+            _, split_df = d3m_utils.get_tabular_resource(dataset=train_split.value, resource_id=None)
+            if original_df.shape != split_df.shape:
+                self.extra_primitive.add("splitter")
+                self.all_dataset = train_split.value
+                # pickle this fitted sampler for furture use in pipelines
+                self.dump_primitive(sampler, "splitter")
+
         # if we need to do ensemble tune, we split one extra time
         if self.do_ensemble_tune or self.do_horizontal_tune:
             self.train_dataset1, self.ensemble_dataset = self.split_dataset(dataset=self.all_dataset, test_size=0.1)

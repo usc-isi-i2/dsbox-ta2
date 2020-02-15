@@ -33,11 +33,11 @@ from dsbox.template.template import DSBoxTemplate
 # from dsbox.template.utils import calculate_score, graph_problem_conversion, SpecialMetric
 from dsbox.template.utils import score_prediction, graph_problem_conversion
 from datamart_isi.entries import AUGMENTED_COLUMN_SEMANTIC_TYPE, Q_NODE_SEMANTIC_TYPE
-T = typing.TypeVar("T")
+
 # python path of primitive, i.e. 'd3m.primitives.common_primitives.RandomForestClassifier'
 PythonPath = typing.NewType('PythonPath', str)
 
-PrimitiveDescription = typing.NewType('PrimitiveDescription', dict)
+# PrimitiveDescription = typing.NewType('PrimitiveDescription', dict)
 
 _logger = logging.getLogger(__name__)
 
@@ -47,7 +47,7 @@ class Mode(enum.IntEnum):
     TRAIN_TEST_MODE = 2
 
 
-class ConfigurationSpaceBaseSearch(typing.Generic[T]):
+class ConfigurationSpaceBaseSearch():
     """
     Search configuration space on dimension at a time.
 
@@ -55,7 +55,7 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
     ----------
     evaluate : Callable[[typing.Dict], float]
         Evaluate given point in configuration space
-    configuration_space: ConfigurationSpace[T]
+    configuration_space: ConfigurationSpace
         Definition of the configuration space
     minimize: bool
         If True, minimize the value returned by `evaluate` function
@@ -67,7 +67,7 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
     """
 
     def __init__(self, template: DSBoxTemplate,
-                 configuration_space: ConfigurationSpace[T],
+                 configuration_space: ConfigurationSpace,
                  problem: Problem, train_dataset1: Dataset,
                  train_dataset2: typing.List[Dataset], test_dataset1: Dataset,
                  test_dataset2: typing.List[Dataset], all_dataset: Dataset,
@@ -90,7 +90,7 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
 
         self.minimize = performance_metrics[0]['metric'].best_value() < performance_metrics[0]['metric'].worst_value()
 
-        self.quick_mode = False
+        self.quick_mode = 0
         self.testing_mode = 0  # set default to not use cross validation mode
         # testing_mode = 0: normal testing mode with test only 1 time
         # testing_mode = 1: cross validation mode
@@ -113,25 +113,29 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
                     # print("!!!!!@@#### normal mode!!!")
                     break
 
-        # new searching method: first check whether we should train a second time with
-        # dataset_train1
-        self.go_quick_inputType = ["image", "audio", "video"]
         self.quick_mode = self._use_quick_mode_or_not()
 
         # evulation state
         self.evaluating_pipeline: typing.Optional[Pipeline] = None
 
-    def _use_quick_mode_or_not(self) -> bool:
+    def _use_quick_mode_or_not(self) -> int:
         """
         The function to determine whether to use quick mode or now
             Now it is hard coded
         Returns:
-            use_quick mode?
+            use_quick mode:
+            0: normal mode: run with 3 times of fit and 2 time of score
+            1: quick mode : run with 2 times of fit and 1 time of score
+            2: super quick mode: run with 1 times of fit and 1 time of score
         """
+        go_super_quick_task_keywords = ["image", "audio", "video"]
+        go_quick_inputType = ["image", "audio", "video"]
         for each_type in self.template.template['inputType']:
-            if each_type in self.go_quick_inputType:
-                return True
-        return False
+            if each_type in go_super_quick_task_keywords:
+                return 2
+            elif each_type in go_quick_inputType:
+                return 1
+        return 0
 
     # def dummy_evaluate(self, ) -> None:
     #     """
@@ -143,7 +147,7 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
     #
     #     """
     #     _logger.info("Dummy evaluation started")
-    #     configuration: ConfigurationPoint[PrimitiveDescription] = \
+    #     configuration: ConfigurationPoint = \
     #         self.configuration_space.get_first_assignment()
     #
     #     pipeline = self.template.to_pipeline(configuration)
@@ -167,7 +171,7 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
         else:
             self.do_ensemble_tuning = False
 
-        configuration: ConfigurationPoint[PrimitiveDescription] = dict(args[0])
+        configuration: ConfigurationPoint = dict(args[0])
         cache: PrimitivesCache = args[1]
         dump2disk = args[2] if len(args) == 3 else True
 
@@ -354,8 +358,9 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
                     # test_ground_truth = None
                     test_prediction = None
                     test_metrics_each = copy.deepcopy(training_metrics_each)
+                    # updated v2020.2.11 try best value if no train data?
                     for each in test_metrics_each:
-                        each["value"] = each['metric'].worst_value()
+                        each["value"] = each['metric'].best_value()
 
                 training_metrics.append(training_metrics_each)
                 test_metrics.append(test_metrics_each)
@@ -458,7 +463,7 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
             #     _logger.exception('Pickle test Failed', exc_info=True)
         else:
             # update v2019.3.17, running k-fold corss validation on level_1 split
-            if self.quick_mode:
+            if self.quick_mode >= 1:
                 _logger.info("Now in quick mode, will skip training with train_dataset1")
                 # if in quick mode, we did not fit the model with dataset_train1 again
                 # just generate the predictions on dataset_test1 directly and get the rank
@@ -541,18 +546,24 @@ class ConfigurationSpaceBaseSearch(typing.Generic[T]):
             #  object second time
             # So here we need to create a new FittedPipeline object to run second time's
             # runtime.fit()
-            fitted_pipeline_final = FittedPipeline(
-                pipeline=pipeline,
-                dataset_id=self.all_dataset.metadata.query(())['id'],
-                metric_descriptions=self.performance_metrics,
-                template=self.template, problem=self.problem, extra_primitive = self.extra_primitive, random_seed=self.random_seed)
-            # set the metric for calculating the rank
-            fitted_pipeline_final.set_metric(test_metrics2[0])
             # end uptdate v2019.3.17
 
             # finally, fit the model with all data and save it
             _logger.info("Training final pipeline with all dataset and saving the pipeline.")
-            fitted_pipeline_final.fit(cache=cache, inputs=[self.all_dataset], save_loc=self.output_directory)
+            # not run fit when in super quick mode
+            if self.quick_mode == 2:
+                _logger.info("In super quick mode, skip train final pipeline.")
+                fitted_pipeline_final = fitted_pipeline2
+                fitted_pipeline_final.set_metric(test_metrics2[0])
+            else:
+                fitted_pipeline_final = FittedPipeline(
+                    pipeline=pipeline,
+                    dataset_id=self.all_dataset.metadata.query(())['id'],
+                    metric_descriptions=self.performance_metrics,
+                    template=self.template, problem=self.problem, extra_primitive = self.extra_primitive, random_seed=self.random_seed)
+                # set the metric for calculating the rank
+                fitted_pipeline_final.set_metric(test_metrics2[0])
+                fitted_pipeline_final.fit(cache=cache, inputs=[self.all_dataset], save_loc=self.output_directory)
 
             if self.ensemble_tuning_dataset:
                 fitted_pipeline_final.produce(inputs=[self.ensemble_tuning_dataset], save_loc=self.output_directory)

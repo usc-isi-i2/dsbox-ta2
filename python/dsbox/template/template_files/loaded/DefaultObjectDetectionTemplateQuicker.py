@@ -8,6 +8,7 @@ class DefaultObjectDetectionTemplateQuicker(DSBoxTemplate):
     def __init__(self):
         DSBoxTemplate.__init__(self)
         self.template = {
+            "weight": 30,
             "name": "DefaultObjectDetectionTemplateQuicker",
             "taskType": {TaskKeyword.OBJECT_DETECTION.name},
             "taskSubtype": {TaskKeyword.OBJECT_DETECTION.name},
@@ -61,8 +62,8 @@ class DefaultObjectDetectionTemplateQuicker(DSBoxTemplate):
                         {
                             "primitive": "d3m.primitives.feature_extraction.yolo.DSBOX",
                             "hyperparameters": {
-                                "lr_init": [(0.0001)],
-                                "epochs": [(30), (50)],
+                                "lr_init": [(0.0005)],
+                                "epochs": [(100)],
                                 "use_fitted_weight": [(False)],
                             }
                         }

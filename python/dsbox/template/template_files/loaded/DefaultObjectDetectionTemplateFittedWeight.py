@@ -8,6 +8,7 @@ class DefaultObjectDetectionTemplateFittedWeight(DSBoxTemplate):
     def __init__(self):
         DSBoxTemplate.__init__(self)
         self.template = {
+            "weight": 100,
             "name": "DefaultObjectDetectionTemplateFittedWeight",
             "taskType": {TaskKeyword.OBJECT_DETECTION.name},
             "taskSubtype": {TaskKeyword.OBJECT_DETECTION.name},
@@ -62,6 +63,7 @@ class DefaultObjectDetectionTemplateFittedWeight(DSBoxTemplate):
                             "primitive": "d3m.primitives.feature_extraction.yolo.DSBOX",
                             "hyperparameters": {
                                 "use_fitted_weight": [(True)],
+                                # "confidences_threshold": [0.5, 0.7, 0.8, 0.9]
                             }
                         }
                     ],

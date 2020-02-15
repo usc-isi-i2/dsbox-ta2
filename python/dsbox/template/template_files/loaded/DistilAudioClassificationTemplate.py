@@ -15,22 +15,22 @@ class DistilAudioClassificationTemplate(DSBoxTemplate):
             "output": "construct_predictions_step",  # Name of the final step generating the prediction
             "target": "extract_target_step",  # Name of the step generating the ground truth
             "steps": [
-                {
-                    "name": "sampler_step",
-                    "primitives" :[
-                        {
-                            "primitive": "d3m.primitives.data_preprocessing.dataset_sample.Common",
-                            "hyperparameters" :{
-                                "sample_size": [0.75]
-                            }
-                        }
-                    ],
-                    "inputs" : ["template_input"]
-                },
+                # {
+                #     "name": "sampler_step",
+                #     "primitives" :[
+                #         {
+                #             "primitive": "d3m.primitives.data_preprocessing.dataset_sample.Common",
+                #             "hyperparameters" :{
+                #                 "sample_size": [0.75]
+                #             }
+                #         }
+                #     ],
+                #     "inputs" : ["template_input"]
+                # },
                 {
                     "name": "dataset_loader_step",
                     "primitives": ["d3m.primitives.data_preprocessing.audio_reader.DistilAudioDatasetLoader"],
-                    "inputs": ["sampler_step"]
+                    "inputs": ["template_input"]
                 },
                 {
                     "name": "common_profiler_step",

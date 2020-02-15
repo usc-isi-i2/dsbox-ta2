@@ -127,13 +127,13 @@ class DefaultImageProcessingClassificationTemplate(DSBoxTemplate):
                                 # # 'min_samples_split': [2, 5, 10],
                                 # 'n_more_estimators': [10, 50, 100, 1000],
                                 # 'n_estimators': [10, 50, 100, 1000],
-                                "n_jobs": [int(CURRENT_CPU_COUNT * 0.8)]
+                                "n_jobs": [int(CURRENT_CPU_COUNT * 0.9)]
                             }
                         },
                         {
                             "primitive": "d3m.primitives.classification.xgboost_dart.Common",
                             "hyperparameters": {
-                                "n_jobs": [int(CURRENT_CPU_COUNT * 0.8)]
+                                "n_jobs": [int(CURRENT_CPU_COUNT * 0.9)]
                             }
                         }
                     ],

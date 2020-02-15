@@ -4,11 +4,11 @@ from dsbox.template.template_steps import TemplateSteps
 from dsbox.schema import SpecializedProblem 
 import typing 
 import numpy as np  # type: ignore 
-class DefaultTimeseriesCollectionTemplate(DSBoxTemplate):
+class DefaultTimeseriesCollectionWithSelectionTemplate(DSBoxTemplate):
     def __init__(self):
         DSBoxTemplate.__init__(self)
         self.template = {
-            "name": "Default_timeseries_collection_template",
+            "name": "Default_Timeseries_Collection_With_Selection_Template",
             "taskType": TaskKeyword.CLASSIFICATION.name,
             "taskSubtype": {TaskKeyword.BINARY.name, TaskKeyword.MULTICLASS.name},
             "inputType": {"timeseries", "table"},  # See SEMANTIC_TYPES.keys() for range of values
@@ -92,27 +92,32 @@ class DefaultTimeseriesCollectionTemplate(DSBoxTemplate):
                     "inputs": ["random_projection_step"]
                 },
                 {
+                    "name": "feature_selection_step",
+                    "primitives": [
+                        {
+                            "primitive": "d3m.primitives.feature_selection.variance_threshold.SKlearn",
+                            "hyperparameters":{
+                                'threshold':[0.0],
+                            }
+                        },
+                        {
+                            "primitive": "d3m.primitives.feature_selection.select_percentile.SKlearn",
+                            "hyperparameters":{
+                                "score_func": ["f_classif"],
+                                "percentile": [24, 30, 40, 50, 60, 70],
+                                "use_semantic_types": [True],
+                                "error_on_no_input": [False]
+                            }
+                        }
+                    ],
+                    "inputs": ["scaler_step", "extract_target_step"]
+                },
+                {
                     "name": "random_forest_step",
                     "primitives": [
                         {
                             "primitive":
                             "d3m.primitives.classification.random_forest.SKlearn",
-                            "hyperparameters":
-                            {
-                                'use_semantic_types': [True],
-                                'return_result': ['new'],
-                                'add_index_columns': [True],
-                                'bootstrap': ["bootstrap", "disabled"],
-                                'max_depth': [15, 30, None],
-                                'min_samples_leaf': [1, 2, 4],
-                                'min_samples_split': [2, 5, 10],
-                                'max_features': ['auto', 'sqrt'],
-                                'n_estimators': [10, 50, 100],
-                            }
-                        },
-                        {
-                            "primitive":
-                            "d3m.primitives.classification.extra_trees.SKlearn",
                             "hyperparameters":
                             {
                                 'use_semantic_types': [True],
@@ -141,6 +146,22 @@ class DefaultTimeseriesCollectionTemplate(DSBoxTemplate):
                                 'n_estimators': [10, 50, 100, 150, 200],
                             }
                         },
+                        {
+                            "primitive":
+                            "d3m.primitives.classification.extra_trees.SKlearn",
+                            "hyperparameters":
+                            {
+                                'use_semantic_types': [True],
+                                'return_result': ['new'],
+                                'add_index_columns': [True],
+                                'bootstrap': ["bootstrap", "disabled"],
+                                'max_depth': [15, 30, None],
+                                'min_samples_leaf': [1, 2, 4],
+                                'min_samples_split': [2, 5, 10],
+                                'max_features': ['auto', 'sqrt'],
+                                'n_estimators': [10, 50, 100],
+                            }
+                        },
                         "d3m.primitives.classification.bagging.SKlearn",
                         "d3m.primitives.classification.logistic_regression.SKlearn",
                         {
@@ -151,7 +172,7 @@ class DefaultTimeseriesCollectionTemplate(DSBoxTemplate):
                                 'return_result': ['new'],
                                 'add_index_columns': [True],
                                 'p': [1, 2],
-                                'n_neighbors': [1, 2, 5],
+                                'n_neighbors': [1, 2,5],
                                 'weights': ['uniform', 'distance'],
                             }
                         },
@@ -162,15 +183,30 @@ class DefaultTimeseriesCollectionTemplate(DSBoxTemplate):
                                 'use_semantic_types': [True],
                                 'return_result': ['new'],
                                 'add_index_columns': [True],
-                                'tol': [0.0001],
-                                'penalty': ["l2"],
-                                'dual': [False],
-                                "C": [1.0],
-                                "loss": ["squared_hinge"]
+                                'tol': [0.0001, 0.001],
+                                'penalty': ["l1", "l2"],
+                                'dual': [True, False],
+                                "C": [1.0, 0.5],
+                                "loss": ['hinge', 'squared_hinge']
+                            }
+                        },
+                        {
+                            "primitive": "d3m.primitives.classification.svc.SKlearn",
+                            "hyperparameters":
+                            {
+                                'use_semantic_types': [True],
+                                'return_result': ['new'],
+                                'add_index_columns': [True],
+                                'tol': [0.0001, 0.001],
+                                "probability": [True, False],
+                                "shrinking": [True, False],
+                                "cache_size": [100.00, 200.00],
+                                'decision_function_shape': ["ovr"],
+                                "C": [1.0, 0.5, 2.0, 4.0, 8.0],
                             }
                         }
                     ],
-                    "inputs": ["scaler_step", "extract_target_step"]
+                    "inputs": ["random_projection_step", "extract_target_step"]
                 },
             ]
         }

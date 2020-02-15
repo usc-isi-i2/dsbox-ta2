@@ -2,6 +2,8 @@ import logging
 
 import numpy as np
 
+from dsbox.template.template_hyperparams import LogRange
+
 _logger = logging.getLogger(__name__)
 
 
@@ -209,7 +211,7 @@ class TemplateSteps:
             each_augment_step = {
                 "name": "augment_step" + str(i),
                 "primitives": [
-                    "d3m.primitives.data_preprocessing.do_nothing_for_dataset.DSBOX", 
+                    "d3m.primitives.data_preprocessing.do_nothing_for_dataset.DSBOX",
                     {
                         "primitive": "d3m.primitives.data_augmentation.datamart_augmentation.Common",
                         "hyperparameters":
@@ -222,7 +224,7 @@ class TemplateSteps:
                 "inputs": ["template_input" if i==0 else "augment_step" + str(i - 1)]
             }
             augment_steps.append(each_augment_step)
-        
+
         return augment_steps, start_step + len(search_results)
 
 
@@ -240,7 +242,7 @@ class TemplateSteps:
         each_augment_step = {
             "name": "augment_step" + str(start_step),
             "primitives": [
-                "d3m.primitives.data_preprocessing.do_nothing_for_dataset.DSBOX", 
+                "d3m.primitives.data_preprocessing.do_nothing_for_dataset.DSBOX",
                 {
                     "primitive": "d3m.primitives.data_augmentation.datamart_augmentation.Common",
                     "hyperparameters":
@@ -253,7 +255,7 @@ class TemplateSteps:
             "inputs": ["template_input" if start_step==0 else "augment_step" + str(start_step - 1)]
         }
         augment_steps.append(each_augment_step)
-        
+
         return augment_steps, start_step + 1
 
 
@@ -485,7 +487,7 @@ class TemplateSteps:
                                 'add_index_columns': [True],
                                 'return_result': ['new'],
                                 'add_index_columns': [True],
-                                "alpha": [float(x) for x in np.logspace(-4, -1, 6)]
+                                "alpha": LogRange(10e-4, 1e-1)  # [float(x) for x in np.logspace(-4, -1, 6)]
                             }
                         },
                         {
@@ -523,7 +525,7 @@ class TemplateSteps:
                                 'use_semantic_types': [True],
                                 'return_result': ['new'],
                                 'add_index_columns': [True],
-                                "alpha": [float(x) for x in np.logspace(-4, -1, 6)]
+                                "alpha": LogRange(10e-4, 1e-1)  # [float(x) for x in np.logspace(-4, -1, 6)]
                             }
                         },
                         {

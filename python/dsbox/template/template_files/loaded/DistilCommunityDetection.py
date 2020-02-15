@@ -4,16 +4,16 @@ from dsbox.template.template_steps import TemplateSteps
 from dsbox.schema import SpecializedProblem 
 import typing 
 import numpy as np  # type: ignore 
-class DistilLinkPredictionTemplate(DSBoxTemplate):
+class DistilCommunityDetection(DSBoxTemplate):
     def __init__(self):
         DSBoxTemplate.__init__(self)
         self.template = {
             "weight": 100,
-            "name": "Distil_LinkPrediction_Template",
-            "taskType": {TaskKeyword.LINK_PREDICTION.name},
+            "name": "Distil_Community_Detection_Template",
+            "taskType": {TaskKeyword.COMMUNITY_DETECTION.name},
             # for some special condition, the taskSubtype can be "NONE" which indicate no taskSubtype given
-            "taskSubtype":  {TaskKeyword.LINK_PREDICTION.name},
-            "inputType": {"edgeList", "graph"},
+            "taskSubtype":  {"NONE", TaskKeyword.COMMUNITY_DETECTION.name},
+            "inputType": {"graph"},
             "output": "predict_step",
             "steps": [
                 {
@@ -25,9 +25,9 @@ class DistilLinkPredictionTemplate(DSBoxTemplate):
                     "name": "predict_step",
                     "primitives":[
                         {
-                            "primitive": "d3m.primitives.link_prediction.link_prediction.DistilLinkPrediction",
+                            "primitive": "d3m.primitives.community_detection.community_detection.DistilCommunityDetection",
                             "hyperparameters": {
-                                "metric": [("accuracy"),]
+                                "metric": [("accuracy"),("normalizedMutualInformation")]
                             }
                         }
                     ],

@@ -4,6 +4,8 @@ import time
 import traceback
 import typing
 
+from threading import Thread
+
 from operator import itemgetter
 
 import d3m.metadata.problem as problem
@@ -16,16 +18,10 @@ from dsbox.JobManager.cache import CacheManager
 from dsbox.template.template import DSBoxTemplate
 
 
-T = typing.TypeVar("T")
-# python path of primitive, i.e. 'd3m.primitives.common_primitives.RandomForestClassifier'
-PythonPath = typing.NewType('PythonPath', str)
-
-PrimitiveDescription = typing.NewType('PrimitiveDescription', dict)
-
 _logger = logging.getLogger(__name__)
 
 
-class WeightedTemplateSpaceSearch(typing.Generic[T]):
+class WeightedTemplateSpaceSearch():
     """
     Search the template space through the individual configuration spaces.
 
@@ -33,7 +29,7 @@ class WeightedTemplateSpaceSearch(typing.Generic[T]):
     ----------
     template_list : List[DSBoxTemplate]
         Evaluate given point in configuration space
-    configuration_space_list: List[ConfigurationSpace[T]]
+    configuration_space_list: List[ConfigurationSpace]
         Definition of the configuration space
     confSpaceBaseSearch: List[ConfigurationSpaceBaseSearch]
         list of ConfigurationSpaceBaseSearch related to each template
@@ -118,6 +114,7 @@ class WeightedTemplateSpaceSearch(typing.Generic[T]):
 
         while True:
             search = random.choices(self.confSpaceBaseSearch, self.weights)[0]
+            _logger.info(f'Search template {search.template}')
             candidate = search.configuration_space.get_random_assignment()
             if self._prepare_candidate_4_eval(candidate=candidate):
                 _logger.info(f"Selecting Candidate: {hash(str(candidate))}")
@@ -137,6 +134,24 @@ class WeightedTemplateSpaceSearch(typing.Generic[T]):
                 number of iterations of random sampling
         Returns:
 
+        """
+
+        search_thread = Thread(target=self._search, args=(num_iter, one_pipeline_only))
+        search_thread.start()
+
+        timeout = (self.start_time + self.timeout_sec) - (time.perf_counter() + 15)
+        _logger.info('Joining search thread in %i minutes', timeout/60)
+        search_thread.join(timeout=timeout)
+        _logger.info('Done searching')
+
+        self.cacheManager.cleanup()
+        self.history.done()
+
+        return self.history.get_best_history()
+
+    def _search(self, num_iter: int, one_pipeline_only: bool):
+        """
+        The actual search method.
         """
 
         success_count = 0
@@ -162,10 +177,6 @@ class WeightedTemplateSpaceSearch(typing.Generic[T]):
             self._add_report_to_history(kwargs_bundle=kwargs_bundle,
                                         report=report)
 
-        self.cacheManager.cleanup()
-        self.history.done()
-
-        return self.history.get_best_history()
 
     def _done(self, success_count, *, one_pipeline_only=False):
         if one_pipeline_only and success_count >= 1:
