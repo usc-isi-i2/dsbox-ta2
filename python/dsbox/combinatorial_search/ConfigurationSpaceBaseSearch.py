@@ -604,7 +604,6 @@ class ConfigurationSpaceBaseSearch():
                     # Note: Our TA3TA2 interface instill uses picked pipelines
                     self._save_failed_pipeline(sys.exc_info(), self.evaluating_pipeline)
                     _logger.exception(f'Pickle test failed', exc_info=True)
-                    return
 
         # still return the original fitted_pipeline with relation to train_dataset1
         return data
