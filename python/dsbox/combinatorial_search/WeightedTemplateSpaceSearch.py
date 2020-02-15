@@ -4,6 +4,8 @@ import time
 import traceback
 import typing
 
+from threading import Thread
+
 from operator import itemgetter
 
 import d3m.metadata.problem as problem
@@ -134,6 +136,24 @@ class WeightedTemplateSpaceSearch():
 
         """
 
+        search_thread = Thread(target=self._search, args=(num_iter, one_pipeline_only))
+        search_thread.start()
+
+        timeout = (self.start_time + self.timeout_sec) - (time.perf_counter() + 15)
+        _logger.info('Joining search thread in %i minutes', timeout/60)
+        search_thread.join(timeout=timeout)
+        _logger.info('Done searching')
+
+        self.cacheManager.cleanup()
+        self.history.done()
+
+        return self.history.get_best_history()
+
+    def _search(self, num_iter: int, one_pipeline_only: bool):
+        """
+        The actual search method.
+        """
+
         success_count = 0
         for candidate, search in self._next_pipeline():
             if self._done(success_count, one_pipeline_only=one_pipeline_only):
@@ -157,10 +177,6 @@ class WeightedTemplateSpaceSearch():
             self._add_report_to_history(kwargs_bundle=kwargs_bundle,
                                         report=report)
 
-        self.cacheManager.cleanup()
-        self.history.done()
-
-        return self.history.get_best_history()
 
     def _done(self, success_count, *, one_pipeline_only=False):
         if one_pipeline_only and success_count >= 1:

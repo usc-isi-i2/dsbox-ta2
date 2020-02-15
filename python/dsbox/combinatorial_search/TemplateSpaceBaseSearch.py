@@ -4,6 +4,8 @@ import time
 import traceback
 import typing
 
+from threading import Thread
+
 import d3m.metadata.problem as problem
 from d3m.container.dataset import Dataset
 from dsbox.combinatorial_search.ConfigurationSpaceBaseSearch import ConfigurationSpaceBaseSearch
@@ -103,6 +105,24 @@ class TemplateSpaceBaseSearch():
 
         """
 
+        search_thread = Thread(target=self._search, args=(num_iter, one_pipeline_only))
+        search_thread.start()
+
+        timeout = (self.start_time + self.timeout_sec) - (time.perf_counter() + 15)
+        _logger.info('Joining search thread in %i minutes', timeout/60)
+        search_thread.join(timeout=timeout)
+        _logger.info('Done searching')
+
+        self.cacheManager.cleanup()
+        self.history.done()
+
+        return self.history.get_best_history()
+
+    def _search(self, num_iter, one_pipeline_only):
+        """
+        The actual search method.
+        """
+
         success_count = 0
         search: ConfigurationSpaceBaseSearch
         for search in self._select_next_template(num_iter=num_iter):
@@ -130,11 +150,6 @@ class TemplateSpaceBaseSearch():
                                                           search=search)
                 self._add_report_to_history(kwargs_bundle=kwargs_bundle,
                                             report=report)
-
-        self.cacheManager.cleanup()
-        self.history.done()
-
-        return self.history.get_best_history()
 
     def _done(self, success_count, *, one_pipeline_only=False):
         if one_pipeline_only and success_count >= 1:
