@@ -384,7 +384,7 @@ class Controller:
                 if i < limit:
                     self._logger.info(f"Keeping pipeline rank %s file: %s", rank, rank_file)
                 else:
-                    self._logger.info(f"Copy pipeline rank %s file", rank)
+                    self._logger.info(f"Removing pipeline rank %s file", rank)
                     os.remove(rank_file.with_suffix('.json'))
                     os.remove(rank_file.with_suffix('.rank'))
 
