@@ -343,7 +343,7 @@ class ConfigurationSpaceBaseSearch():
 
                 # only do test if the test_dataset exist
                 if self.test_dataset2[each_repeat] is not None:
-                    results = fitted_pipeline.produce(inputs=[self.test_dataset2[each_repeat]], save_loc=self.output_directory)
+                    fitted_pipeline.produce(inputs=[self.test_dataset2[each_repeat]], save_loc=self.output_directory)
                     # Note: results == test_prediction
                     test_prediction = fitted_pipeline.get_produce_step_output(
                         self.template.get_output_step_number())
@@ -604,7 +604,6 @@ class ConfigurationSpaceBaseSearch():
                     # Note: Our TA3TA2 interface instill uses picked pipelines
                     self._save_failed_pipeline(sys.exc_info(), self.evaluating_pipeline)
                     _logger.exception(f'Pickle test failed', exc_info=True)
-                    return
 
         # still return the original fitted_pipeline with relation to train_dataset1
         return data

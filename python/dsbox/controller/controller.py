@@ -366,25 +366,27 @@ class Controller:
         (temp_dir / '.done').touch()
         self._logger.info(f"Created done_file: {temp_dir / '.done'}")
 
-        for rank_temp_file in temp_dir.glob('*.rank'):
+        for rank_file in rank_dir.glob('*.rank'):
             try:
-                rank = float(open(rank_temp_file).read())
-                ranked_list.append((rank, rank_temp_file))
+                rank = float(open(rank_file).read())
+                ranked_list.append((rank, rank_file))
             except Exception:
-                self._logger.info(f"Cannot parse pipeline's rank file: {rank_temp_file}")
+                self._logger.info(f"Cannot parse pipeline's rank file: {rank_file}")
 
         if not ranked_list:
-            self._logger.warn('Warning no ranked pipelines!!!!')
+            self._logger.warning('Warning no ranked pipelines!!!!')
 
         ranked_list = sorted(ranked_list, key=operator.itemgetter(0))
         self._logger.info(f'Number of ranked pipelines generated: {len(ranked_list)}')
 
-        if len(ranked_list) > limit:
-            for i, (rank, rank_temp_file) in enumerate(ranked_list):
+        if not limit == 0 and len(ranked_list) > limit:
+            for i, (rank, rank_file) in enumerate(ranked_list):
                 if i < limit:
-                    self._logger.info(f"Copy pipeline rank {rank} file {rank_temp_file}")
-                    shutil.copy(rank_temp_file, rank_dir)
-                    shutil.copy(rank_temp_file.with_suffix('.json'), rank_dir)
+                    self._logger.info(f"Keeping pipeline rank %s file: %s", rank, rank_file)
+                else:
+                    self._logger.info(f"Removing pipeline rank %s file", rank)
+                    os.remove(rank_file.with_suffix('.json'))
+                    os.remove(rank_file.with_suffix('.rank'))
 
     # def _process_pipeline_submission(self) -> None:
     #     limit = self.config.rank_solutions_limit
@@ -1836,15 +1838,19 @@ class Controller:
             self._logger.error(f'Pipeline does not exists: {rank_filepath}')
             return
 
+        limit = self.config.rank_solutions_limit
+
         if os.path.exists(os.path.join(self.config.pipelines_ranked_dir, pipeline_id + '.json')):
             self._logger.info(f'Pipeline solution already exported: {pipeline_id}')
-        else:
+        elif limit == 0:
+            # In TA3 mode
             self._logger.info(f'Export pipeline: {pipeline_id}')
             shutil.copy(pipeline_filepath, self.config.pipelines_ranked_dir)
 
         if os.path.exists(os.path.join(self.config.pipelines_ranked_dir, pipeline_id + '.rank')):
             self._logger.info(f'Pipeline rank already exported: {pipeline_id}')
-        else:
+        elif limit == 0:
+            # In TA3 mode
             shutil.copy(rank_filepath, self.config.pipelines_ranked_dir)
 
     # def export_solution(self, fitted_pipeline_id) -> None:
