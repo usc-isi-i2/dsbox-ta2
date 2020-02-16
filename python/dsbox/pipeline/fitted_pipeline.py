@@ -60,7 +60,7 @@ class FittedPipeline:
     subpipelines_subdir: str = 'subpipelines'
     pipeline_runs_subdir: str = 'pipeline_runs'
 
-    # pipelines_ranked_subdir: str = 'pipelines_ranked'
+    pipelines_ranked_subdir: str = 'pipelines_ranked'
     pipelines_ranked_temp_subdir: str = 'pipelines_ranked_temp'
 
     # DSBox dirs
@@ -365,9 +365,11 @@ class FittedPipeline:
             # Skip if controller is already submitting the pipelines
             _logger.info('Skipping Write to pipelines_ranked directory')
         else:
-            self.save_schema_only(folder_loc, self.pipelines_ranked_temp_subdir)
-            self.save_rank(os.path.join(folder_loc, self.pipelines_ranked_temp_subdir))
+            self.save_schema_only(folder_loc, self.pipelines_ranked_subdir)
+            self.save_rank(os.path.join(folder_loc, self.pipelines_ranked_subdir))
 
+        self.save_schema_only(folder_loc, self.pipelines_ranked_temp_subdir)
+        self.save_rank(os.path.join(folder_loc, self.pipelines_ranked_temp_subdir))
         # DSBox
         self.save_pipeline_info(os.path.join(folder_loc, self.pipelines_info_subdir))
         self.save_fitted_pipeline(os.path.join(folder_loc, self.pipelines_fitted_subdir))
