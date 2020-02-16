@@ -9,7 +9,7 @@ from d3m.metadata.problem import TaskKeyword
 from dsbox.template.template_files.loaded import *
 from dsbox.schema import SpecializedProblem
 from dsbox.template.template import DSBoxTemplate
-# from dsbox.template.template_files.loaded.SKDummyTemplate import SKDummyTemplate
+from dsbox.template.template_files.loaded.SKDummyTemplate import SKDummyTemplate
 
 _logger = logging.getLogger(__name__)
 
@@ -84,7 +84,7 @@ class TemplateLibrary:
         # update v2020.1.28: try sk dummy
         not_add_mean_base_line_task_types = [TaskKeyword.TIME_SERIES.name, TaskKeyword.SEMISUPERVISED.name]
         if not have_intersection(task, not_add_mean_base_line_task_types):
-            # results.append(SKDummyTemplate())  # put the meanbaseline here so whatever dataset will have a result
+            results.append(SKDummyTemplate())  # put the meanbaseline here so whatever dataset will have a result
             _logger.info("Will add SK Dummy template.")
         else:
             _logger.info("No add SK Dummy template for timeseries/semisupervise tasks")
