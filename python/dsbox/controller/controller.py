@@ -1275,7 +1275,7 @@ class Controller:
         # not_run_series_taskkeywords = {"link_prediction"}
         not_run_series_taskkeywords = {}
         not_run_denomormalize = {"graph", "audio", "time_series"}
-
+        specific_not_run_denormalize = [{"relational", "univariate", "regression"}]
         self.fitted_pipeline = None
         self._check_and_set_dataset_metadata()
 
@@ -1289,7 +1289,7 @@ class Controller:
             self._search_method = WeightedTemplateSpaceSearch()
 
         # first apply denormalize on input dataset if needed
-        if len(intersect_res3) > 0:
+        if len(intersect_res3) > 0 or task_keywords_set in specific_not_run_denormalize:
             self._logger.warning("Not run denormalize primitive for speical task keywords")
         else:
             from common_primitives.denormalize import Hyperparams as hyper_denormalize, DenormalizePrimitive
