@@ -1,6 +1,8 @@
+'''
+Cache Module
+'''
 import copy
 import logging
-import pprint
 import traceback
 import typing
 
@@ -17,6 +19,10 @@ from dsbox.template.configuration_space import ConfigurationPoint
 
 _logger = logging.getLogger(__name__)
 
+
+DO_NOT_CACHE_LIST = {
+    'd3m.primitives.feature_construction.deep_feature_synthesis.MultiTableFeaturization'
+}
 
 class DummyLock:
     def acquire(self, blocking=True, timeout=-1):
@@ -217,7 +223,10 @@ class PrimitivesCache:
         self.write_lock.acquire(blocking=True)
 
         try:
-            if not self.is_hit_key(prim_name=prim_name, prim_hash=prim_hash):
+            if prim_name in DO_NOT_CACHE_LIST:
+                _logger.debug(f'In do not cache list: %s', prim_name)
+                return 2
+            elif not self.is_hit_key(prim_name=prim_name, prim_hash=prim_hash):
                 self.storage[(prim_name, prim_hash)] = (fitting_time, model)
                 _logger.debug(f"Push@cache:{prim_name},{prim_hash}")
                 # print(f"[INFO] Push@cache:{prim_name},{prim_hash}")
