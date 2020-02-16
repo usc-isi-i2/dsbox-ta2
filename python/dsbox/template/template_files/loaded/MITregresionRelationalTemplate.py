@@ -2,6 +2,7 @@ from dsbox.template.template import DSBoxTemplate
 from d3m.metadata.problem import TaskKeyword 
 from dsbox.template.template_steps import TemplateSteps 
 from dsbox.schema import SpecializedProblem 
+from common_primitives.column_parser import ColumnParserPrimitive
 import typing 
 import numpy as np  # type: ignore 
 class MITregresionRelationalTemplate(DSBoxTemplate):
@@ -12,80 +13,85 @@ class MITregresionRelationalTemplate(DSBoxTemplate):
             "taskType": {TaskKeyword.REGRESSION.name},
             "taskSubtype": {TaskKeyword.RELATIONAL.name, TaskKeyword.UNIVARIATE.name},
             "inputType": {"table"},
-            "output": "steps.13",
-            "steps": [
-                {
-                    'name': 'steps.0',
-                    'primitives': [
-                        {
-                            'primitive': 'd3m.primitives.operator.dataset_map.DataFrameCommon',
-                            'hyperparameters': {
-                            },
+            "output": "steps.5",
+        'steps': [
+            {
+                'name': 'steps.0',
+                'primitives': [
+                    {
+                        'primitive': 'd3m.primitives.operator.dataset_map.DataFrameCommon',
+                        'hyperparameters': {
+                            'fit_primitive': ['no'],
+                            'primitive': [ColumnParserPrimitive],
+                            'resources': ['all'],
                         },
-                    ],
-                    'inputs': ['template_input'],
-                },
-                {
-                    "name": "common_profiler_step",
-                    "primitives": ["d3m.primitives.schema_discovery.profiler.Common"],
-                    "inputs": ["steps.0"]
-                },
-                {
-                    'name': 'parser_step',
-                    'primitives': [
-                        {
-                            'primitive': 'd3m.primitives.data_transformation.column_parser.Common',
-                            'hyperparameters': {
-                            },
+                    },
+                ],
+                'inputs': ['template_input'],
+            },
+            {
+                'name': 'steps.1',
+                'primitives': [
+                    {
+                        'primitive': 'd3m.primitives.feature_construction.deep_feature_synthesis.MultiTableFeaturization',
+                        'hyperparameters': {
                         },
-                    ],
-                    'inputs': ['common_profiler_step'],
-                },
-                {
-                    'name': 'deep_feature_synthesis_step',
-                    'primitives': [
-                        {
-                            'primitive': 'd3m.primitives.feature_construction.deep_feature_synthesis.SingleTableFeaturization',
-                            'hyperparameters': {
-                            },
+                    },
+                ],
+                'inputs': ['steps.0'],
+            },
+            {
+                'name': 'steps.2',
+                'primitives': [
+                    {
+                        'primitive': 'd3m.primitives.feature_construction.deep_feature_synthesis.SingleTableFeaturization',
+                        'hyperparameters': {
                         },
-                    ],
-                    'inputs': ['parser_step'],
-                },
-                {
-                    'name': 'model_step',
-                    'primitives': [
-                        {
-                            "primitive":
-                                "d3m.primitives.regression.xgboost_gbtree.Common",
-                            "hyperparameters":
-                                {
-                                    'use_semantic_types': [True],
-                                    'return_result': ['new'],
-                                    'add_index_columns': [True],
-                                    'bootstrap': ["bootstrap", "disabled"],
-                                    'max_depth': [15, 30, None],
-                                    'min_samples_leaf': [1, 2, 4],
-                                    'min_samples_split': [2, 5, 10],
-                                    'max_features': ['auto', 'sqrt'],
-                                    'n_estimators': [80, 120]
-                                }
+                    },
+                ],
+                'inputs': ['steps.1'],
+            },
+            {
+                'name': 'steps.3',
+                'primitives': [
+                    {
+                        'primitive': 'd3m.primitives.data_cleaning.imputer.SKlearn',
+                        'hyperparameters': {
+                            'use_semantic_types': [True],
+                            'strategy': ['mean'],
                         },
-                    ],
-                    'inputs': ['deep_feature_synthesis_step', 'parser_step'],
-                },
-                {
-                    'name': 'steps.6',
-                    'primitives': [
-                        {
-                            'primitive': 'd3m.primitives.data_transformation.construct_predictions.Common',
-                            'hyperparameters': {
-                            },
+                    },
+                ],
+                'inputs': ['steps.2'],
+            },
+            {
+                'name': 'steps.4',
+                'primitives': [
+                    {
+                        'primitive': 'd3m.primitives.regression.xgboost_gbtree.Common',
+                        'hyperparameters': {
+                            'n_estimators': [90, 110],
+                            'learning_rate': [0.4, 0.6],
+                            'max_depth': [10, 12],
+                            'gamma': [0.3, 0.5],
+                            'min_child_weight': [1],
                         },
-                    ],
-                    'inputs': ['model_step', 'parser_step'],
-                },
-            ]
-        }
+                    },
+                ],
+                'inputs': ['steps.3', 'steps.1'],
+            },
+            {
+                'name': 'steps.5',
+                'primitives': [
+                    {
+                        'primitive': 'd3m.primitives.data_transformation.construct_predictions.Common',
+                        'hyperparameters': {
+                        },
+                    },
+                ],
+                'inputs': ['steps.4', 'steps.1'],
+            },
+        ],
+     }
 
 

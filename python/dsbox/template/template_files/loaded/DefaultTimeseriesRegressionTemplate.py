@@ -11,7 +11,7 @@ class DefaultTimeseriesRegressionTemplate(DSBoxTemplate):
             "name": "DefaultTimeseriesRegressionTemplate",
             "taskSubtype": {TaskKeyword.UNIVARIATE.name, TaskKeyword.MULTIVARIATE.name},
             "taskType": {TaskKeyword.REGRESSION.name},
-            "inputType": {"timeseries", "table"},  # See SEMANTIC_TYPES.keys() for range of values
+            "inputType": {"table"},  of values
             "output": "random_forest_step",  # Name of the final step generating the prediction
             "target": "extract_target_step",  # Name of the step generating the ground truth
             "steps": [
@@ -53,26 +53,17 @@ class DefaultTimeseriesRegressionTemplate(DSBoxTemplate):
                     }],
                     "inputs": ["pre_extract_target_step"]
                 },
+                # {
+                #     "name": "column_parser_step",
+                #     "primitives": ["d3m.primitives.data_transformation.column_parser.Common"],
+                #     "inputs": ["extract_target_step"]
+                # },
 
                 # read X value
                 {
-                    "name": "extract_attribute_step",
-                    "primitives": [{
-                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.Common",
-                        "hyperparameters":
-                            {
-                                'semantic_types': ('https://metadata.datadrivendiscovery.org/types/PrimaryKey',
-                                                   'https://metadata.datadrivendiscovery.org/types/Attribute',),
-                                'use_columns': (),
-                                'exclude_columns': ()
-                            }
-                    }],
-                    "inputs": ["common_profiler_step"]
-                },
-                {
                     "name": "timeseries_to_list_step",
                     "primitives": ["d3m.primitives.data_preprocessing.time_series_to_list.DSBOX"],
-                    "inputs": ["extract_attribute_step"]
+                    "inputs": ["common_profiler_step"]
                 },
 
                 {
@@ -88,28 +79,72 @@ class DefaultTimeseriesRegressionTemplate(DSBoxTemplate):
                     "inputs": ["timeseries_to_list_step"]
                 },
                 {
-                    "name": "to_numeric_step",
-                    "primitives": ["d3m.primitives.data_transformation.to_numeric.DSBOX"],
-                    "inputs":["extract_target_step"],
+                    "name": "scaler_step",
+                    "primitives": [
+                        {
+                            "primitive": "d3m.primitives.data_preprocessing.robust_scaler.SKlearn",
+                            "hyperparameters":{
+                                'return_result':["replace"],
+                            }
+                        },
+                    "d3m.primitives.data_preprocessing.do_nothing.DSBOX"
+                    ],
+                    "inputs": ["random_projection_step"]
                 },
                 {
                     "name": "random_forest_step",
                     "primitives": [
                         {
-                            "primitive": "d3m.primitives.regression.random_forest.SKlearn",
-                            "hyperparameters": {
+                            "primitive":
+                            "d3m.primitives.regression.random_forest.SKlearn",
+                            "hyperparameters":
+                            {
+                                'use_semantic_types': [True],
+                                'return_result': ['new'],
                                 'add_index_columns': [True],
-                                'use_semantic_types':[True],
+                                'bootstrap': ["bootstrap", "disabled"],
+                                'max_depth': [15, 30, None],
+                                'min_samples_leaf': [1, 2, 4],
+                                'min_samples_split': [2, 5, 10],
+                                'max_features': ['auto', 'sqrt'],
+                                'n_estimators': [10, 50, 100],
                             }
-                        }
+                        },
+                        {
+                            "primitive": "d3m.primitives.regression.gradient_boosting.SKlearn",
+                            "hyperparameters":
+                            {
+                                'use_semantic_types': [True],
+                                'return_result': ['new'],
+                                'add_index_columns': [True],
+                                'max_depth': [2, 3, 5],
+                                'learning_rate': [0.1, 0.3, 0.5],
+                                'min_samples_split': [2, 3],
+                                'min_samples_leaf': [1, 2],
+                                'max_features': ['auto', 'sqrt', "7"],
+                                'n_estimators': [10, 50, 100, 150, 200],
+                            }
+                        },
+                        {
+                            "primitive":
+                            "d3m.primitives.regression.extra_trees.SKlearn",
+                            "hyperparameters":
+                            {
+                                'use_semantic_types': [True],
+                                'return_result': ['new'],
+                                'add_index_columns': [True],
+                                'bootstrap': ["bootstrap", "disabled"],
+                                'max_depth': [15, 30, None],
+                                'min_samples_leaf': [1, 2, 4],
+                                'min_samples_split': [2, 5, 10],
+                                'max_features': ['auto', 'sqrt'],
+                                'n_estimators': [100],
+                            }
+                        },
                     ],
-                    "inputs": ["random_projection_step", "to_numeric_step"]
+                    "inputs": ["random_projection_step", "extract_target_step"]
                 },
             ]
         }
-
-'''
-This template never working because templates "input", "outputs" schema
-'''
 
 

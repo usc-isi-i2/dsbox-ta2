@@ -237,9 +237,9 @@ class DsboxConfig:
         if 'DSBOX_SEARCH_METHOD' in os.environ:
             self.search_method = os.environ['DSBOX_SEARCH_METHOD']
         else:
-            self.search_method = 'weighted_parallel'
+            # self.search_method = 'weighted_parallel'
             # self.search_method = 'parallel'
-            # self.search_method = 'serial'
+            self.search_method = 'serial'
 
     def _setup(self):
         self._define_create_output_dirs()
