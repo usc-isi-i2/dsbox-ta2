@@ -11,7 +11,7 @@ class DefaultTimeseriesRegressionTemplate(DSBoxTemplate):
             "name": "DefaultTimeseriesRegressionTemplate",
             "taskSubtype": {TaskKeyword.UNIVARIATE.name, TaskKeyword.MULTIVARIATE.name},
             "taskType": {TaskKeyword.REGRESSION.name},
-            "inputType": {"table"},  of values
+            "inputType": {"table"},
             "output": "random_forest_step",  # Name of the final step generating the prediction
             "target": "extract_target_step",  # Name of the step generating the ground truth
             "steps": [
