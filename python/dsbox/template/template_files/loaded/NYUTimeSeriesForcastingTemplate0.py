@@ -10,11 +10,11 @@ from sklearn_wrap.SKGradientBoostingClassifier import Hyperparams as hyper_grand
 from sklearn_wrap.SKAdaBoostClassifier import SKAdaBoostClassifier
 from sklearn_wrap.SKBaggingClassifier import SKBaggingClassifier
 
-class NYUTimeSeriesForcastingTemplate(DSBoxTemplate):
+class NYUTimeSeriesForcastingTemplate0(DSBoxTemplate):
     def __init__(self):
         DSBoxTemplate.__init__(self)
         self.template = {
-            "name": "NYU_TimeSeries_Forcasting_template",
+            "name": "NYU_TimeSeries_Forcasting_template_0",
             "taskType": TaskKeyword.TIME_SERIES.name,
             "taskSubtype": {"FORECASTING"},
             "inputType": {"table"},  # See SEMANTIC_TYPES.keys() for range of values
@@ -67,36 +67,20 @@ class NYUTimeSeriesForcastingTemplate(DSBoxTemplate):
                 },
                 {
                     "name": "encoder_step",
-                    "primitives": [{
-                        "primitive": "d3m.primitives.data_transformation.one_hot_encoder.SKlearn",
-                        "hyperparameters":
-                            {
-                                # "use_semantic_types": [True],
-                                "return_result": ["replace"],
-                                "handle_unknown":["ignore"],
-                            }
-                    },
-                    {
-                        "primitive": "d3m.primitives.data_preprocessing.unary_encoder.DSBOX",
-                        "hyperparameters":
+                    "primitives": [
+                        {
+                            "primitive": "d3m.primitives.data_preprocessing.unary_encoder.DSBOX",
+                            "hyperparameters":
                             {
                             }
-                    },
-                    "d3m.primitives.data_preprocessing.do_nothing.DSBOX"
+                        }
                     ],
                     "inputs": ["imputer_step"]
                 },
                 {
-                    "name": "corex_step",
-                    "primitives": [
-                        "d3m.primitives.feature_construction.corex_text.DSBOX",
-                        "d3m.primitives.data_preprocessing.do_nothing.DSBOX"],
-                    "inputs": ["encoder_step"]
-                },
-                {
                     "name": "to_numeric_step",
                     "primitives": ["d3m.primitives.data_transformation.to_numeric.DSBOX"],
-                    "inputs":["corex_step"],
+                    "inputs":["encoder_step"],
                 },
                 # read Y value
                 {
@@ -118,15 +102,7 @@ class NYUTimeSeriesForcastingTemplate(DSBoxTemplate):
                         "hyperparameters": {
 
                         }
-                    },
-                    {
-                        "primitive": "d3m.primitives.feature_selection.simultaneous_markov_blanket.AutoRPI",
-                        "hyperparameters": {
-
-                        }
-                    },
-                    "d3m.primitives.data_preprocessing.do_nothing.DSBOX"
-                    ],
+                    }],
                     "inputs": ["to_numeric_step", "extract_target_step"]
                 },
 
@@ -134,32 +110,8 @@ class NYUTimeSeriesForcastingTemplate(DSBoxTemplate):
                     "name": "model_step",
                     "primitives": [
                         {
-                            "primitive": "d3m.primitives.regression.extra_trees.SKlearn",
-                            "hyperparameters": {
-                                # 'add_index_columns': [True],
-                                # 'use_semantic_types':[True],
-                                'n_estimators': [10, 80, 100, 120, 150],
-                            }
-                        },
-                        {
                             "primitive": "d3m.primitives.regression.passive_aggressive.SKlearn",
                             "hyperparameters": {
-                                # 'add_index_columns': [True],
-                                # 'use_semantic_types':[True],
-                            }
-                        },
-                        {
-                            "primitive": "d3m.primitives.regression.sgd.SKlearn",
-                            "hyperparameters": {
-                                # 'add_index_columns': [True],
-                                # 'use_semantic_types':[True],
-                            }
-                        },
-                        {
-                            "primitive": "d3m.primitives.regression.k_neighbors.SKlearn",
-                            "hyperparameters": {
-                                # 'add_index_columns': [True],
-                                # 'use_semantic_types':[True],
                             }
                         }
                     ],
