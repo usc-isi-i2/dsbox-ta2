@@ -12,7 +12,6 @@ class DistilTimeSeriesClassificationTemplate(DSBoxTemplate):
             "taskType": TaskKeyword.CLASSIFICATION.name,
             "taskSubtype": {TaskKeyword.BINARY.name, TaskKeyword.MULTICLASS.name},
             "inputType": {"timeseries", "table"},  # See SEMANTIC_TYPES.keys() for range of values
-            "output": "lstm_fcn_step",  # Name of the final step generating the prediction
             "target": "steps.4",  # Name of the step generating the ground truth
             'output': 'steps.6',
             'steps': [

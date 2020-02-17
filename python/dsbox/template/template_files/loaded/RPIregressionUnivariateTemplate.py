@@ -4,16 +4,16 @@ from dsbox.template.template_steps import TemplateSteps
 from dsbox.schema import SpecializedProblem 
 import typing 
 import numpy as np  # type: ignore 
-class CMUmultiClassificationRelationalTemplate(DSBoxTemplate):
+class RPIregressionUnivariateTemplate(DSBoxTemplate):
     # From primitives/v2019.6.7/Distil/d3m.primitives.data_transformation.encoder.DistilTextEncoder/0.1.0/pipelines/0ed6fbca-2afd-4ba6-87cd-a3234e9846c3.json
     def __init__(self):
         DSBoxTemplate.__init__(self)
         self.template = {
-            "name": "CMU_multi_Classification_Relational_Template",
-            "taskType": {TaskKeyword.CLASSIFICATION.name},
-            "taskSubtype": {TaskKeyword.RELATIONAL.name, TaskKeyword.MULTICLASS.name},
+            "name": "RPI_regression_Univariate_Template",
+            "taskType": {TaskKeyword.REGRESSION.name},
+            "taskSubtype": {TaskKeyword.UNIVARIATE.name},
             "inputType": {"table"},
-            "output": "steps.6",
+            "output": "steps.13",
             "steps": [
                 {
                     'name': 'steps.0',
@@ -67,6 +67,17 @@ class CMUmultiClassificationRelationalTemplate(DSBoxTemplate):
                     'inputs': ['steps.1'],
                 },
                 {
+                    'name': 'encoder_step',
+                    'primitives': [
+                        {
+                            'primitive': 'd3m.primitives.feature_selection.score_based_markov_blanket.RPI',
+                            'hyperparameters': {
+                            },
+                        },
+                    ],
+                    'inputs': [ 'steps.2', 'steps.3'],
+                },
+                {
                     'name': 'steps.4',
                     'primitives': [
                         {
@@ -74,79 +85,24 @@ class CMUmultiClassificationRelationalTemplate(DSBoxTemplate):
                             'hyperparameters': {
                                 "use_semantic_types":[True],
                                 "return_result":["replace"],
-                                "strategy":["median"],
+                                "strategy":["median", "most_frequent"],
                             },
                         },
                     ],
-                    'inputs': ['steps.2'],
+                    'inputs': ['encoder_step'],
                 },
-                # {
-                #     'name': 'encoder_step',
-                #     'primitives': [
-                #         {
-                #             'primitive': 'd3m.primitives.data_transformation.encoder.DistilTextEncoder',
-                #             'hyperparameters': {
-                #             },
-                #         },
-                #     ],
-                #     'inputs': ['steps.3', 'steps.4'],
-                # },
-                {
-                    "name": "encode_step",
-                    "primitives": ["d3m.primitives.data_preprocessing.encoder.DSBOX"],
-                    "inputs": ["steps.4"]
-                },
-                {
-                    'name': 'to_numeric_step',
-                    'primitives': [
-                        {
-                            'primitive': 'd3m.primitives.data_transformation.to_numeric.DSBOX',
-                            'hyperparameters': {
-                            },
-                        },
-                    ],
-                    'inputs': ['encode_step'],
-                },
-                {
-                    'name': 'scaler_step',
-                    'primitives': [
-                        {
-                            'primitive': 'd3m.primitives.data_preprocessing.robust_scaler.SKlearn',
-                            'hyperparameters': {
-                                "return_result":["replace"],
-                            },
-                        },
-                    ],
-                    'inputs': ['to_numeric_step'],
-                },
-
                 {
                     'name': 'steps.5',
                     'primitives': [
                         {
                             'primitive': 'd3m.primitives.classification.gradient_boosting.SKlearn',
                             'hyperparameters': {
-                                'n_estimators': [80, 100],
+                                'n_estimators': [20, 30],
+                                'learning_rate': [0.3, 0.4]
                             },
                         },
-                        {
-                            "primitive":
-                                "d3m.primitives.classification.extra_trees.SKlearn",
-                            "hyperparameters":
-                                {
-                                    'use_semantic_types': [True],
-                                    'return_result': ['new'],
-                                    'add_index_columns': [True],
-                                    'bootstrap': ["bootstrap", "disabled"],
-                                    'max_depth': [15, 30, None],
-                                    'min_samples_leaf': [1, 2, 4],
-                                    'min_samples_split': [2, 5, 10],
-                                    'max_features': ['auto', 'sqrt'],
-                                    'n_estimators': [10, 50, 100]
-                                }
-                        },
                     ],
-                    'inputs': ['scaler_step', 'steps.3'],
+                    'inputs': ['steps.4', 'step.3'],
                 },
                 {
                     'name': 'steps.6',

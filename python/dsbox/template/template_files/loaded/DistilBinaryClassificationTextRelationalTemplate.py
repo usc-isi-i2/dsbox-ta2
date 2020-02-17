@@ -1,20 +1,26 @@
 from dsbox.template.template import DSBoxTemplate 
-class metalearning_forecasting_tabular_timeSeries_template_29(DSBoxTemplate): 
+from d3m.metadata.problem import TaskKeyword 
+from dsbox.template.template_steps import TemplateSteps 
+from dsbox.schema import SpecializedProblem 
+import typing 
+import numpy as np  # type: ignore
+
+# for wikiqa32 
+class DistilBinaryClassificationTextRelationalTemplate(DSBoxTemplate):
     def __init__(self):
         DSBoxTemplate.__init__(self)
-        self.template =  {
-        "weight": 20, 
-        'name': 'metalearning_forecasting_tabular_timeSeries_template_29', 
-        'taskType': {'FORECASTING', 'TIMESERIES'}, 
-        'taskSubtype': {'FORECASTING', 'TIMESERIES'}, 
-        'inputType': {'table'}, 
-    'output': 'steps.8',
-    'steps': [
+        self.template = {
+            "name": "Distil_Binary_Classification_Text_Relational_Template",
+            "taskType": TaskKeyword.CLASSIFICATION.name,
+            "taskSubtype": {TaskKeyword.BINARY.name, TaskKeyword.TEXT.name, TaskKeyword.RELATIONAL.name},
+            "inputType": {"table"},  # See SEMANTIC_TYPES.keys() for range of values
+            'output': 'steps.6',
+            'steps': [
         {
             'name': 'steps.0',
             'primitives': [
                 {
-                    'primitive': 'd3m.primitives.data_transformation.denormalize.Common',
+                    'primitive': 'd3m.primitives.data_transformation.dataset_to_dataframe.Common',
                     'hyperparameters': {
                     },
                 },
@@ -25,7 +31,7 @@ class metalearning_forecasting_tabular_timeSeries_template_29(DSBoxTemplate):
             'name': 'steps.1',
             'primitives': [
                 {
-                    'primitive': 'd3m.primitives.data_transformation.dataset_to_dataframe.Common',
+                    'primitive': 'd3m.primitives.schema_discovery.profiler.DSBOX',
                     'hyperparameters': {
                     },
                 },
@@ -38,6 +44,7 @@ class metalearning_forecasting_tabular_timeSeries_template_29(DSBoxTemplate):
                 {
                     'primitive': 'd3m.primitives.data_transformation.column_parser.Common',
                     'hyperparameters': {
+                        'parse_semantic_types': [('http://schema.org/Boolean', 'http://schema.org/Integer', 'http://schema.org/Float', 'https://metadata.datadrivendiscovery.org/types/FloatVector')],
                     },
                 },
             ],
@@ -49,7 +56,7 @@ class metalearning_forecasting_tabular_timeSeries_template_29(DSBoxTemplate):
                 {
                     'primitive': 'd3m.primitives.data_transformation.extract_columns_by_semantic_types.Common',
                     'hyperparameters': {
-                        'semantic_types': [['https://metadata.datadrivendiscovery.org/types/Attribute']],
+                        'semantic_types': [('https://metadata.datadrivendiscovery.org/types/Attribute',)],
                     },
                 },
             ],
@@ -59,50 +66,30 @@ class metalearning_forecasting_tabular_timeSeries_template_29(DSBoxTemplate):
             'name': 'steps.4',
             'primitives': [
                 {
-                    'primitive': 'd3m.primitives.data_cleaning.imputer.SKlearn',
-                    'hyperparameters': {
-                        'strategy': ['most_frequent'],
-                    },
-                },
-            ],
-            'inputs': ['steps.3'],
-        },
-        {
-            'name': 'steps.5',
-            'primitives': [
-                {
                     'primitive': 'd3m.primitives.data_transformation.extract_columns_by_semantic_types.Common',
                     'hyperparameters': {
-                        'semantic_types': [['https://metadata.datadrivendiscovery.org/types/TrueTarget']],
+                        'semantic_types': [('https://metadata.datadrivendiscovery.org/types/Target', 'https://metadata.datadrivendiscovery.org/types/TrueTarget')],
                     },
                 },
             ],
             'inputs': ['steps.2'],
         },
         {
+            'name': 'steps.5',
+            'primitives': [
+                {
+                    'primitive': 'd3m.primitives.classification.bert_classifier.DistilBertPairClassification',
+                    'hyperparameters': {
+                        'doc_col_0': [1],
+                        'doc_col_1': [3],
+                        'batch_size': [16],
+                    },
+                },
+            ],
+            'inputs': ['steps.3', 'steps.4'],
+        },
+        {
             'name': 'steps.6',
-            'primitives': [
-                {
-                    'primitive': 'd3m.primitives.feature_selection.score_based_markov_blanket.RPI',
-                    'hyperparameters': {
-                    },
-                },
-            ],
-            'inputs': ['steps.4', 'steps.5'],
-        },
-        {
-            'name': 'steps.7',
-            'primitives': [
-                {
-                    'primitive': 'd3m.primitives.regression.decision_tree.SKlearn',
-                    'hyperparameters': {
-                    },
-                },
-            ],
-            'inputs': ['steps.6', 'steps.5'],
-        },
-        {
-            'name': 'steps.8',
             'primitives': [
                 {
                     'primitive': 'd3m.primitives.data_transformation.construct_predictions.Common',
@@ -110,8 +97,7 @@ class metalearning_forecasting_tabular_timeSeries_template_29(DSBoxTemplate):
                     },
                 },
             ],
-            'inputs': ['steps.7', 'steps.2'],
+            'inputs': ['steps.5', 'steps.2'],
         },
     ],
  }
-

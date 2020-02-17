@@ -5,8 +5,8 @@ class metalearning_forecasting_tabular_timeSeries_template_36(DSBoxTemplate):
         self.template =  {
         "weight": 20, 
         'name': 'metalearning_forecasting_tabular_timeSeries_template_36', 
-        'taskType': {'FORECASTING', 'TIMESERIES', 'TABULAR'}, 
-        'taskSubtype': {'FORECASTING', 'TIMESERIES', 'TABULAR'}, 
+        'taskType': {'FORECASTING', 'TIMESERIES'}, 
+        'taskSubtype': {'FORECASTING', 'TIMESERIES'}, 
         'inputType': {'table'}, 
     'output': 'steps.8',
     'steps': [

@@ -1,26 +1,20 @@
 from dsbox.template.template import DSBoxTemplate 
-class metalearning_forecasting_tabular_timeSeries_template_29(DSBoxTemplate): 
+from d3m.metadata.problem import TaskKeyword 
+from dsbox.template.template_steps import TemplateSteps 
+from dsbox.schema import SpecializedProblem 
+import typing 
+import numpy as np  # type: ignore 
+class CMUmultiClassificationTabularTemplate(DSBoxTemplate):
+    # From primitives/v2019.6.7/Distil/d3m.primitives.data_transformation.encoder.DistilTextEncoder/0.1.0/pipelines/0ed6fbca-2afd-4ba6-87cd-a3234e9846c3.json
     def __init__(self):
         DSBoxTemplate.__init__(self)
-        self.template =  {
-        "weight": 20, 
-        'name': 'metalearning_forecasting_tabular_timeSeries_template_29', 
-        'taskType': {'FORECASTING', 'TIMESERIES'}, 
-        'taskSubtype': {'FORECASTING', 'TIMESERIES'}, 
-        'inputType': {'table'}, 
-    'output': 'steps.8',
-    'steps': [
-        {
-            'name': 'steps.0',
-            'primitives': [
-                {
-                    'primitive': 'd3m.primitives.data_transformation.denormalize.Common',
-                    'hyperparameters': {
-                    },
-                },
-            ],
-            'inputs': ['template_input'],
-        },
+        self.template = {
+            "name": "CMU_multi_Classification_Tabular_Template",
+            "taskType": {TaskKeyword.CLASSIFICATION.name},
+            "taskSubtype": {TaskKeyword.TABULAR.name, TaskKeyword.MULTICLASS.name},
+            "inputType": {"table"},
+            "output": "steps.8",    
+                'steps': [
         {
             'name': 'steps.1',
             'primitives': [
@@ -30,8 +24,13 @@ class metalearning_forecasting_tabular_timeSeries_template_29(DSBoxTemplate):
                     },
                 },
             ],
-            'inputs': ['steps.0'],
+            'inputs': ['template_input'],
         },
+        {
+                "name": "profiler_step",
+                "primitives": ["d3m.primitives.schema_discovery.profiler.DSBOX"],
+                "inputs": ["steps.1"]
+            },
         {
             'name': 'steps.2',
             'primitives': [
@@ -41,7 +40,7 @@ class metalearning_forecasting_tabular_timeSeries_template_29(DSBoxTemplate):
                     },
                 },
             ],
-            'inputs': ['steps.1'],
+            'inputs': ['profiler_step'],
         },
         {
             'name': 'steps.3',
@@ -49,7 +48,7 @@ class metalearning_forecasting_tabular_timeSeries_template_29(DSBoxTemplate):
                 {
                     'primitive': 'd3m.primitives.data_transformation.extract_columns_by_semantic_types.Common',
                     'hyperparameters': {
-                        'semantic_types': [['https://metadata.datadrivendiscovery.org/types/Attribute']],
+                        'semantic_types': [('https://metadata.datadrivendiscovery.org/types/TrueTarget',)],
                     },
                 },
             ],
@@ -59,47 +58,49 @@ class metalearning_forecasting_tabular_timeSeries_template_29(DSBoxTemplate):
             'name': 'steps.4',
             'primitives': [
                 {
-                    'primitive': 'd3m.primitives.data_cleaning.imputer.SKlearn',
-                    'hyperparameters': {
-                        'strategy': ['most_frequent'],
-                    },
-                },
-            ],
-            'inputs': ['steps.3'],
-        },
-        {
-            'name': 'steps.5',
-            'primitives': [
-                {
                     'primitive': 'd3m.primitives.data_transformation.extract_columns_by_semantic_types.Common',
                     'hyperparameters': {
-                        'semantic_types': [['https://metadata.datadrivendiscovery.org/types/TrueTarget']],
                     },
                 },
             ],
             'inputs': ['steps.2'],
         },
         {
-            'name': 'steps.6',
+            'name': 'steps.5',
             'primitives': [
                 {
-                    'primitive': 'd3m.primitives.feature_selection.score_based_markov_blanket.RPI',
+                    'primitive': 'd3m.primitives.feature_selection.joint_mutual_information.AutoRPI',
                     'hyperparameters': {
+                        'method': ['counting'],
+                        'nbins': [10],
                     },
                 },
             ],
-            'inputs': ['steps.4', 'steps.5'],
+            'inputs': ['steps.4', 'steps.3'],
+        },
+        {
+            'name': 'steps.6',
+            'primitives': [
+                {
+                    'primitive': 'd3m.primitives.data_cleaning.imputer.SKlearn',
+                    'hyperparameters': {
+                        'strategy': ['most_frequent'],
+                    },
+                },
+            ],
+            'inputs': ['steps.5'],
         },
         {
             'name': 'steps.7',
             'primitives': [
                 {
-                    'primitive': 'd3m.primitives.regression.decision_tree.SKlearn',
+                    'primitive': 'd3m.primitives.classification.extra_trees.SKlearn',
                     'hyperparameters': {
+                        'n_estimators': [10],
                     },
                 },
             ],
-            'inputs': ['steps.6', 'steps.5'],
+            'inputs': ['steps.6', 'steps.3'],
         },
         {
             'name': 'steps.8',
@@ -110,8 +111,7 @@ class metalearning_forecasting_tabular_timeSeries_template_29(DSBoxTemplate):
                     },
                 },
             ],
-            'inputs': ['steps.7', 'steps.2'],
+            'inputs': ['steps.7', 'steps.1'],
         },
     ],
  }
-

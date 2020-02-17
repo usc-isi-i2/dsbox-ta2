@@ -11,6 +11,7 @@ class DefaultCollaborativeFilteringTabularTemplate(DSBoxTemplate):
     def __init__(self):
         DSBoxTemplate.__init__(self)
         self.template = {
+            "weight": 100,
             "name": "Default_Collaborative_Filtering_Tabular_Template",
             "taskType": {TaskKeyword.COLLABORATIVE_FILTERING.name},
             # for some special condition, the taskSubtype can be "NONE" which indicate no taskSubtype given

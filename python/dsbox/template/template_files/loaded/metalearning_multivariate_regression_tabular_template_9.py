@@ -5,8 +5,8 @@ class metalearning_multivariate_regression_tabular_template_9(DSBoxTemplate):
         self.template =  {
         "weight": 20, 
         'name': 'metalearning_multivariate_regression_tabular_template_9', 
-        'taskType': {'REGRESSION', 'MULTIVARIATE', 'TABULAR'}, 
-        'taskSubtype': {'REGRESSION', 'MULTIVARIATE', 'TABULAR'}, 
+        'taskType': {'REGRESSION', 'MULTIVARIATE'}, 
+        'taskSubtype': {'REGRESSION', 'MULTIVARIATE'}, 
         'inputType': {'table'}, 
     'output': 'steps.7',
     'steps': [
