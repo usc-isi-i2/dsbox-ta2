@@ -206,7 +206,7 @@ class DefaultTimeseriesCollectionWithSelectionTemplate(DSBoxTemplate):
                             }
                         }
                     ],
-                    "inputs": ["random_projection_step", "extract_target_step"]
+                    "inputs": ["feature_selection_step", "extract_target_step"]
                 },
             ]
         }

@@ -48,10 +48,22 @@ class SKDummyTemplate(DSBoxTemplate):
                         "hyperparameters":
                             {'semantic_types': ('https://metadata.datadrivendiscovery.org/types/Attribute',),
                              'use_columns': (),
-                             'exclude_columns': ()
+                             'exclude_columns': (),
                              }
                     }],
                     "inputs": ["common_profiler_step"]
+                },
+                {
+                    "name": "imputer_step",
+                    "primitives": [{
+                        "primitive": "d3m.primitives.data_cleaning.imputer.SKlearn",
+                        "hyperparameters":
+                            {'return_result': ["replace"],
+                             'use_semantic_types': [True],
+                             'error_on_no_input': [False],
+                             }
+                    }],
+                    "inputs": ["extract_attribute_step"]
                 },
                 {
                     "name": "model_step",
@@ -67,7 +79,7 @@ class SKDummyTemplate(DSBoxTemplate):
                             }
                         },
                     ],
-                    "inputs": ["extract_attribute_step", "extract_target_step"]
+                    "inputs": ["imputer_step", "extract_target_step"]
                 },
                 {
                     "name": "construct_predictions_step",#step 7

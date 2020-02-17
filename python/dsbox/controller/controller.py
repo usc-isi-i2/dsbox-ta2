@@ -100,8 +100,8 @@ class Controller:
         # hard coded unsplit dataset type
         # TODO: check whether "speech" type should be put into this list or not
         self.data_type_cannot_split = ["graph", "edgeList"]
-        self.task_type_can_split = ["CLASSIFICATION", "REGRESSION", "SEMISUPERVISED_CLASSIFICATION", "SEMISUPERVISED_REGRESSION", "COLLABORATIVE_FILTERING", "OBJECT_DETECTION", "FORECASTING"]
-        self.task_type_cannot_split = ["CLUSTERING", "LINK_PREDICTION", "VERTEX_CLASSIFICATION", "COMMUNITY_DETECTION", "GRAPH_MATCHING"]
+        self.task_type_can_split = ["CLASSIFICATION", "REGRESSION", "SEMISUPERVISED_CLASSIFICATION", "SEMISUPERVISED_REGRESSION", "OBJECT_DETECTION", "FORECASTING"]
+        self.task_type_cannot_split = ["CLUSTERING", "LINK_PREDICTION", "VERTEX_CLASSIFICATION", "COMMUNITY_DETECTION", "GRAPH_MATCHING", "COLLABORATIVE_FILTERING"]
 
         # !!! hard code here
         # TODO: add if statement to determine it
@@ -1271,7 +1271,7 @@ class Controller:
             task_keywords_set = set([x.name.lower() for x in self.config.problem['problem']['task_keywords']])
         except:
             task_keywords_set = set()
-        run_series_taskkeywords = {"video", "image", "audio"} #"graph"
+        run_series_taskkeywords = {"video", "image", "audio", "collaborative_filtering"} #"graph"
         # not_run_series_taskkeywords = {"link_prediction"}
         not_run_series_taskkeywords = {}
         not_run_denomormalize = {"graph", "audio", "time_series"}
@@ -1710,8 +1710,9 @@ class Controller:
 
         if not self.cannot_split:
             hyper_sampler = SplitterHyperparameter.defaults()
-            # for test purpose here
-            hyper_sampler = hyper_sampler.replace({"threshold_column_length":2000, "further_reduce_threshold_column_length":2000})
+            # image dataset consumes too much memory
+            if "IMAGE" in self.problem_info["task_type"]:
+                hyper_sampler = hyper_sampler.replace({"threshold_row_length":30000})
             sampler = Splitter(hyperparams=hyper_sampler)
             sampler.set_training_data(inputs=self.all_dataset)
             sampler.fit()

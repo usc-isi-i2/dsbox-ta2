@@ -132,9 +132,12 @@ class ConfigurationSpaceBaseSearch():
         go_quick_inputType = ["image", "audio", "video"]
         for each_type in self.template.template['inputType']:
             if each_type in go_super_quick_task_keywords:
+                _logger.info("Go super quick mode!")
                 return 2
             elif each_type in go_quick_inputType:
+                _logger.info("Go quick mode!")
                 return 1
+        _logger.info("Go normal mode!")
         return 0
 
     # def dummy_evaluate(self, ) -> None:

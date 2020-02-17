@@ -96,7 +96,7 @@ class SRIClassificationTemplateWithSelection(DSBoxTemplate):
                         "hyperparameters":
                         {
                             "score_func": ["f_classif"],
-                            "percentile": [60, 68],
+                            "percentile": [60, 68, 75],
                             "use_semantic_types": [False],
                             "add_index_columns": [False],
                             "error_on_no_input": [True],
@@ -130,8 +130,23 @@ class SRIClassificationTemplateWithSelection(DSBoxTemplate):
                                 'error_on_no_input':[True],
                             }
                         }, 
-                        {"primitive": "d3m.primitives.classification.random_forest.SKlearn"
-                        }
+                        {
+                            "primitive": "d3m.primitives.classification.random_forest.SKlearn"
+                        },
+                        {
+                            "primitive": "d3m.primitives.regression.gradient_boosting.SKlearn",
+                            "hyperparameters":
+                            {
+                                'learning_rate': [0.1, 0.5, 1.0],
+                                'n_estimators': [100, 150],
+                                'max_depth': [8, 10],
+                                'min_samples_split': [11, 13],
+                                'min_samples_leaf':[7, 9],
+                                'max_features': [0.25, 0.5],
+                                'max_leaf_nodes': [None],
+
+                            }
+                        },
                         ],
                     "inputs": ["select_step", "extract_target_step"]
                 },
