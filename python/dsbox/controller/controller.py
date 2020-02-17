@@ -1711,7 +1711,9 @@ class Controller:
         if not self.cannot_split:
             hyper_sampler = SplitterHyperparameter.defaults()
             # image dataset consumes too much memory
-            if "image" in self.problem_info["task_type"]:
+            import pdb
+            pdb.set_trace()
+            if "IMAGE" in self.problem_info["task_type"]:
                 hyper_sampler = hyper_sampler.replace({"threshold_row_length":30000})
             sampler = Splitter(hyperparams=hyper_sampler)
             sampler.set_training_data(inputs=self.all_dataset)
