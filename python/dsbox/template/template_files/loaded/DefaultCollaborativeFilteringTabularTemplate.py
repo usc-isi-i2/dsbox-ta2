@@ -78,7 +78,7 @@ class DefaultCollaborativeFilteringTabularTemplate(DSBoxTemplate):
                 {
                     "name": "model_step",
                     "primitives": [{
-                        "primitive": "d3m.primitives.collaborative_filtering.link_prediction.DistilCollaborativeFiltering"
+                        "primitive": "d3m.primitives.collaborative_filtering.link_prediction.DistilCollaborativeFiltering",
                         "hyperparameters": {}
                     }
                     ],
@@ -87,7 +87,7 @@ class DefaultCollaborativeFilteringTabularTemplate(DSBoxTemplate):
                 {
                     "name": "construct_predictions_step",
                     "primitives": [{
-                        "primitive": "d3m.primitives.data_transformation.construct_predictions.Common"
+                        "primitive": "d3m.primitives.data_transformation.construct_predictions.Common",
                         "hyperparameters": {}
                     }
                     ],
