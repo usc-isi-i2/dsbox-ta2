@@ -1271,7 +1271,7 @@ class Controller:
             task_keywords_set = set([x.name.lower() for x in self.config.problem['problem']['task_keywords']])
         except:
             task_keywords_set = set()
-        run_series_taskkeywords = {"video", "image", "audio"} #"graph"
+        run_series_taskkeywords = {"video", "image", "audio", "collaborative_filtering"} #"graph"
         # not_run_series_taskkeywords = {"link_prediction"}
         not_run_series_taskkeywords = {}
         not_run_denomormalize = {"graph", "audio", "time_series"}

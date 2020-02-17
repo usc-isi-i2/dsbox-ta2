@@ -83,7 +83,7 @@ class DefaultCollaborativeFilteringTabularTemplate(DSBoxTemplate):
                     }
                     ],
                     "inputs": ["to_numeric_step", "extract_target_step"]
-                }
+                },
                 {
                     "name": "construct_predictions_step",
                     "primitives": [{
