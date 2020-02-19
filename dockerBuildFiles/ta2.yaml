@@ -1,0 +1,109 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: ta2-ta3-dummy-pod
+spec:
+  tolerations:
+    - key: "gpu"
+      operator: "Equal"
+      value: "true"
+      effect: "NoSchedule"
+  restartPolicy: Never
+  containers:
+  - name: ta2-container
+    #image: ckxz105/dsbox-ta2:latest
+    image: registry.datadrivendiscovery.org/ta2-submissions/ta2-isi/winter2020evaluation:latest #replace me
+    imagePullPolicy: Always
+    env:
+    - name: D3MRUN
+      value: "ta2"
+    - name: D3MINPUTDIR
+      value: "/input"
+    - name: D3MOUTPUTDIR
+      value: "/output"
+    - name: D3MSTATICDIR
+      value: "/static"
+    - name: D3MPROBLEMPATH
+      value: "/input/TRAIN/problem_TRAIN/problemDoc.json"
+    - name: D3MLOCALDIR
+      value: "/output/D3MLOCALDIR"
+    - name: D3MCPU
+      value: "14"
+    - name: D3MRAM
+      value: "56Gi"
+    - name: D3MTIMEOUT
+      value: "600"
+    - name: D3MCONTEXT
+      value: "TESTING"
+    volumeMounts:
+      - name: input-data
+        mountPath: /input
+        readOnly: true
+      - name: output-data
+        mountPath: /output
+        readOnly: false
+      - name: static-data
+        mountPath: /static
+        readOnly: true
+    resources:
+      requests:
+        memory: 56Gi
+        cpu: 14
+        nvidia.com/gpu: 1
+      limits:
+        nvidia.com/gpu: 1
+  - name: ta3-dummy
+    image: registry.gitlab.com/datadrivendiscovery/dummy-ta3/dummy-ta3:2020.2.11
+    imagePullPolicy: Always
+    command: [ "/bin/bash", "/TA3/run.sh", "--host-address", "localhost" ]
+    env:
+    - name: D3MRUN
+      value: "ta2"
+    - name: D3MINPUTDIR
+      value: "/input"
+    - name: D3MOUTPUTDIR
+      value: "/output"
+    - name: D3MLOCALDIR
+      value: "/output/D3MLOCALDIR"
+    - name: D3MSTATICDIR
+      value: "/static"
+    - name: D3MPROBLEMPATH
+      value: "/input/TRAIN/problem_TRAIN/problemDoc.json"
+    - name: D3MLOCALDIR
+      value: "/output/D3MLOCALDIR"
+    - name: D3MCPU
+      value: "1"
+    - name: D3MRAM
+      value: "10Gi"
+    - name: D3MTIMEOUT
+      value: "600"
+    - name: D3MCONTEXT
+      value: "TESTING"
+    volumeMounts:
+      - name: input-data
+        mountPath: /input
+        readOnly: true
+      - name: output-data
+        mountPath: /output
+        readOnly: false
+      - name: static-data
+        mountPath: /static
+        readOnly: true
+    resources:
+      requests:
+        memory: 10Gi
+        cpu: 1
+  imagePullSecrets:
+  - name: regcred
+  volumes:
+  - name: input-data
+    hostPath:
+      path: /datasets/opt/datasets/seed_datasets_current/185_baseball_MIN_METADATA # todo replace me
+      type: Directory
+  - name: static-data
+    hostPath:
+      path: /opt/static_files
+      type: Directory
+  - name: output-data
+    persistentVolumeClaim:
+      claimName: eval-output-pv-claim
