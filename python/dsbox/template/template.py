@@ -1,14 +1,28 @@
 import copy
 import typing
+import logging
 
 from itertools import product
 from pprint import pprint
 
+import numpy as np
+
 from d3m import container, exceptions, utils, index as d3m_index
 from d3m.metadata import base as metadata_base
 from d3m.metadata.pipeline import Pipeline, PrimitiveStep
-from .configuration_space import SimpleConfigurationSpace, ConfigurationPoint
 
+from .configuration_space import SimpleConfigurationSpace, ConfigurationPoint, ImplicitConfigurationSpace, PrimitiveHyperparams
+from .template_hyperparams import Hyperparam, Const, Choice, Range, LogRange
+
+DISTIL_SPEICAL_PRIMITIVES_PRODUCE_TARGETS = (
+    "d3m.primitives.data_transformation.load_single_graph.DistilSingleGraphLoader".lower(),
+    "d3m.primitives.data_transformation.load_graphs.DistilGraphLoader".lower()
+    )
+DISTIL_SPEICAL_PRIMITIVES_PRODUCE_COLLECTION = (
+    "d3m.primitives.data_preprocessing.audio_reader.DistilAudioDatasetLoader".lower(),
+    )
+
+logger = logging.getLogger(__name__)
 
 class HyperparamDirective(utils.Enum):
     """
@@ -16,7 +30,6 @@ class HyperparamDirective(utils.Enum):
     """
     DEFAULT = 1
     RANDOM = 2
-
 
 class DSBoxTemplate():
     def __init__(self):
@@ -94,8 +107,8 @@ class DSBoxTemplate():
         if 'hyperparameters' in primitive_desc:
             hyper: dict = primitive_desc['hyperparameters']
             for key, value in hyper.items():
-                if not (isinstance(value, list) or isinstance(value, tuple)):
-                    raise ValueError(f'Template {self.template["name"]} step {step["name"]}({i}) key ({key}) values must a list or a tuple')
+                if not isinstance(value, (list, tuple, Hyperparam)):
+                    raise ValueError(f'Template {self.template["name"]} step {step["name"]}({i}) key ({key}) values must a list or a tuple or a Hyperaparam')
 
 
     def to_pipeline(self, configuration_point: ConfigurationPoint) -> Pipeline:
@@ -179,55 +192,22 @@ class DSBoxTemplate():
                 if in_arg == "template_input":
                     continue
 
+                # hack to distil primitives
+                if in_arg.endswith("_produce_target"):
+                    in_arg = in_arg.replace("_produce_target", "")
+                elif in_arg.endswith("_produce_collection"):
+                    in_arg = in_arg.replace("_produce_collection", "")
+
                 # if list, assume it's okay
                 if in_primitive_value is container.List and type(in_arg) is list:
                     continue
                 # Check if the input name is valid and available in template
                 if in_arg not in binding:
-                    print("[ERROR] step {} input {} is not available!".format(step_num, in_arg))
-                    print("binding: ")
-                    pprint(binding)
-                    return 1
-
-                # get information of the producer of the input
-                out_primitive_value = \
-                    d3m_index.get_primitive(binding[in_arg]["primitive"]).metadata.query()[
-                        "primitive_code"]["class_type_arguments"]["Outputs"]
-                if not self.iocompare(in_primitive_value,
-                                      out_primitive_value):
-                    check_key = (str(out_primitive_value),
-                                 str(in_primitive_value))
-                    print("[INFO] Different types!")
-                    try:
-                        # inter_name = "{}_{}_{}".format(name,in_arg,solution)
-                        solution = self.addstep_mapper[check_key]
-                        inter_name = "{}_{}_{}".format(name, in_arg, solution)
-                        intermediate_step = {
-                            "primitive": solution,
-                            "hyperparameters": {},
-                            "inputs": [in_arg]
-                        }
-                        # binding[inter_name] = intermediate_step
-                        # binding[name]['inputs'][0] = inter_name
-                        # checked_binding[inter_name] = intermediate_step
-                        pos = binding[name]["inputs"].index(in_arg)
-                        # checked_binding[name]["inputs"][pos] = inter_name
-                        checked_binding[inter_name] = intermediate_step
-                        fill_in[pos] = in_arg
-                        sequence.append(inter_name)
-                        print("[INFO] ", solution, "added to step",
-                              name)
-                    except:
-                        print("Warning!", name,
-                              "'s primitive",
-                              # Fixme:
-                              # conf_step[-1]["primitive"],
-                              "'s inputs does not match",
-                              binding[in_arg][-1]["primitive"],
-                              "and there is no converter found")
+                    logger.error(str(binding))
+                    logger.error("step {} input {} is not available!".format(str(step_num), str(in_arg)))
+                    raise ValueError("step {} input {} is not available!".format(str(step_num), str(in_arg)))
 
             # temporary fix for CMU clustering tempalte (with special input called "reference")
-
             mystep = {
                 "primitive": binding[name]["primitive"],
                 "hyperparameters": binding[name]["hyperparameters"],
@@ -252,7 +232,7 @@ class DSBoxTemplate():
                 return True
         return False
 
-    def bind_primitive_IO(self, primitive: PrimitiveStep, templateIO):
+    def bind_primitive_IO(self, primitive: PrimitiveStep, templateIO: typing.List[str], primitive_name: str):
         # print(templateIO)
         if len(templateIO) == 1:
             primitive.add_argument(
@@ -329,35 +309,6 @@ class DSBoxTemplate():
                 raise exceptions.InvalidArgumentValueError("Error, can't find the primitive : ",
                                                            primitive_name)
 
-            if primitive_name == "d3m.primitives.data_augmentation.datamart_augmentation.DSBOX":
-                hyper = binding[step]["hyperparameters"]
-                primitive_step.add_argument("inputs1",metadata_base.ArgumentType.CONTAINER,"steps.0.produce")
-                primitive_step.add_argument("inputs2",metadata_base.ArgumentType.CONTAINER, templateinput)
-                for hyperName in hyper.keys():
-                    primitive_step.add_hyperparameter(
-                        # argument_type should be fixed type not the type of the data!!
-                        name=hyperName, argument_type=self.argmentsmapper["value"],
-                        data=hyper[hyperName])
-                # pre v2019.1.21
-                pipeline.add_step(primitive_step)
-                primitive_step.add_output("produce")
-                outputs[step] = f'steps.{primitive_step.index}.produce'
-                continue
-
-            if primitive_name == "d3m.primitives.data_augmentation.datamart_query.DSBOX":
-                primitive_step.add_argument("inputs",metadata_base.ArgumentType.CONTAINER, templateinput)
-                hyper = binding[step]["hyperparameters"]
-                for hyperName in hyper.keys():
-                    primitive_step.add_hyperparameter(
-                        # argument_type should be fixed type not the type of the data!!
-                        name=hyperName, argument_type=self.argmentsmapper["value"],
-                        data=hyper[hyperName])
-                # pre v2019.1.21
-                pipeline.add_step(primitive_step)
-                primitive_step.add_output("produce")
-                outputs[step] = f'steps.{primitive_step.index}.produce'
-                continue
-
 
             if binding[step]["hyperparameters"] != {}:
                 hyper = binding[step]["hyperparameters"]
@@ -367,15 +318,12 @@ class DSBoxTemplate():
                         name=hyperName, argument_type=self.argmentsmapper["value"],
                         data=hyper[hyperName])
 
-            if self.need_add_reference and primitive_name == 'd3m.primitives.data_transformation.construct_predictions.DataFrameCommon':
-                primitive_step.add_argument("reference",metadata_base.ArgumentType.CONTAINER,"steps.0.produce")
-
+            step_parameters = binding[step]["inputs"]
             # first we need to extract the types of the primtive's input and
             # the generators's output type.
             # then we need to compare those and in case we have different
             # types, add the intermediate type caster in the pipeline
             # print(outputs)
-            step_parameters = binding[step]["inputs"]
             step_arguments = []
             for parameter in step_parameters:
                 if type(parameter) is list:
@@ -383,11 +331,25 @@ class DSBoxTemplate():
                 else:
                     argument = outputs[parameter]
                 step_arguments.append(argument)
-            self.bind_primitive_IO(primitive_step, step_arguments)
+            self.bind_primitive_IO(primitive_step, step_arguments, primitive_name)
             pipeline.add_step(primitive_step)
             # pre v2019.1.21
             # outputs[step] = primitive_step.add_output("produce")
             primitive_step.add_output("produce")
+            # hack here for distil primitives cause they have some speicial step naming
+            """
+            TODO: is there any better to do this?
+            the query information from metadata only shows the output is a:
+                d3m.primitive_interfaces.base.CallResult[d3m.container.list.List]
+            should figure out some possible way to get the details
+            """
+            if primitive_name.lower() in DISTIL_SPEICAL_PRIMITIVES_PRODUCE_TARGETS:
+                primitive_step.add_output("produce_target")
+                outputs[step + "_produce_target"] = f'steps.{primitive_step.index}.produce_target'
+            elif primitive_name.lower() in DISTIL_SPEICAL_PRIMITIVES_PRODUCE_COLLECTION:
+                primitive_step.add_output("produce_collection")
+                outputs[step + "_produce_collection"] = f'steps.{primitive_step.index}.produce_collection'
+
             outputs[step] = f'steps.{primitive_step.index}.produce'
         # END FOR
 
@@ -398,7 +360,7 @@ class DSBoxTemplate():
 
         return pipeline
 
-    def generate_configuration_space(self) -> SimpleConfigurationSpace:
+    def generate_configuration_space(self) -> ImplicitConfigurationSpace:
         steps = self.template["steps"]
         conf_space = {}
         for each_step in steps:
@@ -407,50 +369,78 @@ class DSBoxTemplate():
 
             # description: typing.Dict
             for description in each_step["primitives"]:
-                value_step = []
                 # primitive with no hyperparameters
                 if isinstance(description, str):
-                    value_step.append({
-                        "primitive": description,
-                        "hyperparameters": {}
-                    })
+                    values.append(self.description_to_primitive_hyperparams(description))
                 # one primitive with hyperparameters
                 elif isinstance(description, dict):
-                    value_step += self.description_to_configuration(description)
+                    values.append(self.description_to_primitive_hyperparams(description))
                 # list of primitives
                 elif isinstance(description, list):
                     for prim in description:
-                        value_step += self.description_to_configuration(prim)
+                        values.append(self.description_to_primitive_hyperparams(prim))
                 else:
                     # other data format, not supported, raise error
-                    print("Error: Wrong format of the description: "
-                          "Unsupported data format found : ", type(description))
+                    logger.error("Wrong format of the description: \n" +
+                                 "Unsupported data format found : %s", type(description))
 
-                values += value_step
+            conf_space[name] = values
+        return ImplicitConfigurationSpace(conf_space)
 
-            # END FOR
-            if len(values) > 0:
-                conf_space[name] = values
-        # END FOR
-        return SimpleConfigurationSpace(conf_space)
+    def description_to_primitive_hyperparams(self, description: typing.Union[str, typing.Dict]):
+        logger.debug('Description: %s', description)
+        if isinstance(description, str):
+            return PrimitiveHyperparams(description, {})
 
-    def description_to_configuration(self, description):
+        if "primitive" not in description:
+            raise ValueError(f"Template {self}: has wrong format of the configuration space data: "
+                             f"No primitive name found: {description}")
+
+        if "hyperparameters" not in description:
+            description["hyperparameters"] = {}
+
+        hyperDict = {}
+        for hyperparam_name, hyperparam_desc in description["hyperparameters"].items():
+            if isinstance(hyperparam_desc, Hyperparam):
+                hyperDict[hyperparam_name] = hyperparam_desc
+                continue
+            if isinstance(hyperparam_desc, tuple):
+                hyperDict[hyperparam_name] = Const(hyperparam_desc)
+                continue
+            if len(hyperparam_desc) == 1:
+                hyperDict[hyperparam_name] = Const(hyperparam_desc[0])
+                continue
+            types = {type(x) for x in hyperparam_desc}
+            if len(types) > 1:
+                hyperDict[hyperparam_name] = Choice(hyperparam_desc)
+                continue
+            a_type = types.pop()
+            if a_type == int:
+                hyperDict[hyperparam_name] = Range(min(hyperparam_desc), max(hyperparam_desc))
+                continue
+            if a_type == float:
+                logs = [np.log10(x) for x in hyperparam_desc]
+                diff_log = np.ediff1d(logs)
+                if np.allclose(diff_log, [diff_log[0]] * diff_log.shape[0]):
+                    hyperDict[hyperparam_name] = LogRange(min(hyperparam_desc), max(hyperparam_desc))
+                else:
+                    hyperDict[hyperparam_name] = Range(min(hyperparam_desc), max(hyperparam_desc))
+            else:
+                hyperDict[hyperparam_name] = Choice(hyperparam_desc)
+        if logger.getEffectiveLevel() <= 10:
+            for hyperparam_name in hyperDict:
+                logger.debug(f"{self}: Using hyperDict['{hyperparam_name}'] = {hyperDict[hyperparam_name]}")
+        return PrimitiveHyperparams(description["primitive"], hyperDict)
+
+
+    def description_to_simple_configuration(self, description):
         value = []
         # if the desciption is an dictionary:
         # it maybe a primitive with hyperparameters
 
         if "primitive" not in description:
-            print("Error: Wrong format of the configuration space data: "
+            logger.error("Wrong format of the configuration space data: \n" +
                   "No primitive name found!")
-            return value
-
-        # 2019.3.25 update: Because the query of datamart is different,
-        #                   We use dict as a hyperparameter, we have to do some special change here
-        if description["primitive"] == "d3m.primitives.data_augmentation.datamart_query.DSBOX":
-            value.append({
-                    "primitive": description["primitive"],
-                    "hyperparameters": description["hyperparameters"],
-                })
             return value
 
         if "hyperparameters" not in description:
@@ -477,6 +467,86 @@ class DSBoxTemplate():
             })
         return value
 
+    def generate_simple_configuration_space(self) -> SimpleConfigurationSpace:
+        steps = self.template["steps"]
+        conf_space = {}
+        for each_step in steps:
+            name = each_step["name"]
+            values: list = []
+
+            # description: typing.Dict
+            for description in each_step["primitives"]:
+                value_step = []
+                # primitive with no hyperparameters
+                if isinstance(description, str):
+                    value_step.append({
+                        "primitive": description,
+                        "hyperparameters": {}
+                    })
+                # one primitive with hyperparameters
+                elif isinstance(description, dict):
+                    value_step += self.description_to_simple_configuration(description)
+                # list of primitives
+                elif isinstance(description, list):
+                    for prim in description:
+                        value_step += self.description_to_simple_configuration(prim)
+                else:
+                    # other data format, not supported, raise error
+                    logger.error("Wrong format of the description: \n" +
+                        "Unsupported data format found : " + str(type(description)))
+
+                values += value_step
+
+            # END FOR
+            if len(values) > 0:
+                conf_space[name] = values
+        # END FOR
+        return SimpleConfigurationSpace(conf_space)
+
+
+    # def description_to_simple_configuration(self, description):
+    #     value = []
+    #     # if the desciption is an dictionary:
+    #     # it maybe a primitive with hyperparameters
+
+    #     if "primitive" not in description:
+    #         logger.error("Wrong format of the configuration space data: \n" +
+    #               "No primitive name found!")
+    #         return value
+
+    #     # 2019.3.25 update: Because the query of datamart is different,
+    #     #                   We use dict as a hyperparameter, we have to do some special change here
+    #     if description["primitive"] == "d3m.primitives.data_augmentation.datamart_query.DSBOX":
+    #         value.append({
+    #                 "primitive": description["primitive"],
+    #                 "hyperparameters": description["hyperparameters"],
+    #             })
+    #         return value
+
+    #     if "hyperparameters" not in description:
+    #         description["hyperparameters"] = {}
+
+    #     # go through the hypers and if anyone has empty value just remove it
+    #     hyperDict = dict(filter(lambda kv: len(kv[1]) > 0,
+    #                             description["hyperparameters"].items()))
+
+    #     # go through the hyper values for single tuples and convert them
+    #     # to a list with single tuple element
+    #     hyperDict = dict(map(
+    #         lambda kv:
+    #         (kv[0], [kv[1]]) if isinstance(kv[1], tuple) else (kv[0], kv[1]),
+    #         hyperDict.items()
+    #     ))
+
+    #     # iterate through all combinations of the hyperparameters and add
+    #     # each as a separate configuration point to the space
+    #     for hyper in _product_dict(hyperDict):
+    #         value.append({
+    #             "primitive": description["primitive"],
+    #             "hyperparameters": hyper,
+    #         })
+    #     return value
+
     def get_target_step_number(self):
         # self.template[0].template['output']
         return self.step_number[self.template['output']]
@@ -490,3 +560,137 @@ def _product_dict(dct):
     vals = dct.values()
     for instance in product(*vals):
         yield dict(zip(keys, instance))
+
+
+
+class DSBoxTemplate_Dragonfly(DSBoxTemplate):
+    SEP = "__:__"
+
+    def get_drgnfly_config(self) -> \
+        typing.Dict[str, typing.Union[str, float, int]]:
+
+        drgnfly_config = {"name": self.template['name'], "domain": {}}
+        steps = self.template["steps"]
+
+        # step_size: int = None
+        for each_step in steps:
+            step_name = each_step["name"]
+
+            # prim_name = primitive_list['primitive']
+            # prim_id = step_name + DRAGONFLY_CONFIG_SEP + prim_name
+
+            primitive_list = each_step["primitives"]
+            for step_prim_desc in primitive_list:
+                # one primitive with no hyperparameter
+                step_id = step_name+self.SEP
+                if isinstance(step_prim_desc, str):
+                    # entry = self._string_primitive(step_name, step_prim_desc)
+                    drgnfly_config['domain'][step_id] = (
+                        self.drgn_entry(n=step_id,t='discrete',
+                                        it=[step_prim_desc])
+                    )
+                    # entry[1]
+                # one primitive with hyperparamters
+                elif isinstance(step_prim_desc, dict):
+                    self._dict_primitive(drgnfly_config,
+                                         step_prim_desc,
+                                         step_id)
+
+                # list of primitives
+                elif isinstance(step_prim_desc, list):
+                    added_prims = []
+                    for one_prim in step_prim_desc:
+                        if isinstance(one_prim, str):
+                            added_prims.append(one_prim)
+                        elif isinstance(one_prim, dict):
+                            prim_id = self._dict_primitive(drgnfly_config,
+                                                           one_prim,
+                                                           step_id)
+                            added_prims.append(prim_id)
+                        else:
+                            assert False
+                    drgnfly_config['domain'][step_id] = added_prims
+                else:
+                    # other data format, not supported, raise error
+                    logger.error("Wrong format of the description: \n" +
+                          "Unsupported data format found : ", str(type(step_prim_desc)))
+                    assert False
+
+        return drgnfly_config
+
+    def _dict_primitive(self, drgnfly_config, one_prim, step_id):
+        prim_id = step_id + one_prim['primitive']
+
+        assert isinstance(one_prim['hyperparameters'], dict)
+
+        for h_name, h_vals in one_prim['hyperparameters'].items():
+            hyper_id = (prim_id + self.SEP + h_name)
+            assert isinstance(h_vals, list) and len(h_vals) > 0
+
+            hyper_type = self.extract_hyper_type(h_vals)
+
+            drgnfly_config['domain'][hyper_id] = (
+                self.drgn_entry(n=step_id, t=hyper_type, it=h_vals)
+            )
+        return one_prim['primitive']
+
+    def extract_hyper_type(self, h_vals: typing.List) -> str:
+        if isinstance(h_vals[0], float):
+            return 'float'
+        elif isinstance(h_vals[0], int):
+            return 'int'
+        elif isinstance(h_vals[0], list):
+            return 'discrete'
+        return ('float' if isinstance(h_vals[0],
+                                      float)
+                else None)
+
+    def drgnfly_config_to_confpoint(self, drgn_conf_p: typing.Dict[str, typing.Any])\
+            -> ConfigurationPoint:
+
+        assert 'domain' in drgn_conf_p and 'name' in drgn_conf_p
+
+        assert isinstance(drgn_conf_p['domain'], dict)
+
+        for e_name, e_val in drgn_conf_p['domain'].items():
+            split_name = e_name.split(self.SEP)
+            assert len(split_name) > 1
+
+            # primitive options in each step
+            if len(split_name) == 2:
+                assert len(split_name[1]) == 0
+
+
+
+
+    @staticmethod
+    def drgn_entry (n: str, t: str, mi: float = None, mx: float = None,
+                    it: list = None) -> typing.Dict[str, typing.Any]:
+        assert isinstance(n, str)
+        assert len(n) > 0
+
+        assert t in ['int', 'float', 'discrete', 'discrete_numeric', 'boolean']
+
+        if t in ['discrete_numeric', 'discrete']:
+            assert it is not None
+            assert isinstance(it, list)
+
+            if t == 'discrete_numeric':
+                assert all([isinstance(e, float) for e in it])
+
+            assert mi is None and mx is None
+
+            return {
+                "name": n,
+                "type": "discrete",
+                "items": "-".join(it),
+            }
+        elif t in ['int', 'float']:
+            assert it is None
+            assert mi is not None and mx is not None
+            return {
+                "name": n,
+                "type": t,
+                "min": mi,
+                "max": mx
+            }

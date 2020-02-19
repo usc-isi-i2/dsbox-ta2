@@ -1,0 +1,23 @@
+from dsbox.template.template import DSBoxTemplate 
+from d3m.metadata.problem import TaskKeyword 
+from dsbox.template.template_steps import TemplateSteps 
+from dsbox.schema import SpecializedProblem 
+import typing 
+import numpy as np  # type: ignore 
+class JHUGraphMatchingTemplate(DSBoxTemplate):
+    def __init__(self):
+        DSBoxTemplate.__init__(self)
+        self.template = {
+            "name": "JHU_Graph_Matching_Template",
+            "taskType": TaskKeyword.GRAPH_MATCHING.name,
+            "taskSubtype": {TaskKeyword.GRAPH_MATCHING.name},
+            "inputType": {"edgeList", "graph"},
+            "output": "model_step",
+            "steps": [
+                {
+                    "name": "model_step",
+                    "primitives": ["d3m.primitives.graph_matching.seeded_graph_matching.JHU"],
+                    "inputs": ["template_input"]
+                }
+            ]
+        }

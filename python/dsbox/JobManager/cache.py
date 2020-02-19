@@ -1,6 +1,8 @@
+'''
+Cache Module
+'''
 import copy
 import logging
-import pprint
 import traceback
 import typing
 
@@ -15,9 +17,12 @@ from d3m.primitive_interfaces.base import PrimitiveBase
 from dsbox.combinatorial_search.search_utils import comparison_metrics
 from dsbox.template.configuration_space import ConfigurationPoint
 
-T = typing.TypeVar("T")
 _logger = logging.getLogger(__name__)
 
+
+DO_NOT_CACHE_LIST = {
+    'd3m.primitives.feature_construction.deep_feature_synthesis.MultiTableFeaturization'
+}
 
 class DummyLock:
     def acquire(self, blocking=True, timeout=-1):
@@ -91,16 +96,16 @@ class CandidateCache:
     def __init__(self, manager):
         self.storage = manager.dict()
 
-    def lookup(self, candidate: ConfigurationPoint[T]) -> typing.Dict:
+    def lookup(self, candidate: ConfigurationPoint) -> typing.Dict:
 
         key = CandidateCache._get_hash(candidate)
         if key in self.storage:
-            _logger.info("[INFO] hit@Candidate: ({})".format(key))
+            _logger.info("hit@Candidate: ({})".format(key))
             return self.storage[key]
         else:
             return None
 
-    def push_None(self, candidate: ConfigurationPoint[T]) -> None:
+    def push_None(self, candidate: ConfigurationPoint) -> None:
         result = {
             "configuration": candidate,
             "status": CandidateCache.S_INVALID,
@@ -177,11 +182,11 @@ class CandidateCache:
                 assert False
                 update['status'] = CandidateCache.S_VALID
 
-    def is_hit(self, candidate: ConfigurationPoint[T]) -> bool:
+    def is_hit(self, candidate: ConfigurationPoint) -> bool:
         return CandidateCache._get_hash(candidate) in self.storage
 
     @staticmethod
-    def _get_hash(candidate: ConfigurationPoint[T]) -> int:
+    def _get_hash(candidate: ConfigurationPoint) -> int:
         return hash(str(candidate))
 
 
@@ -218,9 +223,12 @@ class PrimitivesCache:
         self.write_lock.acquire(blocking=True)
 
         try:
-            if not self.is_hit_key(prim_name=prim_name, prim_hash=prim_hash):
+            if prim_name in DO_NOT_CACHE_LIST:
+                _logger.debug(f'In do not cache list: %s', prim_name)
+                return 2
+            elif not self.is_hit_key(prim_name=prim_name, prim_hash=prim_hash):
                 self.storage[(prim_name, prim_hash)] = (fitting_time, model)
-                _logger.debug(f"[INFO] Push@cache:{prim_name},{prim_hash}")
+                _logger.debug(f"Push@cache:{prim_name},{prim_hash}")
                 # print(f"[INFO] Push@cache:{prim_name},{prim_hash}")
                 return 0
             else:
@@ -243,7 +251,7 @@ class PrimitivesCache:
 
     def lookup_key(self, prim_hash: int, prim_name: int) -> typing.Tuple[Dataset, PrimitiveBase]:
         if self.is_hit_key(prim_name=prim_name, prim_hash=prim_hash):
-            _logger.debug("[INFO] Hit@cache: {},{}".format(prim_name, prim_hash))
+            _logger.debug("Hit@cache: {},{}".format(prim_name, prim_hash))
             # print("[INFO] Hit@cache: {},{}".format(prim_name, prim_hash))
             return self.storage[(prim_name, prim_hash)]
         else:
@@ -262,9 +270,47 @@ class PrimitivesCache:
         return (prim_name, prim_hash) in self.storage
 
     @staticmethod
+    def _get_argument_hash(key: str, value, *, fast_unsafe_method=False) -> int:
+
+        # TODO the list part is related to timeseries datasets. chcek this with team
+        assert (isinstance(value, Dataset) or
+                isinstance(value, DataFrame) or
+                isinstance(value, typing.List)), \
+               f"Key {key} value type not valid {type(value)}"
+
+        result = hash(key)
+        if fast_unsafe_method:
+            result += hash(str(value))
+            return result
+
+        if isinstance(value, DataFrame):
+            # v2019.6.30
+            # this added part used to check whether the input dataframe has column with ndarray
+            # hashing large ndarray is very slow so we should not do hash on this part
+            a_copy = copy.copy(value)
+            if type(value) is DataFrame:
+                for i in range(value.shape[1]):
+                    if type(value.iloc[0, i]) is d3m_ndarray:
+                        drop_column_name = value.columns[i]
+                        a_copy = a_copy.drop(columns=drop_column_name)
+                        _logger.warning("Dropping column: {}".format(drop_column_name))
+                value = a_copy
+
+            result += hash(value.values.tobytes())
+        else:
+            result += hash(str(value))
+        return result
+
+    @staticmethod
+    def get_hash(pipe_step: PrimitiveStep, primitive_arguments: typing.Dict,
+                 primitive_hyperparams: typing.Dict,  # 2019-7-11: must pass in hyperparams
+                 hash_prefix: int = None) -> typing.Tuple[int, int]:
+        return PrimitivesCache._get_hash(pipe_step, primitive_arguments, primitive_hyperparams, hash_prefix)
+
+    @staticmethod
     def _get_hash(pipe_step: PrimitiveStep, primitive_arguments: typing.Dict,
-                  primitive_hyperparams: typing.Dict,  # 2019-7-11: must pass in hyperparams
-                  hash_prefix: int=None) -> typing.Tuple[int, int]:
+                  primitive_hyperparams: typing.Dict,
+                  hash_prefix: int = None) -> typing.Tuple[int, int]:
         prim_name = str(pipe_step.primitive)
         hyperparam_hash = hash(str(primitive_hyperparams.items()))
 
@@ -273,33 +319,20 @@ class PrimitivesCache:
         try:
             dataset_id = str(primitive_arguments['inputs'].metadata.query(())['id'])
             dataset_digest = str(primitive_arguments['inputs'].metadata.query(())['digest'])
-        except:
+        except Exception:
             pass
 
-        # print(primitive_arguments['inputs'])
-        # TODO the list part is related to timeseries datasets. chcek this with team
-        assert (isinstance(primitive_arguments['inputs'], Dataset) or
-                isinstance(primitive_arguments['inputs'], DataFrame) or
-                isinstance(primitive_arguments['inputs'], typing.List)), \
-               f"inputs type not valid {type(primitive_arguments['inputs'])}"
-
-        # v2019.6.30
-        # this added part used to check whether the input dataframe has column with ndarray
-        # hashing large ndarray is very slow so we should not do hash on this part
-        hash_part = copy.copy(primitive_arguments['inputs'])
-        if type(hash_part) is DataFrame:
-            for i in range(primitive_arguments['inputs'].shape[1]):
-                if type(primitive_arguments['inputs'].iloc[0, i]) is d3m_ndarray:
-                    drop_column_name = hash_part.columns[i]
-                    hash_part = hash_part.drop(columns=drop_column_name)
-
+        argument_hash = 0
         if hash_prefix is None:
-            _logger.debug("Primtive cache, hash computed in prefix mode")
-            dataset_value_hash = hash(str(hash_part))
+            for key, value in primitive_arguments.items():
+                argument_hash += PrimitivesCache._get_argument_hash(key, value)
         else:
-            dataset_value_hash = hash(hash_part.values.tobytes())
+            _logger.debug("Primtive cache, hash computed in prefix mode")
+            for key, value in primitive_arguments.items():
+                argument_hash += PrimitivesCache._get_argument_hash(key, value, fast_unsafe_method=True)
 
-        dataset_hash = hash(str(dataset_value_hash) + dataset_id + dataset_digest)
+        dataset_hash = hash(str(argument_hash) + dataset_id + dataset_digest)
         prim_hash = hash(str([hyperparam_hash, dataset_hash, hash_prefix]))
-        _logger.debug("[INFO] hash: {}, {}".format(prim_name, prim_hash))
+        _logger.debug("dataset hash {}: {}".format(prim_name, dataset_hash))
+        _logger.debug("hash: {}, {}".format(prim_name, prim_hash))
         return prim_name, prim_hash

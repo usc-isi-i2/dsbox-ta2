@@ -1,32 +1,26 @@
 import logging
 import queue
 import time
+import threading
 import traceback
 import typing
 
-from pprint import pprint
-
-import d3m.metadata.problem as problem
+from d3m.metadata.problem import Problem
 
 from d3m.container.dataset import Dataset
-from d3m.metadata.base import Metadata
 from dsbox.JobManager.DistributedJobManager import DistributedJobManager
 from dsbox.combinatorial_search.ConfigurationSpaceBaseSearch import ConfigurationSpaceBaseSearch
 from dsbox.combinatorial_search.TemplateSpaceBaseSearch import TemplateSpaceBaseSearch
-from dsbox.JobManager.cache import PrimitivesCache
 from dsbox.template.configuration_space import ConfigurationPoint
 from dsbox.template.template import DSBoxTemplate
 
-T = typing.TypeVar("T")
 # python path of primitive, i.e. 'd3m.primitives.common_primitives.RandomForestClassifier'
 PythonPath = typing.NewType('PythonPath', str)
-
-PrimitiveDescription = typing.NewType('PrimitiveDescription', dict)
 
 _logger = logging.getLogger(__name__)
 
 
-class TemplateSpaceParallelBaseSearch(TemplateSpaceBaseSearch[T]):
+class TemplateSpaceParallelBaseSearch(TemplateSpaceBaseSearch):
     """
     Search the template space through random configuration spaces in parallel.
 
@@ -34,7 +28,7 @@ class TemplateSpaceParallelBaseSearch(TemplateSpaceBaseSearch[T]):
     ----------
     template_list : List[DSBoxTemplate]
         Evaluate given point in configuration space
-    configuration_space_list: List[ConfigurationSpace[T]]
+    configuration_space_list: List[ConfigurationSpace]
         Definition of the configuration space
     confSpaceBaseSearch: List[ConfigurationSpaceBaseSearch]
         list of ConfigurationSpaceBaseSearch related to each template
@@ -48,19 +42,24 @@ class TemplateSpaceParallelBaseSearch(TemplateSpaceBaseSearch[T]):
     def __init__(self, num_proc):
         super().__init__(is_multiprocessing=True)
         self.job_manager = DistributedJobManager(proc_num=num_proc)
+        self.num_proc = num_proc
         self.timeout_sec = None
+        self.jobs_completed = 0
+        self.jobs_pushed = 0
+
 
     def initialize_problem(self, template_list: typing.List[DSBoxTemplate],
                            performance_metrics: typing.List[typing.Dict],
-                           problem: problem.Problem, train_dataset1: Dataset,
+                           problem: Problem, train_dataset1: Dataset,
                            train_dataset2: typing.List[Dataset], test_dataset1: Dataset,
                            test_dataset2: typing.List[Dataset], all_dataset: Dataset,
                            ensemble_tuning_dataset: Dataset,
-                           extra_primitive:typing.Set[str],
+                           extra_primitive: typing.Set[str],
                            output_directory: str,
                            start_time: float = 0, timeout_sec: float = 3300) -> None:
         # Start timer
-        self.job_manager.timeout_sec = timeout_sec
+        delta_time = time.perf_counter() - start_time
+        self.job_manager.timeout_sec = timeout_sec - delta_time
 
         super().initialize_problem(
             template_list=template_list, performance_metrics=performance_metrics,
@@ -104,8 +103,13 @@ class TemplateSpaceParallelBaseSearch(TemplateSpaceBaseSearch[T]):
             # signal.signal(signal.SIGALRM, _timeout_handler)
             # signal.alarm(3 * 60)
 
-        # randomly send the candidates to job manager for evaluation
-        self._push_random_candidates(num_iter)
+        # Randomly send the candidates to job manager for evaluation.
+        # Use thread to push candidates. Otherwise the the queue and/or its underlying
+        # pipe get filled up, and cause broken pipe errors.
+        # self._push_random_candidates(num_iter)
+        push_thread = threading.Thread(target=self._push_random_candidates, args=(num_iter,))
+        push_thread.start()
+
         time.sleep(1)
 
         # iteratively wait until a result is available and process the result untill there is no
@@ -117,6 +121,8 @@ class TemplateSpaceParallelBaseSearch(TemplateSpaceBaseSearch[T]):
 
         # cleanup job manager
         self.job_manager.reset()
+
+        self.history.done()
 
         return self.history.get_best_history()
 
@@ -131,25 +137,38 @@ class TemplateSpaceParallelBaseSearch(TemplateSpaceBaseSearch[T]):
             None
         """
         _logger.debug("Waiting for the results")
-        counter = 0
         try:
             wait_seconds = self.start_time + self.timeout_sec - time.perf_counter()
-            while (counter < max_num) and (not self.job_manager.is_idle()) and wait_seconds > 15:
-                # print("[INFO] Sleeping,", counter)
-                _logger.info(f"Main Process jobs_completed:{counter}, timeout={wait_seconds}")
+            while (self.jobs_completed < max_num) and (not self.job_manager.is_idle()) and wait_seconds > 15:
+                # print("[INFO] Sleeping,", self.jobs_completed)
+                _logger.info(f"Main Process jobs_completed:{self.jobs_completed}, timeout={wait_seconds}")
                 if wait_seconds > 15:
                     (kwargs_bundle, report) = self.job_manager.pop_job(block=True, timeout=wait_seconds)
-                    _logger.warning(f"kwargs: {kwargs_bundle}")
+                    _logger.info(f"Got Result kwargs={kwargs_bundle}")
+                    if report:
+                        _logger.info(f"Got Result report id={report['id']}")
+                    else:
+                        _logger.info(f"Got Result: report is None")
 
                     self._add_report_to_history(kwargs_bundle, report)
 
-                counter += 1
+                self.jobs_completed += 1
                 wait_seconds = self.start_time + self.timeout_sec - time.perf_counter()
 
             if wait_seconds > 15:
                 _logger.info("No more pending job")
             else:
-                _logger.info("Timing out. Cannot wait for pending job.")
+                _logger.info(f"Time remaining is less than 15 seconds ({wait_seconds}). Empyting Result queue...")
+                count = 0
+                try:
+                    while True:
+                        (kwargs_bundle, report) = self.job_manager.pop_job(block=False)
+                        self._add_report_to_history(kwargs_bundle, report)
+                        count += 1
+                except queue.Empty:
+                    pass
+                remaining_seconds = self.start_time + self.timeout_sec - time.perf_counter()
+                _logger.info(f"Found {count} results when empyting queue. Time remaining {remaining_seconds}")
         except queue.Empty:
             _logger.info("Timed out waiting for pending job")
 
@@ -163,11 +182,16 @@ class TemplateSpaceParallelBaseSearch(TemplateSpaceBaseSearch[T]):
         Returns:
 
         """
-        print("#" * 50)
-        for search in self._select_next_template(num_iter=num_iter):
-            self._random_pipeline_evaluation_push(search=search, num_iter=1)
-
-        print("#" * 50)
+        _logger.info('Start pushing canditates')
+        for count, search in enumerate(self._select_next_template(num_iter=num_iter)):
+            wait_seconds = self.start_time + self.timeout_sec - time.perf_counter()
+            if wait_seconds > 15:
+                self._random_pipeline_evaluation_push(search=search, num_iter=1)
+                _logger.info(f'Pushed canditate {count}')
+            else:
+                _logger.warning('Timed out before pushing all the candiates')
+                break
+        _logger.info('Done  pushing canditates')
 
     def _random_pipeline_evaluation_push(self, search: ConfigurationSpaceBaseSearch,
                                          num_iter: int = 1) -> None:
@@ -184,11 +208,22 @@ class TemplateSpaceParallelBaseSearch(TemplateSpaceBaseSearch[T]):
         for candidate in self._sample_random_pipeline(search=search, num_iter=num_iter):
 
             try:
-                # push the candidate to the job manager
-                self.job_manager.push_job(
-                    kwargs_bundle=self._prepare_job_posting(candidate=candidate,
-                                                            search=search)
-                )
+                while True:
+                    wait_seconds = self.start_time + self.timeout_sec - time.perf_counter()
+                    long_queue: bool = self.jobs_pushed - self.jobs_completed > 2 * self.num_proc
+                    if long_queue and wait_seconds > 16:
+                        time.sleep(1)
+                    else:
+                        break
+                if wait_seconds > 15:
+                    # push the candidate to the job manager
+                    self.job_manager.push_job(
+                        kwargs_bundle=self._prepare_job_posting(candidate=candidate,
+                                                                search=search))
+                    self.jobs_pushed += 1
+                else:
+                    _logger.warning('Timed out before pushing all the candiates')
+                    break
             except:
                 traceback.print_exc()
                 _logger.error(traceback.format_exc())
@@ -196,14 +231,14 @@ class TemplateSpaceParallelBaseSearch(TemplateSpaceBaseSearch[T]):
             time.sleep(0.1)
 
     def evaluate_blocking(self, base_search: ConfigurationSpaceBaseSearch,
-                          candidate: ConfigurationPoint[PrimitiveDescription]) -> typing.Dict:
+                          candidate: ConfigurationPoint) -> typing.Dict:
         """
         submits the candidate to the execution engine and blocks execution until the evaluation
         is done.
         Args:
             base_search: ConfigurationSpaceBaseSearch
                 the confSpaceBaseSearch that the candidate is from
-            candidate: ConfigurationPoint[PrimitiveDescription]
+            candidate: ConfigurationPoint
                 the candidate to be evaluated
 
         Returns:
@@ -249,6 +284,12 @@ class TemplateSpaceParallelBaseSearch(TemplateSpaceBaseSearch[T]):
 
         # wait for the results
         (kwargs_bundle, report) = self.job_manager.pop_job(block=True)
+        _logger.info(f"Got Result kwargs={kwargs_bundle}")
+        if report:
+            _logger.info(f"Got Result report id={report['id']}")
+        else:
+            _logger.info(f"Got Result: report is None")
+
         check_candidate = kwargs_bundle['kwargs']['args'][0]
 
         if check_candidate != candidate:

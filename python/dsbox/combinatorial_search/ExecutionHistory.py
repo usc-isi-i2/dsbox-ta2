@@ -1,11 +1,10 @@
+''
 import copy
 import math
 import logging
 import operator
+import queue
 import typing
-
-from pprint import pprint
-from functools import reduce
 
 import numpy as np
 import pandas as pd
@@ -55,6 +54,13 @@ class ExecutionHistory:
 
         # Needed by TA3
         self.all_reports = {}
+        self.queue: queue.Queue = queue.Queue()
+
+    def done(self):
+        """
+        Used to signal Ta2Servicer that search has finished.
+        """
+        self.queue.put(False)
 
     def update(self, report: typing.Dict, template_name: str = 'generic') -> None:
         """
@@ -83,7 +89,14 @@ class ExecutionHistory:
         """
         # TA3 save all reports
         if report and 'id' in report:
+            if report['id'] in self.all_reports:
+                _logger.error('Duplicate report id: %s', report['id'])
+            if 'rank' in report:
+                _logger.info(f"  id={report['id']} fid={report['fid']} rank={report['rank']}")
+            else:
+                _logger.error(f"  id={report['id']} fid={report['fid']} rank=MISSING")
             self.all_reports[report['id']] = report
+            self.queue.put(report)
 
         # add new things in history records for ensemble tuning
         if 'ensemble_tuning_result' in report:
@@ -109,7 +122,7 @@ class ExecutionHistory:
 
         # these fields will be updated only if the new report is better than the previous ones
         if ExecutionHistory._is_better(base=row, check=report, key_attribute=self.key_attribute):
-            print(f"updating history for: {hash(str(report['configuration']))}")
+            _logger.debug(f"updating history for: {hash(str(report['configuration']))}")
             for k in ['configuration', 'training_metrics', 'cross_validation_metrics',
                       'test_metrics']:
                 assert report[k] is None or \
@@ -234,8 +247,8 @@ class ExecutionHistory:
         # check if different metrics are inconsistent
         if len(set(comparison_results.values())) != 1:
             # FIXME a better policy for this part
-            _logger.warning("[WARN] cross_validation_metrics and test_metrics are not compatible")
-            print(("[WARN]" + " {}:{} " * len(comparison_results) + "are not compatible").format(
+            _logger.warning("Cross_validation_metrics and test_metrics are not compatible:")
+            _logger.warning((" {}:{} " * len(comparison_results) + "are not compatible").format(
                 *[item for m in base_comparison_metrics for item in [m, comparison_results[m]]]))
 
         # return operator.and_(comparison_results[0], comparison_results[1])

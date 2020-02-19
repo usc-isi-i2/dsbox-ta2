@@ -42,7 +42,7 @@ class StderrLogger(object):
 def main(config: DsboxConfig, debug_mode=False):
     controller = Controller(development_mode=False)
     controller.initialize(config)
-    config.start_time = time.perf_counter()
+    config.set_start_time()
 
     def kill_child_processes():
         process_id = os.getpid()

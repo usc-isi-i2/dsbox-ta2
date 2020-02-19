@@ -2,6 +2,8 @@ import logging
 
 import numpy as np
 
+from dsbox.template.template_hyperparams import LogRange
+
 _logger = logging.getLogger(__name__)
 
 
@@ -23,9 +25,14 @@ class TemplateSteps:
                 "inputs": ["template_input"]
             },
             {
+                "name": "common_profiler_step",
+                "primitives": ["d3m.primitives.schema_discovery.profiler.Common"],
+                "inputs": ["to_dataframe_step"]
+            },
+            {
                 "name": "extract_attribute_step",
                 "primitives": [{
-                    "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.DataFrameCommon",
+                    "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.Common",
                     "hyperparameters":
                         {
                             'semantic_types': (
@@ -36,7 +43,7 @@ class TemplateSteps:
                             'exclude_columns': ()
                         }
                 }],
-                "inputs": ["to_dataframe_step"]
+                "inputs": ["common_profiler_step"]
             },
             {
                 "name": "profiler_step",
@@ -111,7 +118,7 @@ class TemplateSteps:
             {
                 "name": "pre_"+target,
                 "primitives": [{
-                    "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.DataFrameCommon",
+                    "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.Common",
                     "hyperparameters":
                         {
                             'semantic_types': (
@@ -134,6 +141,124 @@ class TemplateSteps:
             }
         ]
 
+    @staticmethod
+    def dsbox_augmentation_step(datamart_search_results, large_dataset=False, augment_algorithm="augment_separately"):
+        '''
+        dsbox generic step for classification and regression, directly lead to model step
+        '''
+        wikidata_search_results = []
+        vector_search_results = []
+        general_search_results = []
+        for each_result in datamart_search_results:
+            detail_info = each_result.get_json_metadata()
+            # if it is wikidata search reuslts
+            if detail_info['summary']['Datamart ID'].startswith("wikidata_search"):
+                wikidata_search_results.append(each_result)
+            elif detail_info['summary']['Datamart ID'].startswith("vector_search"):
+                vector_search_results.append(each_result)
+            else:
+                general_search_results.append(each_result)
+        all_steps = []
+        augment_step_number = 0
+
+        if not large_dataset:
+            res1, augment_step_number = TemplateSteps.add_steps_serial(wikidata_search_results, augment_step_number)
+            all_steps.extend(res1)
+            res2, augment_step_number = TemplateSteps.add_steps_serial(vector_search_results, augment_step_number)
+            all_steps.extend(res2)
+
+        if augment_algorithm == "augment_separately":
+            res3, augment_step_number = TemplateSteps.add_steps_parallel(general_search_results, augment_step_number)
+        elif augment_algorithm == "augment_all_in_one":
+            res3, augment_step_number = TemplateSteps.add_steps_serial(general_search_results, augment_step_number)
+        all_steps.extend(res3)
+
+        # remove all q nodes here, otherwise cleaner may generate a lot of useless columns
+        if len(all_steps) > 0:
+            to_dataframe_step = {
+                "name": "to_dataframe_step",
+                "primitives": ["d3m.primitives.data_transformation.dataset_to_dataframe.Common"],
+                "inputs": ["augment_step" + str(augment_step_number - 1)]
+            }
+            all_steps.append(to_dataframe_step)
+
+            from datamart_isi.config import q_node_semantic_type
+            remove_q_nodes_step = {
+                    "name": "remove_q_nodes_step",
+                    "primitives": [
+                        {
+                            "primitive": "d3m.primitives.data_transformation.remove_semantic_types.Common",
+                            "hyperparameters":
+                            {
+                                'semantic_types':[(q_node_semantic_type,)],
+                            }
+                        }
+                    ],
+                    "inputs": ["to_dataframe_step"]
+                }
+            all_steps.append(remove_q_nodes_step)
+
+        return all_steps
+
+
+    @staticmethod
+    def add_steps_serial(search_results, start_step):
+        """
+            Add all search results in serial steps as candidates
+        """
+        augment_steps = []
+        for i, each in enumerate(search_results, start_step):
+            each_augment_step = {
+                "name": "augment_step" + str(i),
+                "primitives": [
+                    "d3m.primitives.data_preprocessing.do_nothing_for_dataset.DSBOX",
+                    {
+                        "primitive": "d3m.primitives.data_augmentation.datamart_augmentation.Common",
+                        "hyperparameters":
+                        {
+                            'system_identifier':["ISI"],
+                            'search_result':[each.serialize()],
+                        }
+                    }
+                ],
+                "inputs": ["template_input" if i==0 else "augment_step" + str(i - 1)]
+            }
+            augment_steps.append(each_augment_step)
+
+        return augment_steps, start_step + len(search_results)
+
+
+    @staticmethod
+    def add_steps_parallel(search_results, start_step):
+        """
+            Add all search results in one step as candidates
+        """
+        augment_steps = []
+
+        search_result = []
+        for each in search_results:
+            search_result.append(each.serialize())
+
+        each_augment_step = {
+            "name": "augment_step" + str(start_step),
+            "primitives": [
+                "d3m.primitives.data_preprocessing.do_nothing_for_dataset.DSBOX",
+                {
+                    "primitive": "d3m.primitives.data_augmentation.datamart_augmentation.Common",
+                    "hyperparameters":
+                    {
+                        'system_identifier':["ISI"],
+                        'search_result':search_result,
+                    }
+                }
+            ],
+            "inputs": ["template_input" if start_step==0 else "augment_step" + str(start_step - 1)]
+        }
+        augment_steps.append(each_augment_step)
+
+        return augment_steps, start_step + 1
+
+
     # Returns a list of dicts with the most common steps
     @staticmethod
     def dsbox_generic_text_steps(data: str = "data", target: str = "target"):
@@ -147,9 +272,14 @@ class TemplateSteps:
                 "inputs": ["template_input"]
             },
             {
+                "name": "common_profiler_step",
+                "primitives": ["d3m.primitives.schema_discovery.profiler.Common"],
+                "inputs": ["to_dataframe_step"]
+            },
+            {
                 "name": "extract_attribute_step",
                 "primitives": [{
-                    "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.DataFrameCommon",
+                    "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.Common",
                     "hyperparameters":
                         {
                             'semantic_types': (
@@ -159,7 +289,7 @@ class TemplateSteps:
                             'exclude_columns': ()
                         }
                 }],
-                "inputs": ["to_dataframe_step"]
+                "inputs": ["common_profiler_step"]
             },
             {
                 "name": "profiler_step",
@@ -229,7 +359,7 @@ class TemplateSteps:
             {
                 "name": "pre_"+target,
                 "primitives": [{
-                    "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.DataFrameCommon",
+                    "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.Common",
                     "hyperparameters":
                         {
                             'semantic_types': (
@@ -264,9 +394,14 @@ class TemplateSteps:
                 "inputs": ["template_input"]
             },
             {
+                "name": "common_profiler_step",
+                "primitives": ["d3m.primitives.schema_discovery.profiler.Common"],
+                "inputs": ["to_dataframe_step"]
+            },
+            {
                 "name": "extract_attribute_step",
                 "primitives": [{
-                    "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.DataFrameCommon",
+                    "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.Common",
                     "hyperparameters":
                         {
                             'semantic_types': (
@@ -276,7 +411,7 @@ class TemplateSteps:
                             'exclude_columns': ()
                         }
                 }],
-                "inputs": ["to_dataframe_step"]
+                "inputs": ["common_profiler_step"]
             },
             {
                 "name": "profiler_step",
@@ -312,7 +447,7 @@ class TemplateSteps:
             {
                 "name": "pre_extract_target_step",
                 "primitives": [{
-                    "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.DataFrameCommon",
+                    "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.Common",
                     "hyperparameters":
                         {
                             'semantic_types': (
@@ -352,7 +487,7 @@ class TemplateSteps:
                                 'add_index_columns': [True],
                                 'return_result': ['new'],
                                 'add_index_columns': [True],
-                                "alpha": [float(x) for x in np.logspace(-4, -1, 6)]
+                                "alpha": LogRange(10e-4, 1e-1)  # [float(x) for x in np.logspace(-4, -1, 6)]
                             }
                         },
                         {
@@ -390,7 +525,7 @@ class TemplateSteps:
                                 'use_semantic_types': [True],
                                 'return_result': ['new'],
                                 'add_index_columns': [True],
-                                "alpha": [float(x) for x in np.logspace(-4, -1, 6)]
+                                "alpha": LogRange(10e-4, 1e-1)  # [float(x) for x in np.logspace(-4, -1, 6)]
                             }
                         },
                         {
@@ -489,9 +624,14 @@ class TemplateSteps:
                     "inputs": ["template_input"]
                 },
                 {
+                    "name": "common_profiler_step",
+                    "primitives": ["d3m.primitives.schema_discovery.profiler.Common"],
+                    "inputs": ["to_dataframe_step"]
+                },
+                {
                     "name": attribute_name,
                     "primitives": [{
-                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.DataFrameCommon",
+                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.Common",
                         "hyperparameters":
                             {
                                 'semantic_types': (
@@ -501,12 +641,12 @@ class TemplateSteps:
                                 'exclude_columns': ()
                             }
                     }],
-                    "inputs": ["to_dataframe_step"]
+                    "inputs": ["common_profiler_step"]
                 },
                 {
                     "name": "pre_"+target_name,
                     "primitives": [{
-                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.DataFrameCommon",
+                        "primitive": "d3m.primitives.data_transformation.extract_columns_by_semantic_types.Common",
                         "hyperparameters":
                         {
                             'semantic_types': (
@@ -537,7 +677,7 @@ class TemplateSteps:
                 *TemplateSteps.default_dataparser(target_name=target_name),
                 {
                     "name": "column_parser_step",
-                    "primitives": ["d3m.primitives.data_transformation.column_parser.DataFrameCommon"],
+                    "primitives": ["d3m.primitives.data_transformation.column_parser.Common"],
                     "inputs": ["extract_attribute_step"]
                 },
                 {
@@ -586,7 +726,7 @@ class TemplateSteps:
                 # TODO the ColumnParser primitive is buggy as it generates arbitrary nan values
                 # {
                 #     "name": "encode_strings_step",
-                #     "primitives": ["d3m.primitives.data_transformation.column_parser.DataFrameCommon"],
+                #     "primitives": ["d3m.primitives.data_transformation.column_parser.Common"],
                 #     "inputs": [clean_name]
                 # },
                 {
@@ -708,7 +848,7 @@ class TemplateSteps:
                                 }
                     },{
                             "primitive":
-                                "d3m.primitives.classification.xgboost_gbtree.DataFrameCommon",
+                                "d3m.primitives.classification.xgboost_gbtree.Common",
                             "hyperparameters":
                                 {
                                     'use_semantic_types': [True],

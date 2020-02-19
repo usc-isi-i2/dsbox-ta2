@@ -1,9 +1,10 @@
 import copy
 import os
 import logging
+import pickle
 import psutil
 import time
-import traceback
+import threading
 import typing
 
 from enum import Enum
@@ -12,11 +13,70 @@ from multiprocessing import Pool, Queue, Manager, current_process
 from threading import Timer
 
 _logger = logging.getLogger(__name__)
-
+# used to save all PID of workers created
+m = Manager()
+_current_work_pids = m.list()
 
 class TimerResponse(Enum):
     KILL_WORKERS = 0
     STOP_WORKER_JOBS = 1
+
+
+class WorkerQueueHandler(logging.handlers.QueueHandler):
+    '''
+    Adds process name to log records
+    '''
+    def __init__(self, queue):
+        super().__init__(queue)
+
+    def prepare(self, record):
+        if record is not None and record.msg is not None:
+            record.msg = f'{current_process().name:17} > ' + str(record.msg)
+        return super().prepare(record)
+
+    # def emit(self, record):
+    #     print('emit:', record)
+    #     return super().emit(record)
+
+    # def enqueue(self, record):
+    #     print('enqueue:', record)
+    #     return super().enqueue(record)
+
+class QueueWrapper:
+    def __init__(self, name, queue):
+        self.name = name
+        self.queue = queue
+
+    def put(self, item, block=True, timeout=None):
+        if _logger.getEffectiveLevel() <= 10:
+            size = len(pickle.dumps(item))
+            if size > 10**7:
+                _logger.warning('Large message: %s queue: %d mb', self.name, size/10**6)
+        self.queue.put(item, block=block, timeout=timeout)
+
+    def put_nowait(self, item):
+        return self.queue.put(item, False)
+
+    def get(self, block=True, timeout=None):
+        return self.queue.get(block=block, timeout=timeout)
+
+    def get_nowaite(self):
+        return self.queue.get(False)
+
+    def qsize(self):
+        return self.queue.qsize()
+
+    def empty(self):
+        return self.queue.empty()
+
+    def full(self):
+        return self.queue.full()
+
+    def task_done(self):
+        self.queue.task_done()
+
+    def join(self):
+        self.queue.join()
 
 
 class DistributedJobManager:
@@ -29,8 +89,9 @@ class DistributedJobManager:
 
         self.manager = Manager()
         # self.manager.start()
-        self.arguments_queue: Queue = self.manager.Queue()
-        self.result_queue: Queue = self.manager.Queue()
+        self.arguments_queue: Queue = QueueWrapper('arguments',  self.manager.Queue())
+        self.result_queue: Queue = QueueWrapper('result', self.manager.Queue())
+        self.log_queue: Queue = QueueWrapper('log', self.manager.Queue())
 
         self.argument_lock = self.manager.Lock()
         self.result_lock = self.manager.Lock()
@@ -56,11 +117,16 @@ class DistributedJobManager:
         self._setup_timeout_timer()
 
     def _start_workers(self, target_method: typing.Callable):
+        # Start logging listener
+        lp = threading.Thread(target=DistributedJobManager._logger_thread, args=(self.log_queue,))
+        lp.start()
+
         self.job_pool = Pool(processes=self.proc_num)
         self.job_pool.map_async(
             func=DistributedJobManager._internal_worker_process,
             iterable=[
-                (self.arguments_queue, self.result_queue, target_method,)
+                (self.arguments_queue, self.result_queue, target_method,
+                 self.log_queue, DistributedJobManager._log_configurer)
                 for a in range(self.proc_num)]
         )
         self.job_pool.close()  # prevents any additional worker to be added to the pool
@@ -76,7 +142,32 @@ class DistributedJobManager:
         return result
 
     @staticmethod
-    def _internal_worker_process(args: typing.Tuple[Queue, Queue, typing.Callable]) -> None:
+    def _log_configurer(log_queue: Queue):
+        '''
+        Configure logging handlers for a worker
+        '''
+        h = WorkerQueueHandler(log_queue)
+        root = logging.getLogger()
+        root.addHandler(h)
+
+        # TODO: Now, sending all messages. Should set level based on logging level.
+        # root.setLevel(logging.DEBUG)
+
+    @staticmethod
+    def _logger_thread(q: Queue):
+        '''
+        Thread on main process to wait for logging events
+        '''
+        while True:
+            record = q.get()
+            # print('log record:', record)
+            if record is None:
+                break
+            logger = logging.getLogger(record.name)
+            logger.handle(record)
+
+    @staticmethod
+    def _internal_worker_process(args: typing.Tuple[Queue, Queue, Queue, typing.Callable]) -> None:
         """
         The worker process iteratively checks the arguments_queue. It runs the target method with
         the arguments from top of arguments_queue. The worker finally pushes the results to the
@@ -88,32 +179,40 @@ class DistributedJobManager:
         arguments_queue: Queue = args[0]
         result_queue: Queue = args[1]
         target: typing.Callable = args[2]
+        log_queue: Queue = args[3]
+        log_configurer: typing.Callable = args[4]
 
-        # _logger.debug("worker process started {}".format(current_process()))
-        # print(f"[INFO] {current_process()} > worker process started")
-        _logger.info(f"{current_process()} > worker process started")
+        # Configure logging
+        log_configurer(log_queue)
+
+        # _logger.debug("worker process started {}".format(current_process().name))
+        # print(f"[INFO] {current_process().name} > worker process started")
+        _logger.info("worker process started")
+        _current_work_pids.append(os.getpid())
         counter: int = 0
         error_count: int = 0
         while True:
+            if error_count > 3:
+                break
             try:
                 # wait until a new job is available
-                # print(f"[INFO] {current_process()} > waiting on new jobs")
-                _logger.info(f"{current_process()} > waiting on new jobs")
+                # print(f"[INFO] {current_process().name} > waiting on new jobs")
+                _logger.info("waiting on new jobs")
                 kwargs = arguments_queue.get(block=True)
-                _logger.info(f"{current_process()} > copying")
+                _logger.info("copying")
                 kwargs_copy = copy.copy(kwargs)
                 # execute the job
                 try:
                     # TODO add timelimit to single work in the worker
-                    # print(f"[INFO] {current_process()} > executing job")
+                    # print(f"[INFO] {current_process().name} > executing job")
                     result = target(**kwargs)
                     # assert hasattr(result['fitted_pipeline'], 'runtime'), \
                     #     '[DJM] Eval does not have runtime'
                 except:
                     _logger.exception(
-                        f'{current_process()} > Target evaluation failed {hash(str(kwargs))}', exc_info=True)
-                    # print(f'[INFO] {current_process()} > Target evaluation failed {hash(str(kwargs))}')
-                    traceback.print_exc()
+                        f'Target evaluation failed {hash(str(kwargs))}', exc_info=True)
+                    # print(f'[INFO] {current_process().name} > Target evaluation failed {hash(str(kwargs))}')
+                    # traceback.print_exc()
                     # _logger.error(traceback.format_exc())
                     result = None
 
@@ -123,40 +222,45 @@ class DistributedJobManager:
                     if "ensemble_tunning_result" in result:
                         result_simplified.pop("ensemble_tunning_result")
 
-                _logger.info(f"{current_process()} Pushing Results: {result['id'] if result and 'id' in result else 'NONE'}")
-                _logger.debug(f"{current_process()} Pushing Results > {result}")
+                _logger.info(f"Pushing Results: {result['id'] if result and 'id' in result else 'NONE'}")
+                _logger.debug(f"Pushing Results={result} kwargs={kwargs}")
 
-                pushed = False
-                # while not pushed:
                 try:
                     result_queue.put((kwargs, result))
-                    pushed = True
+                except BrokenPipeError:
+                    _logger.exception(f"Result queue put failed. Broken Pipe.")
+                    exit(1)
                 except:
-                    traceback.print_exc()
-                    _logger.exception(f"{current_process()} > {traceback.format_exc()}")
-                    # print(f"[INFO] {current_process()} > time out or "
-                    #       f"result_queue is full {result_queue.full()}")
-                    _logger.info(f"{current_process()} > time out or "
-                                 f"result_queue is full {result_queue.full()}")
+                    # traceback.print_exc()
+                    _logger.exception(f"Result queue put failed.", exc_info=True)
+                    _logger.info(f"Result queue is full: {result_queue.full()}")
 
                     try:
-                        _logger.info(f"{current_process()} > Pushing None due to pickling failure")
+                        _logger.info("Pushing result None. Maybe Result failed to pickle.")
                         result_queue.put((kwargs_copy, None))
                     except:
-                        traceback.print_exc()
-                        _logger.exception(f"{current_process()} > {traceback.format_exc()}")
-                        # print(f"[INFO] {current_process()} > cannot even push None")
-                        _logger.info(f"{current_process()} >  > cannot even push None")
+                        # traceback.print_exc()
+                        # _logger.exception(f"{current_process().name} > {traceback.format_exc()}")
+                        # print(f"[INFO] {current_process().name} > cannot even push None")
+                        _logger.exception(f"Result queue put failed with empty Result.", exc_info=True)
+                        _logger.info("Cannot even push None")
                         exit(1)
 
                     # exit(1)
                 counter += 1
-                # print(f"[INFO] {current_process()} > is Idle, done {counter} jobs")
-                _logger.info(f"{current_process()} > is Idle, done {counter} jobs")
+                # print(f"[INFO] {current_process().name} > is Idle, done {counter} jobs")
+                _logger.info(f"is Idle, done {counter} jobs")
+            except BrokenPipeError:
+                error_count += 1
+                print(f"{current_process().name:17} > Broken Pipe. Error count={error_count}")
+                _logger.exception(f"Broken Pipe. Error count={error_count}")
             except Exception:
                 error_count += 1
-                _logger.warning(f"{current_process()} > Unexpected Exception count={error_count}")
-                _logger.exception(f"{current_process()} > {traceback.format_exc()}")
+                print(f"{current_process().name:17} > Unexpected Exception. Error count={error_count}")
+                _logger.exception(f"Unexpected Exception. Error count={error_count}", exc_info=True)
+        print(f"{current_process().name:17} > Worker EXITING")
+        _logger.warning('Worker EXITING')
+
 
     def push_job(self, kwargs_bundle: typing.Dict = {}) -> int:
         """
@@ -270,6 +374,10 @@ class DistributedJobManager:
             None
         """
         _logger.warning('===DO YOU REALLY WANT TO KILL THE JOB MANAGER===')
+
+        # Send sentinel to stop logging listener
+        self.log_queue.put(None)
+
         _logger.debug("self.job_pool.terminate()")
         self.job_pool.terminate()
 
