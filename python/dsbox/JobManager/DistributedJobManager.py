@@ -413,7 +413,7 @@ class DistributedJobManager:
             _logger.info(f"Clearing {self.ongoing_jobs} jobs from queue")
             self.ongoing_jobs = 0
             while not self.arguments_queue.empty():
-                self.arguments_queue.get()
+                self.arguments_queue.get(False)
 
     def _kill_me(self):
         _logger.warning("search TIMEOUT reached! Killing search Process")

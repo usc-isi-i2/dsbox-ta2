@@ -1,4 +1,5 @@
 import enum
+import datetime
 import json
 import logging
 import operator
@@ -8,7 +9,9 @@ import pathlib
 import pickle
 import pprint
 import random
+import sched
 import shutil
+import threading
 import time
 import traceback
 import typing
@@ -527,6 +530,7 @@ class Controller:
             timeout_sec=self.config.timeout_search,
             extra_primitive=self.extra_primitive,
         )
+        self._logger.info('Starting SerialBaseSearch')
         # report = self._search_method.search(num_iter=50)
         report = self._search_method.search(num_iter=self.config.serial_search_iterations, one_pipeline_only=one_pipeline_only)
         if report_ensemble:
@@ -550,6 +554,7 @@ class Controller:
             extra_primitive=self.extra_primitive,
         )
         # report = self._search_method.search(num_iter=50)
+        self._logger.info('Starting WeightedSearch')
         report = self._search_method.search(num_iter=self.config.serial_search_iterations, one_pipeline_only=one_pipeline_only)
         if report_ensemble:
             report_ensemble['report'] = report
@@ -574,6 +579,7 @@ class Controller:
             extra_primitive=self.extra_primitive,
         )
 
+        self._logger.info('Starting SerialBaseSearch')
         report = self._search_method.search(num_iter=1000)
         if report_ensemble:
             report_ensemble['report'] = report
@@ -600,6 +606,7 @@ class Controller:
             extra_primitive=self.extra_primitive,
         )
 
+        self._logger.info('Starting ParallelBaseSearch')
         report = self._search_method.search(num_iter=1000)
         if report_ensemble:
             report_ensemble['report'] = report
@@ -1623,12 +1630,13 @@ class Controller:
 
     def write_training_results(self):
         # load trained pipelines
+        self._logger.warning("in write_training_results")
+        print(datetime.datetime.now(), "In write_training_results")
         if os.getpid() == self.main_pid:
             self._logger.warning("write_training_results")
+            print("in write_training_results")
             self._did_we_post_process = True
             self._process_pipeline_submission()
-
-        return None
 
     def shutdown(self):
         """
@@ -1643,6 +1651,18 @@ class Controller:
         logging.getLogger("d3m").setLevel(logging.ERROR)
         if not self.template_list:
             return Status.PROBLEM_NOT_IMPLEMENT
+
+        # start thread to output results
+
+        scheduler = sched.scheduler(time.perf_counter, time.sleep)
+        elapsed_time = time.perf_counter() - self.config.start_time
+        # Timeout in seconds. Wait 5 seconds longer for search routine to finish
+        timeout = self.config.timeout_search - elapsed_time + 5
+        self._logger.info('Schedule write_training_results at %s', timeout)
+        scheduler.enter(timeout, 1, self.write_training_results)
+        result_thread = threading.Thread(target=scheduler.run)
+        result_thread.start()
+
 
         self.generate_dataset_splits()
 
@@ -1695,7 +1715,7 @@ class Controller:
             self.horizontal_tuning("d3m.primitives.sklearn_wrap.SKBernoulliNB")
 
         self.resource_monitor.stop_recording_resource_usage(self.config.output_dir)
-        self.write_training_results()
+        self._logger.info('Train done')
         return Status.OK
 
     def generate_dataset_splits(self):
