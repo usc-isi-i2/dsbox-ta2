@@ -153,9 +153,9 @@ class Controller:
         self.wikifier_default_size = 1000
         self.cannot_split = False
 
-
         # reosurce monitor
         self.resource_monitor = UsageMonitor()
+
     """
         **********************************************************************
         Private method
@@ -356,11 +356,22 @@ class Controller:
         #         '[ERROR] Save training results Failed!')
 
 
-    def _process_pipeline_submission(self) -> None:
-        limit = self.config.rank_solutions_limit
+    def _periodic_cleanup(self, scheduler: sched.scheduler) -> None:
+        '''
+        Periodically remove extra pipelines from pipelines_ranked directory.  Need just in
+        case TA2 crashes (e.g. broken pipe exception). Do not want to leave behind too
+        many ranked pipelines.
+        '''
+        self._logger.debug('Periodic cleanup')
+        self._remove_extra_ranked_pipelines()
 
-        ranked_list = []
-        rank_dir = pathlib.Path(self.config.pipelines_ranked_dir)
+        # If not too close to timeout, schedule another cleanup
+        elapsed_time = time.perf_counter() - self.config.start_time
+        timeout = self.config.timeout_search - elapsed_time
+        if timeout > 15:
+            scheduler.enter(10, 2, self._periodic_cleanup, (scheduler,))
+
+    def _process_pipeline_submission(self) -> None:
         temp_dir = pathlib.Path(self.config.pipelines_ranked_temp_dir)
 
         # Signal subprocesses running fitted pipeline to stop writing to pipelines_ranked
@@ -368,7 +379,13 @@ class Controller:
         # the files after the subprocesses complete.
         (temp_dir / '.done').touch()
         self._logger.info(f"Created done_file: {temp_dir / '.done'}")
+        self._remove_extra_ranked_pipelines()
 
+    def _remove_extra_ranked_pipelines(self) -> None:
+        limit = self.config.rank_solutions_limit
+        rank_dir = pathlib.Path(self.config.pipelines_ranked_dir)
+
+        ranked_list = []
         for rank_file in rank_dir.glob('*.rank'):
             try:
                 rank = float(open(rank_file).read())
@@ -385,11 +402,17 @@ class Controller:
         if not limit == 0 and len(ranked_list) > limit:
             for i, (rank, rank_file) in enumerate(ranked_list):
                 if i < limit:
-                    self._logger.info(f"Keeping pipeline rank %s file: %s", rank, rank_file)
+                    self._logger.debug(f"Keeping pipeline rank %s file: %s", rank, rank_file)
                 else:
-                    self._logger.info(f"Removing pipeline rank %s file", rank)
-                    os.remove(rank_file.with_suffix('.json'))
-                    os.remove(rank_file.with_suffix('.rank'))
+                    self._logger.debug(f"Removing pipeline rank %s file: %s", rank, rank_file)
+                    try:
+                        os.remove(rank_file.with_suffix('.json'))
+                    except FileNotFoundError:
+                        self._logger.exception()
+                    try:
+                        os.remove(rank_file.with_suffix('.rank'))
+                    except FileNotFoundError:
+                        self._logger.exception()
 
     # def _process_pipeline_submission(self) -> None:
     #     limit = self.config.rank_solutions_limit
@@ -1652,17 +1675,18 @@ class Controller:
         if not self.template_list:
             return Status.PROBLEM_NOT_IMPLEMENT
 
-        # start thread to output results
-
         scheduler = sched.scheduler(time.perf_counter, time.sleep)
+
+        # Schedule final cleanup and output results
         elapsed_time = time.perf_counter() - self.config.start_time
-        # Timeout in seconds. Wait 5 seconds longer for search routine to finish
         timeout = self.config.timeout_search - elapsed_time + 5
-        self._logger.info('Schedule write_training_results at %s', timeout)
         scheduler.enter(timeout, 1, self.write_training_results)
+
+        # Schedule period cleanup
+        scheduler.enter(60, 2, self._periodic_cleanup, (scheduler,))
+
         result_thread = threading.Thread(target=scheduler.run)
         result_thread.start()
-
 
         self.generate_dataset_splits()
 
