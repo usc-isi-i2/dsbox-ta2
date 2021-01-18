@@ -1,6 +1,10 @@
-# dsbox-ta2
+# DSBox AutoML System
+
+The Data Scientist in a Box (DSBox) system is an AutoML system that automates the generation of machine learning pipelines, including data augmentation, data cleaning, data featurization, model selection and hyperparameter tuning. DSBox uses a highly customizable pipeline template representation that allows advance users to easily incorporate their machine learning knwoeldge to configure the pipeline search space. For non-expert users DSBox generates high quality machine learning models with minimal need of intervention.
+
+
 ### FINAL VERSION
-This is the final release version of dsbox-ta2 system. The dockerlized version is available at https://hub.docker.com/repository/docker/ckxz105/dsbox-ta2 (public). This docker has all primitives installed and ready to run except some speicial primitives that required static files.
+This is the final release version of DSBox AutoML system. The dockerlized version is available at https://hub.docker.com/repository/docker/ckxz105/dsbox-ta2 (public). This docker has all primitives installed and ready to run except some speicial primitives that required static files.
 
 If running with some special primitives(most are images/audio related), you need to download the static files. 
 To download them, please add extra `python3 -m d3m index download` inside the docker build file (available at dockerBuildFiles folder of this repo).
